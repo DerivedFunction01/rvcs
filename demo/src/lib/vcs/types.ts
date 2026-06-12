@@ -319,4 +319,5 @@ export interface VCSRepo {
   log: VCSCommit[];
   branches: BranchMap;
   activeBranch: string;
+  mainActiveBranch?: string;
 }

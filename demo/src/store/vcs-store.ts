@@ -266,9 +266,11 @@ interface VCSStore {
   removeGroupModifier: (parentLineIds: string[], modifierSku: string) => void;
 
   // Actions — Branching
-  createBranch: (name: string) => void;
+  createBranch: (name: string, fromCommitHash?: string | null) => void;
   checkoutBranch: (name: string) => void;
   viewRevision: (hash: string | null) => void; // null = HEAD
+  setMainActiveBranch: (name: string) => void;
+  mainActiveBranch: () => string;
 
   // Actions — Persistence
   persist: () => void;
@@ -307,6 +309,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     activeBranch: () => {
       return get().engine.getActiveBranch();
+    },
+
+    mainActiveBranch: () => {
+      return get().engine.getMainActiveBranch();
     },
 
     commitLog: () => {
@@ -1374,10 +1380,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     // ─── Branching ─────────────────────────────────────────────────────────
 
-    createBranch: (name) => {
+    createBranch: (name, fromCommitHash) => {
       const store = get();
-      store.engine.createBranch(name);
-      set({ projectedState: store.engine.projectCurrent() });
+      store.engine.createBranch(name, fromCommitHash);
+      store.engine.checkout(name);
+      set({
+        viewingHash: null,
+        projectedState: store.engine.projectCurrent(),
+      });
       store.persist();
     },
 
@@ -1398,6 +1408,15 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       } else {
         set({ projectedState: store.engine.projectAt(hash) });
       }
+    },
+
+    setMainActiveBranch: (name) => {
+      const store = get();
+      store.engine.setMainActiveBranch(name);
+      set({
+        projectedState: store.engine.projectCurrent(),
+      });
+      store.persist();
     },
 
     // ─── Persistence ───────────────────────────────────────────────────────

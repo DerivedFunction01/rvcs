@@ -39,6 +39,7 @@ import {
   UserPlus,
   Settings2,
   Split,
+  Star,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -555,6 +556,8 @@ function POSTerminalInner() {
     createBranch,
     checkoutBranch,
     viewRevision,
+    setMainActiveBranch,
+    mainActiveBranch,
     orderContext,
     resetOrder,
     defaultPaymentMethod,
@@ -633,6 +636,19 @@ function POSTerminalInner() {
       return next;
     });
   }, [guests]);
+
+  const [newBranchFromHistoryName, setNewBranchFromHistoryName] = React.useState("");
+
+  const handleBranchFromHistory = React.useCallback(() => {
+    if (!newBranchFromHistoryName.trim() || !viewingHash) return;
+    try {
+      createBranch(newBranchFromHistoryName.trim(), viewingHash);
+      toast.success(`Branch "${newBranchFromHistoryName.trim()}" created at commit ${viewingHash.substring(0, 7)}`);
+      setNewBranchFromHistoryName("");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }, [createBranch, newBranchFromHistoryName, viewingHash]);
 
   // ─── Dialog State ────────────────────────────────────────────────────
   const [paymentSwitchOpen, setPaymentSwitchOpen] = React.useState(false);
@@ -1089,17 +1105,35 @@ function POSTerminalInner() {
 
           {/* Branch Tabs */}
           <div className="flex items-center gap-2">
-            {Object.keys(useVCSStore.getState().engine.getBranches()).map((branch) => (
-              <Button
-                key={branch}
-                variant={activeBranch() === branch ? "default" : "outline"}
-                size="sm"
-                className="text-xs h-7 px-3"
-                onClick={() => checkoutBranch(branch)}
-              >
-                {branch}
-              </Button>
-            ))}
+            {Object.keys(useVCSStore.getState().engine.getBranches()).map((branch) => {
+              const isMainActive = mainActiveBranch() === branch;
+              const isActive = activeBranch() === branch;
+              return (
+                <div key={branch} className="flex items-center gap-1 border rounded-md px-1.5 py-0.5 bg-card shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`text-xs h-6 px-1.5 ${isActive ? "font-bold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => checkoutBranch(branch)}
+                  >
+                    {branch}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 p-0 hover:bg-muted"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMainActiveBranch(branch);
+                      toast.success(`"${branch}" set as main active branch`);
+                    }}
+                    title={isMainActive ? "Main active branch" : "Mark as main active branch"}
+                  >
+                    <Star className={`w-3.5 h-3.5 ${isMainActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`} />
+                  </Button>
+                </div>
+              );
+            })}
             <div className="flex items-center gap-1">
               <Input
                 value={newBranchName}
@@ -1718,15 +1752,34 @@ function POSTerminalInner() {
             </div>
 
             {isViewingHistory && (
-              <div className="px-3 py-2 border-b bg-amber-50 flex items-center justify-between">
-                <span className="text-[10px] text-amber-700 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Time-traveling
-                </span>
+              <div className="px-3 py-2 border-b bg-amber-50 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-[10px] text-amber-700 flex items-center gap-1 shrink-0 font-medium">
+                    <AlertCircle className="w-3 h-3" />
+                    Time-traveling
+                  </span>
+                  <div className="flex items-center gap-1 max-w-[200px] w-full">
+                    <Input
+                      placeholder="branch-name"
+                      className="h-6 text-[10px] px-2 bg-background border-amber-200"
+                      value={newBranchFromHistoryName}
+                      onChange={(e) => setNewBranchFromHistoryName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleBranchFromHistory()}
+                    />
+                    <Button
+                      size="sm"
+                      className="h-6 text-[10px] px-2 bg-amber-600 hover:bg-amber-700 text-white border-0"
+                      onClick={handleBranchFromHistory}
+                      disabled={!newBranchFromHistoryName.trim()}
+                    >
+                      Branch
+                    </Button>
+                  </div>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-[10px] px-2 text-amber-700 hover:text-amber-900"
+                  className="h-5 text-[10px] px-2 text-amber-700 hover:text-amber-900 shrink-0"
                   onClick={() => viewRevision(null)}
                 >
                   <RotateCcw className="w-2.5 h-2.5 mr-0.5" />

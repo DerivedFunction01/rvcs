@@ -112,13 +112,32 @@ export class VCSEngine {
     return this.repo.activeBranch;
   }
 
-  createBranch(name: string, fromBranch?: string): void {
-    const source = fromBranch || this.repo.activeBranch;
-    const sourceHead = this.repo.branches[source]?.headHash ?? null;
+  createBranch(name: string, fromCommitOrBranch?: string | null): void {
     if (this.repo.branches[name]) {
       throw new Error(`Branch "${name}" already exists`);
     }
-    this.repo.branches[name] = { headHash: sourceHead };
+    let headHash: string | null = null;
+    if (fromCommitOrBranch) {
+      if (this.repo.branches[fromCommitOrBranch]) {
+        headHash = this.repo.branches[fromCommitOrBranch].headHash;
+      } else {
+        headHash = fromCommitOrBranch;
+      }
+    } else {
+      headHash = this.repo.branches[this.repo.activeBranch]?.headHash ?? null;
+    }
+    this.repo.branches[name] = { headHash };
+  }
+
+  setMainActiveBranch(name: string): void {
+    if (!this.repo.branches[name]) {
+      throw new Error(`Branch "${name}" does not exist`);
+    }
+    this.repo.mainActiveBranch = name;
+  }
+
+  getMainActiveBranch(): string {
+    return this.repo.mainActiveBranch || "main";
   }
 
   checkout(branch: string): void {
