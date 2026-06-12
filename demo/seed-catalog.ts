@@ -40,19 +40,9 @@ const SEED_DATA = [
   },
   // ─── Sides ───────────────────────────────────────────────────────────────
   {
-    sku: "SKU-FRIES-SML",
-    name: "Small Fries",
+    sku: "SKU-FRIES",
+    name: "Fries",
     basePrice: 3.99,
-    category: "side",
-    type: "item",
-    dietaryFlags: ["vegan"],
-    allergens: [],
-    brand: "",
-  },
-  {
-    sku: "SKU-FRIES-LRG",
-    name: "Large Fries",
-    basePrice: 5.99,
     category: "side",
     type: "item",
     dietaryFlags: ["vegan"],
@@ -199,8 +189,13 @@ async function main() {
 
   // Clean relations first to avoid duplicate seeds issues
   await prisma.modifierStateOption.deleteMany({});
-  await prisma.productOption.deleteMany({});
-  await prisma.productOptionGroup.deleteMany({});
+  await prisma.catalogItem.updateMany({
+    data: {
+      sizeGroupId: null,
+      appliedSizeGroupId: null
+    }
+  });
+  await prisma.sizeGroup.deleteMany({});
 
   for (const item of SEED_DATA) {
     await prisma.catalogItem.upsert({
@@ -234,7 +229,7 @@ async function main() {
     where: { sku: "SKU-CHINESE-GEN-TSO" },
     update: {
       name: "General Tso's Chicken",
-      basePrice: 10.99,
+      basePrice: 8.99,
       category: "chinese",
       type: "item",
       dietaryFlags: "[]",
@@ -245,7 +240,7 @@ async function main() {
     create: {
       sku: "SKU-CHINESE-GEN-TSO",
       name: "General Tso's Chicken",
-      basePrice: 10.99,
+      basePrice: 8.99,
       category: "chinese",
       type: "item",
       dietaryFlags: "[]",
@@ -255,24 +250,65 @@ async function main() {
     },
   });
 
-  // Create Size Option Group for General Tso and Fountain Soda
-  await prisma.productOptionGroup.create({
+  // Create Size Groups and options
+  // 1. Size Group for Fries
+  await prisma.sizeGroup.create({
     data: {
+      id: "group-fries-size",
       name: "Size",
-      isRequired: true,
-      minSelection: 1,
-      maxSelection: 1,
+      defaultSku: "MOD-FRIES-SML",
       options: {
         create: [
-          { value: "SMALL", label: "Small", skuSuffix: "-SM", priceOverride: 8.99 },
-          { value: "MEDIUM", label: "Medium", skuSuffix: "-MD", priceOverride: 11.99 },
-          { value: "LARGE", label: "Large", skuSuffix: "-LG", priceOverride: 14.99 },
+          { sku: "MOD-FRIES-SML", name: "Small", basePrice: 0.00, category: "size", type: "modifier" },
+          { sku: "MOD-FRIES-MED", name: "Medium", basePrice: 1.50, category: "size", type: "modifier" },
+          { sku: "MOD-FRIES-LRG", name: "Large", basePrice: 2.00, category: "size", type: "modifier" },
         ]
       },
       items: {
         connect: [
-          { sku: "SKU-CHINESE-GEN-TSO" },
+          { sku: "SKU-FRIES" }
+        ]
+      }
+    }
+  });
+
+  // 2. Size Group for Drinks
+  await prisma.sizeGroup.create({
+    data: {
+      id: "group-soda-size",
+      name: "Size",
+      defaultSku: "MOD-SODA-SML",
+      options: {
+        create: [
+          { sku: "MOD-SODA-SML", name: "Small", basePrice: 0.00, category: "size", type: "modifier" },
+          { sku: "MOD-SODA-MED", name: "Medium", basePrice: 0.74, category: "size", type: "modifier" },
+          { sku: "MOD-SODA-LRG", name: "Large", basePrice: 1.50, category: "size", type: "modifier" },
+        ]
+      },
+      items: {
+        connect: [
           { sku: "SKU-DRINK-SODA" }
+        ]
+      }
+    }
+  });
+
+  // 3. Size Group for Chinese General Tso
+  await prisma.sizeGroup.create({
+    data: {
+      id: "group-gentso-size",
+      name: "Size",
+      defaultSku: "MOD-GENTSO-SML",
+      options: {
+        create: [
+          { sku: "MOD-GENTSO-SML", name: "Small", basePrice: 0.00, category: "size", type: "modifier" },
+          { sku: "MOD-GENTSO-MED", name: "Medium", basePrice: 3.00, category: "size", type: "modifier" },
+          { sku: "MOD-GENTSO-LRG", name: "Large", basePrice: 6.00, category: "size", type: "modifier" },
+        ]
+      },
+      items: {
+        connect: [
+          { sku: "SKU-CHINESE-GEN-TSO" }
         ]
       }
     }

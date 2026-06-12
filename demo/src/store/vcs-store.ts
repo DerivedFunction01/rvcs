@@ -163,9 +163,7 @@ interface VCSStore {
    */
   addItemWithDefaults: (
     sku: string,
-    qty: number,
-    selectedOptions?: string[],
-    selectedModifierState?: string
+    qty: number
   ) => void;
 
   /**
@@ -248,6 +246,7 @@ interface VCSStore {
   commitDeltas: (deltas: Delta[], authorId?: string) => VCSCommit;
   addModifier: (parentLineId: string, modifierSku: string, selectedModifierState?: string) => void;
   removeItem: (lineId: string) => void;
+  modifyItemSku: (lineId: string, beforeSku: string, afterSku: string) => void;
   mimicOrder: (sourceAssignee: string, targetAssignee: string, targetPayer: string, paymentMethod: string) => void;
 
   // Actions — Branching
@@ -420,7 +419,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       void paymentMethod;
     },
 
-    addItemWithDefaults: (sku, qty, selectedOptions, selectedModifierState) => {
+    addItemWithDefaults: (sku, qty) => {
       const store = get();
       const assignId = store.defaultAssignmentAllocId;
       const configId = store.activePaymentConfigId;
@@ -439,21 +438,33 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
       const payIds = payAllocs.map((a) => a.allocationId);
 
-      store.commitDeltas(
-        [
-          {
-            action: "add_item",
-            lineId: generateLineId(),
-            parentLineId: null,
-            sku,
-            qty,
-            allocations: [assignId, ...payIds],
-            selectedOptions,
-            selectedModifierState,
-          },
-        ],
-        "pos-ui"
-      );
+      const parentLineId = generateLineId();
+      const deltas: Delta[] = [
+        {
+          action: "add_item",
+          lineId: parentLineId,
+          parentLineId: null,
+          sku,
+          qty,
+          allocations: [assignId, ...payIds],
+        },
+      ];
+
+      // Auto-inject default size modifier if catalog entry has an applied size group
+      const catalogEntry = store.catalog[sku];
+      if (catalogEntry && catalogEntry.appliedSizeGroup) {
+        const defaultSku = catalogEntry.appliedSizeGroup.defaultSku;
+        deltas.push({
+          action: "add_item",
+          lineId: generateLineId(),
+          parentLineId: parentLineId,
+          sku: defaultSku,
+          qty: 1,
+          allocations: [],
+        });
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
     },
 
     changeDefaultPayment: (newMethod: string, mode: "change-existing" | "new-only") => {
@@ -891,6 +902,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const qty = item?.qty ?? 1;
       get().commitDeltas(
         [{ action: "remove_item", lineId, qty }],
+        "pos-ui"
+      );
+    },
+
+    modifyItemSku: (lineId, beforeSku, afterSku) => {
+      get().commitDeltas(
+        [
+          {
+            action: "modify_sku",
+            lineId,
+            beforeSku,
+            afterSku,
+          },
+        ],
         "pos-ui"
       );
     },

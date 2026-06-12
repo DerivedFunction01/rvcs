@@ -145,7 +145,6 @@ export class VCSEngine {
     assignee: string;
     payer: string;
     paymentMethod: string;
-    selectedOptions?: string[];
     selectedModifierState?: string;
     authorId?: string;
   }): VCSCommit {
@@ -178,7 +177,6 @@ export class VCSEngine {
           sku: params.sku,
           qty: params.qty,
           allocations: [assignAllocId, payAllocId],
-          selectedOptions: params.selectedOptions,
           selectedModifierState: params.selectedModifierState,
         },
       ],

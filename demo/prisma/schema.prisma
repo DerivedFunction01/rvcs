@@ -35,36 +35,30 @@ model CatalogItem {
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  // A size option is just a modifier CatalogItem that belongs to a size group
+  sizeGroupId  String?
+  sizeGroup    SizeGroup? @relation("SizeGroupOptions", fields: [sizeGroupId], references: [id])
+
+  // Items can have a SizeGroup linked to them
+  appliedSizeGroupId String?
+  appliedSizeGroup    SizeGroup? @relation("ItemSizeGroup", fields: [appliedSizeGroupId], references: [id])
+
   // Relations
-  optionGroups   ProductOptionGroup[]
-  allowedStates  ModifierStateOption[]
+  allowedStates  ModifierStateOption[] @relation("ModifierStates")
 }
 
-model ProductOptionGroup {
-  id           String          @id @default(cuid())
-  name         String          // e.g., "Size", "Packaging"
-  isRequired   Boolean         @default(false)
-  minSelection Int             @default(0)
-  maxSelection Int             @default(1)
-  options      ProductOption[]
-  items        CatalogItem[]
-}
-
-model ProductOption {
-  id              String             @id @default(cuid())
-  optionGroupId   String
-  optionGroup     ProductOptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
-  value           String             // "SMALL" | "MEDIUM" | "LARGE" | "CAN" | "BOTTLE" | "TWO_LITER" | "CUSTOM"
-  label           String             // e.g., "Small", "Bottle"
-  skuSuffix       String             @default("")
-  priceOverride   Float?             // if null, defaults to item's basePrice
-  active          Boolean            @default(true)
+model SizeGroup {
+  id           String        @id @default(cuid())
+  name         String        // e.g., "Size"
+  defaultSku   String        // e.g., "MOD-SIZE-SML"
+  options      CatalogItem[] @relation("SizeGroupOptions")
+  items        CatalogItem[] @relation("ItemSizeGroup")
 }
 
 model ModifierStateOption {
   id              String      @id @default(cuid())
   modifierSku     String
-  modifier        CatalogItem @relation(fields: [modifierSku], references: [sku], onDelete: Cascade)
+  modifier        CatalogItem @relation("ModifierStates", fields: [modifierSku], references: [sku], onDelete: Cascade)
   state           String      // "NO" | "LESS" | "ADD" | "EXTRA" | "ONLY" | "WITH" | "SIDE"
   label           String      // e.g., "No Onions", "Extra Cheese"
   priceOverride   Float?

@@ -9,7 +9,7 @@ export async function GET() {
     const items = await db.catalogItem.findMany({
       where: { active: true },
       include: {
-        optionGroups: {
+        appliedSizeGroup: {
           include: {
             options: true,
           },
@@ -29,22 +29,27 @@ export async function GET() {
       allergens: JSON.parse(item.allergens) as string[],
       brand: item.brand,
       active: item.active,
-      optionGroups: item.optionGroups.map((og) => ({
-        id: og.id,
-        name: og.name,
-        isRequired: og.isRequired,
-        minSelection: og.minSelection,
-        maxSelection: og.maxSelection,
-        options: og.options.map((opt) => ({
-          id: opt.id,
-          optionGroupId: opt.optionGroupId,
-          value: opt.value,
-          label: opt.label,
-          skuSuffix: opt.skuSuffix,
-          priceOverride: opt.priceOverride,
-          active: opt.active,
-        })),
-      })),
+      sizeGroupId: item.sizeGroupId,
+      appliedSizeGroupId: item.appliedSizeGroupId,
+      appliedSizeGroup: item.appliedSizeGroup
+        ? {
+            id: item.appliedSizeGroup.id,
+            name: item.appliedSizeGroup.name,
+            defaultSku: item.appliedSizeGroup.defaultSku,
+            options: item.appliedSizeGroup.options.map((opt) => ({
+              sku: opt.sku,
+              name: opt.name,
+              basePrice: opt.basePrice,
+              category: opt.category,
+              type: opt.type as "item" | "modifier" | "discount",
+              dietaryFlags: JSON.parse(opt.dietaryFlags) as string[],
+              allergens: JSON.parse(opt.allergens) as string[],
+              brand: opt.brand,
+              active: opt.active,
+              sizeGroupId: opt.sizeGroupId,
+            })),
+          }
+        : null,
       allowedStates: item.allowedStates.map((as) => ({
         id: as.id,
         modifierSku: as.modifierSku,

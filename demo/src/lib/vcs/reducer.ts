@@ -211,7 +211,6 @@ function applyDelta(
         sku: delta.sku,
         qty: delta.qty,
         allocations: [...delta.allocations],
-        selectedOptions: delta.selectedOptions ? [...delta.selectedOptions] : undefined,
         selectedModifierState: delta.selectedModifierState,
         resolvedName: "",
         resolvedPrice: 0,
@@ -439,54 +438,67 @@ function resolveCatalog(
   items: Record<string, InternalLineItem>,
   catalog: Record<string, CatalogItemEntry>
 ): void {
+  // Pass 1: Resolve basic catalog info and modifier states for all items
   for (const lineId of Object.keys(items)) {
     const item = items[lineId];
     const entry = catalog[item.sku];
     if (entry) {
-      let name = entry.name;
-      let price = entry.basePrice;
+      item.resolvedName = entry.name;
+      item.resolvedPrice = entry.basePrice;
 
-      // 1. Resolve product variant options (e.g. Size: Small, Medium, Large)
-      if (item.selectedOptions && item.selectedOptions.length > 0) {
-        for (const optId of item.selectedOptions) {
-          const foundOpt = entry.optionGroups
-            ?.flatMap((og) => og.options)
-            .find((opt) => opt.id === optId);
-          if (foundOpt) {
-            if (foundOpt.priceOverride !== null && foundOpt.priceOverride !== undefined) {
-              price = foundOpt.priceOverride;
-            }
-            if (foundOpt.label) {
-              name = `${name} (${foundOpt.label})`;
-            }
-          }
-        }
-      }
-
-      // 2. Resolve modifier states (e.g. NO onions, EXTRA cheese)
+      // Resolve modifier states (e.g. NO onions, EXTRA cheese)
       if (item.selectedModifierState) {
         const foundState = entry.allowedStates?.find(
           (s) => s.state === item.selectedModifierState
         );
         if (foundState) {
           if (foundState.priceOverride !== null && foundState.priceOverride !== undefined) {
-            price = foundState.priceOverride;
+            item.resolvedPrice = foundState.priceOverride;
           }
           if (foundState.label) {
-            name = foundState.label;
+            item.resolvedName = foundState.label;
           } else {
-            name = `${item.selectedModifierState} ${name}`;
+            item.resolvedName = `${item.selectedModifierState} ${item.resolvedName}`;
           }
         } else {
-          name = `${item.selectedModifierState} ${name}`;
+          item.resolvedName = `${item.selectedModifierState} ${item.resolvedName}`;
         }
       }
-
-      item.resolvedName = name;
-      item.resolvedPrice = price;
     } else {
       item.resolvedName = `[Unknown: ${item.sku}]`;
       item.resolvedPrice = 0;
+    }
+  }
+
+  // Pass 2: Adjust parent names and hide size modifiers (set name to "")
+  for (const lineId of Object.keys(items)) {
+    const item = items[lineId];
+    const parentEntry = catalog[item.sku];
+
+    if (parentEntry && parentEntry.appliedSizeGroupId) {
+      // Find all children of this item
+      const children = Object.values(items).filter((c) => c.parentLineId === lineId);
+      
+      // Find if any child is a size modifier belonging to this item's appliedSizeGroup
+      const sizeChild = children.find((c) => {
+        const childEntry = catalog[c.sku];
+        return childEntry && childEntry.sizeGroupId === parentEntry.appliedSizeGroupId;
+      });
+
+      if (sizeChild) {
+        const sizeEntry = catalog[sizeChild.sku];
+        if (sizeEntry) {
+          // Format parent name, e.g. "Small Fries" or "Large Fountain Soda"
+          item.resolvedName = `${sizeEntry.name} ${parentEntry.name}`;
+          
+          // Merge size modifier price into parent resolvedPrice
+          item.resolvedPrice += sizeChild.resolvedPrice;
+          
+          // Clear resolvedName and resolvedPrice of sizeChild so it is hidden and has no price impact as a separate line
+          sizeChild.resolvedName = "";
+          sizeChild.resolvedPrice = 0;
+        }
+      }
     }
   }
 }
@@ -511,7 +523,6 @@ function buildProjectedState(
       qty: item.qty,
       totalPrice: item.resolvedPrice * item.qty,
       allocations: item.allocations,
-      selectedOptions: item.selectedOptions,
       selectedModifierState: item.selectedModifierState,
       children: [],
     };

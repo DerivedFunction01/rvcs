@@ -6,7 +6,6 @@ import { OrderInitScreen } from "@/components/vcs/order-init-screen";
 import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
-import { ItemOptionsDialog } from "@/components/vcs/item-options-dialog";
 import type {
   ProjectedLineItem,
   AllocationBlock,
@@ -182,6 +181,16 @@ function LineItemNode({
       allocations[id]?.type === "payment" && id !== defaultPaymentAllocId
   );
 
+  const catalogEntry = useVCSStore.getState().catalog[item.sku];
+  const sizeGroup = catalogEntry?.appliedSizeGroup;
+  const sizeOptions = sizeGroup?.options || [];
+  
+  const activeSizeChild = item.children.find((child) => {
+    const childEntry = useVCSStore.getState().catalog[child.sku];
+    return childEntry && childEntry.sizeGroupId === sizeGroup?.id;
+  });
+  const activeSku = activeSizeChild?.sku;
+
   return (
     <>
       <div
@@ -243,6 +252,37 @@ function LineItemNode({
                   guests={guests}
                   onItemClick={() => onAllocConfig(item)}
                 />
+              )}
+              {isRoot && sizeGroup && sizeOptions.length > 0 && activeSizeChild && (
+                <div className="flex items-center gap-1 mt-2">
+                  <span className="text-[10px] text-muted-foreground mr-1">Size:</span>
+                  <div className="flex items-center rounded border p-0.5 bg-muted/20">
+                    {sizeOptions.map((opt) => {
+                      const isActive = activeSku === opt.sku;
+                      return (
+                        <Button
+                          key={opt.sku}
+                          variant={isActive ? "secondary" : "ghost"}
+                          size="sm"
+                          className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeSizeChild && !isActive) {
+                              useVCSStore.getState().modifyItemSku(
+                                activeSizeChild.lineId,
+                                activeSizeChild.sku,
+                                opt.sku
+                              );
+                            }
+                          }}
+                        >
+                          {opt.name}
+                          {opt.basePrice > 0 && ` (+$${opt.basePrice.toFixed(2)})`}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -332,20 +372,22 @@ function LineItemNode({
           </div>
         </div>
       </div>
-      {item.children.map((child) => (
-        <LineItemNode
-          key={child.lineId}
-          item={child}
-          allocations={allocations}
-          defaultPaymentAllocId={defaultPaymentAllocId}
-          onRemove={onRemove}
-          onAddModifier={onAddModifier}
-          onAllocConfig={onAllocConfig}
-          depth={depth + 1}
-          modifiers={modifiers}
-          guests={guests}
-        />
-      ))}
+      {item.children
+        .filter((child) => child.name !== "")
+        .map((child) => (
+          <LineItemNode
+            key={child.lineId}
+            item={child}
+            allocations={allocations}
+            defaultPaymentAllocId={defaultPaymentAllocId}
+            onRemove={onRemove}
+            onAddModifier={onAddModifier}
+            onAllocConfig={onAllocConfig}
+            depth={depth + 1}
+            modifiers={modifiers}
+            guests={guests}
+          />
+        ))}
     </>
   );
 }
@@ -453,8 +495,6 @@ function POSTerminalInner() {
   const [pendingMethod, setPendingMethod] = React.useState("");
   const [tableSplitOpen, setTableSplitOpen] = React.useState(false);
   const [allocConfigItem, setAllocConfigItem] = React.useState<ProjectedLineItem | null>(null);
-  const [optionsDialogOpen, setOptionsDialogOpen] = React.useState(false);
-  const [optionsDialogItem, setOptionsDialogItem] = React.useState<CatalogItemEntry | null>(null);
 
   // Auto-select mimic target to the first other guest
   React.useEffect(() => {
@@ -610,12 +650,12 @@ function POSTerminalInner() {
   // ─── Handlers (all hooks before any conditional returns) ─────────────────
 
   const handleAddItem = useCallback(
-    (sku: string, selectedOptions?: string[]) => {
+    (sku: string) => {
       // Reassign default assignment if selectedPerson differs from default
       if (selectedPerson !== customerName && defaultAssignmentAllocId) {
         // Need to create a new assignment for this guest
         // Use addItemWithDefaults first, then reassign
-        addItemWithDefaults(sku, 1, selectedOptions);
+        addItemWithDefaults(sku, 1);
 
         // Get the line that was just added (last root item)
         const store = useVCSStore.getState();
@@ -628,7 +668,7 @@ function POSTerminalInner() {
 
         toast.success(`Added to ${selectedPerson}'s order`);
       } else {
-        addItemWithDefaults(sku, 1, selectedOptions);
+        addItemWithDefaults(sku, 1);
         toast.success(`Added to ${selectedPerson}'s order`);
       }
     },
@@ -1053,14 +1093,7 @@ function POSTerminalInner() {
                         <Tooltip key={item.sku}>
                           <TooltipTrigger asChild>
                             <button
-                              onClick={() => {
-                                if (item.optionGroups && item.optionGroups.length > 0) {
-                                  setOptionsDialogItem(item);
-                                  setOptionsDialogOpen(true);
-                                } else {
-                                  handleAddItem(item.sku);
-                                }
-                              }}
+                              onClick={() => handleAddItem(item.sku)}
                               className="w-full text-left rounded-lg px-2.5 py-2 hover:bg-accent transition-colors group flex justify-between items-center"
                             >
                               <div className="min-w-0">
@@ -1384,14 +1417,6 @@ function POSTerminalInner() {
         onSwitchItemPayment={handleSwitchItemPayment}
         onResetToDefault={handleResetToDefault}
         onAddGuest={handleAddGuestFromDialog}
-      />
-
-      {/* ─── Item Options Dialog ───────────────────────────────────────── */}
-      <ItemOptionsDialog
-        open={optionsDialogOpen}
-        onOpenChange={setOptionsDialogOpen}
-        item={optionsDialogItem}
-        onAddWithSelection={handleAddItem}
       />
     </TooltipProvider>
   );
