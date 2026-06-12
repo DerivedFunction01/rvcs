@@ -125,7 +125,7 @@ const SEED_DATA = [
   {
     sku: "sku-onion-mod",
     name: "Onions",
-    basePrice: 0.50,
+    basePrice: 0.5,
     category: "modifier",
     type: "modifier",
     dietaryFlags: [],
@@ -135,7 +135,7 @@ const SEED_DATA = [
   {
     sku: "sku-cheese-mod",
     name: "Cheese",
-    basePrice: 1.00,
+    basePrice: 1.0,
     category: "modifier",
     type: "modifier",
     dietaryFlags: ["vegetarian"],
@@ -145,7 +145,7 @@ const SEED_DATA = [
   {
     sku: "sku-avocado-mod",
     name: "Avocado",
-    basePrice: 2.00,
+    basePrice: 2.0,
     category: "modifier",
     type: "modifier",
     dietaryFlags: ["vegan", "gluten_free"],
@@ -182,17 +182,14 @@ async function main() {
   await prisma.catalogItem.updateMany({
     data: {
       sizeGroupId: null,
-      appliedSizeGroupId: null
-    }
+      appliedSizeGroupId: null,
+    },
   });
   await prisma.sizeGroup.deleteMany({});
   await prisma.catalogItem.deleteMany({
     where: {
-      OR: [
-        { category: "size" },
-        { type: "modifier" }
-      ]
-    }
+      OR: [{ category: "size" }, { type: "modifier" }],
+    },
   });
 
   for (const item of SEED_DATA) {
@@ -231,7 +228,7 @@ async function main() {
       category: "chinese",
       type: "item",
       dietaryFlags: "[]",
-      allergens: "[\"wheat\", \"soy\"]",
+      allergens: '["wheat", "soy"]',
       brand: "GreatWall",
       active: true,
     },
@@ -242,7 +239,7 @@ async function main() {
       category: "chinese",
       type: "item",
       dietaryFlags: "[]",
-      allergens: "[\"wheat\", \"soy\"]",
+      allergens: '["wheat", "soy"]',
       brand: "GreatWall",
       active: true,
     },
@@ -257,17 +254,33 @@ async function main() {
       defaultSku: "MOD-FRIES-SML",
       options: {
         create: [
-          { sku: "MOD-FRIES-SML", name: "Small", basePrice: 0.00, category: "size", type: "modifier" },
-          { sku: "MOD-FRIES-MED", name: "Medium", basePrice: 1.50, category: "size", type: "modifier" },
-          { sku: "MOD-FRIES-LRG", name: "Large", basePrice: 2.00, category: "size", type: "modifier" },
-        ]
+          {
+            sku: "MOD-FRIES-SML",
+            name: "Small",
+            basePrice: 0.0,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-FRIES-MED",
+            name: "Medium",
+            basePrice: 1.5,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-FRIES-LRG",
+            name: "Large",
+            basePrice: 2.0,
+            category: "size",
+            type: "modifier",
+          },
+        ],
       },
       items: {
-        connect: [
-          { sku: "SKU-FRIES" }
-        ]
-      }
-    }
+        connect: [{ sku: "SKU-FRIES" }],
+      },
+    },
   });
 
   // 2. Size Group for Drinks
@@ -278,17 +291,33 @@ async function main() {
       defaultSku: "MOD-SODA-SML",
       options: {
         create: [
-          { sku: "MOD-SODA-SML", name: "Small", basePrice: 0.00, category: "size", type: "modifier" },
-          { sku: "MOD-SODA-MED", name: "Medium", basePrice: 0.74, category: "size", type: "modifier" },
-          { sku: "MOD-SODA-LRG", name: "Large", basePrice: 1.50, category: "size", type: "modifier" },
-        ]
+          {
+            sku: "MOD-SODA-SML",
+            name: "Small",
+            basePrice: 0.0,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-SODA-MED",
+            name: "Medium",
+            basePrice: 0.74,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-SODA-LRG",
+            name: "Large",
+            basePrice: 1.5,
+            category: "size",
+            type: "modifier",
+          },
+        ],
       },
       items: {
-        connect: [
-          { sku: "SKU-DRINK-SODA" }
-        ]
-      }
-    }
+        connect: [{ sku: "SKU-DRINK-SODA" }],
+      },
+    },
   });
 
   // 3. Size Group for Chinese General Tso
@@ -299,17 +328,33 @@ async function main() {
       defaultSku: "MOD-GENTSO-SML",
       options: {
         create: [
-          { sku: "MOD-GENTSO-SML", name: "Small", basePrice: 0.00, category: "size", type: "modifier" },
-          { sku: "MOD-GENTSO-MED", name: "Medium", basePrice: 3.00, category: "size", type: "modifier" },
-          { sku: "MOD-GENTSO-LRG", name: "Large", basePrice: 6.00, category: "size", type: "modifier" },
-        ]
+          {
+            sku: "MOD-GENTSO-SML",
+            name: "Small",
+            basePrice: 0.0,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-GENTSO-MED",
+            name: "Medium",
+            basePrice: 3.0,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-GENTSO-LRG",
+            name: "Large",
+            basePrice: 6.0,
+            category: "size",
+            type: "modifier",
+          },
+        ],
       },
       items: {
-        connect: [
-          { sku: "SKU-CHINESE-GEN-TSO" }
-        ]
-      }
-    }
+        connect: [{ sku: "SKU-CHINESE-GEN-TSO" }],
+      },
+    },
   });
 
   // Clean up legacy modifiers explicitly
@@ -323,62 +368,163 @@ async function main() {
           "MOD-BACON",
           "MOD-NO-ONION",
           "MOD-XTRA-CHEESE",
-          "MOD-SIZE-LARGE"
-        ]
-      }
-    }
+          "MOD-SIZE-LARGE",
+        ],
+      },
+    },
   });
 
   // Seed modifier state options
   // 1. Onion States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-onion-mod", state: "NO", label: "No Onions", priceOverride: 0.00 },
-      { modifierSku: "sku-onion-mod", state: "LESS", label: "Less Onions", priceOverride: 0.25 },
-      { modifierSku: "sku-onion-mod", state: "ADD", label: "Add Onions", priceOverride: 0.50 },
-      { modifierSku: "sku-onion-mod", state: "EXTRA", label: "Extra Onions", priceOverride: 0.75 },
-      { modifierSku: "sku-onion-mod", state: "SIDE", label: "Onions on Side", priceOverride: 0.50 },
-    ]
+      {
+        modifierSku: "sku-onion-mod",
+        state: "NO",
+        label: "No Onions",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-onion-mod",
+        state: "LESS",
+        label: "Less Onions",
+        priceOverride: 0.25,
+      },
+      {
+        modifierSku: "sku-onion-mod",
+        state: "ADD",
+        label: "Add Onions",
+        priceOverride: 0.5,
+      },
+      {
+        modifierSku: "sku-onion-mod",
+        state: "EXTRA",
+        label: "Extra Onions",
+        priceOverride: 0.75,
+      },
+      {
+        modifierSku: "sku-onion-mod",
+        state: "SIDE",
+        label: "Onions on Side",
+        priceOverride: 0.5,
+      },
+    ],
   });
 
   // 2. Cheese States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-cheese-mod", state: "NO", label: "No Cheese", priceOverride: 0.00 },
-      { modifierSku: "sku-cheese-mod", state: "LESS", label: "Less Cheese", priceOverride: 0.50 },
-      { modifierSku: "sku-cheese-mod", state: "ADD", label: "Add Cheese", priceOverride: 1.00 },
-      { modifierSku: "sku-cheese-mod", state: "EXTRA", label: "Extra Cheese", priceOverride: 1.50 },
-      { modifierSku: "sku-cheese-mod", state: "SIDE", label: "Cheese on Side", priceOverride: 1.00 },
-    ]
+      {
+        modifierSku: "sku-cheese-mod",
+        state: "NO",
+        label: "No Cheese",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-cheese-mod",
+        state: "LESS",
+        label: "Less Cheese",
+        priceOverride: 0.5,
+      },
+      {
+        modifierSku: "sku-cheese-mod",
+        state: "ADD",
+        label: "Add Cheese",
+        priceOverride: 1.0,
+      },
+      {
+        modifierSku: "sku-cheese-mod",
+        state: "EXTRA",
+        label: "Extra Cheese",
+        priceOverride: 1.5,
+      },
+      {
+        modifierSku: "sku-cheese-mod",
+        state: "SIDE",
+        label: "Cheese on Side",
+        priceOverride: 1.0,
+      },
+    ],
   });
 
   // 3. Avocado States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-avocado-mod", state: "NO", label: "No Avocado", priceOverride: 0.00 },
-      { modifierSku: "sku-avocado-mod", state: "LESS", label: "Less Avocado", priceOverride: 1.00 },
-      { modifierSku: "sku-avocado-mod", state: "ADD", label: "Add Avocado", priceOverride: 2.00 },
-      { modifierSku: "sku-avocado-mod", state: "EXTRA", label: "Extra Avocado", priceOverride: 3.00 },
-      { modifierSku: "sku-avocado-mod", state: "SIDE", label: "Avocado on Side", priceOverride: 2.00 },
-    ]
+      {
+        modifierSku: "sku-avocado-mod",
+        state: "NO",
+        label: "No Avocado",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-avocado-mod",
+        state: "LESS",
+        label: "Less Avocado",
+        priceOverride: 1.0,
+      },
+      {
+        modifierSku: "sku-avocado-mod",
+        state: "ADD",
+        label: "Add Avocado",
+        priceOverride: 2.0,
+      },
+      {
+        modifierSku: "sku-avocado-mod",
+        state: "EXTRA",
+        label: "Extra Avocado",
+        priceOverride: 3.0,
+      },
+      {
+        modifierSku: "sku-avocado-mod",
+        state: "SIDE",
+        label: "Avocado on Side",
+        priceOverride: 2.0,
+      },
+    ],
   });
 
   // 4. Bacon States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-bacon-mod", state: "NO", label: "No Bacon", priceOverride: 0.00 },
-      { modifierSku: "sku-bacon-mod", state: "LESS", label: "Less Bacon", priceOverride: 1.00 },
-      { modifierSku: "sku-bacon-mod", state: "ADD", label: "Add Bacon", priceOverride: 1.75 },
-      { modifierSku: "sku-bacon-mod", state: "EXTRA", label: "Extra Bacon", priceOverride: 2.50 },
-      { modifierSku: "sku-bacon-mod", state: "SIDE", label: "Bacon on Side", priceOverride: 1.75 },
-    ]
+      {
+        modifierSku: "sku-bacon-mod",
+        state: "NO",
+        label: "No Bacon",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-bacon-mod",
+        state: "LESS",
+        label: "Less Bacon",
+        priceOverride: 1.0,
+      },
+      {
+        modifierSku: "sku-bacon-mod",
+        state: "ADD",
+        label: "Add Bacon",
+        priceOverride: 1.75,
+      },
+      {
+        modifierSku: "sku-bacon-mod",
+        state: "EXTRA",
+        label: "Extra Bacon",
+        priceOverride: 2.5,
+      },
+      {
+        modifierSku: "sku-bacon-mod",
+        state: "SIDE",
+        label: "Bacon on Side",
+        priceOverride: 1.75,
+      },
+    ],
   });
 
   const count = await prisma.catalogItem.count();
-  console.log(`✅ Done. ${count} catalog items seeded successfully with variant options and states.`);
+  console.log(
+    `✅ Done. ${count} catalog items seeded successfully with variant options and states.`,
+  );
 }
 
 main()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
-
