@@ -185,6 +185,9 @@ function LineItemNode({
   const sizeGroup = catalogEntry?.appliedSizeGroup;
   const sizeOptions = sizeGroup?.options || [];
   
+  const allowedModifierSkus = catalogEntry?.allowedModifiers || [];
+  const filteredModifiers = modifiers.filter((mod) => allowedModifierSkus.includes(mod.sku));
+  
   const activeSizeChild = item.children.find((child) => {
     const childEntry = useVCSStore.getState().catalog[child.sku];
     return childEntry && childEntry.sizeGroupId === sizeGroup?.id;
@@ -330,10 +333,10 @@ function LineItemNode({
                 </span>
               )}
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {isRoot && modifiers.length > 0 && (
+                {isRoot && filteredModifiers.length > 0 && (
                   <Select
                     onValueChange={(val) => {
-                      const mod = modifiers.find((m) => m.sku === val);
+                      const mod = filteredModifiers.find((m) => m.sku === val);
                       const defaultState = mod?.allowedStates?.find((s) => s.state === "ADD" || s.state === "WITH")?.state 
                         || mod?.allowedStates?.[0]?.state 
                         || undefined;
@@ -347,7 +350,7 @@ function LineItemNode({
                       <Plus className="w-3 h-3" />
                     </SelectTrigger>
                     <SelectContent onClick={(e) => e.stopPropagation()}>
-                      {modifiers.map((mod) => (
+                      {filteredModifiers.map((mod) => (
                         <SelectItem key={mod.sku} value={mod.sku} className="text-xs">
                           {mod.name} {mod.basePrice > 0 ? `(+$${mod.basePrice.toFixed(2)})` : ""}
                         </SelectItem>

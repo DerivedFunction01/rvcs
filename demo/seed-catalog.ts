@@ -178,6 +178,7 @@ async function main() {
   console.log("🌱 Seeding catalog...");
 
   // Clean relations first to avoid duplicate seeds issues
+  await prisma.itemModifier.deleteMany({});
   await prisma.modifierStateOption.deleteMany({});
   await prisma.catalogItem.updateMany({
     data: {
@@ -518,6 +519,30 @@ async function main() {
       },
     ],
   });
+
+  // Link modifiers to burgers
+  const burgerSkus = ["SKU-BURGER-REG", "SKU-BURGER-DLX", "SKU-BURGER-VEG"];
+  const burgerModifiers = [
+    "sku-onion-mod",
+    "sku-cheese-mod",
+    "sku-avocado-mod",
+    "sku-bacon-mod",
+    "MOD-GLUTEN-FREE",
+  ];
+
+  for (const burgerSku of burgerSkus) {
+    for (const modSku of burgerModifiers) {
+      if (burgerSku === "SKU-BURGER-VEG" && modSku === "sku-bacon-mod") {
+        continue;
+      }
+      await prisma.itemModifier.create({
+        data: {
+          itemSku: burgerSku,
+          modifierSku: modSku,
+        },
+      });
+    }
+  }
 
   const count = await prisma.catalogItem.count();
   console.log(
