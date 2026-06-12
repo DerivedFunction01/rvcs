@@ -145,6 +145,8 @@ export class VCSEngine {
     assignee: string;
     payer: string;
     paymentMethod: string;
+    selectedOptions?: string[];
+    selectedModifierState?: string;
     authorId?: string;
   }): VCSCommit {
     const assignAllocId = generateAllocationId("assign");
@@ -176,6 +178,8 @@ export class VCSEngine {
           sku: params.sku,
           qty: params.qty,
           allocations: [assignAllocId, payAllocId],
+          selectedOptions: params.selectedOptions,
+          selectedModifierState: params.selectedModifierState,
         },
       ],
       params.authorId
@@ -186,6 +190,7 @@ export class VCSEngine {
   addModifier(params: {
     parentLineId: string;
     modifierSku: string;
+    selectedModifierState?: string;
     authorId?: string;
   }): VCSCommit {
     return this.commit(
@@ -197,6 +202,7 @@ export class VCSEngine {
           sku: params.modifierSku,
           qty: 1,
           allocations: [],
+          selectedModifierState: params.selectedModifierState,
         },
       ],
       params.authorId

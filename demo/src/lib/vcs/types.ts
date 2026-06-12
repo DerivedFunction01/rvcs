@@ -67,6 +67,8 @@ export interface AddItemDelta {
   sku: string;
   qty: number;
   allocations: string[]; // Flat array of allocation_id references
+  selectedOptions?: string[]; // Selected variant option IDs
+  selectedModifierState?: string; // Selected modifier state value (e.g. "EXTRA")
 }
 
 export interface RemoveItemDelta {
@@ -192,6 +194,8 @@ export interface ProjectedLineItem {
   totalPrice: number; // Computed: basePrice * qty
   allocations: string[]; // Referenced allocation IDs
   children: ProjectedLineItem[];
+  selectedOptions?: string[];
+  selectedModifierState?: string;
 }
 
 export interface PersonBreakdown {
@@ -222,16 +226,45 @@ export type BranchMap = Record<string, BranchPointer>;
 
 // ─── Catalog Item (from backend) ───────────────────────────────────────────────
 
+export interface ProductOption {
+  id: string;
+  optionGroupId: string;
+  value: string;
+  label: string;
+  skuSuffix: string;
+  priceOverride: number | null;
+  active: boolean;
+}
+
+export interface ProductOptionGroup {
+  id: string;
+  name: string;
+  isRequired: boolean;
+  minSelection: number;
+  maxSelection: number;
+  options: ProductOption[];
+}
+
+export interface ModifierStateOption {
+  id: string;
+  modifierSku: string;
+  state: string;
+  label: string;
+  priceOverride: number | null;
+}
+
 export interface CatalogItemEntry {
   sku: string;
   name: string;
   basePrice: number;
   category: string;
-  type: "item" | "modifier";
+  type: "item" | "modifier" | "discount";
   dietaryFlags: string[];
   allergens: string[];
   brand: string;
   active: boolean;
+  optionGroups?: ProductOptionGroup[];
+  allowedStates?: ModifierStateOption[];
 }
 
 // ─── Order Context (Set at Init, Stored in Repo) ─────────────────────────────

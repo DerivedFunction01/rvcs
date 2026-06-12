@@ -34,7 +34,42 @@ model CatalogItem {
   brand        String   @default("")
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+
+  // Relations
+  optionGroups   ProductOptionGroup[]
+  allowedStates  ModifierStateOption[]
 }
+
+model ProductOptionGroup {
+  id           String          @id @default(cuid())
+  name         String          // e.g., "Size", "Packaging"
+  isRequired   Boolean         @default(false)
+  minSelection Int             @default(0)
+  maxSelection Int             @default(1)
+  options      ProductOption[]
+  items        CatalogItem[]
+}
+
+model ProductOption {
+  id              String             @id @default(cuid())
+  optionGroupId   String
+  optionGroup     ProductOptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  value           String             // "SMALL" | "MEDIUM" | "LARGE" | "CAN" | "BOTTLE" | "TWO_LITER" | "CUSTOM"
+  label           String             // e.g., "Small", "Bottle"
+  skuSuffix       String             @default("")
+  priceOverride   Float?             // if null, defaults to item's basePrice
+  active          Boolean            @default(true)
+}
+
+model ModifierStateOption {
+  id              String      @id @default(cuid())
+  modifierSku     String
+  modifier        CatalogItem @relation(fields: [modifierSku], references: [sku], onDelete: Cascade)
+  state           String      // "NO" | "LESS" | "ADD" | "EXTRA" | "ONLY" | "WITH" | "SIDE"
+  label           String      // e.g., "No Onions", "Extra Cheese"
+  priceOverride   Float?
+}
+
 
 // ─── Transaction Repositories (One per order/cart) ─────────────────────────────
 

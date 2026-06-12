@@ -6,10 +6,12 @@ import { OrderInitScreen } from "@/components/vcs/order-init-screen";
 import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
+import { ItemOptionsDialog } from "@/components/vcs/item-options-dialog";
 import type {
   ProjectedLineItem,
   AllocationBlock,
   PaymentAllocation,
+  CatalogItemEntry,
 } from "@/lib/vcs/types";
 import {
   ShoppingCart,
@@ -163,10 +165,10 @@ function LineItemNode({
   allocations: Record<string, AllocationBlock>;
   defaultPaymentAllocId: string | null;
   onRemove: (lineId: string) => void;
-  onAddModifier: (parentLineId: string, modSku: string) => void;
+  onAddModifier: (parentLineId: string, modSku: string, selectedModifierState?: string) => void;
   onAllocConfig: (item: ProjectedLineItem) => void;
   depth: number;
-  modifiers: Array<{ sku: string; name: string; basePrice: number }>;
+  modifiers: CatalogItemEntry[];
   guests: string[];
 }) {
   const isRoot = !item.parentLineId;
@@ -253,17 +255,44 @@ function LineItemNode({
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {isRoot && modifiers.length > 0 && (
                   <Select
-                    onValueChange={(val) => onAddModifier(item.lineId, val)}
+                    onValueChange={(val) => {
+                      if (val.includes("::")) {
+                        const [modSku, state] = val.split("::");
+                        onAddModifier(item.lineId, modSku, state);
+                      } else {
+                        onAddModifier(item.lineId, val);
+                      }
+                    }}
                   >
                     <SelectTrigger className="w-[32px] h-6 p-0 border-0 bg-transparent hover:bg-accent">
                       <Plus className="w-3 h-3" />
                     </SelectTrigger>
                     <SelectContent>
-                      {modifiers.map((mod) => (
-                        <SelectItem key={mod.sku} value={mod.sku} className="text-xs">
-                          {mod.name} {mod.basePrice > 0 ? `+$${mod.basePrice.toFixed(2)}` : ""}
-                        </SelectItem>
-                      ))}
+                      {modifiers.map((mod) => {
+                        if (mod.allowedStates && mod.allowedStates.length > 0) {
+                          return (
+                            <React.Fragment key={mod.sku}>
+                              <div className="text-[9px] font-semibold text-muted-foreground uppercase px-2 py-0.5 mt-1 select-none">
+                                {mod.name}
+                              </div>
+                              {mod.allowedStates.map((stateOpt) => (
+                                <SelectItem
+                                  key={`${mod.sku}::${stateOpt.state}`}
+                                  value={`${mod.sku}::${stateOpt.state}`}
+                                  className="text-xs pl-4"
+                                >
+                                  {stateOpt.label} {stateOpt.priceOverride !== null ? `($${stateOpt.priceOverride.toFixed(2)})` : ""}
+                                </SelectItem>
+                              ))}
+                            </React.Fragment>
+                          );
+                        }
+                        return (
+                          <SelectItem key={mod.sku} value={mod.sku} className="text-xs">
+                            {mod.name} {mod.basePrice > 0 ? `+$${mod.basePrice.toFixed(2)}` : ""}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 )}
@@ -424,6 +453,8 @@ function POSTerminalInner() {
   const [pendingMethod, setPendingMethod] = React.useState("");
   const [tableSplitOpen, setTableSplitOpen] = React.useState(false);
   const [allocConfigItem, setAllocConfigItem] = React.useState<ProjectedLineItem | null>(null);
+  const [optionsDialogOpen, setOptionsDialogOpen] = React.useState(false);
+  const [optionsDialogItem, setOptionsDialogItem] = React.useState<CatalogItemEntry | null>(null);
 
   // Auto-select mimic target to the first other guest
   React.useEffect(() => {
@@ -579,12 +610,12 @@ function POSTerminalInner() {
   // ─── Handlers (all hooks before any conditional returns) ─────────────────
 
   const handleAddItem = useCallback(
-    (sku: string) => {
+    (sku: string, selectedOptions?: string[]) => {
       // Reassign default assignment if selectedPerson differs from default
       if (selectedPerson !== customerName && defaultAssignmentAllocId) {
         // Need to create a new assignment for this guest
         // Use addItemWithDefaults first, then reassign
-        addItemWithDefaults(sku, 1);
+        addItemWithDefaults(sku, 1, selectedOptions);
 
         // Get the line that was just added (last root item)
         const store = useVCSStore.getState();
@@ -597,7 +628,7 @@ function POSTerminalInner() {
 
         toast.success(`Added to ${selectedPerson}'s order`);
       } else {
-        addItemWithDefaults(sku, 1);
+        addItemWithDefaults(sku, 1, selectedOptions);
         toast.success(`Added to ${selectedPerson}'s order`);
       }
     },
@@ -1022,7 +1053,14 @@ function POSTerminalInner() {
                         <Tooltip key={item.sku}>
                           <TooltipTrigger asChild>
                             <button
-                              onClick={() => handleAddItem(item.sku)}
+                              onClick={() => {
+                                if (item.optionGroups && item.optionGroups.length > 0) {
+                                  setOptionsDialogItem(item);
+                                  setOptionsDialogOpen(true);
+                                } else {
+                                  handleAddItem(item.sku);
+                                }
+                              }}
                               className="w-full text-left rounded-lg px-2.5 py-2 hover:bg-accent transition-colors group flex justify-between items-center"
                             >
                               <div className="min-w-0">
@@ -1346,6 +1384,14 @@ function POSTerminalInner() {
         onSwitchItemPayment={handleSwitchItemPayment}
         onResetToDefault={handleResetToDefault}
         onAddGuest={handleAddGuestFromDialog}
+      />
+
+      {/* ─── Item Options Dialog ───────────────────────────────────────── */}
+      <ItemOptionsDialog
+        open={optionsDialogOpen}
+        onOpenChange={setOptionsDialogOpen}
+        item={optionsDialogItem}
+        onAddWithSelection={handleAddItem}
       />
     </TooltipProvider>
   );

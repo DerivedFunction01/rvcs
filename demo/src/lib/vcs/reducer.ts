@@ -142,6 +142,8 @@ interface InternalLineItem {
   sku: string;
   qty: number;
   allocations: string[];
+  selectedOptions?: string[];
+  selectedModifierState?: string;
   resolvedName: string;
   resolvedPrice: number;
 }
@@ -209,6 +211,8 @@ function applyDelta(
         sku: delta.sku,
         qty: delta.qty,
         allocations: [...delta.allocations],
+        selectedOptions: delta.selectedOptions ? [...delta.selectedOptions] : undefined,
+        selectedModifierState: delta.selectedModifierState,
         resolvedName: "",
         resolvedPrice: 0,
       };
@@ -439,8 +443,47 @@ function resolveCatalog(
     const item = items[lineId];
     const entry = catalog[item.sku];
     if (entry) {
-      item.resolvedName = entry.name;
-      item.resolvedPrice = entry.basePrice;
+      let name = entry.name;
+      let price = entry.basePrice;
+
+      // 1. Resolve product variant options (e.g. Size: Small, Medium, Large)
+      if (item.selectedOptions && item.selectedOptions.length > 0) {
+        for (const optId of item.selectedOptions) {
+          const foundOpt = entry.optionGroups
+            ?.flatMap((og) => og.options)
+            .find((opt) => opt.id === optId);
+          if (foundOpt) {
+            if (foundOpt.priceOverride !== null && foundOpt.priceOverride !== undefined) {
+              price = foundOpt.priceOverride;
+            }
+            if (foundOpt.label) {
+              name = `${name} (${foundOpt.label})`;
+            }
+          }
+        }
+      }
+
+      // 2. Resolve modifier states (e.g. NO onions, EXTRA cheese)
+      if (item.selectedModifierState) {
+        const foundState = entry.allowedStates?.find(
+          (s) => s.state === item.selectedModifierState
+        );
+        if (foundState) {
+          if (foundState.priceOverride !== null && foundState.priceOverride !== undefined) {
+            price = foundState.priceOverride;
+          }
+          if (foundState.label) {
+            name = foundState.label;
+          } else {
+            name = `${item.selectedModifierState} ${name}`;
+          }
+        } else {
+          name = `${item.selectedModifierState} ${name}`;
+        }
+      }
+
+      item.resolvedName = name;
+      item.resolvedPrice = price;
     } else {
       item.resolvedName = `[Unknown: ${item.sku}]`;
       item.resolvedPrice = 0;
@@ -468,6 +511,8 @@ function buildProjectedState(
       qty: item.qty,
       totalPrice: item.resolvedPrice * item.qty,
       allocations: item.allocations,
+      selectedOptions: item.selectedOptions,
+      selectedModifierState: item.selectedModifierState,
       children: [],
     };
   }

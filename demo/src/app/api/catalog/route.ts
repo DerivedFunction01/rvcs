@@ -8,6 +8,14 @@ export async function GET() {
   try {
     const items = await db.catalogItem.findMany({
       where: { active: true },
+      include: {
+        optionGroups: {
+          include: {
+            options: true,
+          },
+        },
+        allowedStates: true,
+      },
       orderBy: { category: "asc" },
     });
 
@@ -16,11 +24,34 @@ export async function GET() {
       name: item.name,
       basePrice: item.basePrice,
       category: item.category,
-      type: item.type as "item" | "modifier",
+      type: item.type as "item" | "modifier" | "discount",
       dietaryFlags: JSON.parse(item.dietaryFlags) as string[],
       allergens: JSON.parse(item.allergens) as string[],
       brand: item.brand,
       active: item.active,
+      optionGroups: item.optionGroups.map((og) => ({
+        id: og.id,
+        name: og.name,
+        isRequired: og.isRequired,
+        minSelection: og.minSelection,
+        maxSelection: og.maxSelection,
+        options: og.options.map((opt) => ({
+          id: opt.id,
+          optionGroupId: opt.optionGroupId,
+          value: opt.value,
+          label: opt.label,
+          skuSuffix: opt.skuSuffix,
+          priceOverride: opt.priceOverride,
+          active: opt.active,
+        })),
+      })),
+      allowedStates: item.allowedStates.map((as) => ({
+        id: as.id,
+        modifierSku: as.modifierSku,
+        state: as.state,
+        label: as.label,
+        priceOverride: as.priceOverride,
+      })),
     }));
 
     return NextResponse.json({ catalog });

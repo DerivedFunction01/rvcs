@@ -161,7 +161,12 @@ interface VCSStore {
    * Add an item using the default shared allocations.
    * No new allocations are declared — the item references the default IDs.
    */
-  addItemWithDefaults: (sku: string, qty: number) => void;
+  addItemWithDefaults: (
+    sku: string,
+    qty: number,
+    selectedOptions?: string[],
+    selectedModifierState?: string
+  ) => void;
 
   /**
    * Switch the default payment method.
@@ -241,7 +246,7 @@ interface VCSStore {
 
   // Actions — Core VCS (legacy, still used for mimic)
   commitDeltas: (deltas: Delta[], authorId?: string) => VCSCommit;
-  addModifier: (parentLineId: string, modifierSku: string) => void;
+  addModifier: (parentLineId: string, modifierSku: string, selectedModifierState?: string) => void;
   removeItem: (lineId: string) => void;
   mimicOrder: (sourceAssignee: string, targetAssignee: string, targetPayer: string, paymentMethod: string) => void;
 
@@ -415,7 +420,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       void paymentMethod;
     },
 
-    addItemWithDefaults: (sku: string, qty: number) => {
+    addItemWithDefaults: (sku, qty, selectedOptions, selectedModifierState) => {
       const store = get();
       const assignId = store.defaultAssignmentAllocId;
       const configId = store.activePaymentConfigId;
@@ -443,6 +448,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             sku,
             qty,
             allocations: [assignId, ...payIds],
+            selectedOptions,
+            selectedModifierState,
           },
         ],
         "pos-ui"
@@ -861,7 +868,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       return commit;
     },
 
-    addModifier: (parentLineId, modifierSku) => {
+    addModifier: (parentLineId, modifierSku, selectedModifierState) => {
       get().commitDeltas(
         [
           {
@@ -871,6 +878,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             sku: modifierSku,
             qty: 1,
             allocations: [],
+            selectedModifierState,
           },
         ],
         "pos-ui"
