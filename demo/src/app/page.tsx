@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { useVCSStore, getPaymentAllocDisplayName, getAssignmentAllocDisplayName } from "@/store/vcs-store";
+import {
+  useVCSStore,
+  getPaymentAllocDisplayName,
+  getAssignmentAllocDisplayName,
+} from "@/store/vcs-store";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { OrderInitScreen } from "@/components/vcs/order-init-screen";
 import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
@@ -100,7 +104,8 @@ function getGuestColor(name: string, guests: string[]): string {
   if (idx >= 0) return GUEST_PALETTE[idx % GUEST_PALETTE.length];
   // Fallback: hash the name to a stable index for historical commits
   let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < name.length; i++)
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return GUEST_PALETTE[Math.abs(hash) % GUEST_PALETTE.length];
 }
 
@@ -122,7 +127,13 @@ function AllocationBadges({
   if (allocationIds.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1 mt-1.5" onClick={(e) => { e.stopPropagation(); onItemClick?.(); }}>
+    <div
+      className="flex flex-wrap gap-1 mt-1.5"
+      onClick={(e) => {
+        e.stopPropagation();
+        onItemClick?.();
+      }}
+    >
       {allocationIds.map((id) => {
         const alloc = allocations[id];
         if (!alloc) return null;
@@ -193,21 +204,22 @@ function LineItemNode({
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
   const assignee = getAssigneeFromItem(item, allocations);
-  const hasSplitPayment = item.allocations.filter(
-    (id) => allocations[id]?.type === "payment"
-  ).length > 1;
+  const hasSplitPayment =
+    item.allocations.filter((id) => allocations[id]?.type === "payment")
+      .length > 1;
   const hasNonDefaultPayment = item.allocations.some(
-    (id) =>
-      allocations[id]?.type === "payment" && id !== defaultPaymentAllocId
+    (id) => allocations[id]?.type === "payment" && id !== defaultPaymentAllocId,
   );
 
   const catalogEntry = useVCSStore.getState().catalog[item.sku];
   const sizeGroup = catalogEntry?.appliedSizeGroup;
   const sizeOptions = sizeGroup?.options || [];
-  
+
   const allowedModifierSkus = catalogEntry?.allowedModifiers || [];
-  const filteredModifiers = modifiers.filter((mod) => allowedModifierSkus.includes(mod.sku));
-  
+  const filteredModifiers = modifiers.filter((mod) =>
+    allowedModifierSkus.includes(mod.sku),
+  );
+
   const activeSizeChild = item.children.find((child) => {
     const childEntry = useVCSStore.getState().catalog[child.sku];
     return childEntry && childEntry.sizeGroupId === sizeGroup?.id;
@@ -227,7 +239,14 @@ function LineItemNode({
                 : "border-border bg-card cursor-pointer hover:bg-accent/50"
               : "border-transparent bg-muted/40"
           }`}
-          onClick={isRoot ? (e) => { e.stopPropagation(); onSelectToggle?.(item.lineId); } : undefined}
+          onClick={
+            isRoot
+              ? (e) => {
+                  e.stopPropagation();
+                  onSelectToggle?.(item.lineId);
+                }
+              : undefined
+          }
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -244,7 +263,7 @@ function LineItemNode({
                   <div
                     className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(
                       assignee,
-                      guests
+                      guests,
                     )}`}
                   />
                 )}
@@ -257,7 +276,9 @@ function LineItemNode({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (item.qty > 1) {
-                          useVCSStore.getState().modifyItemQty(item.lineId, item.qty, item.qty - 1);
+                          useVCSStore
+                            .getState()
+                            .modifyItemQty(item.lineId, item.qty, item.qty - 1);
                         } else {
                           useVCSStore.getState().removeItem(item.lineId);
                         }
@@ -274,7 +295,9 @@ function LineItemNode({
                       className="h-4 w-4 p-0 hover:bg-background"
                       onClick={(e) => {
                         e.stopPropagation();
-                        useVCSStore.getState().modifyItemQty(item.lineId, item.qty, item.qty + 1);
+                        useVCSStore
+                          .getState()
+                          .modifyItemQty(item.lineId, item.qty, item.qty + 1);
                       }}
                     >
                       <Plus className="w-2.5 h-2.5" />
@@ -296,13 +319,19 @@ function LineItemNode({
                   </Badge>
                 )}
                 {hasSplitPayment && (
-                  <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-primary/40 text-primary">
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] h-3.5 px-1 border-primary/40 text-primary"
+                  >
                     <Split className="w-2.5 h-2.5 mr-0.5" />
                     split
                   </Badge>
                 )}
                 {hasNonDefaultPayment && !hasSplitPayment && (
-                  <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-amber-300 text-amber-600">
+                  <Badge
+                    variant="outline"
+                    className="text-[9px] h-3.5 px-1 border-amber-300 text-amber-600"
+                  >
                     <CreditCard className="w-2.5 h-2.5 mr-0.5" />
                     custom
                   </Badge>
@@ -320,74 +349,90 @@ function LineItemNode({
                   onItemClick={() => onAllocConfig(item)}
                 />
               )}
-              {isRoot && sizeGroup && sizeOptions.length > 0 && activeSizeChild && (
-                <div className="flex items-center gap-1 mt-2">
-                  <span className="text-[10px] text-muted-foreground mr-1">Size:</span>
-                  <div className="flex items-center rounded border p-0.5 bg-muted/20">
-                    {sizeOptions.map((opt) => {
-                      const isActive = activeSku === opt.sku;
-                      return (
-                        <Button
-                          key={opt.sku}
-                          variant={isActive ? "secondary" : "ghost"}
-                          size="sm"
-                          className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (activeSizeChild && !isActive) {
-                              useVCSStore.getState().modifyItemSku(
-                                activeSizeChild.lineId,
-                                activeSizeChild.sku,
-                                opt.sku
-                              );
-                            }
-                          }}
-                        >
-                          {opt.name}
-                          {opt.basePrice > 0 && ` (+$${opt.basePrice.toFixed(2)})`}
-                        </Button>
-                      );
-                    })}
+              {isRoot &&
+                sizeGroup &&
+                sizeOptions.length > 0 &&
+                activeSizeChild && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <span className="text-[10px] text-muted-foreground mr-1">
+                      Size:
+                    </span>
+                    <div className="flex items-center rounded border p-0.5 bg-muted/20">
+                      {sizeOptions.map((opt) => {
+                        const isActive = activeSku === opt.sku;
+                        return (
+                          <Button
+                            key={opt.sku}
+                            variant={isActive ? "secondary" : "ghost"}
+                            size="sm"
+                            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeSizeChild && !isActive) {
+                                useVCSStore
+                                  .getState()
+                                  .modifyItemSku(
+                                    activeSizeChild.lineId,
+                                    activeSizeChild.sku,
+                                    opt.sku,
+                                  );
+                              }
+                            }}
+                          >
+                            {opt.name}
+                            {opt.basePrice > 0 &&
+                              ` (+$${opt.basePrice.toFixed(2)})`}
+                          </Button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-              {!isRoot && catalogEntry && catalogEntry.allowedStates && catalogEntry.allowedStates.length > 0 && (
-                <div className="flex items-center gap-1 mt-2">
-                  <div className="flex items-center rounded border p-0.5 bg-muted/20">
-                    {catalogEntry.allowedStates.map((stateOpt) => {
-                      const isActive = item.selectedModifierState === stateOpt.state;
-                      const priceDiff = stateOpt.priceOverride !== null 
-                        ? stateOpt.priceOverride - catalogEntry.basePrice 
-                        : 0;
-                      return (
-                        <Button
-                          key={stateOpt.state}
-                          variant={isActive ? "secondary" : "ghost"}
-                          size="sm"
-                          className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isActive) {
-                              useVCSStore.getState().modifyModifierState(
-                                item.lineId,
-                                item.selectedModifierState,
-                                stateOpt.state
-                              );
-                            }
-                          }}
-                        >
-                          {stateOpt.state}
-                          {priceDiff !== 0 && (
-                            <span className="opacity-70 font-mono ml-0.5 text-[8px]">
-                              ({priceDiff > 0 ? "+" : ""}${priceDiff.toFixed(2)})
-                            </span>
-                          )}
-                        </Button>
-                      );
-                    })}
+                )}
+              {!isRoot &&
+                catalogEntry &&
+                catalogEntry.allowedStates &&
+                catalogEntry.allowedStates.length > 0 && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <div className="flex items-center rounded border p-0.5 bg-muted/20">
+                      {catalogEntry.allowedStates.map((stateOpt) => {
+                        const isActive =
+                          item.selectedModifierState === stateOpt.state;
+                        const priceDiff =
+                          stateOpt.priceOverride !== null
+                            ? stateOpt.priceOverride - catalogEntry.basePrice
+                            : 0;
+                        return (
+                          <Button
+                            key={stateOpt.state}
+                            variant={isActive ? "secondary" : "ghost"}
+                            size="sm"
+                            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isActive) {
+                                useVCSStore
+                                  .getState()
+                                  .modifyModifierState(
+                                    item.lineId,
+                                    item.selectedModifierState,
+                                    stateOpt.state,
+                                  );
+                              }
+                            }}
+                          >
+                            {stateOpt.state}
+                            {priceDiff !== 0 && (
+                              <span className="opacity-70 font-mono ml-0.5 text-[8px]">
+                                ({priceDiff > 0 ? "+" : ""}$
+                                {priceDiff.toFixed(2)})
+                              </span>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
 
             <div className="flex flex-col items-end shrink-0 gap-1.5">
@@ -397,26 +442,26 @@ function LineItemNode({
                 </span>
               )}
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                 {isRoot && filteredModifiers.length > 0 && (
-                   <Tooltip>
-                     <TooltipTrigger asChild>
-                       <Button
-                         variant="ghost"
-                         size="sm"
-                         className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           onAddModifier(item);
-                         }}
-                       >
-                         <Plus className="w-3.5 h-3.5" />
-                       </Button>
-                     </TooltipTrigger>
-                     <TooltipContent side="left" className="text-xs">
-                       Add modifiers
-                     </TooltipContent>
-                   </Tooltip>
-                 )}
+                {isRoot && filteredModifiers.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddModifier(item);
+                        }}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="text-xs">
+                      Add modifiers
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {isRoot && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -494,7 +539,7 @@ function LineItemNode({
 
 function getAssigneeFromItem(
   item: ProjectedLineItem,
-  allocations: Record<string, AllocationBlock>
+  allocations: Record<string, AllocationBlock>,
 ): string {
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
@@ -507,14 +552,25 @@ function getAssigneeFromItem(
 
 // ─── Order Context Banner ───────────────────────────────────────────────────
 
-function OrderContextBanner({ context }: { context: { orderType: string; orderTypeLabel: string; customerFields: Record<string, string>; estimatedTimeLabel?: string | null } }) {
+function OrderContextBanner({
+  context,
+}: {
+  context: {
+    orderType: string;
+    orderTypeLabel: string;
+    customerFields: Record<string, string>;
+    estimatedTimeLabel?: string | null;
+  };
+}) {
   const TypeIcon = ORDER_TYPE_ICONS[context.orderType] ?? ShoppingCart;
 
   return (
     <div className="px-6 py-2 bg-primary/5 border-b flex items-center gap-4 text-xs shrink-0">
       <div className="flex items-center gap-1.5">
         <TypeIcon className="w-3.5 h-3.5 text-primary" />
-        <span className="font-semibold text-primary">{context.orderTypeLabel}</span>
+        <span className="font-semibold text-primary">
+          {context.orderTypeLabel}
+        </span>
       </div>
       {context.customerFields.name && (
         <div className="flex items-center gap-1 text-muted-foreground">
@@ -531,7 +587,9 @@ function OrderContextBanner({ context }: { context: { orderType: string; orderTy
       {context.customerFields.address && (
         <div className="flex items-center gap-1 text-muted-foreground">
           <MapPin className="w-3 h-3" />
-          <span className="truncate max-w-[200px]">{context.customerFields.address}</span>
+          <span className="truncate max-w-[200px]">
+            {context.customerFields.address}
+          </span>
         </div>
       )}
       {context.estimatedTimeLabel && (
@@ -593,9 +651,11 @@ function POSTerminalInner() {
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const customerName = orderContext?.customerFields.name || "Guest";
   const [guests, setGuests] = React.useState<string[]>([customerName]);
-  
+
   // Bulk actions selection state
-  const [selectedLineIds, setSelectedLineIds] = React.useState<Set<string>>(new Set());
+  const [selectedLineIds, setSelectedLineIds] = React.useState<Set<string>>(
+    new Set(),
+  );
 
   const handleSelectToggle = useCallback((lineId: string) => {
     setSelectedLineIds((prev) => {
@@ -627,7 +687,9 @@ function POSTerminalInner() {
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
 
   // Active check view filter state
-  const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(new Set([customerName]));
+  const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
+    new Set([customerName]),
+  );
 
   // Synchronize visibleGuests with guests on add/remove/reset
   React.useEffect(() => {
@@ -645,38 +707,48 @@ function POSTerminalInner() {
     });
   }, [guests]);
 
-  const [newBranchFromHistoryName, setNewBranchFromHistoryName] = React.useState("");
-  
+  const [newBranchFromHistoryName, setNewBranchFromHistoryName] =
+    React.useState("");
+
   // Branch configuration dialog state
   const [isBranchConfigOpen, setIsBranchConfigOpen] = React.useState(false);
-  const [branchToConfig, setBranchToConfig] = React.useState<string | null>(null);
+  const [branchToConfig, setBranchToConfig] = React.useState<string | null>(
+    null,
+  );
 
-  const handleSaveBranchConfig = useCallback((newName: string, type: "parallel" | "hypothetical", label: string) => {
-    if (!branchToConfig) return;
-    try {
-      if (newName !== branchToConfig) {
-        renameBranch(branchToConfig, newName);
-        toast.success(`Branch "${branchToConfig}" renamed to "${newName}"`);
+  const handleSaveBranchConfig = useCallback(
+    (newName: string, type: "parallel" | "hypothetical", label: string) => {
+      if (!branchToConfig) return;
+      try {
+        if (newName !== branchToConfig) {
+          renameBranch(branchToConfig, newName);
+          toast.success(`Branch "${branchToConfig}" renamed to "${newName}"`);
+        }
+        updateBranchConfig(newName, { type, label });
+        toast.success(`Branch configuration saved`);
+      } catch (e) {
+        toast.error((e as Error).message);
       }
-      updateBranchConfig(newName, { type, label });
-      toast.success(`Branch configuration saved`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }, [branchToConfig, renameBranch, updateBranchConfig]);
+    },
+    [branchToConfig, renameBranch, updateBranchConfig],
+  );
 
   const handleBranchFromHistory = React.useCallback(() => {
     if (!newBranchFromHistoryName.trim() || !viewingHash) return;
     try {
       createBranch(newBranchFromHistoryName.trim(), viewingHash);
-      toast.success(`Branch "${newBranchFromHistoryName.trim()}" created at commit ${viewingHash.substring(0, 7)}`);
+      toast.success(
+        `Branch "${newBranchFromHistoryName.trim()}" created at commit ${viewingHash.substring(0, 7)}`,
+      );
       setNewBranchFromHistoryName("");
     } catch (e) {
       toast.error((e as Error).message);
     }
   }, [createBranch, newBranchFromHistoryName, viewingHash]);
 
-  const [expandedCommits, setExpandedCommits] = React.useState<Set<string>>(new Set());
+  const [expandedCommits, setExpandedCommits] = React.useState<Set<string>>(
+    new Set(),
+  );
 
   const toggleCommitExpanded = React.useCallback((hash: string) => {
     setExpandedCommits((prev) => {
@@ -690,24 +762,27 @@ function POSTerminalInner() {
     });
   }, []);
 
-
-
   // ─── Dialog State ────────────────────────────────────────────────────
   const [paymentSwitchOpen, setPaymentSwitchOpen] = React.useState(false);
   const [pendingConfigId, setPendingConfigId] = React.useState("");
   const [pendingConfigName, setPendingConfigName] = React.useState("");
   const [pendingMethod, setPendingMethod] = React.useState("");
   const [tableSplitOpen, setTableSplitOpen] = React.useState(false);
-  const [allocConfigItem, setAllocConfigItem] = React.useState<ProjectedLineItem | null>(null);
+  const [allocConfigItem, setAllocConfigItem] =
+    React.useState<ProjectedLineItem | null>(null);
 
   // Modifier Add Dialog State
   const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
-  const [modifierAddItem, setModifierAddItem] = React.useState<ProjectedLineItem | null>(null);
+  const [modifierAddItem, setModifierAddItem] =
+    React.useState<ProjectedLineItem | null>(null);
 
-  const handleOpenModifierDialog = React.useCallback((item: ProjectedLineItem) => {
-    setModifierAddItem(item);
-    setModifierAddOpen(true);
-  }, []);
+  const handleOpenModifierDialog = React.useCallback(
+    (item: ProjectedLineItem) => {
+      setModifierAddItem(item);
+      setModifierAddOpen(true);
+    },
+    [],
+  );
 
   // ─── Guest Management ──────────────────────────────────────────────────
 
@@ -724,7 +799,7 @@ function POSTerminalInner() {
       setShowAddGuest(false);
       toast.success(`${trimmed} added to the order`);
     },
-    [guests]
+    [guests],
   );
 
   const removeGuest = useCallback(
@@ -737,30 +812,29 @@ function POSTerminalInner() {
       if (selectedPerson === name) setSelectedPerson(guests[0]);
       toast.success(`${name} removed`);
     },
-    [guests, selectedPerson]
+    [guests, selectedPerson],
   );
 
   // ─── Derived State ──────────────────────────────────────────────────────
 
   const catalogItems = Object.values(catalog).filter(
-    (i) => i.active && i.type === "item"
+    (i) => i.active && i.type === "item",
   );
   const modifierItems = Object.values(catalog).filter(
-    (i) => i.active && i.type === "modifier"
+    (i) => i.active && i.type === "modifier",
   );
 
-  const groupedCatalog = catalogItems.reduce<Record<string, typeof catalogItems>>(
-    (acc, item) => {
-      const cat = item.category || "general";
-      if (!acc[cat]) acc[cat] = [];
-      acc[cat].push(item);
-      return acc;
-    },
-    {}
-  );
+  const groupedCatalog = catalogItems.reduce<
+    Record<string, typeof catalogItems>
+  >((acc, item) => {
+    const cat = item.category || "general";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(item);
+    return acc;
+  }, {});
 
   const rootItems = Object.values(projectedState.items).filter(
-    (i) => !i.parentLineId
+    (i) => !i.parentLineId,
   );
 
   const filteredRootItems = React.useMemo(() => {
@@ -806,19 +880,22 @@ function POSTerminalInner() {
       if (!target) return;
 
       // Do not clear if click is inside the checklist scroll area or bulk actions bar
-      if (checklistRef.current?.contains(target) || bulkActionsBarRef.current?.contains(target)) {
+      if (
+        checklistRef.current?.contains(target) ||
+        bulkActionsBarRef.current?.contains(target)
+      ) {
         return;
       }
 
       // Do not clear if click is inside portal elements (e.g. Radix Select contents, dialogs, popovers)
       if (
-        target.closest('[data-radix-portal]') ||
-        target.closest('[data-radix-popper-content-wrapper]') ||
+        target.closest("[data-radix-portal]") ||
+        target.closest("[data-radix-popper-content-wrapper]") ||
         target.closest('[role="listbox"]') ||
         target.closest('[role="dialog"]') ||
         target.closest('[role="menu"]') ||
-        target.closest('.bg-popover') ||
-        target.closest('.radix-select-content')
+        target.closest(".bg-popover") ||
+        target.closest(".radix-select-content")
       ) {
         return;
       }
@@ -873,16 +950,18 @@ function POSTerminalInner() {
   // Count items on the active payment configuration group
   const itemsOnActiveConfig = React.useMemo(() => {
     if (!activePaymentConfigId) return 0;
-    
+
     const activeAllocations = Object.values(projectedState.allocations).filter(
       (a): a is PaymentAllocation =>
         a.type === "payment" &&
-        (a.allocationId === activePaymentConfigId || (a.correlationId !== null && a.correlationId === activePaymentConfigId))
+        (a.allocationId === activePaymentConfigId ||
+          (a.correlationId !== null &&
+            a.correlationId === activePaymentConfigId)),
     );
     const activePayIds = activeAllocations.map((a) => a.allocationId);
 
     return Object.values(projectedState.items).filter((item) =>
-      item.allocations.some((id) => activePayIds.includes(id))
+      item.allocations.some((id) => activePayIds.includes(id)),
     ).length;
   }, [projectedState.items, projectedState.allocations, activePaymentConfigId]);
 
@@ -890,7 +969,7 @@ function POSTerminalInner() {
   const paymentConfigs = React.useMemo(() => {
     const configs: Array<{ id: string; name: string; isSplit: boolean }> = [];
     const allocations = projectedState.allocations;
-    
+
     const singlePayers = new Map<string, PaymentAllocation>();
     const splitGroups = new Map<string, PaymentAllocation[]>();
 
@@ -935,7 +1014,10 @@ function POSTerminalInner() {
   }, [projectedState.allocations, defaultPaymentAllocId]);
 
   const currentConfigName = React.useMemo(() => {
-    if (activePaymentConfigId && activePaymentConfigId.startsWith("group-default-")) {
+    if (
+      activePaymentConfigId &&
+      activePaymentConfigId.startsWith("group-default-")
+    ) {
       const method = activePaymentConfigId.replace("group-default-", "");
       return `Guest (${method.toUpperCase()})`;
     }
@@ -943,20 +1025,32 @@ function POSTerminalInner() {
     const activeAlloc = Object.values(allocations).find(
       (a) =>
         a.type === "payment" &&
-        (a.allocationId === activePaymentConfigId || a.correlationId === activePaymentConfigId)
+        (a.allocationId === activePaymentConfigId ||
+          a.correlationId === activePaymentConfigId),
     );
     if (activeAlloc) {
       const typeLabel = activeAlloc.correlationId ? "Split" : "Single";
       return `${typeLabel}: ${getPaymentAllocDisplayName(activeAlloc, allocations)}`;
     }
     return "Default Config";
-  }, [activePaymentConfigId, defaultPaymentAllocId, defaultPaymentMethod, projectedState.allocations]);
+  }, [
+    activePaymentConfigId,
+    defaultPaymentAllocId,
+    defaultPaymentMethod,
+    projectedState.allocations,
+  ]);
 
   const log = commitLog();
   const branches = useVCSStore.getState().engine.getRepo().branches;
 
   const graphData = React.useMemo(() => {
-    return buildCommitGraph(log, activeBranch(), mainActiveBranch(), expandedCommits, branches);
+    return buildCommitGraph(
+      log,
+      activeBranch(),
+      mainActiveBranch(),
+      expandedCommits,
+      branches,
+    );
   }, [log, activeBranch, mainActiveBranch, expandedCommits, branches]);
   const isViewingHistory = viewingHash !== null && viewingHash !== headHash();
 
@@ -967,7 +1061,7 @@ function POSTerminalInner() {
       addItemWithDefaults(sku, 1, selectedPerson);
       toast.success(`Added to ${selectedPerson}'s order`);
     },
-    [addItemWithDefaults, selectedPerson]
+    [addItemWithDefaults, selectedPerson],
   );
 
   const handleConfigChange = useCallback(
@@ -986,12 +1080,12 @@ function POSTerminalInner() {
         setPendingConfigName(
           configId.startsWith("group-default-")
             ? `Guest (${configId.replace("group-default-", "").toUpperCase()})`
-            : targetConfig?.name || "Selected Config"
+            : targetConfig?.name || "Selected Config",
         );
         setPaymentSwitchOpen(true);
       }
     },
-    [activePaymentConfigId, paymentConfigs]
+    [activePaymentConfigId, paymentConfigs],
   );
 
   const handlePaymentSwitchExisting = useCallback(() => {
@@ -1012,15 +1106,30 @@ function POSTerminalInner() {
     setPendingMethod("");
     setPendingConfigId("");
     setPendingConfigName("");
-  }, [pendingMethod, pendingConfigId, pendingConfigName, changeDefaultPayment, selectPaymentConfig]);
+  }, [
+    pendingMethod,
+    pendingConfigId,
+    pendingConfigName,
+    changeDefaultPayment,
+    selectPaymentConfig,
+  ]);
 
   const handleCreateSplitConfig = useCallback(
-    (splits: Array<{ entity: string; strategyType: "percentage" | "fixed" | "remaining"; value: number }>) => {
+    (
+      splits: Array<{
+        entity: string;
+        strategyType: "percentage" | "fixed" | "remaining";
+        value: number;
+      }>,
+    ) => {
       const configId = createTableSplitConfig(splits, defaultPaymentMethod);
-      
+
       const targetConfigName = `Split: ${splits
         .sort((a, b) => b.value - a.value)
-        .map((s) => `${s.entity} ${s.strategyType === "percentage" ? Math.round(s.value * 100) : s.value}${s.strategyType === "percentage" ? "%" : ""}`)
+        .map(
+          (s) =>
+            `${s.entity} ${s.strategyType === "percentage" ? Math.round(s.value * 100) : s.value}${s.strategyType === "percentage" ? "%" : ""}`,
+        )
         .join(" / ")}`;
 
       setPendingMethod("");
@@ -1028,7 +1137,7 @@ function POSTerminalInner() {
       setPendingConfigName(targetConfigName);
       setPaymentSwitchOpen(true);
     },
-    [createTableSplitConfig, defaultPaymentMethod]
+    [createTableSplitConfig, defaultPaymentMethod],
   );
 
   const handleReassign = useCallback(
@@ -1036,7 +1145,7 @@ function POSTerminalInner() {
       reassignItem(lineId, newAssignee);
       toast.success(`Reassigned to ${newAssignee}`);
     },
-    [reassignItem]
+    [reassignItem],
   );
 
   const handleSplitPayment = useCallback(
@@ -1046,19 +1155,22 @@ function POSTerminalInner() {
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
         value: number;
-      }>
+      }>,
     ) => {
       splitItemPayment(lineId, splits);
       const splitName = [...splits]
         .sort((a, b) => b.value - a.value)
         .map((s) => {
-          const valLabel = s.strategyType === "percentage" ? `${Math.round(s.value * 100)}%` : `$${s.value}`;
+          const valLabel =
+            s.strategyType === "percentage"
+              ? `${Math.round(s.value * 100)}%`
+              : `$${s.value}`;
           return `${s.entity} ${s.strategyType === "remaining" ? "rem" : valLabel}`;
         })
         .join(" / ");
       toast.success(`Payment split: ${splitName}`);
     },
-    [splitItemPayment]
+    [splitItemPayment],
   );
 
   const handleResetToDefault = useCallback(
@@ -1066,7 +1178,7 @@ function POSTerminalInner() {
       resetItemPaymentToDefault(lineId);
       toast.success(`Payment reset to ${defaultPaymentMethod}`);
     },
-    [resetItemPaymentToDefault, defaultPaymentMethod]
+    [resetItemPaymentToDefault, defaultPaymentMethod],
   );
 
   const handleSwitchItemPayment = useCallback(
@@ -1087,7 +1199,7 @@ function POSTerminalInner() {
       switchItemPayment(lineId, newMethod, payer);
       toast.success(`Payment switched to ${newMethod} for this item`);
     },
-    [switchItemPayment, selectedPerson]
+    [switchItemPayment, selectedPerson],
   );
 
   // Expose addGuest for the allocation config dialog
@@ -1102,26 +1214,27 @@ function POSTerminalInner() {
       setGuests((prev) => [...prev, trimmed]);
       toast.success(`${trimmed} added to the order`);
     },
-    [guests]
+    [guests],
   );
 
-  const handleAllocConfig = useCallback(
-    (item: ProjectedLineItem) => {
-      setAllocConfigItem((prev) => (prev === item ? null : item));
-    },
-    []
-  );
+  const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
+    setAllocConfigItem((prev) => (prev === item ? null : item));
+  }, []);
 
   const handleCreateBranch = useCallback(() => {
     if (!newBranchName.trim()) return;
     try {
-      createBranch(newBranchName.trim());
-      toast.success(`Branch "${newBranchName.trim()}" created`);
+      // Branch from the currently-viewed commit (viewingHash), or HEAD if not time-traveling (null → engine uses HEAD)
+      createBranch(newBranchName.trim(), viewingHash);
+      const fromLabel = viewingHash
+        ? ` at commit ${viewingHash.substring(0, 7)}`
+        : "";
+      toast.success(`Branch "${newBranchName.trim()}" created${fromLabel}`);
       setNewBranchName("");
     } catch (e) {
       toast.error((e as Error).message);
     }
-  }, [createBranch, newBranchName]);
+  }, [createBranch, newBranchName, viewingHash]);
 
   const handleResetOrder = useCallback(() => {
     resetOrder();
@@ -1143,7 +1256,9 @@ function POSTerminalInner() {
           <div className="flex items-center gap-3">
             <GitCommitHorizontal className="w-5 h-5 text-primary" />
             <div>
-              <h1 className="text-sm font-bold tracking-tight">Retail VCS Terminal</h1>
+              <h1 className="text-sm font-bold tracking-tight">
+                Retail VCS Terminal
+              </h1>
               <p className="text-[10px] text-muted-foreground">
                 Version-Controlled POS — Order as Repository
               </p>
@@ -1170,7 +1285,14 @@ function POSTerminalInner() {
                         : "border-border bg-card hover:bg-accent/40"
                   }`}
                 >
-                  <span className="flex items-center shrink-0" title={isHypothetical ? "Hypothetical (What-if) Branch" : "Parallel Input Branch"}>
+                  <span
+                    className="flex items-center shrink-0"
+                    title={
+                      isHypothetical
+                        ? "Hypothetical (What-if) Branch"
+                        : "Parallel Input Branch"
+                    }
+                  >
                     {isHypothetical ? (
                       <Lightbulb className="w-3 h-3 text-amber-500" />
                     ) : (
@@ -1208,29 +1330,46 @@ function POSTerminalInner() {
                       setMainActiveBranch(branch);
                       toast.success(`"${branch}" set as main active branch`);
                     }}
-                    title={isMainActive ? "Main active branch" : "Mark as main active branch"}
+                    title={
+                      isMainActive
+                        ? "Main active branch"
+                        : "Mark as main active branch"
+                    }
                   >
-                    <Star className={`w-3 h-3 ${isMainActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"}`} />
+                    <Star
+                      className={`w-3 h-3 ${isMainActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"}`}
+                    />
                   </Button>
                 </div>
               );
             })}
             <div className="flex items-center gap-1">
-              <Input
-                value={newBranchName}
-                onChange={(e) => setNewBranchName(e.target.value)}
-                placeholder="new-branch"
-                className="w-28 h-7 text-xs"
-                onKeyDown={(e) => e.key === "Enter" && handleCreateBranch()}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={handleCreateBranch}
-              >
-                <Plus className="w-3 h-3" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={newBranchName}
+                      onChange={(e) => setNewBranchName(e.target.value)}
+                      placeholder="new-branch"
+                      className={`w-28 h-7 text-xs transition-all ${viewingHash ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
+                      onKeyDown={(e) => e.key === "Enter" && handleCreateBranch()}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`h-7 w-7 p-0 transition-all ${viewingHash ? "border-amber-400/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30" : ""}`}
+                      onClick={handleCreateBranch}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
+                  {viewingHash
+                    ? `Branch from commit ${viewingHash.substring(0, 7)}`
+                    : "Branch from current HEAD"}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
 
@@ -1254,7 +1393,9 @@ function POSTerminalInner() {
                       onClick={() => setSelectedPerson(guest)}
                     >
                       <div className={`w-2 h-2 rounded-full ${color}`} />
-                      <span className="max-w-[60px] truncate">{guest.split(" ")[0]}</span>
+                      <span className="max-w-[60px] truncate">
+                        {guest.split(" ")[0]}
+                      </span>
                     </Button>
                     {!isPrimary && (
                       <button
@@ -1329,7 +1470,11 @@ function POSTerminalInner() {
                   Guest Payment (100%)
                 </div>
                 {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={`config-group-default-${m}`} value={`config-group-default-${m}`} className="text-xs capitalize">
+                  <SelectItem
+                    key={`config-group-default-${m}`}
+                    value={`config-group-default-${m}`}
+                    className="text-xs capitalize"
+                  >
                     {m}
                   </SelectItem>
                 ))}
@@ -1341,7 +1486,11 @@ function POSTerminalInner() {
                       Active / Custom Configs
                     </div>
                     {paymentConfigs.map((config) => (
-                      <SelectItem key={`config-${config.id}`} value={`config-${config.id}`} className="text-xs">
+                      <SelectItem
+                        key={`config-${config.id}`}
+                        value={`config-${config.id}`}
+                        className="text-xs"
+                      >
                         {config.name}
                       </SelectItem>
                     ))}
@@ -1349,10 +1498,13 @@ function POSTerminalInner() {
                 )}
 
                 <SeparatorUI className="my-1" />
-                <SelectItem value="action-create-split" className="text-xs text-primary font-semibold">
+                <SelectItem
+                  value="action-create-split"
+                  className="text-xs text-primary font-semibold"
+                >
                   <span className="flex items-center gap-1">
-                    <Split className="w-3 h-3 text-primary shrink-0" />
-                    + Create Table Split...
+                    <Split className="w-3 h-3 text-primary shrink-0" />+ Create
+                    Table Split...
                   </span>
                 </SelectItem>
               </SelectContent>
@@ -1360,7 +1512,9 @@ function POSTerminalInner() {
             <SeparatorUI orientation="vertical" className="h-6" />
             {showResetConfirm ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-destructive">End this order?</span>
+                <span className="text-[10px] text-destructive">
+                  End this order?
+                </span>
                 <Button
                   variant="destructive"
                   size="sm"
@@ -1422,8 +1576,12 @@ function POSTerminalInner() {
                       .filter(
                         (i) =>
                           !catalogFilter ||
-                          i.name.toLowerCase().includes(catalogFilter.toLowerCase()) ||
-                          i.sku.toLowerCase().includes(catalogFilter.toLowerCase())
+                          i.name
+                            .toLowerCase()
+                            .includes(catalogFilter.toLowerCase()) ||
+                          i.sku
+                            .toLowerCase()
+                            .includes(catalogFilter.toLowerCase()),
                       )
                       .map((item) => (
                         <Tooltip key={item.sku}>
@@ -1447,7 +1605,9 @@ function POSTerminalInner() {
                           </TooltipTrigger>
                           <TooltipContent side="right" className="text-xs">
                             <div>{item.name}</div>
-                            <div className="text-muted-foreground">{item.sku}</div>
+                            <div className="text-muted-foreground">
+                              {item.sku}
+                            </div>
                             {item.dietaryFlags.length > 0 && (
                               <div className="text-emerald-500">
                                 {item.dietaryFlags.join(", ")}
@@ -1473,23 +1633,30 @@ function POSTerminalInner() {
                   {activeBranch()}
                 </Badge>
                 {isViewingHistory && (
-                  <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 bg-amber-50">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] text-amber-600 border-amber-300 bg-amber-50"
+                  >
                     <Clock className="w-2.5 h-2.5 mr-1" />
                     Viewing history
                   </Badge>
                 )}
-                
+
                 {/* Guest Filter Popover Grid */}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5 ml-2 bg-background border hover:bg-accent">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] gap-1.5 ml-2 bg-background border hover:bg-accent"
+                    >
                       <User className="w-3.5 h-3.5 text-muted-foreground" />
                       <span>
                         {visibleGuests.size === guests.length
                           ? "All Guests"
                           : visibleGuests.size === 0
-                          ? "No Guests"
-                          : `${visibleGuests.size}/${guests.length} Guests`}
+                            ? "No Guests"
+                            : `${visibleGuests.size}/${guests.length} Guests`}
                       </span>
                     </Button>
                   </PopoverTrigger>
@@ -1520,7 +1687,8 @@ function POSTerminalInner() {
                       <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                         {guests.map((g, idx) => {
                           const isVisible = visibleGuests.has(g);
-                          const color = GUEST_PALETTE[idx % GUEST_PALETTE.length];
+                          const color =
+                            GUEST_PALETTE[idx % GUEST_PALETTE.length];
                           return (
                             <button
                               key={g}
@@ -1541,7 +1709,9 @@ function POSTerminalInner() {
                                   : "border-border bg-card opacity-60 hover:opacity-100"
                               }`}
                             >
-                              <div className={`w-2 h-2 rounded-full shrink-0 ${color}`} />
+                              <div
+                                className={`w-2 h-2 rounded-full shrink-0 ${color}`}
+                              />
                               <span className="truncate flex-1">{g}</span>
                             </button>
                           );
@@ -1555,7 +1725,9 @@ function POSTerminalInner() {
                 {projectedState.financials.personBreakdown.map((pb) => (
                   <div key={pb.person} className="text-right">
                     <div className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
-                      <div className={`w-1.5 h-1.5 rounded-full ${getGuestColor(pb.person, guests)}`} />
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full ${getGuestColor(pb.person, guests)}`}
+                      />
                       {pb.person}
                     </div>
                     <div className="font-mono font-bold text-sm tabular-nums">
@@ -1609,13 +1781,21 @@ function POSTerminalInner() {
 
             {/* Bulk Actions Bar */}
             {selectedLineIds.size > 0 && (
-              <div ref={bulkActionsBarRef} className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0">
+              <div
+                ref={bulkActionsBarRef}
+                className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0"
+              >
                 <div className="flex items-center gap-2">
                   <Checkbox
-                    checked={selectedLineIds.size > 0 && selectedLineIds.size === filteredRootItems.length}
+                    checked={
+                      selectedLineIds.size > 0 &&
+                      selectedLineIds.size === filteredRootItems.length
+                    }
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedLineIds(new Set(filteredRootItems.map((i) => i.lineId)));
+                        setSelectedLineIds(
+                          new Set(filteredRootItems.map((i) => i.lineId)),
+                        );
                       } else {
                         setSelectedLineIds(new Set());
                       }
@@ -1625,7 +1805,7 @@ function POSTerminalInner() {
                     {selectedLineIds.size} selected
                   </span>
                 </div>
-                
+
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Quantity bulk increase/decrease */}
                   <Button
@@ -1637,8 +1817,7 @@ function POSTerminalInner() {
                       toast.success("Selected items quantity decreased");
                     }}
                   >
-                    <Minus className="w-3.5 h-3.5 mr-1" />
-                    - Qty
+                    <Minus className="w-3.5 h-3.5 mr-1" />- Qty
                   </Button>
                   <Button
                     variant="outline"
@@ -1649,8 +1828,7 @@ function POSTerminalInner() {
                       toast.success("Selected items quantity increased");
                     }}
                   >
-                    <Plus className="w-3.5 h-3.5 mr-1" />
-                    + Qty
+                    <Plus className="w-3.5 h-3.5 mr-1" />+ Qty
                   </Button>
 
                   {/* Quantity bulk set */}
@@ -1669,11 +1847,17 @@ function POSTerminalInner() {
                       <SelectValue placeholder="Set Qty" />
                     </SelectTrigger>
                     <SelectContent>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((num) => (
-                        <SelectItem key={num} value={String(num)} className="text-[11px]">
-                          {num}
-                        </SelectItem>
-                      ))}
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map(
+                        (num) => (
+                          <SelectItem
+                            key={num}
+                            value={String(num)}
+                            className="text-[11px]"
+                          >
+                            {num}
+                          </SelectItem>
+                        ),
+                      )}
                     </SelectContent>
                   </Select>
 
@@ -1694,9 +1878,14 @@ function POSTerminalInner() {
                   <Select
                     key={`dup-move-select-${dupMoveSelectKey}`}
                     onValueChange={(val) => {
-                      duplicateAndReassignItems(Array.from(selectedLineIds), val);
+                      duplicateAndReassignItems(
+                        Array.from(selectedLineIds),
+                        val,
+                      );
                       setSelectedLineIds(new Set());
-                      toast.success(`Selected items duplicated and moved to ${val}`);
+                      toast.success(
+                        `Selected items duplicated and moved to ${val}`,
+                      );
                       setDupMoveSelectKey((k) => k + 1);
                     }}
                   >
@@ -1757,11 +1946,18 @@ function POSTerminalInner() {
                       <SelectValue placeholder="Allocate Payment" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={defaultPaymentAllocId || ""} className="text-[11px]">
+                      <SelectItem
+                        value={defaultPaymentAllocId || ""}
+                        className="text-[11px]"
+                      >
                         Default ({defaultPaymentMethod.toUpperCase()})
                       </SelectItem>
                       {paymentConfigs.map((cfg) => (
-                        <SelectItem key={cfg.id} value={cfg.id} className="text-[11px]">
+                        <SelectItem
+                          key={cfg.id}
+                          value={cfg.id}
+                          className="text-[11px]"
+                        >
                           {cfg.name}
                         </SelectItem>
                       ))}
@@ -1778,8 +1974,7 @@ function POSTerminalInner() {
                         setModifierAddOpen(true);
                       }}
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      + Modifier
+                      <Plus className="w-3.5 h-3.5" />+ Modifier
                     </Button>
                   )}
 
@@ -1797,7 +1992,11 @@ function POSTerminalInner() {
                       </SelectTrigger>
                       <SelectContent>
                         {activeModifiersOnSelected.map((mod) => (
-                          <SelectItem key={mod.sku} value={mod.sku} className="text-[11px]">
+                          <SelectItem
+                            key={mod.sku}
+                            value={mod.sku}
+                            className="text-[11px]"
+                          >
                             {mod.name}
                           </SelectItem>
                         ))}
@@ -1805,8 +2004,11 @@ function POSTerminalInner() {
                     </Select>
                   )}
 
-                  <SeparatorUI orientation="vertical" className="h-6 mx-1 shrink-0" />
-                  
+                  <SeparatorUI
+                    orientation="vertical"
+                    className="h-6 mx-1 shrink-0"
+                  />
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1833,34 +2035,15 @@ function POSTerminalInner() {
             </div>
 
             {isViewingHistory && (
-              <div className="px-3 py-2 border-b bg-amber-50 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-[10px] text-amber-700 flex items-center gap-1 shrink-0 font-medium">
-                    <AlertCircle className="w-3 h-3" />
-                    Time-traveling
-                  </span>
-                  <div className="flex items-center gap-1 max-w-[200px] w-full">
-                    <Input
-                      placeholder="branch-name"
-                      className="h-6 text-[10px] px-2 bg-background border-amber-200"
-                      value={newBranchFromHistoryName}
-                      onChange={(e) => setNewBranchFromHistoryName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleBranchFromHistory()}
-                    />
-                    <Button
-                      size="sm"
-                      className="h-6 text-[10px] px-2 bg-amber-600 hover:bg-amber-700 text-white border-0"
-                      onClick={handleBranchFromHistory}
-                      disabled={!newBranchFromHistoryName.trim()}
-                    >
-                      Branch
-                    </Button>
-                  </div>
-                </div>
+              <div className="px-3 py-2 border-b bg-amber-50 dark:bg-amber-950/20 flex items-center justify-between gap-2">
+                <span className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1 font-medium">
+                  <AlertCircle className="w-3 h-3" />
+                  Time-traveling
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-[10px] px-2 text-amber-700 hover:text-amber-900 shrink-0"
+                  className="h-5 text-[10px] px-2 text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 shrink-0"
                   onClick={() => viewRevision(null)}
                 >
                   <RotateCcw className="w-2.5 h-2.5 mr-0.5" />
@@ -1878,13 +2061,13 @@ function POSTerminalInner() {
               ) : (
                 <div className="relative flex min-h-full">
                   {/* Left panel: SVG Commit Graph */}
-                  <div 
-                    style={{ width: graphData.width }} 
+                  <div
+                    style={{ width: graphData.width }}
                     className="relative shrink-0 select-none overflow-hidden"
                   >
-                    <svg 
-                      width={graphData.width} 
-                      height={graphData.height} 
+                    <svg
+                      width={graphData.width}
+                      height={graphData.height}
                       className="absolute top-0 left-0"
                     >
                       {/* Render Connecting Lines */}
@@ -1964,7 +2147,13 @@ function POSTerminalInner() {
                                 {commit.commitHash.substring(0, 7)}
                               </span>
                               <Badge
-                                variant={isAI ? "default" : isSystem ? "secondary" : "secondary"}
+                                variant={
+                                  isAI
+                                    ? "default"
+                                    : isSystem
+                                      ? "secondary"
+                                      : "secondary"
+                                }
                                 className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${isAI ? "bg-amber-500 text-white hover:bg-amber-500" : isSystem ? "bg-muted text-muted-foreground" : ""}`}
                               >
                                 {commit.authorId.split("-")[0]}
@@ -1994,28 +2183,36 @@ function POSTerminalInner() {
                                         e.stopPropagation();
                                         if (activeBranch() !== commit.branch) {
                                           checkoutBranch(commit.branch);
-                                          toast.success(`Switched active branch to "${commit.branch}"`);
+                                          toast.success(
+                                            `Switched active branch to "${commit.branch}"`,
+                                          );
                                         }
                                       }}
                                       className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${
                                         activeBranch() === commit.branch
                                           ? "border-primary text-primary bg-primary/5 ring-[0.5px] ring-primary/20"
-                                          : branches[commit.branch]?.type === "hypothetical"
+                                          : branches[commit.branch]?.type ===
+                                              "hypothetical"
                                             ? "border-amber-400/40 text-amber-600 bg-amber-500/[0.04] hover:bg-amber-500/10 hover:border-amber-500"
                                             : "border-emerald-400/40 text-emerald-600 bg-emerald-500/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500"
                                       }`}
                                     >
-                                      {branches[commit.branch]?.type === "hypothetical" ? (
+                                      {branches[commit.branch]?.type ===
+                                      "hypothetical" ? (
                                         <Lightbulb className="w-2.5 h-2.5" />
                                       ) : (
                                         <GitBranch className="w-2.5 h-2.5" />
                                       )}
                                       <span className="truncate max-w-[60px]">
-                                        {branches[commit.branch]?.label || commit.branch}
+                                        {branches[commit.branch]?.label ||
+                                          commit.branch}
                                       </span>
                                     </Badge>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-[10px]">
+                                  <TooltipContent
+                                    side="top"
+                                    className="text-[10px]"
+                                  >
                                     {activeBranch() === commit.branch
                                       ? `Current active branch: ${commit.branch}`
                                       : `Click to switch active branch to "${commit.branch}"`}
@@ -2024,7 +2221,14 @@ function POSTerminalInner() {
                               </TooltipProvider>
 
                               <span>
-                                {new Date(commit.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                {new Date(commit.timestamp).toLocaleTimeString(
+                                  [],
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit",
+                                  },
+                                )}
                               </span>
                             </div>
                           </div>
@@ -2043,24 +2247,29 @@ function POSTerminalInner() {
                                         ? "bg-violet-500"
                                         : d.action === "add_item"
                                           ? "bg-emerald-500"
-                                        : d.action === "remove_item"
-                                          ? "bg-red-500"
-                                        : d.action.startsWith("modify")
-                                          ? "bg-amber-500"
-                                          : "bg-sky-500"
+                                          : d.action === "remove_item"
+                                            ? "bg-red-500"
+                                            : d.action.startsWith("modify")
+                                              ? "bg-amber-500"
+                                              : "bg-sky-500"
                                     }`}
                                   />
-                                  <span className="font-mono font-medium truncate shrink-0">{d.action}</span>
+                                  <span className="font-mono font-medium truncate shrink-0">
+                                    {d.action}
+                                  </span>
                                   {"sku" in d && d.sku && (
                                     <span className="truncate text-muted-foreground/60 font-mono">
                                       {String(d.sku)}
                                     </span>
                                   )}
-                                  {d.action === "modify_item_allocations" && "lineId" in d && (
-                                    <span className="truncate text-muted-foreground/60 font-mono">
-                                      {(d as { lineId: string }).lineId.substring(0, 8)}
-                                    </span>
-                                  )}
+                                  {d.action === "modify_item_allocations" &&
+                                    "lineId" in d && (
+                                      <span className="truncate text-muted-foreground/60 font-mono">
+                                        {(
+                                          d as { lineId: string }
+                                        ).lineId.substring(0, 8)}
+                                      </span>
+                                    )}
                                 </div>
                               ))}
                             </div>
@@ -2138,8 +2347,14 @@ function POSTerminalInner() {
       <ModifierAddDialog
         open={modifierAddOpen}
         onOpenChange={setModifierAddOpen}
-        itemName={modifierAddItem ? modifierAddItem.name : `${selectedLineIds.size} selected items`}
-        modifiers={modifierAddItem ? singleItemCompatibleModifiers : compatibleModifiers}
+        itemName={
+          modifierAddItem
+            ? modifierAddItem.name
+            : `${selectedLineIds.size} selected items`
+        }
+        modifiers={
+          modifierAddItem ? singleItemCompatibleModifiers : compatibleModifiers
+        }
         onAdd={(sku, defaultState) => {
           if (modifierAddItem) {
             addModifier(modifierAddItem.lineId, sku, defaultState);
@@ -2153,8 +2368,14 @@ function POSTerminalInner() {
         open={isBranchConfigOpen}
         onOpenChange={setIsBranchConfigOpen}
         branchName={branchToConfig || ""}
-        currentType={branchToConfig ? (branches[branchToConfig]?.type || "parallel") : "parallel"}
-        currentLabel={branchToConfig ? (branches[branchToConfig]?.label || "") : ""}
+        currentType={
+          branchToConfig
+            ? branches[branchToConfig]?.type || "parallel"
+            : "parallel"
+        }
+        currentLabel={
+          branchToConfig ? branches[branchToConfig]?.label || "" : ""
+        }
         existingBranches={Object.keys(branches)}
         onSave={handleSaveBranchConfig}
       />
@@ -2175,7 +2396,8 @@ export default function POSTerminal() {
   } = useVCSStore();
 
   const [storeLabel, setStoreLabel] = React.useState("Main Location");
-  const [defaultPaymentFromConfig, setDefaultPaymentFromConfig] = React.useState("cash");
+  const [defaultPaymentFromConfig, setDefaultPaymentFromConfig] =
+    React.useState("cash");
 
   // ─── Initialize (runs always, no conditional hooks) ─────────────────────
 
@@ -2213,15 +2435,22 @@ export default function POSTerminal() {
   const handleOrderStart = useCallback(
     (context: Parameters<typeof initRepo>[0]) => {
       initRepo(context, defaultPaymentFromConfig);
-      toast.success(`${context.orderTypeLabel} order started for ${context.customerFields.name || "customer"}`);
+      toast.success(
+        `${context.orderTypeLabel} order started for ${context.customerFields.name || "customer"}`,
+      );
     },
-    [initRepo, defaultPaymentFromConfig]
+    [initRepo, defaultPaymentFromConfig],
   );
 
   // ─── Gate: Init Screen vs POS Terminal ─────────────────────────────────
 
   if (!isInitialized) {
-    return <OrderInitScreen onOrderStart={handleOrderStart} storeLabel={storeLabel} />;
+    return (
+      <OrderInitScreen
+        onOrderStart={handleOrderStart}
+        storeLabel={storeLabel}
+      />
+    );
   }
 
   return <POSTerminalInner />;
