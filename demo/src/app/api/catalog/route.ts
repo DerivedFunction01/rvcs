@@ -15,6 +15,7 @@ export async function GET() {
           },
         },
         allowedStates: true,
+        allowedModifiers: true,
       },
       orderBy: { category: "asc" },
     });
@@ -57,6 +58,7 @@ export async function GET() {
         label: as.label,
         priceOverride: as.priceOverride,
       })),
+      allowedModifiers: item.allowedModifiers.map((am) => am.modifierSku),
     }));
 
     return NextResponse.json({ catalog });

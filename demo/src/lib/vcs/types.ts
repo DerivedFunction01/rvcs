@@ -261,6 +261,7 @@ export interface CatalogItemEntry {
   appliedSizeGroupId?: string | null;
   appliedSizeGroup?: SizeGroup | null;
   allowedStates?: ModifierStateOption[];
+  allowedModifiers?: string[];
 }
 
 // ─── Order Context (Set at Init, Stored in Repo) ─────────────────────────────

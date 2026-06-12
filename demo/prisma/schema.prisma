@@ -45,6 +45,8 @@ model CatalogItem {
 
   // Relations
   allowedStates  ModifierStateOption[] @relation("ModifierStates")
+  allowedModifiers ItemModifier[] @relation("ItemModifiers")
+  modifierOf       ItemModifier[] @relation("ModifierItems")
 }
 
 model SizeGroup {
@@ -62,6 +64,16 @@ model ModifierStateOption {
   state           String      // "NO" | "LESS" | "ADD" | "EXTRA" | "ONLY" | "WITH" | "SIDE"
   label           String      // e.g., "No Onions", "Extra Cheese"
   priceOverride   Float?
+}
+
+model ItemModifier {
+  itemSku     String
+  modifierSku String
+
+  item        CatalogItem @relation("ItemModifiers", fields: [itemSku], references: [sku], onDelete: Cascade)
+  modifier    CatalogItem @relation("ModifierItems", fields: [modifierSku], references: [sku], onDelete: Cascade)
+
+  @@id([itemSku, modifierSku])
 }
 
 
