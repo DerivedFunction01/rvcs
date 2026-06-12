@@ -244,7 +244,7 @@ function LineItemNode({
               <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 truncate">
                 {item.sku}
               </div>
-              {isRoot && (
+              {(isRoot || item.allocations.length > 0) && (
                 <AllocationBadges
                   allocationIds={item.allocations}
                   allocations={allocations}
@@ -336,26 +336,24 @@ function LineItemNode({
                     </SelectContent>
                   </Select>
                 )}
-                {isRoot && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAllocConfig(item);
-                        }}
-                      >
-                        <Settings2 className="w-3 h-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="text-xs">
-                      Allocation config
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAllocConfig(item);
+                      }}
+                    >
+                      <Settings2 className="w-3 h-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="text-xs">
+                    Allocation config
+                  </TooltipContent>
+                </Tooltip>
                 <Button
                   variant="ghost"
                   size="sm"
