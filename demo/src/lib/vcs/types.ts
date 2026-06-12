@@ -323,3 +323,49 @@ export interface VCSRepo {
   activeBranch: string;
   mainActiveBranch?: string;
 }
+
+// ─── Merge Semantics ──────────────────────────────────────────────────────────
+
+export type MergeConflictType =
+  | "add_add"
+  | "remove_modify_sku"
+  | "remove_modify_alloc"
+  | "modify_sku_sku"
+  | "alloc_alloc"
+  | "modify_alloc_alloc";
+
+/**
+ * A detected conflict between two branches touching the same entity.
+ * `resolution` is the branch name whose delta wins (null = unresolved).
+ */
+export interface MergeConflict {
+  id: string;
+  type: MergeConflictType;
+  lineId?: string;
+  allocationId?: string;
+  /** Name of the first branch involved */
+  branchA: string;
+  /** Name of the second branch involved */
+  branchB: string;
+  deltaA: Delta;
+  deltaB: Delta;
+  /** Winning branch name chosen by the user, or null if unresolved */
+  resolution: string | null;
+}
+
+/**
+ * Result of previewMerge — contains all information needed to render the
+ * merge dialog Step 2 and to produce the final merge commit.
+ */
+export interface MergePreview {
+  lcaHash: string | null;
+  targetHead: string | null;
+  /** Map of sourceBranchName → headHash */
+  sourceHeads: Record<string, string | null>;
+  /** Per-branch delta pools (exclusive of LCA commit) */
+  deltasByBranch: Record<string, Delta[]>;
+  conflicts: MergeConflict[];
+  /** S_LCA ⊕ ΔT ⊕ ΔS1 ⊕ … (target wins conflicts by default) */
+  autoMergedState: ProjectedState;
+  isFastForward: boolean;
+}

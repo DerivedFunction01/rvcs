@@ -16,6 +16,7 @@ import type {
   OrderContext,
   AllocationBlock,
   ProjectedLineItem,
+  MergePreview,
 } from "@/lib/vcs/types";
 import { generateAllocationId, generateLineId, generateCommitHash } from "@/lib/vcs/id";
 import { projectState } from "@/lib/vcs/reducer";
@@ -273,6 +274,10 @@ interface VCSStore {
   mainActiveBranch: () => string;
   updateBranchConfig: (name: string, config: { type?: "parallel" | "hypothetical"; label?: string }) => void;
   renameBranch: (oldName: string, newName: string) => void;
+
+  // Actions — Merge
+  previewMerge: (sourceBranches: string[], targetBranch: string) => MergePreview;
+  commitMerge: (sourceBranches: string[], targetBranch: string, resolutionDeltas: Delta[]) => void;
 
   // Actions — Persistence
   persist: () => void;
@@ -1436,6 +1441,25 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       set({
         projectedState: store.engine.projectCurrent(),
       });
+      store.persist();
+    },
+
+    // ─── Merge ─────────────────────────────────────────────────────────────
+
+    previewMerge: (sourceBranches, targetBranch) => {
+      return get().engine.previewMerge(sourceBranches, targetBranch);
+    },
+
+    commitMerge: (sourceBranches, targetBranch, resolutionDeltas) => {
+      const store = get();
+      store.engine.commitMerge(sourceBranches, targetBranch, resolutionDeltas);
+      // If target is the active branch, refresh projected state
+      if (store.engine.getActiveBranch() === targetBranch) {
+        set({
+          viewingHash: null,
+          projectedState: store.engine.projectCurrent(),
+        });
+      }
       store.persist();
     },
 

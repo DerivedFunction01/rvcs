@@ -13,6 +13,7 @@ import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialo
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
 import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
 import { BranchConfigDialog } from "@/components/vcs/branch-config-dialog";
+import { MergeBranchDialog } from "@/components/vcs/merge-dialog";
 import {
   Popover,
   PopoverContent,
@@ -49,6 +50,7 @@ import {
   ChevronDown,
   ChevronRight,
   GitBranch,
+  GitMerge,
   Lightbulb,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -646,6 +648,8 @@ function POSTerminalInner() {
     groupItemsPaymentConfig,
     addGroupModifier,
     removeGroupModifier,
+    previewMerge,
+    commitMerge,
   } = useVCSStore();
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
@@ -715,6 +719,9 @@ function POSTerminalInner() {
   const [branchToConfig, setBranchToConfig] = React.useState<string | null>(
     null,
   );
+
+  // Merge dialog state
+  const [isMergeOpen, setIsMergeOpen] = React.useState(false);
 
   const handleSaveBranchConfig = useCallback(
     (newName: string, type: "parallel" | "hypothetical", label: string) => {
@@ -1371,6 +1378,24 @@ function POSTerminalInner() {
                 </TooltipContent>
               </Tooltip>
             </div>
+            {/* Merge button — shown when 2+ branches exist */}
+            {Object.keys(branches).length >= 2 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-7 p-0 border-violet-400/50 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 dark:text-violet-400"
+                    onClick={() => setIsMergeOpen(true)}
+                  >
+                    <GitMerge className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Merge branches
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
 
           {/* Guest Selector + Payment + New Order */}
@@ -2378,6 +2403,17 @@ function POSTerminalInner() {
         }
         existingBranches={Object.keys(branches)}
         onSave={handleSaveBranchConfig}
+      />
+
+      <MergeBranchDialog
+        open={isMergeOpen}
+        onOpenChange={setIsMergeOpen}
+        branches={branches}
+        activeBranch={activeBranch()}
+        onPreview={previewMerge}
+        onCommit={(sourceBranches, targetBranch, resolutionDeltas) => {
+          commitMerge(sourceBranches, targetBranch, resolutionDeltas);
+        }}
       />
     </TooltipProvider>
   );

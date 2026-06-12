@@ -14,9 +14,110 @@ import type {
   AllocationBlock,
   AssignmentAllocation,
   PaymentAllocation,
+  MergeConflict,
+  MergePreview,
 } from "./types";
 import { projectState } from "./reducer";
 import { generateCommitHash, generateLineId, generateAllocationId } from "./id";
+
+// ─── Merge Helpers (module-level) ─────────────────────────────────────────────
+
+/**
+ * Detect a conflict between two deltas from different branches touching the same entity.
+ * Returns a MergeConflict or null if no conflict.
+ */
+function detectConflict(
+  branchA: string,
+  deltaA: Delta,
+  branchB: string,
+  deltaB: Delta,
+  counter: number
+): MergeConflict | null {
+  const id = `conflict-${counter}`;
+
+  // add_item + add_item on same lineId
+  if (deltaA.action === "add_item" && deltaB.action === "add_item" && deltaA.lineId === deltaB.lineId) {
+    // If every parameter is identical the two branches independently agreed — not a conflict.
+    const identical =
+      deltaA.sku === deltaB.sku &&
+      deltaA.qty === deltaB.qty &&
+      deltaA.parentLineId === deltaB.parentLineId &&
+      deltaA.selectedModifierState === deltaB.selectedModifierState &&
+      JSON.stringify([...deltaA.allocations].sort()) === JSON.stringify([...deltaB.allocations].sort());
+    if (identical) return null; // clean auto-dedup
+    return { id, type: "add_add", lineId: deltaA.lineId, branchA, branchB, deltaA, deltaB, resolution: null };
+  }
+
+  // remove_item vs modify_sku on same lineId
+  if (
+    (deltaA.action === "remove_item" && deltaB.action === "modify_sku" && deltaA.lineId === deltaB.lineId) ||
+    (deltaA.action === "modify_sku" && deltaB.action === "remove_item" && deltaA.lineId === deltaB.lineId)
+  ) {
+    const lineId = (deltaA as { lineId: string }).lineId;
+    return { id, type: "remove_modify_sku", lineId, branchA, branchB, deltaA, deltaB, resolution: null };
+  }
+
+  // remove_item vs modify_item_allocations on same lineId
+  if (
+    (deltaA.action === "remove_item" && deltaB.action === "modify_item_allocations" && deltaA.lineId === deltaB.lineId) ||
+    (deltaA.action === "modify_item_allocations" && deltaB.action === "remove_item" && deltaA.lineId === deltaB.lineId)
+  ) {
+    const lineId = (deltaA as { lineId: string }).lineId;
+    return { id, type: "remove_modify_alloc", lineId, branchA, branchB, deltaA, deltaB, resolution: null };
+  }
+
+  // modify_sku + modify_sku on same lineId → only conflict if different SKUs
+  if (
+    deltaA.action === "modify_sku" && deltaB.action === "modify_sku" &&
+    deltaA.lineId === deltaB.lineId && deltaA.afterSku !== deltaB.afterSku
+  ) {
+    return { id, type: "modify_sku_sku", lineId: deltaA.lineId, branchA, branchB, deltaA, deltaB, resolution: null };
+  }
+
+  // modify_item_allocations + modify_item_allocations on same lineId
+  if (
+    deltaA.action === "modify_item_allocations" && deltaB.action === "modify_item_allocations" &&
+    deltaA.lineId === deltaB.lineId
+  ) {
+    return { id, type: "modify_alloc_alloc", lineId: deltaA.lineId, branchA, branchB, deltaA, deltaB, resolution: null };
+  }
+
+  // declare_allocation + declare_allocation on same allocationId
+  if (
+    deltaA.action === "declare_allocation" && deltaB.action === "declare_allocation" &&
+    deltaA.allocation.allocationId === deltaB.allocation.allocationId
+  ) {
+    return { id, type: "alloc_alloc", allocationId: deltaA.allocation.allocationId, branchA, branchB, deltaA, deltaB, resolution: null };
+  }
+
+  return null;
+}
+
+/**
+ * Project merged state: start from S_LCA then apply allDeltas sequentially.
+ * This reuses the existing projectState() by synthesizing a temporary commit.
+ */
+function projectMergedDeltas(
+  log: VCSCommit[],
+  lcaHash: string | null,
+  allDeltas: Delta[],
+  catalog: Record<string, import('./types').CatalogItemEntry>
+): import('./types').ProjectedState {
+  if (allDeltas.length === 0) {
+    return projectState(log, lcaHash, catalog);
+  }
+  // Create a virtual commit on top of lcaHash
+  const virtualCommit: VCSCommit = {
+    commitHash: "__merge_preview__",
+    parentHash: lcaHash,
+    mergeParentHashes: [],
+    branch: "__preview__",
+    timestamp: new Date().toISOString(),
+    authorId: "preview",
+    deltas: allDeltas,
+  };
+  return projectState([...log, virtualCommit], "__merge_preview__", catalog);
+}
 
 // ─── Engine Class ──────────────────────────────────────────────────────────────
 
@@ -337,7 +438,188 @@ export class VCSEngine {
     );
   }
 
+  // ─── Merge ───────────────────────────────────────────────────────────────
+
+  /**
+   * Build the full ancestor set for a given hash (inclusive of that hash itself).
+   * Returns a Map of hash → log index for later recency comparison.
+   */
+  private allAncestors(hash: string | null): Map<string, number> {
+    const result = new Map<string, number>();
+    if (!hash) return result;
+    const indexMap = new Map(this.repo.log.map((c, i) => [c.commitHash, i]));
+    let current: string | null = hash;
+    const visited = new Set<string>();
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      const idx = indexMap.get(current);
+      if (idx !== undefined) result.set(current, idx);
+      const commit = this.repo.log[idx ?? -1];
+      current = commit?.parentHash ?? null;
+    }
+    return result;
+  }
+
+  /**
+   * N-way Lowest Common Ancestor.
+   * Returns the most-recent commit hash that is a common ancestor of all provided hashes.
+   */
+  findLCA(hashes: (string | null)[]): string | null {
+    const nonNull = hashes.filter((h): h is string => h !== null);
+    if (nonNull.length === 0) return null;
+
+    // Build ancestor set for first hash
+    let common = this.allAncestors(nonNull[0]);
+
+    // Intersect with each subsequent hash's ancestor set
+    for (let i = 1; i < nonNull.length; i++) {
+      const other = this.allAncestors(nonNull[i]);
+      for (const h of common.keys()) {
+        if (!other.has(h)) common.delete(h);
+      }
+    }
+
+    if (common.size === 0) return null;
+
+    // Return the most-recent (highest log index) common ancestor
+    let bestHash: string | null = null;
+    let bestIdx = -1;
+    for (const [h, idx] of common.entries()) {
+      if (idx > bestIdx) { bestIdx = idx; bestHash = h; }
+    }
+    return bestHash;
+  }
+
+  /**
+   * Collect all deltas in commits strictly between lcaHash and tipHash
+   * (exclusive of the LCA commit itself, inclusive of tipHash commit).
+   * Returns [branchName, delta] pairs for conflict attribution.
+   */
+  private deltasAfterLCA(
+    tipHash: string | null,
+    lcaHash: string | null
+  ): Delta[] {
+    if (!tipHash || tipHash === lcaHash) return [];
+    const result: Delta[] = [];
+    let current: string | null = tipHash;
+    const visited = new Set<string>();
+    while (current && current !== lcaHash && !visited.has(current)) {
+      visited.add(current);
+      const commit = this.repo.log.find(c => c.commitHash === current);
+      if (!commit) break;
+      // Prepend so we get chronological order
+      result.unshift(...commit.deltas);
+      current = commit.parentHash;
+    }
+    return result;
+  }
+
+  /**
+   * Preview an octopus merge of sourceBranches into targetBranch.
+   * Detects conflicts across all pairwise branch combinations.
+   */
+  previewMerge(sourceBranches: string[], targetBranch: string): MergePreview {
+    const targetHead = this.repo.branches[targetBranch]?.headHash ?? null;
+    const sourceHeads: Record<string, string | null> = {};
+    for (const sb of sourceBranches) {
+      sourceHeads[sb] = this.repo.branches[sb]?.headHash ?? null;
+    }
+
+    // Find N-way LCA across all branch tips
+    const allTips = [targetHead, ...Object.values(sourceHeads)];
+    const lcaHash = this.findLCA(allTips);
+
+    // Collect per-branch delta pools
+    const deltasByBranch: Record<string, Delta[]> = {};
+    deltasByBranch[targetBranch] = this.deltasAfterLCA(targetHead, lcaHash);
+    for (const sb of sourceBranches) {
+      deltasByBranch[sb] = this.deltasAfterLCA(sourceHeads[sb], lcaHash);
+    }
+
+    // Detect conflicts across all pairwise combinations
+    const conflicts: MergeConflict[] = [];
+    const allBranchNames = [targetBranch, ...sourceBranches];
+    let conflictCounter = 0;
+
+    for (let i = 0; i < allBranchNames.length; i++) {
+      for (let j = i + 1; j < allBranchNames.length; j++) {
+        const branchA = allBranchNames[i];
+        const branchB = allBranchNames[j];
+        const deltasA = deltasByBranch[branchA];
+        const deltasB = deltasByBranch[branchB];
+
+        for (const deltaA of deltasA) {
+          for (const deltaB of deltasB) {
+            const conflict = detectConflict(
+              branchA, deltaA, branchB, deltaB, ++conflictCounter
+            );
+            if (conflict) conflicts.push(conflict);
+          }
+        }
+      }
+    }
+
+    // Build auto-merged state: S_LCA ⊕ ΔT ⊕ ΔS1 ⊕ …  (target wins conflicts)
+    const allDeltasInOrder = [
+      ...deltasByBranch[targetBranch],
+      ...sourceBranches.flatMap(sb => deltasByBranch[sb]),
+    ];
+    const autoMergedState = projectMergedDeltas(
+      this.repo.log,
+      lcaHash,
+      allDeltasInOrder,
+      this.catalog
+    );
+
+    // Fast-forward: LCA is the target head (target is strictly behind all sources)
+    const isFastForward = lcaHash !== null && lcaHash === targetHead;
+
+    return {
+      lcaHash,
+      targetHead,
+      sourceHeads,
+      deltasByBranch,
+      conflicts,
+      autoMergedState,
+      isFastForward,
+    };
+  }
+
+  /**
+   * Commit the octopus merge onto targetBranch.
+   * resolutionDeltas are the override events chosen during conflict resolution.
+   */
+  commitMerge(
+    sourceBranches: string[],
+    targetBranch: string,
+    resolutionDeltas: Delta[]
+  ): VCSCommit {
+    const parentHash = this.repo.branches[targetBranch]?.headHash ?? null;
+    const mergeParentHashes = sourceBranches
+      .map(sb => this.repo.branches[sb]?.headHash)
+      .filter((h): h is string => h !== null);
+
+    const mergeCommit: VCSCommit = {
+      commitHash: generateCommitHash(),
+      parentHash,
+      mergeParentHashes,
+      branch: targetBranch,
+      timestamp: new Date().toISOString(),
+      authorId: "pos-ui",
+      deltas: resolutionDeltas,
+    };
+
+    this.repo.log.push(mergeCommit);
+    this.repo.branches[targetBranch] = {
+      ...this.repo.branches[targetBranch],
+      headHash: mergeCommit.commitHash,
+    };
+
+    return mergeCommit;
+  }
+
   // ─── Serialization ────────────────────────────────────────────────────────
+
 
   toJSON(): string {
     return JSON.stringify(this.repo);
