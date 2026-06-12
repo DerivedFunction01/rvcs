@@ -346,7 +346,7 @@ function LineItemNode({
                     >
                       <Plus className="w-3 h-3" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent onClick={(e) => e.stopPropagation()}>
                       {modifiers.map((mod) => (
                         <SelectItem key={mod.sku} value={mod.sku} className="text-xs">
                           {mod.name} {mod.basePrice > 0 ? `(+$${mod.basePrice.toFixed(2)})` : ""}
