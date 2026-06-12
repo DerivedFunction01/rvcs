@@ -15,6 +15,7 @@ import type {
   PaymentAllocation,
   OrderContext,
   AllocationBlock,
+  ProjectedLineItem,
 } from "@/lib/vcs/types";
 import { generateAllocationId, generateLineId, generateCommitHash } from "@/lib/vcs/id";
 import { projectState } from "@/lib/vcs/reducer";
@@ -248,6 +249,7 @@ interface VCSStore {
   addModifier: (parentLineId: string, modifierSku: string, selectedModifierState?: string) => void;
   removeItem: (lineId: string) => void;
   modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
+  duplicateItem: (lineId: string) => void;
   modifyItemSku: (lineId: string, beforeSku: string, afterSku: string) => void;
   modifyModifierState: (lineId: string, beforeState?: string, afterState?: string) => void;
   mimicOrder: (sourceAssignee: string, targetAssignee: string, targetPayer: string, paymentMethod: string) => void;
@@ -961,6 +963,35 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         ],
         "pos-ui"
       );
+    },
+
+    duplicateItem: (lineId) => {
+      const store = get();
+      const state = store.projectedState;
+      const item = state.items[lineId];
+      if (!item) return;
+
+      const deltas: Delta[] = [];
+
+      const cloneItem = (projItem: ProjectedLineItem, newParentId: string | null) => {
+        const newLineId = generateLineId();
+        deltas.push({
+          action: "add_item",
+          lineId: newLineId,
+          parentLineId: newParentId,
+          sku: projItem.sku,
+          qty: projItem.qty,
+          allocations: newParentId ? [] : [...projItem.allocations],
+          selectedModifierState: projItem.selectedModifierState,
+        });
+
+        for (const child of projItem.children) {
+          cloneItem(child, newLineId);
+        }
+      };
+
+      cloneItem(item, null);
+      store.commitDeltas(deltas, "pos-ui");
     },
 
     modifyItemSku: (lineId, beforeSku, afterSku) => {

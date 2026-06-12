@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   Plus,
   Minus,
+  Copy,
   Trash2,
   GitCommitHorizontal,
   Clock,
@@ -219,11 +220,6 @@ function LineItemNode({
                     )}`}
                   />
                 )}
-                <span
-                  className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"}`}
-                >
-                  {item.name}
-                </span>
                 {isRoot ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
                     <Button
@@ -261,6 +257,11 @@ function LineItemNode({
                     x{item.qty}
                   </span>
                 )}
+                <span
+                  className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"}`}
+                >
+                  {item.name}
+                </span>
                 {item.basePrice === 0 && (
                   <Badge variant="secondary" className="text-[9px] h-3.5 px-1">
                     mod
@@ -392,6 +393,27 @@ function LineItemNode({
                       ))}
                     </SelectContent>
                   </Select>
+                )}
+                {isRoot && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          useVCSStore.getState().duplicateItem(item.lineId);
+                          toast.success("Item duplicated");
+                        }}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="text-xs">
+                      Duplicate item
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 <Tooltip>
                   <TooltipTrigger asChild>
