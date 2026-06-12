@@ -256,6 +256,7 @@ interface VCSStore {
 
   // Actions — Bulk Operations
   duplicateItems: (lineIds: string[]) => void;
+  duplicateAndReassignItems: (lineIds: string[], targetGuest: string) => void;
   removeItems: (lineIds: string[]) => void;
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
@@ -1018,6 +1019,63 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           sku: projItem.sku,
           qty: projItem.qty,
           allocations: newParentId ? [] : [...projItem.allocations],
+          selectedModifierState: projItem.selectedModifierState,
+        });
+
+        for (const child of projItem.children) {
+          cloneItem(child, newLineId);
+        }
+      };
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          cloneItem(item, null);
+        }
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
+    },
+
+    duplicateAndReassignItems: (lineIds, targetGuest) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      const newAssignAllocId = generateAllocationId("assign");
+      const newAssignAlloc: AssignmentAllocation = {
+        allocationId: newAssignAllocId,
+        type: "assignment",
+        entity: targetGuest,
+      };
+
+      deltas.push({ action: "declare_allocation", allocation: newAssignAlloc });
+
+      const cloneItem = (projItem: ProjectedLineItem, newParentId: string | null) => {
+        const newLineId = generateLineId();
+        
+        let targetAllocations: string[] = [];
+        if (!newParentId) {
+          // For root clones, replace the assignment allocation with the new guest allocation
+          const currentAssignAllocId = projItem.allocations.find(
+            (id) => state.allocations[id]?.type === "assignment"
+          );
+          if (currentAssignAllocId) {
+            targetAllocations = projItem.allocations.map((id) =>
+              id === currentAssignAllocId ? newAssignAllocId : id
+            );
+          } else {
+            targetAllocations = [...projItem.allocations, newAssignAllocId];
+          }
+        }
+
+        deltas.push({
+          action: "add_item",
+          lineId: newLineId,
+          parentLineId: newParentId,
+          sku: projItem.sku,
+          qty: projItem.qty,
+          allocations: targetAllocations,
           selectedModifierState: projItem.selectedModifierState,
         });
 

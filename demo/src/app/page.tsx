@@ -6,6 +6,7 @@ import { OrderInitScreen } from "@/components/vcs/order-init-screen";
 import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
+import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
 import type {
   ProjectedLineItem,
   AllocationBlock,
@@ -169,7 +170,7 @@ function LineItemNode({
   allocations: Record<string, AllocationBlock>;
   defaultPaymentAllocId: string | null;
   onRemove: (lineId: string) => void;
-  onAddModifier: (parentLineId: string, modSku: string, selectedModifierState?: string) => void;
+  onAddModifier: (item: ProjectedLineItem) => void;
   onAllocConfig: (item: ProjectedLineItem) => void;
   depth: number;
   modifiers: CatalogItemEntry[];
@@ -207,12 +208,14 @@ function LineItemNode({
         className={`group relative ${depth > 0 ? "ml-4 border-l-2 border-muted pl-3" : ""}`}
       >
         <div
-          className={`rounded-lg border p-3 transition-colors ${
+          className={`rounded-lg border p-3 transition-all ${
             isRoot
-              ? "border-border bg-card cursor-pointer"
+              ? isSelected
+                ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
+                : "border-border bg-card cursor-pointer hover:bg-accent/50"
               : "border-transparent bg-muted/40"
-          } hover:bg-accent/50`}
-          onClick={isRoot ? (e) => { e.stopPropagation(); onAllocConfig(item); } : undefined}
+          }`}
+          onClick={isRoot ? (e) => { e.stopPropagation(); onSelectToggle?.(item.lineId); } : undefined}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -382,31 +385,26 @@ function LineItemNode({
                 </span>
               )}
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {isRoot && filteredModifiers.length > 0 && (
-                  <Select
-                    onValueChange={(val) => {
-                      const mod = filteredModifiers.find((m) => m.sku === val);
-                      const defaultState = mod?.allowedStates?.find((s) => s.state === "ADD" || s.state === "WITH")?.state 
-                        || mod?.allowedStates?.[0]?.state 
-                        || undefined;
-                      onAddModifier(item.lineId, val, defaultState);
-                    }}
-                  >
-                    <SelectTrigger 
-                      className="w-[32px] h-6 p-0 border-0 bg-transparent hover:bg-accent"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </SelectTrigger>
-                    <SelectContent onClick={(e) => e.stopPropagation()}>
-                      {filteredModifiers.map((mod) => (
-                        <SelectItem key={mod.sku} value={mod.sku} className="text-xs">
-                          {mod.name} {mod.basePrice > 0 ? `(+$${mod.basePrice.toFixed(2)})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                 {isRoot && filteredModifiers.length > 0 && (
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onAddModifier(item);
+                         }}
+                       >
+                         <Plus className="w-3.5 h-3.5" />
+                       </Button>
+                     </TooltipTrigger>
+                     <TooltipContent side="left" className="text-xs">
+                       Add modifiers
+                     </TooltipContent>
+                   </Tooltip>
+                 )}
                 {isRoot && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -566,6 +564,7 @@ function POSTerminalInner() {
     selectPaymentConfig,
     createTableSplitConfig,
     duplicateItems,
+    duplicateAndReassignItems,
     removeItems,
     modifyItemsQty,
     setItemsQty,
@@ -593,13 +592,26 @@ function POSTerminalInner() {
       return next;
     });
   }, []);
+
+  // Refs for tracking click outside selection
+  const checklistRef = React.useRef<HTMLDivElement | null>(null);
+  const bulkActionsBarRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Dropdown key states to reset Select menus after an option is selected
+  const [qtySelectKey, setQtySelectKey] = React.useState(0);
+  const [guestSelectKey, setGuestSelectKey] = React.useState(0);
+  const [paySelectKey, setPaySelectKey] = React.useState(0);
+  const [removeModSelectKey, setRemoveModSelectKey] = React.useState(0);
+  const [dupMoveSelectKey, setDupMoveSelectKey] = React.useState(0);
   const [selectedPerson, setSelectedPerson] = React.useState(customerName);
-  const [mimicTarget, setMimicTarget] = React.useState("");
   const [newGuestName, setNewGuestName] = React.useState("");
   const [showAddGuest, setShowAddGuest] = React.useState(false);
   const [newBranchName, setNewBranchName] = React.useState("");
   const [catalogFilter, setCatalogFilter] = React.useState("");
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+
+  // Active check view filter state
+  const [filterGuest, setFilterGuest] = React.useState<string>("all");
 
   // ─── Dialog State ────────────────────────────────────────────────────
   const [paymentSwitchOpen, setPaymentSwitchOpen] = React.useState(false);
@@ -609,13 +621,14 @@ function POSTerminalInner() {
   const [tableSplitOpen, setTableSplitOpen] = React.useState(false);
   const [allocConfigItem, setAllocConfigItem] = React.useState<ProjectedLineItem | null>(null);
 
-  // Auto-select mimic target to the first other guest
-  React.useEffect(() => {
-    if (!mimicTarget || !guests.includes(mimicTarget)) {
-      const other = guests.find((g) => g !== selectedPerson);
-      if (other) setMimicTarget(other);
-    }
-  }, [guests, selectedPerson]);
+  // Modifier Add Dialog State
+  const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
+  const [modifierAddItem, setModifierAddItem] = React.useState<ProjectedLineItem | null>(null);
+
+  const handleOpenModifierDialog = React.useCallback((item: ProjectedLineItem) => {
+    setModifierAddItem(item);
+    setModifierAddOpen(true);
+  }, []);
 
   // ─── Guest Management ──────────────────────────────────────────────────
 
@@ -643,13 +656,9 @@ function POSTerminalInner() {
       }
       setGuests((prev) => prev.filter((g) => g !== name));
       if (selectedPerson === name) setSelectedPerson(guests[0]);
-      if (mimicTarget === name) {
-        const other = guests.find((g) => g !== name);
-        if (other) setMimicTarget(other);
-      }
       toast.success(`${name} removed`);
     },
-    [guests, selectedPerson, mimicTarget]
+    [guests, selectedPerson]
   );
 
   // ─── Derived State ──────────────────────────────────────────────────────
@@ -675,6 +684,77 @@ function POSTerminalInner() {
     (i) => !i.parentLineId
   );
 
+  const filteredRootItems = React.useMemo(() => {
+    if (filterGuest === "all") return rootItems;
+    return rootItems.filter((item) => {
+      const assignee = getAssigneeFromItem(item, projectedState.allocations);
+      return assignee === filterGuest;
+    });
+  }, [rootItems, filterGuest, projectedState.allocations]);
+
+  // Sync selection with current filteredRootItems (prune deleted ones)
+  React.useEffect(() => {
+    setSelectedLineIds((prev) => {
+      const next = new Set<string>();
+      for (const item of filteredRootItems) {
+        if (prev.has(item.lineId)) {
+          next.add(item.lineId);
+        }
+      }
+      if (next.size !== prev.size) {
+        return next;
+      }
+      return prev;
+    });
+  }, [filteredRootItems]);
+
+  // Clear selection when filter changes
+  React.useEffect(() => {
+    setSelectedLineIds(new Set());
+  }, [filterGuest]);
+
+  // Clear selection when branch or revision changes
+  const currentBranchName = activeBranch();
+  React.useEffect(() => {
+    setSelectedLineIds(new Set());
+  }, [currentBranchName, viewingHash]);
+
+  // Click away listener
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (selectedLineIds.size === 0) return;
+
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      // Do not clear if click is inside the checklist scroll area or bulk actions bar
+      if (checklistRef.current?.contains(target) || bulkActionsBarRef.current?.contains(target)) {
+        return;
+      }
+
+      // Do not clear if click is inside portal elements (e.g. Radix Select contents, dialogs, popovers)
+      if (
+        target.closest('[data-radix-portal]') ||
+        target.closest('[data-radix-popper-content-wrapper]') ||
+        target.closest('[role="listbox"]') ||
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="menu"]') ||
+        target.closest('.bg-popover') ||
+        target.closest('.radix-select-content')
+      ) {
+        return;
+      }
+
+      // Clicked away!
+      setSelectedLineIds(new Set());
+    };
+
+    document.addEventListener("click", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("click", handleClickOutside, true);
+    };
+  }, [selectedLineIds]);
+
   const selectedItems = React.useMemo(() => {
     return rootItems.filter((item) => selectedLineIds.has(item.lineId));
   }, [rootItems, selectedLineIds]);
@@ -690,6 +770,13 @@ function POSTerminalInner() {
     }
     return modifierItems.filter((mod) => commonSkus.includes(mod.sku));
   }, [selectedItems, catalog, modifierItems]);
+
+  const singleItemCompatibleModifiers = React.useMemo(() => {
+    if (!modifierAddItem) return [];
+    const entry = catalog[modifierAddItem.sku];
+    const allowed = entry?.allowedModifiers || [];
+    return modifierItems.filter((mod) => allowed.includes(mod.sku));
+  }, [modifierAddItem, catalog, modifierItems]);
 
   const activeModifiersOnSelected = React.useMemo(() => {
     if (selectedItems.length === 0) return [];
@@ -935,22 +1022,12 @@ function POSTerminalInner() {
     [guests]
   );
 
-  // Guarded version: only open config if dialog isn't already open
   const handleAllocConfig = useCallback(
     (item: ProjectedLineItem) => {
       setAllocConfigItem((prev) => (prev === item ? null : item));
     },
     []
   );
-
-  const handleMimicOrder = useCallback(() => {
-    try {
-      mimicOrder(selectedPerson, mimicTarget, mimicTarget, defaultPaymentMethod);
-      toast.success(`${mimicTarget} now has a copy of ${selectedPerson}'s order`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }, [mimicOrder, selectedPerson, mimicTarget, defaultPaymentMethod]);
 
   const handleCreateBranch = useCallback(() => {
     if (!newBranchName.trim()) return;
@@ -966,7 +1043,6 @@ function POSTerminalInner() {
   const handleResetOrder = useCallback(() => {
     resetOrder();
     setShowResetConfirm(false);
-    setMimicTarget("");
     setNewGuestName("");
     setShowAddGuest(false);
     setNewBranchName("");
@@ -1249,50 +1325,6 @@ function POSTerminalInner() {
                 ))}
               </div>
             </ScrollArea>
-
-            {/* AI Agent Panel */}
-            <div className="p-3 border-t bg-muted/30">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  AI Agent
-                </h3>
-              </div>
-              <div className="space-y-2">
-                <div className="flex gap-1.5">
-                  <Select value={mimicTarget} onValueChange={setMimicTarget}>
-                    <SelectTrigger className="h-8 text-xs flex-1">
-                      <SelectValue placeholder="Target person" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {guests.filter((g) => g !== selectedPerson).map(
-                        (g) => (
-                          <SelectItem key={g} value={g} className="text-xs">
-                            {g}
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    className="h-8 text-xs flex-1"
-                    variant="secondary"
-                    onClick={handleMimicOrder}
-                    disabled={rootItems.length === 0 || !mimicTarget}
-                  >
-                    <ArrowLeftRight className="w-3 h-3 mr-1" />
-                    Mimic Order
-                  </Button>
-                </div>
-                <p className="text-[9px] text-muted-foreground leading-tight">
-                  {mimicTarget
-                    ? <>Clones all of {selectedPerson}&apos;s items for {mimicTarget} via <code className="text-primary">batch_duplicate_and_reallocate</code></>
-                    : <>Add another guest to enable mimic</>
-                  }
-                </p>
-              </div>
-            </div>
           </aside>
 
           {/* ─── CENTER PANEL: Active Check Projection ────────────────── */}
@@ -1311,6 +1343,21 @@ function POSTerminalInner() {
                     Viewing history
                   </Badge>
                 )}
+                
+                {/* Guest Filter Dropdown */}
+                <Select value={filterGuest} onValueChange={setFilterGuest}>
+                  <SelectTrigger className="h-7 text-[11px] w-[130px] bg-background border hover:bg-accent ml-2">
+                    <SelectValue placeholder="All Guests" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-[11px]">All Guests</SelectItem>
+                    {guests.map((g) => (
+                      <SelectItem key={g} value={g} className="text-[11px]">
+                        {g}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center gap-4">
                 {projectedState.financials.personBreakdown.map((pb) => (
@@ -1337,8 +1384,8 @@ function POSTerminalInner() {
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto">
-              {rootItems.length === 0 ? (
+            <div ref={checklistRef} className="flex-1 overflow-y-auto">
+              {filteredRootItems.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-muted-foreground/50">
                   <ShoppingCart className="w-12 h-12 mb-3" />
                   <p className="text-sm font-medium">No items in check</p>
@@ -1348,14 +1395,14 @@ function POSTerminalInner() {
                 </div>
               ) : (
                 <div className="p-4 space-y-2">
-                  {rootItems.map((item) => (
+                  {filteredRootItems.map((item) => (
                     <LineItemNode
                       key={item.lineId}
                       item={item}
                       allocations={projectedState.allocations}
                       defaultPaymentAllocId={defaultPaymentAllocId}
                       onRemove={removeItem}
-                      onAddModifier={addModifier}
+                      onAddModifier={handleOpenModifierDialog}
                       onAllocConfig={handleAllocConfig}
                       depth={0}
                       modifiers={modifierItems}
@@ -1370,13 +1417,13 @@ function POSTerminalInner() {
 
             {/* Bulk Actions Bar */}
             {selectedLineIds.size > 0 && (
-              <div className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0">
+              <div ref={bulkActionsBarRef} className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0">
                 <div className="flex items-center gap-2">
                   <Checkbox
-                    checked={selectedLineIds.size === rootItems.length}
+                    checked={selectedLineIds.size > 0 && selectedLineIds.size === filteredRootItems.length}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedLineIds(new Set(rootItems.map((i) => i.lineId)));
+                        setSelectedLineIds(new Set(filteredRootItems.map((i) => i.lineId)));
                       } else {
                         setSelectedLineIds(new Set());
                       }
@@ -1416,12 +1463,14 @@ function POSTerminalInner() {
 
                   {/* Quantity bulk set */}
                   <Select
+                    key={`qty-select-${qtySelectKey}`}
                     onValueChange={(val) => {
                       const qty = parseInt(val, 10);
                       if (!isNaN(qty)) {
                         setItemsQty(Array.from(selectedLineIds), qty);
                         toast.success(`Set quantity to ${qty}`);
                       }
+                      setQtySelectKey((k) => k + 1);
                     }}
                   >
                     <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[90px]">
@@ -1448,6 +1497,28 @@ function POSTerminalInner() {
                     <Copy className="w-3.5 h-3.5 mr-1" />
                     Duplicate
                   </Button>
+
+                  {/* Duplicate and Move */}
+                  <Select
+                    key={`dup-move-select-${dupMoveSelectKey}`}
+                    onValueChange={(val) => {
+                      duplicateAndReassignItems(Array.from(selectedLineIds), val);
+                      setSelectedLineIds(new Set());
+                      toast.success(`Selected items duplicated and moved to ${val}`);
+                      setDupMoveSelectKey((k) => k + 1);
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[110px]">
+                      <SelectValue placeholder="Dup & Move" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {guests.map((g) => (
+                        <SelectItem key={g} value={g} className="text-[11px]">
+                          {g}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -1463,9 +1534,11 @@ function POSTerminalInner() {
                   </Button>
 
                   <Select
+                    key={`guest-select-${guestSelectKey}`}
                     onValueChange={(val) => {
                       reassignItems(Array.from(selectedLineIds), val);
                       toast.success(`Selected items assigned to ${val}`);
+                      setGuestSelectKey((k) => k + 1);
                     }}
                   >
                     <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[110px]">
@@ -1481,9 +1554,11 @@ function POSTerminalInner() {
                   </Select>
 
                   <Select
+                    key={`pay-select-${paySelectKey}`}
                     onValueChange={(val) => {
                       groupItemsPaymentConfig(Array.from(selectedLineIds), val);
                       toast.success("Selected payment reallocated");
+                      setPaySelectKey((k) => k + 1);
                     }}
                   >
                     <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[125px]">
@@ -1502,34 +1577,27 @@ function POSTerminalInner() {
                   </Select>
 
                   {compatibleModifiers.length > 0 && (
-                    <Select
-                      onValueChange={(val) => {
-                        const mod = compatibleModifiers.find((m) => m.sku === val);
-                        const defaultState = mod?.allowedStates?.find((s) => s.state === "ADD" || s.state === "WITH")?.state 
-                          || mod?.allowedStates?.[0]?.state 
-                          || undefined;
-                        addGroupModifier(Array.from(selectedLineIds), val, defaultState);
-                        toast.success(`Added ${mod?.name || "modifier"} in bulk`);
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border border-primary/30 text-primary hover:bg-primary/5 gap-1"
+                      onClick={() => {
+                        setModifierAddItem(null);
+                        setModifierAddOpen(true);
                       }}
                     >
-                      <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border border-primary/30 text-primary hover:bg-primary/5 w-[115px]">
-                        <SelectValue placeholder="+ Modifier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {compatibleModifiers.map((mod) => (
-                          <SelectItem key={mod.sku} value={mod.sku} className="text-[11px]">
-                            {mod.name} {mod.basePrice > 0 ? `(+$${mod.basePrice.toFixed(2)})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <Plus className="w-3.5 h-3.5" />
+                      + Modifier
+                    </Button>
                   )}
 
                   {activeModifiersOnSelected.length > 0 && (
                     <Select
+                      key={`remove-mod-select-${removeModSelectKey}`}
                       onValueChange={(val) => {
                         removeGroupModifier(Array.from(selectedLineIds), val);
                         toast.success("Removed modifier in bulk");
+                        setRemoveModSelectKey((k) => k + 1);
                       }}
                     >
                       <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border border-destructive/30 text-destructive hover:bg-destructive/5 w-[115px]">
@@ -1735,6 +1803,20 @@ function POSTerminalInner() {
         onSwitchItemPayment={handleSwitchItemPayment}
         onResetToDefault={handleResetToDefault}
         onAddGuest={handleAddGuestFromDialog}
+      />
+
+      <ModifierAddDialog
+        open={modifierAddOpen}
+        onOpenChange={setModifierAddOpen}
+        itemName={modifierAddItem ? modifierAddItem.name : `${selectedLineIds.size} selected items`}
+        modifiers={modifierAddItem ? singleItemCompatibleModifiers : compatibleModifiers}
+        onAdd={(sku, defaultState) => {
+          if (modifierAddItem) {
+            addModifier(modifierAddItem.lineId, sku, defaultState);
+          } else {
+            addGroupModifier(Array.from(selectedLineIds), sku, defaultState);
+          }
+        }}
       />
     </TooltipProvider>
   );
