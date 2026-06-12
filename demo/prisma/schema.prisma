@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── POS Configuration (Fetched on Init) ───────────────────────────────────────
+// Defines available order types and their required customer fields.
+// Similar to how a standard POS configures walk-in/pickup/delivery flows.
+
+model PosConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique          // e.g. "default", "store-42"
+  label     String                    // e.g. "Main Location"
+  config    String                    // JSON: { orderTypes: [...] }
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Product Catalog (The Menu) ────────────────────────────────────────────────
+
+model CatalogItem {
+  sku          String   @id
+  name         String
+  basePrice    Float
+  category     String   @default("general")
+  type         String   @default("item") // "item" | "modifier"
+  dietaryFlags String   @default("[]")   // JSON array: ["gluten_free", "vegan"]
+  allergens    String   @default("[]")   // JSON array: ["peanuts", "dairy"]
+  brand        String   @default("")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+// ─── Transaction Repositories (One per order/cart) ─────────────────────────────
+
+model TransactionRepo {
+  id          String   @id @default(cuid())
+  contextType String   @default("cart") // "cart" | "catalog" | "inventory_warehouse"
+  contextId   String                  // e.g. "table-12", "web-session-abc"
+  status      String   @default("active") // "active" | "settled" | "void"
+  createdAt   DateTime @default(now())
+  settledAt   DateTime?
+  commits     TransactionCommit[]
+}
+
+// ─── Transaction Commits (The Append-Only Ledger) ──────────────────────────────
+
+model TransactionCommit {
+  id                String   @id @default(cuid())
+  repoId            String
+  repo              TransactionRepo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  commitHash        String   @unique
+  parentHash        String?
+  mergeParentHashes String   @default("[]") // JSON array of strings
+  branch            String   @default("main")
+  timestamp         DateTime
+  authorId          String
+  deltas            String                  // JSON array of delta operations
+  metadata          String   @default("{}") // JSON object
+  createdAt         DateTime @default(now())
+
+  @@index([repoId, branch])
+  @@index([repoId, commitHash])
+  @@index([parentHash])
+}
