@@ -28,8 +28,6 @@ import {
   Plus,
   Trash2,
   Link2,
-  Edit2,
-  Save,
   X,
 } from "lucide-react";
 import type { AllocationBlock, PaymentAllocation, ProjectedLineItem } from "@/lib/vcs/types";
@@ -79,26 +77,18 @@ export function AllocationConfigDialog({
   onReassign,
   onSplitPayment,
   onResetToDefault,
-  onSwitchItemPayment,
   onAddGuest,
 }: AllocationConfigDialogProps) {
-  const { updateAllocation, groupItemAllocation, groupItemPaymentConfig } = useVCSStore();
+  const { groupItemPaymentConfig } = useVCSStore();
 
-  const [assigneeOverride, setAssigneeOverride] = useState<string>("");
   const [splits, setSplits] = useState<PaymentSplitEntry[]>([]);
   const [isSplitting, setIsSplitting] = useState(false);
   const [newSplitEntity, setNewSplitEntity] = useState("");
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
+  const [showAddGuestInput, setShowAddGuestInput] = useState(false);
+  const [newGuestInputName, setNewGuestInputName] = useState("");
 
-  // Edit individual allocation state
-  const [editingAllocId, setEditingAllocId] = useState<string | null>(null);
-  const [editEntity, setEditEntity] = useState("");
-  const [editPayer, setEditPayer] = useState("");
-  const [editMethod, setEditMethod] = useState("");
-  const [editStrategyType, setEditStrategyType] = useState<"percentage" | "fixed" | "remaining">("percentage");
-  const [editStrategyValue, setEditStrategyValue] = useState(0);
-
-  // Current item's allocation info
+  // Current item's assignment info
   const currentAssignment = useMemo(() => {
     if (!item) return null;
     for (const id of item.allocations) {
@@ -119,13 +109,6 @@ export function AllocationConfigDialog({
       .filter((a): a is PaymentAllocation => a?.type === "payment");
   }, [item, allocations]);
 
-  const currentPaymentMethod = useMemo(() => {
-    if (currentPayments.length === 1) {
-      return currentPayments[0].method || "";
-    }
-    return "";
-  }, [currentPayments]);
-
   const hasSplitPayment = currentPayments.length > 1;
   const hasNonDefaultPayment = currentPayments.some(
     (p) => p.allocationId !== defaultPaymentAllocId
@@ -133,16 +116,6 @@ export function AllocationConfigDialog({
   const correlationId = currentPayments[0]?.correlationId;
 
   // Group consolidation options
-  const existingAssignments = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const a of Object.values(allocations)) {
-      if (a.type === "assignment" && a.entity) {
-        map.set(a.entity, a.allocationId);
-      }
-    }
-    return Array.from(map.entries()).map(([entity, id]) => ({ entity, id }));
-  }, [allocations]);
-
   const existingPayments = useMemo(() => {
     const map = new Map<string, string>(); // display name -> ID (either allocationId or correlationId)
     const processedCorrelations = new Set<string>();
@@ -182,79 +155,63 @@ export function AllocationConfigDialog({
   );
 
   const isValidSplit = useMemo(() => {
-    if (splits.length < 2) return false;
-    if (hasRemaining) return true;
-    if (totalFixed > 0 && totalPercentage > 0) {
-      const originalPrice = item?.totalPrice ?? 0;
-      return totalFixed + originalPrice * (totalPercentage / 100) <= originalPrice;
-    }
-    if (totalFixed > 0) {
-      const originalPrice = item?.totalPrice ?? 0;
-      return Math.abs(totalFixed - originalPrice) < 0.01;
-    }
-    return totalPercentage === 100;
-  }, [splits, hasRemaining, totalPercentage, totalFixed, item]);
+    if (splits.length < 1) return false;
+    const price = item?.totalPrice ?? 0;
+    const fixedSum = totalFixed;
+    const pctSum = price * (totalPercentage / 100);
+    return fixedSum + pctSum <= price + 0.01;
+  }, [splits, totalPercentage, totalFixed, item]);
 
   // Reset state when dialog opens
   React.useEffect(() => {
     if (open && item) {
-      setAssigneeOverride("");
       setIsSplitting(false);
       setSplits([]);
       setNewSplitEntity("");
       setDialogNewGuestName("");
-      setEditingAllocId(null);
+      setShowAddGuestInput(false);
+      setNewGuestInputName("");
     }
   }, [open, item]);
 
-  // Inline editing actions
-  const startEditing = (allocId: string) => {
-    const a = allocations[allocId];
-    if (!a) return;
-    setEditingAllocId(allocId);
-    if (a.type === "assignment") {
-      setEditEntity(a.entity);
-    } else if (a.type === "payment") {
-      const p = a as PaymentAllocation;
-      setEditPayer(p.payer);
-      setEditMethod(p.method || "cash");
-      setEditStrategyType(p.paymentStrategy?.strategyType || "percentage");
-      const stratVal = p.paymentStrategy?.value ?? 0;
-      setEditStrategyValue(p.paymentStrategy?.strategyType === "percentage" ? Math.round(stratVal * 100) : stratVal);
-    }
-  };
+  const handleAssigneeChange = useCallback(
+    (newVal: string) => {
+      if (!item) return;
+      onReassign(item.lineId, newVal);
+    },
+    [item, onReassign]
+  );
 
-  const saveEditing = () => {
-    if (!editingAllocId) return;
-    const a = allocations[editingAllocId];
-    if (a.type === "assignment") {
-      updateAllocation(editingAllocId, { entity: editEntity });
-    } else if (a.type === "payment") {
-      const val = editStrategyType === "percentage" ? editStrategyValue / 100 : editStrategyValue;
-      updateAllocation(editingAllocId, {
-        payer: editPayer,
-        method: editMethod || null,
-        paymentStrategy: {
-          strategyType: editStrategyType,
-          value: editStrategyType === "remaining" ? null : val,
-        },
-      });
+  const handleAddNewGuestForAssignment = useCallback(() => {
+    const name = newGuestInputName.trim();
+    if (!name) return;
+    onAddGuest(name);
+    if (item) {
+      onReassign(item.lineId, name);
     }
-    setEditingAllocId(null);
-  };
-
-  const handleReassign = useCallback(() => {
-    if (!item || !assigneeOverride) return;
-    onReassign(item.lineId, assigneeOverride);
-    setAssigneeOverride("");
-    onOpenChange(false);
-  }, [item, assigneeOverride, onReassign, onOpenChange]);
+    setNewGuestInputName("");
+    setShowAddGuestInput(false);
+  }, [newGuestInputName, onAddGuest, item, onReassign]);
 
   const handleStartSplit = useCallback(() => {
     if (!item) return;
-    setSplits([{ entity: currentAssignee, strategyType: "percentage", value: 100 }]);
+    
+    if (currentPayments.length > 0) {
+      const initialSplits = currentPayments.map((p) => {
+        const strat = p.paymentStrategy;
+        const val = strat?.strategyType === "percentage" ? Math.round((strat.value ?? 1) * 100) : (strat?.value ?? 0);
+        return {
+          entity: p.payer || currentAssignee,
+          strategyType: strat?.strategyType || "percentage",
+          value: val,
+        };
+      });
+      setSplits(initialSplits);
+    } else {
+      setSplits([{ entity: currentAssignee, strategyType: "percentage", value: 100 }]);
+    }
     setIsSplitting(true);
-  }, [item, currentAssignee]);
+  }, [item, currentAssignee, currentPayments]);
 
   const handleAddNewGuest = useCallback(() => {
     const name = dialogNewGuestName.trim();
@@ -288,7 +245,9 @@ export function AllocationConfigDialog({
     const allPercentage = newSplits.every(s => s.strategyType === "percentage");
     if (allPercentage) {
       const base = Math.floor(100 / n);
-      newSplits.forEach((s) => { s.value = base; });
+      newSplits.forEach((s) => {
+        s.value = base;
+      });
       const remainder = 100 - base * n;
       newSplits[0].value += remainder;
     }
@@ -299,7 +258,7 @@ export function AllocationConfigDialog({
 
   const handleRemoveSplitEntry = useCallback(
     (index: number) => {
-      if (splits.length <= 2) return;
+      if (splits.length <= 1) return;
       const newSplits = splits.filter((_, i) => i !== index);
       const allPercentage = newSplits.every(s => s.strategyType === "percentage");
       if (allPercentage) {
@@ -365,7 +324,7 @@ export function AllocationConfigDialog({
             Allocation Config
           </DialogTitle>
           <DialogDescription>
-            Manage assignment and payment allocations for this item.
+            Manage assignment and payment splits for this item.
           </DialogDescription>
         </DialogHeader>
 
@@ -378,464 +337,226 @@ export function AllocationConfigDialog({
           <div className="font-mono font-bold text-sm">${item.totalPrice.toFixed(2)}</div>
         </div>
 
-        {/* Current Allocations */}
-        <div className="space-y-3">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Current Allocations
-          </div>
-
-          {/* Assignment */}
-          {currentAssignment && (
-            <div className="flex flex-col gap-2 rounded-lg border p-3">
-              {editingAllocId === currentAssignment.allocationId ? (
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">Edit Assignment</div>
-                  <div className="space-y-1.5">
-                    <Input
-                      value={editEntity}
-                      onChange={(e) => setEditEntity(e.target.value)}
-                      className="h-8 text-xs"
-                      placeholder="Search or type name..."
-                    />
-                    <div className="max-h-28 overflow-y-auto border rounded-md p-1.5 bg-popover text-popover-foreground space-y-1">
-                      {guests
-                        .filter((g) => g.toLowerCase().includes(editEntity.toLowerCase()))
-                        .map((g) => (
-                          <button
-                            key={g}
-                            type="button"
-                            className="w-full text-left px-2 py-1 text-xs rounded hover:bg-accent hover:text-accent-foreground font-medium transition-colors"
-                            onClick={() => setEditEntity(g)}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      {editEntity.trim() && !guests.some(g => g.toLowerCase() === editEntity.trim().toLowerCase()) && (
-                        <button
-                          type="button"
-                          className="w-full text-left px-2 py-1 text-xs rounded hover:bg-primary/10 text-primary font-semibold flex items-center gap-1 transition-colors"
-                          onClick={() => {
-                            onAddGuest(editEntity.trim());
-                            setEditEntity(editEntity.trim());
-                          }}
-                        >
-                          <Plus className="w-3 h-3" />
-                          Create guest: "{editEntity.trim()}"
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 pt-1 border-t">
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingAllocId(null)}>
-                      Cancel
-                    </Button>
-                    <Button size="sm" className="h-8 text-xs gap-1" onClick={saveEditing}>
-                      <Save className="w-3 h-3" /> Save
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Assignment:</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {currentAssignee}
-                    </Badge>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => startEditing(currentAssignment.allocationId)}
-                  >
-                    <Edit2 className="w-3 h-3" /> Edit
-                  </Button>
-                </div>
+        {/* Assignment (Who Consumes) */}
+        {!isSplitting && (
+          <div className="space-y-2.5 rounded-lg border p-3.5">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Assigned Guest
+              </div>
+              {!showAddGuestInput && (
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-xs text-primary font-semibold flex items-center gap-1 hover:no-underline"
+                  onClick={() => setShowAddGuestInput(true)}
+                >
+                  <Plus className="w-3 h-3" /> Add Guest
+                </Button>
               )}
             </div>
-          )}
 
-          {/* Payment(s) */}
-          {currentPayments.map((payAlloc) => (
-            <div
-              key={payAlloc.allocationId}
-              className="flex flex-col gap-2 rounded-lg border p-3"
-            >
-              {editingAllocId === payAlloc.allocationId ? (
-                <div className="space-y-3">
-                  <div className="text-xs font-medium text-muted-foreground">Edit Payment Details</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground font-semibold">Payer</label>
-                      <Select value={editPayer} onValueChange={setEditPayer}>
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {guests.map((g) => (
-                            <SelectItem key={g} value={g} className="text-xs">
-                              {g}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground font-semibold">Method</label>
-                      <Select value={editMethod} onValueChange={setEditMethod}>
-                        <SelectTrigger className="h-8 text-xs capitalize">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["cash", "visa", "mastercard", "amex"].map((m) => (
-                            <SelectItem key={m} value={m} className="text-xs capitalize">
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground font-semibold">Strategy Type</label>
-                      <Select
-                        value={editStrategyType}
-                        onValueChange={(val) => {
-                          setEditStrategyType(val as "percentage" | "fixed" | "remaining");
-                          if (val === "remaining") setEditStrategyValue(0);
-                        }}
-                      >
-                        <SelectTrigger className="h-8 text-xs capitalize">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percentage" className="text-xs">Percentage</SelectItem>
-                          <SelectItem value="fixed" className="text-xs">Fixed Amount</SelectItem>
-                          <SelectItem value="remaining" className="text-xs">Remaining</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {editStrategyType !== "remaining" && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-muted-foreground font-semibold">
-                          {editStrategyType === "percentage" ? "Value (%)" : "Value ($)"}
-                        </label>
-                        <Input
-                          type="number"
-                          value={editStrategyValue}
-                          onChange={(e) => setEditStrategyValue(Number(e.target.value) || 0)}
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-1.5 border-t">
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setEditingAllocId(null)}>
-                      Cancel
-                    </Button>
-                    <Button size="sm" className="h-8 text-xs gap-1" onClick={saveEditing}>
-                      <Save className="w-3 h-3" /> Save
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground shrink-0">Payment:</span>
-                    <Badge
-                      variant={payAlloc.allocationId === defaultPaymentAllocId ? "default" : "outline"}
-                      className="text-xs truncate"
-                    >
-                      {getPaymentAllocDisplayName(payAlloc, allocations)}
-                    </Badge>
-                    {payAlloc.correlationId && (
-                      <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">
-                        <Split className="w-2.5 h-2.5 mr-0.5" />
-                        split
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {payAlloc.paymentStrategy.value !== null && payAlloc.paymentStrategy.value !== 1 && (
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {payAlloc.paymentStrategy.strategyType === "fixed" ? "$" : ""}
-                        {payAlloc.paymentStrategy.strategyType === "percentage"
-                          ? Math.round(payAlloc.paymentStrategy.value * 100)
-                          : payAlloc.paymentStrategy.value}
-                        {payAlloc.paymentStrategy.strategyType === "percentage" ? "%" : ""}
-                      </span>
-                    )}
-                    {payAlloc.paymentStrategy.strategyType === "remaining" && (
-                      <span className="text-xs font-mono text-muted-foreground">rem</span>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => startEditing(payAlloc.allocationId)}
-                    >
-                      <Edit2 className="w-3 h-3" /> Edit
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          {/* Correlation ID (if split) */}
-          {correlationId && (
-            <div className="text-[10px] font-mono text-muted-foreground/60 px-3">
-              correlation: {correlationId}
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Actions */}
-        <div className="space-y-3">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Actions
-          </div>
-
-          {/* Add Guest */}
-          {!isSplitting && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground w-20 shrink-0">Add Guest:</span>
-              <Input
-                placeholder="Type new guest name..."
-                value={dialogNewGuestName}
-                onChange={(e) => setDialogNewGuestName(e.target.value)}
-                className="h-8 text-xs flex-1"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddNewGuest();
-                }}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                disabled={!dialogNewGuestName.trim()}
-                onClick={handleAddNewGuest}
-              >
-                Add
-              </Button>
-            </div>
-          )}
-
-          {/* Reassign (Move Assignment) */}
-          {!isSplitting && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground w-20 shrink-0">Reassign to:</span>
-              <Select value={assigneeOverride} onValueChange={setAssigneeOverride}>
-                <SelectTrigger className="h-8 text-xs flex-1">
-                  <SelectValue placeholder="Select guest..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {guests
-                    .filter((g) => g !== currentAssignee)
-                    .map((g) => (
+            {showAddGuestInput ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="New guest name..."
+                  value={newGuestInputName}
+                  onChange={(e) => setNewGuestInputName(e.target.value)}
+                  className="h-8 text-xs flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && handleAddNewGuestForAssignment()}
+                />
+                <Button size="sm" className="h-8 text-xs" onClick={handleAddNewGuestForAssignment}>
+                  Add & Assign
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setShowAddGuestInput(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Select value={currentAssignee} onValueChange={handleAssigneeChange}>
+                  <SelectTrigger className="h-8 text-xs flex-1 bg-background">
+                    <User className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {guests.map((g) => (
                       <SelectItem key={g} value={g} className="text-xs">
                         {g}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                className="h-8 text-xs"
-                disabled={!assigneeOverride}
-                onClick={handleReassign}
-              >
-                Apply
-              </Button>
-            </div>
-          )}
-
-          {/* Switch Payment Method */}
-          {!isSplitting && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground w-20 shrink-0">Payment:</span>
-              <Select
-                value={currentPaymentMethod || undefined}
-                onValueChange={(val) => {
-                  onSwitchItemPayment(item.lineId, val);
-                  onOpenChange(false);
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs flex-1 capitalize">
-                  <SelectValue placeholder="Select payment method..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {["cash", "visa", "mastercard", "amex"].map((m) => (
-                    <SelectItem key={m} value={m} className="text-xs capitalize">
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Group / Consolidate with existing */}
-          {!isSplitting && (
-            <div className="space-y-2 border rounded-lg p-3 bg-muted/10">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Group / Consolidate
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-[9px] text-muted-foreground font-semibold">Group Assignment</label>
-                  <Select
-                    onValueChange={(val) => {
-                      groupItemAllocation(item.lineId, val, "assignment");
-                      onOpenChange(false);
-                    }}
-                  >
-                    <SelectTrigger className="h-7 text-[10px]">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {existingAssignments.map((a) => (
-                        <SelectItem key={a.id} value={a.id} className="text-xs">
-                          {a.entity}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            )}
+          </div>
+        )}
 
-                <div className="space-y-1">
-                  <label className="text-[9px] text-muted-foreground font-semibold">Group Payment</label>
-                  <Select
-                    onValueChange={(val) => {
-                      groupItemPaymentConfig(item.lineId, val);
-                      onOpenChange(false);
-                    }}
+        {/* Payment Configuration */}
+        <div className="space-y-3">
+          {!isSplitting && (
+            <div className="space-y-3 rounded-lg border p-3.5">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Payment Breakdown
+              </div>
+
+              <div className="space-y-1.5">
+                {currentPayments.map((payAlloc) => (
+                  <div
+                    key={payAlloc.allocationId}
+                    className="flex items-center justify-between rounded-lg border p-2.5 bg-muted/10"
                   >
-                    <SelectTrigger className="h-7 text-[10px]">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {existingPayments.map((p) => (
-                        <SelectItem key={p.id} value={p.id} className="text-xs">
-                          {p.display}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-medium truncate">
+                        {getPaymentAllocDisplayName(payAlloc, allocations)}
+                      </span>
+                      {payAlloc.correlationId && (
+                        <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">
+                          <Split className="w-2.5 h-2.5 mr-0.5" />
+                          split
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0">
+                      {payAlloc.paymentStrategy.strategyType === "percentage"
+                        ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
+                        : payAlloc.paymentStrategy.strategyType === "fixed"
+                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}`
+                        : "remaining"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {correlationId && (
+                <div className="text-[9px] font-mono text-muted-foreground/60 px-1 truncate">
+                  correlation: {correlationId}
                 </div>
+              )}
+
+              <Separator className="my-1" />
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-8 gap-1.5"
+                  onClick={handleStartSplit}
+                >
+                  <Split className="w-3.5 h-3.5 text-primary" />
+                  Customize splits / custom payer
+                </Button>
+
+                <Select
+                  onValueChange={(val) => {
+                    groupItemPaymentConfig(item.lineId, val);
+                    onOpenChange(false);
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs w-48 bg-background">
+                    <Link2 className="w-3.5 h-3.5 mr-1 shrink-0 text-muted-foreground" />
+                    <SelectValue placeholder="Link to group config..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingPayments.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.display}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {hasNonDefaultPayment && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs h-8 text-muted-foreground hover:text-foreground"
+                    onClick={handleResetToDefault}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                    Revert to default ({defaultPaymentMethod})
+                  </Button>
+                )}
               </div>
             </div>
           )}
 
-          {/* Split Payment Button */}
-          {!isSplitting && !hasSplitPayment && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={handleStartSplit}
-              >
-                <Split className="w-3 h-3 mr-1" />
-                Split Payment
-              </Button>
-            </div>
-          )}
-
-          {/* Reset to Default */}
-          {!isSplitting && hasNonDefaultPayment && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={handleResetToDefault}
-              >
-                <RotateCcw className="w-3 h-3 mr-1" />
-                Reset to default ({defaultPaymentMethod})
-              </Button>
-            </div>
-          )}
-
-          {/* Split Editor */}
+          {/* Unified Split Editor */}
           {isSplitting && (
-            <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
+            <div className="rounded-lg border p-3.5 space-y-3 bg-muted/20">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Split className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-semibold">Payment Split Editor</span>
+                  <span className="text-xs font-semibold">Customize Splits & Payers</span>
                 </div>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsSplitting(false)}>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" onClick={() => setIsSplitting(false)}>
                   <X className="w-3.5 h-3.5" />
                 </Button>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {splits.map((split, idx) => (
-                  <div key={split.entity} className="flex flex-col gap-1.5 border-b pb-2 last:border-b-0 last:pb-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-foreground truncate w-32" title={split.entity}>
-                        {split.entity}
-                      </span>
-                      {splits.length > 2 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveSplitEntry(idx)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
+                  <div key={split.entity} className="flex items-center gap-2 border-b pb-2 last:border-b-0 last:pb-0">
+                    <span className="text-xs font-semibold text-foreground truncate w-24" title={split.entity}>
+                      {split.entity}
+                    </span>
 
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <Select
-                        value={split.strategyType}
-                        onValueChange={(val) => handleSplitTypeChange(idx, val as any)}
+                    <Select
+                      value={split.strategyType}
+                      onValueChange={(val) => handleSplitTypeChange(idx, val as any)}
+                    >
+                      <SelectTrigger className="h-7 text-[10px] w-24 shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage" className="text-xs">Percentage</SelectItem>
+                        <SelectItem value="fixed" className="text-xs">Fixed Amt</SelectItem>
+                        <SelectItem value="remaining" className="text-xs">Remaining</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {split.strategyType !== "remaining" ? (
+                      <div className="flex items-center gap-1 w-20 shrink-0">
+                        <Input
+                          type="number"
+                          value={split.value}
+                          onChange={(e) => handleSplitValueChange(idx, Number(e.target.value) || 0)}
+                          className="h-7 text-xs px-1.5 font-mono text-right"
+                        />
+                        <span className="text-[10px] text-muted-foreground">
+                          {split.strategyType === "percentage" ? "%" : "$"}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="w-20 shrink-0 text-[10px] text-muted-foreground font-mono text-center bg-muted/30 py-1 rounded">
+                        Remaining
+                      </div>
+                    )}
+
+                    {splits.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-destructive shrink-0 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRemoveSplitEntry(idx)}
                       >
-                        <SelectTrigger className="h-7 text-[10px] capitalize">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percentage" className="text-xs">Percentage</SelectItem>
-                          <SelectItem value="fixed" className="text-xs">Fixed Amount</SelectItem>
-                          <SelectItem value="remaining" className="text-xs">Remaining</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      {split.strategyType !== "remaining" && (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            value={split.value}
-                            onChange={(e) => handleSplitValueChange(idx, Number(e.target.value) || 0)}
-                            className="h-7 text-xs text-center font-mono w-16"
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {split.strategyType === "percentage" ? "%" : "$"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
 
               {/* Add split member */}
-              <div className="flex items-center gap-2 pt-1.5 border-t">
+              <div className="flex items-center gap-2 pt-2 border-t">
                 <Select value={newSplitEntity} onValueChange={setNewSplitEntity}>
                   <SelectTrigger className="h-7 text-xs flex-1">
-                    <SelectValue placeholder="Add person..." />
+                    <SelectValue placeholder="Add guest to split..." />
                   </SelectTrigger>
                   <SelectContent>
                     {guests
@@ -885,38 +606,22 @@ export function AllocationConfigDialog({
                 </Button>
               </div>
 
-              {/* Total indicator */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <span className="text-muted-foreground text-[10px] truncate max-w-[280px]">
-                  Auto-name:{" "}
-                  <span className="font-mono text-primary font-semibold">
-                    {splits
-                      .map((s) => {
-                        const name = s.entity.split(" ")[0];
-                        if (s.strategyType === "fixed") return `${name} $${s.value.toFixed(2)}`;
-                        if (s.strategyType === "remaining") return `${name} remaining`;
-                        return `${name} ${s.value}%`;
-                      })
-                      .join(" / ")}
-                  </span>
-                </span>
-                <span
-                  className={`font-mono font-semibold ${
-                    isValidSplit ? "text-emerald-600" : "text-destructive"
-                  }`}
-                >
-                  {hasRemaining ? "rem ready" : totalFixed > 0 ? `$${totalFixed.toFixed(2)}` : `${totalPercentage}%`}
-                </span>
+              {/* Total indicator / validation text */}
+              <div className="text-[10px] p-2 rounded bg-muted/40 font-medium">
+                {isValidSplit ? (
+                  <div className="text-emerald-600 dark:text-emerald-400">
+                    {hasRemaining 
+                      ? "Split is valid (remainder pays balance)." 
+                      : totalFixed + (item?.totalPrice ?? 0) * (totalPercentage / 100) < (item?.totalPrice ?? 0) - 0.01
+                      ? `Covered: $${(totalFixed + (item?.totalPrice ?? 0) * (totalPercentage / 100)).toFixed(2)} (remainder of $${((item?.totalPrice ?? 0) - (totalFixed + (item?.totalPrice ?? 0) * (totalPercentage / 100))).toFixed(2)} defaults to Guest)`
+                      : "Split covers the full price."}
+                  </div>
+                ) : (
+                  <div className="text-destructive">
+                    Exceeds total item price of ${item.totalPrice.toFixed(2)}. Please adjust split values.
+                  </div>
+                )}
               </div>
-
-              {/* Preview correlation ID */}
-              {splits.length >= 2 && (
-                <div className="text-[9px] font-mono text-muted-foreground/60 truncate">
-                  correlation: split-{splits
-                    .map((s) => `${s.entity}-${s.strategyType}-${s.value}`)
-                    .join("-")}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -939,7 +644,7 @@ export function AllocationConfigDialog({
                 disabled={!isValidSplit}
                 onClick={handleApplySplit}
               >
-                Apply Split
+                Apply Splits
               </Button>
             </>
           )}

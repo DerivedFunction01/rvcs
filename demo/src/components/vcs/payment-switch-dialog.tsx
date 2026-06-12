@@ -16,9 +16,9 @@ import { CreditCard, RefreshCw, PlusCircle, ArrowRight } from "lucide-react";
 interface PaymentSwitchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  currentMethod: string;
-  newMethod: string;
-  /** How many items currently use the default payment allocation */
+  currentConfigName: string;
+  newConfigName: string;
+  /** How many items currently use the old payment configuration */
   affectedItemCount: number;
   onChooseExisting: () => void;
   onChooseNewOnly: () => void;
@@ -27,8 +27,8 @@ interface PaymentSwitchDialogProps {
 export function PaymentSwitchDialog({
   open,
   onOpenChange,
-  currentMethod,
-  newMethod,
+  currentConfigName,
+  newConfigName,
   affectedItemCount,
   onChooseExisting,
   onChooseNewOnly,
@@ -39,24 +39,29 @@ export function PaymentSwitchDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-primary" />
-            Switch Payment Method
+            Switch Default Payment Config
           </DialogTitle>
           <DialogDescription>
-            You are changing the default payment method.
+            You are changing the default payment configuration group.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center justify-center gap-3 py-3">
-          <Badge variant="secondary" className="text-sm px-3 py-1 capitalize">
-            {currentMethod}
-          </Badge>
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          <Badge className="text-sm px-3 py-1 capitalize">
-            {newMethod}
-          </Badge>
+        <div className="flex flex-col items-center justify-center gap-2 py-3 bg-muted/40 rounded-lg border">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase">
+            Configuration Change
+          </div>
+          <div className="flex items-center gap-3 px-4">
+            <Badge variant="secondary" className="text-xs px-2.5 py-0.5 truncate max-w-[150px]">
+              {currentConfigName}
+            </Badge>
+            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+            <Badge className="text-xs px-2.5 py-0.5 truncate max-w-[150px]">
+              {newConfigName}
+            </Badge>
+          </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 mt-2">
           <button
             onClick={() => {
               onChooseExisting();
@@ -72,8 +77,8 @@ export function PaymentSwitchDialog({
                 <div className="font-medium text-sm">Change all existing items</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   Updates <span className="font-semibold text-foreground">{affectedItemCount}</span> item{affectedItemCount !== 1 ? "s" : ""} from{" "}
-                  <span className="capitalize">{currentMethod}</span> to{" "}
-                  <span className="capitalize">{newMethod}</span>
+                  <span className="font-semibold text-foreground truncate">{currentConfigName}</span> to{" "}
+                  <span className="font-semibold text-foreground truncate">{newConfigName}</span>.
                 </div>
                 <div className="text-[10px] text-muted-foreground/70 mt-1 font-mono">
                   batch modify_item_allocations
@@ -96,8 +101,8 @@ export function PaymentSwitchDialog({
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">New allocation for future items</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  Existing items keep <span className="capitalize">{currentMethod}</span>.
-                  New items will use <span className="capitalize">{newMethod}</span>.
+                  Existing items keep <span className="font-semibold">{currentConfigName}</span>.
+                  New items will use <span className="font-semibold">{newConfigName}</span>.
                 </div>
                 <div className="text-[10px] text-muted-foreground/70 mt-1 font-mono">
                   declare_allocation (new default)
