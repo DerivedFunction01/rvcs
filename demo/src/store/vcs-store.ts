@@ -254,6 +254,16 @@ interface VCSStore {
   modifyModifierState: (lineId: string, beforeState?: string, afterState?: string) => void;
   mimicOrder: (sourceAssignee: string, targetAssignee: string, targetPayer: string, paymentMethod: string) => void;
 
+  // Actions — Bulk Operations
+  duplicateItems: (lineIds: string[]) => void;
+  removeItems: (lineIds: string[]) => void;
+  modifyItemsQty: (lineIds: string[], change: number) => void;
+  setItemsQty: (lineIds: string[], targetQty: number) => void;
+  reassignItems: (lineIds: string[], newAssignee: string) => void;
+  groupItemsPaymentConfig: (lineIds: string[], targetId: string) => void;
+  addGroupModifier: (parentLineIds: string[], modifierSku: string, selectedModifierState?: string) => void;
+  removeGroupModifier: (parentLineIds: string[], modifierSku: string) => void;
+
   // Actions — Branching
   createBranch: (name: string) => void;
   checkoutBranch: (name: string) => void;
@@ -992,6 +1002,245 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       cloneItem(item, null);
       store.commitDeltas(deltas, "pos-ui");
+    },
+
+    duplicateItems: (lineIds) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      const cloneItem = (projItem: ProjectedLineItem, newParentId: string | null) => {
+        const newLineId = generateLineId();
+        deltas.push({
+          action: "add_item",
+          lineId: newLineId,
+          parentLineId: newParentId,
+          sku: projItem.sku,
+          qty: projItem.qty,
+          allocations: newParentId ? [] : [...projItem.allocations],
+          selectedModifierState: projItem.selectedModifierState,
+        });
+
+        for (const child of projItem.children) {
+          cloneItem(child, newLineId);
+        }
+      };
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          cloneItem(item, null);
+        }
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
+    },
+
+    removeItems: (lineIds) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          deltas.push({
+            action: "remove_item",
+            lineId,
+            qty: item.qty,
+          });
+        }
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
+    },
+
+    modifyItemsQty: (lineIds, change) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          const targetQty = item.qty + change;
+          if (targetQty <= 0) {
+            deltas.push({
+              action: "remove_item",
+              lineId,
+              qty: item.qty,
+            });
+          } else {
+            deltas.push({
+              action: "modify_qty",
+              lineId,
+              beforeQty: item.qty,
+              afterQty: targetQty,
+            });
+          }
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+    },
+
+    setItemsQty: (lineIds, targetQty) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          if (targetQty <= 0) {
+            deltas.push({
+              action: "remove_item",
+              lineId,
+              qty: item.qty,
+            });
+          } else {
+            deltas.push({
+              action: "modify_qty",
+              lineId,
+              beforeQty: item.qty,
+              afterQty: targetQty,
+            });
+          }
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+    },
+
+    reassignItems: (lineIds, newAssignee) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      const newAssignAllocId = generateAllocationId("assign");
+      const newAssignAlloc: AssignmentAllocation = {
+        allocationId: newAssignAllocId,
+        type: "assignment",
+        entity: newAssignee,
+      };
+
+      deltas.push({ action: "declare_allocation", allocation: newAssignAlloc });
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          const currentAssignAllocId = item.allocations.find(
+            (id) => state.allocations[id]?.type === "assignment"
+          );
+
+          const newAllocations = item.allocations.map((id) =>
+            id === currentAssignAllocId ? newAssignAllocId : id
+          );
+
+          deltas.push({
+            action: "modify_item_allocations",
+            lineId,
+            beforeAllocations: item.allocations,
+            afterAllocations: newAllocations,
+          });
+        }
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
+    },
+
+    groupItemsPaymentConfig: (lineIds, targetId) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      const allPayAllocs = Object.values(state.allocations).filter(
+        (a): a is PaymentAllocation => a.type === "payment"
+      );
+
+      const splitAllocs = allPayAllocs.filter((a) => a.correlationId === targetId);
+
+      let targetAllocIds: string[] = [];
+      if (splitAllocs.length > 0) {
+        targetAllocIds = splitAllocs.map((a) => a.allocationId);
+      } else {
+        targetAllocIds = [targetId];
+      }
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          const nonPaymentAllocs = item.allocations.filter(
+            (id) => state.allocations[id]?.type !== "payment"
+          );
+          const newAllocations = [...nonPaymentAllocs, ...targetAllocIds];
+
+          deltas.push({
+            action: "modify_item_allocations",
+            lineId,
+            beforeAllocations: item.allocations,
+            afterAllocations: newAllocations,
+          });
+        }
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
+    },
+
+    addGroupModifier: (parentLineIds, modifierSku, selectedModifierState) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      for (const parentLineId of parentLineIds) {
+        const parent = state.items[parentLineId];
+        if (parent) {
+          const hasMod = parent.children.some((c) => c.sku === modifierSku);
+          if (!hasMod) {
+            deltas.push({
+              action: "add_item",
+              lineId: generateLineId(),
+              parentLineId,
+              sku: modifierSku,
+              qty: 1,
+              allocations: [],
+              selectedModifierState,
+            });
+          }
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+    },
+
+    removeGroupModifier: (parentLineIds, modifierSku) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+
+      for (const parentLineId of parentLineIds) {
+        const parent = state.items[parentLineId];
+        if (parent) {
+          const childWithSku = parent.children.find((c) => c.sku === modifierSku);
+          if (childWithSku) {
+            deltas.push({
+              action: "remove_item",
+              lineId: childWithSku.lineId,
+              qty: childWithSku.qty,
+            });
+          }
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
     },
 
     modifyItemSku: (lineId, beforeSku, afterSku) => {

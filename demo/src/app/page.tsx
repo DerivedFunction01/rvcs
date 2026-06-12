@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator as SeparatorUI } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -161,6 +162,8 @@ function LineItemNode({
   depth,
   modifiers,
   guests,
+  isSelected = false,
+  onSelectToggle,
 }: {
   item: ProjectedLineItem;
   allocations: Record<string, AllocationBlock>;
@@ -171,6 +174,8 @@ function LineItemNode({
   depth: number;
   modifiers: CatalogItemEntry[];
   guests: string[];
+  isSelected?: boolean;
+  onSelectToggle?: (lineId: string) => void;
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
@@ -212,6 +217,14 @@ function LineItemNode({
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
+                {isRoot && (
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onSelectToggle?.(item.lineId)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mr-1 h-3.5 w-3.5 border-muted-foreground/30 data-[state=checked]:border-primary"
+                  />
+                )}
                 {!isModifier && (
                   <div
                     className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(
@@ -552,11 +565,34 @@ function POSTerminalInner() {
     activePaymentConfigId,
     selectPaymentConfig,
     createTableSplitConfig,
+    duplicateItems,
+    removeItems,
+    modifyItemsQty,
+    setItemsQty,
+    reassignItems,
+    groupItemsPaymentConfig,
+    addGroupModifier,
+    removeGroupModifier,
   } = useVCSStore();
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const customerName = orderContext?.customerFields.name || "Guest";
   const [guests, setGuests] = React.useState<string[]>([customerName]);
+  
+  // Bulk actions selection state
+  const [selectedLineIds, setSelectedLineIds] = React.useState<Set<string>>(new Set());
+
+  const handleSelectToggle = useCallback((lineId: string) => {
+    setSelectedLineIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineId)) {
+        next.delete(lineId);
+      } else {
+        next.add(lineId);
+      }
+      return next;
+    });
+  }, []);
   const [selectedPerson, setSelectedPerson] = React.useState(customerName);
   const [mimicTarget, setMimicTarget] = React.useState("");
   const [newGuestName, setNewGuestName] = React.useState("");
@@ -638,6 +674,36 @@ function POSTerminalInner() {
   const rootItems = Object.values(projectedState.items).filter(
     (i) => !i.parentLineId
   );
+
+  const selectedItems = React.useMemo(() => {
+    return rootItems.filter((item) => selectedLineIds.has(item.lineId));
+  }, [rootItems, selectedLineIds]);
+
+  const compatibleModifiers = React.useMemo(() => {
+    if (selectedItems.length === 0) return [];
+    const firstEntry = catalog[selectedItems[0].sku];
+    let commonSkus = firstEntry?.allowedModifiers || [];
+    for (let i = 1; i < selectedItems.length; i++) {
+      const entry = catalog[selectedItems[i].sku];
+      const allowed = entry?.allowedModifiers || [];
+      commonSkus = commonSkus.filter((sku) => allowed.includes(sku));
+    }
+    return modifierItems.filter((mod) => commonSkus.includes(mod.sku));
+  }, [selectedItems, catalog, modifierItems]);
+
+  const activeModifiersOnSelected = React.useMemo(() => {
+    if (selectedItems.length === 0) return [];
+    const activeModifierSkus = new Set<string>();
+    for (const item of selectedItems) {
+      for (const child of item.children) {
+        const childEntry = catalog[child.sku];
+        if (childEntry && childEntry.type === "modifier") {
+          activeModifierSkus.add(child.sku);
+        }
+      }
+    }
+    return modifierItems.filter((mod) => activeModifierSkus.has(mod.sku));
+  }, [selectedItems, catalog, modifierItems]);
 
   // Count items on the active payment configuration group
   const itemsOnActiveConfig = React.useMemo(() => {
@@ -1294,11 +1360,204 @@ function POSTerminalInner() {
                       depth={0}
                       modifiers={modifierItems}
                       guests={guests}
+                      isSelected={selectedLineIds.has(item.lineId)}
+                      onSelectToggle={handleSelectToggle}
                     />
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Bulk Actions Bar */}
+            {selectedLineIds.size > 0 && (
+              <div className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selectedLineIds.size === rootItems.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedLineIds(new Set(rootItems.map((i) => i.lineId)));
+                      } else {
+                        setSelectedLineIds(new Set());
+                      }
+                    }}
+                  />
+                  <span className="text-xs font-semibold text-foreground select-none">
+                    {selectedLineIds.size} selected
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Quantity bulk increase/decrease */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
+                    onClick={() => {
+                      modifyItemsQty(Array.from(selectedLineIds), -1);
+                      toast.success("Selected items quantity decreased");
+                    }}
+                  >
+                    <Minus className="w-3.5 h-3.5 mr-1" />
+                    - Qty
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
+                    onClick={() => {
+                      modifyItemsQty(Array.from(selectedLineIds), 1);
+                      toast.success("Selected items quantity increased");
+                    }}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    + Qty
+                  </Button>
+
+                  {/* Quantity bulk set */}
+                  <Select
+                    onValueChange={(val) => {
+                      const qty = parseInt(val, 10);
+                      if (!isNaN(qty)) {
+                        setItemsQty(Array.from(selectedLineIds), qty);
+                        toast.success(`Set quantity to ${qty}`);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[90px]">
+                      <SelectValue placeholder="Set Qty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((num) => (
+                        <SelectItem key={num} value={String(num)} className="text-[11px]">
+                          {num}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
+                    onClick={() => {
+                      duplicateItems(Array.from(selectedLineIds));
+                      toast.success("Selected items duplicated");
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" />
+                    Duplicate
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-destructive/90"
+                    onClick={() => {
+                      removeItems(Array.from(selectedLineIds));
+                      setSelectedLineIds(new Set());
+                      toast.success("Selected items removed");
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Remove
+                  </Button>
+
+                  <Select
+                    onValueChange={(val) => {
+                      reassignItems(Array.from(selectedLineIds), val);
+                      toast.success(`Selected items assigned to ${val}`);
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[110px]">
+                      <SelectValue placeholder="Assign Guest" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {guests.map((g) => (
+                        <SelectItem key={g} value={g} className="text-[11px]">
+                          {g}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    onValueChange={(val) => {
+                      groupItemsPaymentConfig(Array.from(selectedLineIds), val);
+                      toast.success("Selected payment reallocated");
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[125px]">
+                      <SelectValue placeholder="Allocate Payment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={defaultPaymentAllocId || ""} className="text-[11px]">
+                        Default ({defaultPaymentMethod.toUpperCase()})
+                      </SelectItem>
+                      {paymentConfigs.map((cfg) => (
+                        <SelectItem key={cfg.id} value={cfg.id} className="text-[11px]">
+                          {cfg.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {compatibleModifiers.length > 0 && (
+                    <Select
+                      onValueChange={(val) => {
+                        const mod = compatibleModifiers.find((m) => m.sku === val);
+                        const defaultState = mod?.allowedStates?.find((s) => s.state === "ADD" || s.state === "WITH")?.state 
+                          || mod?.allowedStates?.[0]?.state 
+                          || undefined;
+                        addGroupModifier(Array.from(selectedLineIds), val, defaultState);
+                        toast.success(`Added ${mod?.name || "modifier"} in bulk`);
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border border-primary/30 text-primary hover:bg-primary/5 w-[115px]">
+                        <SelectValue placeholder="+ Modifier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {compatibleModifiers.map((mod) => (
+                          <SelectItem key={mod.sku} value={mod.sku} className="text-[11px]">
+                            {mod.name} {mod.basePrice > 0 ? `(+$${mod.basePrice.toFixed(2)})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {activeModifiersOnSelected.length > 0 && (
+                    <Select
+                      onValueChange={(val) => {
+                        removeGroupModifier(Array.from(selectedLineIds), val);
+                        toast.success("Removed modifier in bulk");
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border border-destructive/30 text-destructive hover:bg-destructive/5 w-[115px]">
+                        <SelectValue placeholder="- Modifier" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeModifiersOnSelected.map((mod) => (
+                          <SelectItem key={mod.sku} value={mod.sku} className="text-[11px]">
+                            {mod.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  <SeparatorUI orientation="vertical" className="h-6 mx-1 shrink-0" />
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                    onClick={() => setSelectedLineIds(new Set())}
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </main>
 
           {/* ─── RIGHT PANEL: Commit Ledger (DAG) ─────────────────────── */}
