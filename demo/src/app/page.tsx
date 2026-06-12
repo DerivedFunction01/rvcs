@@ -340,7 +340,10 @@ function LineItemNode({
                       onAddModifier(item.lineId, val, defaultState);
                     }}
                   >
-                    <SelectTrigger className="w-[32px] h-6 p-0 border-0 bg-transparent hover:bg-accent">
+                    <SelectTrigger 
+                      className="w-[32px] h-6 p-0 border-0 bg-transparent hover:bg-accent"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Plus className="w-3 h-3" />
                     </SelectTrigger>
                     <SelectContent>
