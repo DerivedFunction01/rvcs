@@ -1,6 +1,3 @@
-# Project-specific ignores
-draft/
-
 # Dependencies
 node_modules/
 .venv/
