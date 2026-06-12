@@ -90,6 +90,13 @@ export interface ModifySkuDelta {
   afterSku: string;
 }
 
+export interface ModifyModifierStateDelta {
+  action: "modify_modifier_state";
+  lineId: string;
+  beforeState?: string;
+  afterState?: string;
+}
+
 // ─── Filter & Batch System ─────────────────────────────────────────────────────
 
 export type FilterProperty =
@@ -166,6 +173,7 @@ export type Delta =
   | RemoveItemDelta
   | ModifyItemAllocationsDelta
   | ModifySkuDelta
+  | ModifyModifierStateDelta
   | BatchByFilterDelta;
 
 // ─── Commit Envelope ───────────────────────────────────────────────────────────

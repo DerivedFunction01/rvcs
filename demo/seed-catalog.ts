@@ -123,9 +123,9 @@ const SEED_DATA = [
   },
   // ─── Modifiers ───────────────────────────────────────────────────────────
   {
-    sku: "MOD-NO-ONION",
-    name: "No Onions",
-    basePrice: 0,
+    sku: "sku-onion-mod",
+    name: "Onions",
+    basePrice: 0.50,
     category: "modifier",
     type: "modifier",
     dietaryFlags: [],
@@ -133,9 +133,9 @@ const SEED_DATA = [
     brand: "",
   },
   {
-    sku: "MOD-XTRA-CHEESE",
-    name: "Extra Cheese",
-    basePrice: 1.5,
+    sku: "sku-cheese-mod",
+    name: "Cheese",
+    basePrice: 1.00,
     category: "modifier",
     type: "modifier",
     dietaryFlags: ["vegetarian"],
@@ -143,19 +143,9 @@ const SEED_DATA = [
     brand: "",
   },
   {
-    sku: "MOD-BACON",
-    name: "Add Bacon",
-    basePrice: 2.0,
-    category: "modifier",
-    type: "modifier",
-    dietaryFlags: [],
-    allergens: ["pork"],
-    brand: "",
-  },
-  {
-    sku: "MOD-AVOCADO",
-    name: "Add Avocado",
-    basePrice: 2.5,
+    sku: "sku-avocado-mod",
+    name: "Avocado",
+    basePrice: 2.00,
     category: "modifier",
     type: "modifier",
     dietaryFlags: ["vegan", "gluten_free"],
@@ -163,13 +153,13 @@ const SEED_DATA = [
     brand: "",
   },
   {
-    sku: "MOD-SIZE-LARGE",
-    name: "Size: Large",
-    basePrice: 2.0,
+    sku: "sku-bacon-mod",
+    name: "Bacon",
+    basePrice: 1.75,
     category: "modifier",
     type: "modifier",
     dietaryFlags: [],
-    allergens: [],
+    allergens: ["pork"],
     brand: "",
   },
   {
@@ -196,6 +186,14 @@ async function main() {
     }
   });
   await prisma.sizeGroup.deleteMany({});
+  await prisma.catalogItem.deleteMany({
+    where: {
+      OR: [
+        { category: "size" },
+        { type: "modifier" }
+      ]
+    }
+  });
 
   for (const item of SEED_DATA) {
     await prisma.catalogItem.upsert({
@@ -314,117 +312,65 @@ async function main() {
     }
   });
 
-  // Seed base toppings/modifiers and allowedStates
-  // 1. Onion
-  await prisma.catalogItem.upsert({
-    where: { sku: "MOD-ONION" },
-    update: {
-      name: "Onions",
-      basePrice: 0.50,
-      category: "modifier",
-      type: "modifier",
-      dietaryFlags: "[]",
-      allergens: "[]",
-      brand: "",
-      active: true,
-    },
-    create: {
-      sku: "MOD-ONION",
-      name: "Onions",
-      basePrice: 0.50,
-      category: "modifier",
-      type: "modifier",
-      dietaryFlags: "[]",
-      allergens: "[]",
-      brand: "",
-      active: true,
-    },
+  // Clean up legacy modifiers explicitly
+  await prisma.catalogItem.deleteMany({
+    where: {
+      sku: {
+        in: [
+          "MOD-ONION",
+          "MOD-CHEESE",
+          "MOD-AVOCADO",
+          "MOD-BACON",
+          "MOD-NO-ONION",
+          "MOD-XTRA-CHEESE",
+          "MOD-SIZE-LARGE"
+        ]
+      }
+    }
   });
 
+  // Seed modifier state options
+  // 1. Onion States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "MOD-ONION", state: "NO", label: "No Onions", priceOverride: 0.00 },
-      { modifierSku: "MOD-ONION", state: "LESS", label: "Less Onions", priceOverride: 0.25 },
-      { modifierSku: "MOD-ONION", state: "ADD", label: "Add Onions", priceOverride: 0.50 },
-      { modifierSku: "MOD-ONION", state: "EXTRA", label: "Extra Onions", priceOverride: 1.00 },
-      { modifierSku: "MOD-ONION", state: "SIDE", label: "Onions on Side", priceOverride: 0.50 },
+      { modifierSku: "sku-onion-mod", state: "NO", label: "No Onions", priceOverride: 0.00 },
+      { modifierSku: "sku-onion-mod", state: "LESS", label: "Less Onions", priceOverride: 0.25 },
+      { modifierSku: "sku-onion-mod", state: "ADD", label: "Add Onions", priceOverride: 0.50 },
+      { modifierSku: "sku-onion-mod", state: "EXTRA", label: "Extra Onions", priceOverride: 0.75 },
+      { modifierSku: "sku-onion-mod", state: "SIDE", label: "Onions on Side", priceOverride: 0.50 },
     ]
   });
 
-  // 2. Cheese
-  await prisma.catalogItem.upsert({
-    where: { sku: "MOD-CHEESE" },
-    update: {
-      name: "Cheese",
-      basePrice: 1.00,
-      category: "modifier",
-      type: "modifier",
-      dietaryFlags: "[\"vegetarian\"]",
-      allergens: "[\"dairy\"]",
-      brand: "",
-      active: true,
-    },
-    create: {
-      sku: "MOD-CHEESE",
-      name: "Cheese",
-      basePrice: 1.00,
-      category: "modifier",
-      type: "modifier",
-      dietaryFlags: "[\"vegetarian\"]",
-      allergens: "[\"dairy\"]",
-      brand: "",
-      active: true,
-    },
-  });
-
+  // 2. Cheese States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "MOD-CHEESE", state: "NO", label: "No Cheese", priceOverride: 0.00 },
-      { modifierSku: "MOD-CHEESE", state: "LESS", label: "Less Cheese", priceOverride: 0.50 },
-      { modifierSku: "MOD-CHEESE", state: "ADD", label: "Add Cheese", priceOverride: 1.00 },
-      { modifierSku: "MOD-CHEESE", state: "EXTRA", label: "Extra Cheese", priceOverride: 1.75 },
+      { modifierSku: "sku-cheese-mod", state: "NO", label: "No Cheese", priceOverride: 0.00 },
+      { modifierSku: "sku-cheese-mod", state: "LESS", label: "Less Cheese", priceOverride: 0.50 },
+      { modifierSku: "sku-cheese-mod", state: "ADD", label: "Add Cheese", priceOverride: 1.00 },
+      { modifierSku: "sku-cheese-mod", state: "EXTRA", label: "Extra Cheese", priceOverride: 1.50 },
+      { modifierSku: "sku-cheese-mod", state: "SIDE", label: "Cheese on Side", priceOverride: 1.00 },
     ]
   });
 
-  // 3. Avocado
-  await prisma.catalogItem.upsert({
-    where: { sku: "MOD-AVOCADO" },
-    update: {
-      name: "Avocado",
-      basePrice: 2.50,
-      category: "modifier",
-      type: "modifier",
-      dietaryFlags: "[\"vegan\", \"gluten_free\"]",
-      allergens: "[]",
-      brand: "",
-      active: true,
-    },
-    create: {
-      sku: "MOD-AVOCADO",
-      name: "Avocado",
-      basePrice: 2.50,
-      category: "modifier",
-      type: "modifier",
-      dietaryFlags: "[\"vegan\", \"gluten_free\"]",
-      allergens: "[]",
-      brand: "",
-      active: true,
-    },
-  });
-
+  // 3. Avocado States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "MOD-AVOCADO", state: "NO", label: "No Avocado", priceOverride: 0.00 },
-      { modifierSku: "MOD-AVOCADO", state: "EXTRA", label: "Extra Avocado", priceOverride: 4.00 },
-      { modifierSku: "MOD-AVOCADO", state: "SIDE", label: "Avocado on Side", priceOverride: 2.50 },
+      { modifierSku: "sku-avocado-mod", state: "NO", label: "No Avocado", priceOverride: 0.00 },
+      { modifierSku: "sku-avocado-mod", state: "LESS", label: "Less Avocado", priceOverride: 1.00 },
+      { modifierSku: "sku-avocado-mod", state: "ADD", label: "Add Avocado", priceOverride: 2.00 },
+      { modifierSku: "sku-avocado-mod", state: "EXTRA", label: "Extra Avocado", priceOverride: 3.00 },
+      { modifierSku: "sku-avocado-mod", state: "SIDE", label: "Avocado on Side", priceOverride: 2.00 },
     ]
   });
 
-  // 4. Bacon (upsert handles updates, add modifier states)
+  // 4. Bacon States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "MOD-BACON", state: "NO", label: "No Bacon", priceOverride: 0.00 },
-      { modifierSku: "MOD-BACON", state: "EXTRA", label: "Extra Bacon", priceOverride: 3.50 },
+      { modifierSku: "sku-bacon-mod", state: "NO", label: "No Bacon", priceOverride: 0.00 },
+      { modifierSku: "sku-bacon-mod", state: "LESS", label: "Less Bacon", priceOverride: 1.00 },
+      { modifierSku: "sku-bacon-mod", state: "ADD", label: "Add Bacon", priceOverride: 1.75 },
+      { modifierSku: "sku-bacon-mod", state: "EXTRA", label: "Extra Bacon", priceOverride: 2.50 },
+      { modifierSku: "sku-bacon-mod", state: "SIDE", label: "Bacon on Side", priceOverride: 1.75 },
     ]
   });
 

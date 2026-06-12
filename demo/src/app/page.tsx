@@ -284,6 +284,43 @@ function LineItemNode({
                   </div>
                 </div>
               )}
+              {!isRoot && catalogEntry && catalogEntry.allowedStates && catalogEntry.allowedStates.length > 0 && (
+                <div className="flex items-center gap-1 mt-2">
+                  <div className="flex items-center rounded border p-0.5 bg-muted/20">
+                    {catalogEntry.allowedStates.map((stateOpt) => {
+                      const isActive = item.selectedModifierState === stateOpt.state;
+                      const priceDiff = stateOpt.priceOverride !== null 
+                        ? stateOpt.priceOverride - catalogEntry.basePrice 
+                        : 0;
+                      return (
+                        <Button
+                          key={stateOpt.state}
+                          variant={isActive ? "secondary" : "ghost"}
+                          size="sm"
+                          className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isActive) {
+                              useVCSStore.getState().modifyModifierState(
+                                item.lineId,
+                                item.selectedModifierState,
+                                stateOpt.state
+                              );
+                            }
+                          }}
+                        >
+                          {stateOpt.state}
+                          {priceDiff !== 0 && (
+                            <span className="opacity-70 font-mono ml-0.5 text-[8px]">
+                              ({priceDiff > 0 ? "+" : ""}${priceDiff.toFixed(2)})
+                            </span>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col items-end shrink-0 gap-1.5">
@@ -296,43 +333,22 @@ function LineItemNode({
                 {isRoot && modifiers.length > 0 && (
                   <Select
                     onValueChange={(val) => {
-                      if (val.includes("::")) {
-                        const [modSku, state] = val.split("::");
-                        onAddModifier(item.lineId, modSku, state);
-                      } else {
-                        onAddModifier(item.lineId, val);
-                      }
+                      const mod = modifiers.find((m) => m.sku === val);
+                      const defaultState = mod?.allowedStates?.find((s) => s.state === "ADD" || s.state === "WITH")?.state 
+                        || mod?.allowedStates?.[0]?.state 
+                        || undefined;
+                      onAddModifier(item.lineId, val, defaultState);
                     }}
                   >
                     <SelectTrigger className="w-[32px] h-6 p-0 border-0 bg-transparent hover:bg-accent">
                       <Plus className="w-3 h-3" />
                     </SelectTrigger>
                     <SelectContent>
-                      {modifiers.map((mod) => {
-                        if (mod.allowedStates && mod.allowedStates.length > 0) {
-                          return (
-                            <React.Fragment key={mod.sku}>
-                              <div className="text-[9px] font-semibold text-muted-foreground uppercase px-2 py-0.5 mt-1 select-none">
-                                {mod.name}
-                              </div>
-                              {mod.allowedStates.map((stateOpt) => (
-                                <SelectItem
-                                  key={`${mod.sku}::${stateOpt.state}`}
-                                  value={`${mod.sku}::${stateOpt.state}`}
-                                  className="text-xs pl-4"
-                                >
-                                  {stateOpt.label} {stateOpt.priceOverride !== null ? `($${stateOpt.priceOverride.toFixed(2)})` : ""}
-                                </SelectItem>
-                              ))}
-                            </React.Fragment>
-                          );
-                        }
-                        return (
-                          <SelectItem key={mod.sku} value={mod.sku} className="text-xs">
-                            {mod.name} {mod.basePrice > 0 ? `+$${mod.basePrice.toFixed(2)}` : ""}
-                          </SelectItem>
-                        );
-                      })}
+                      {modifiers.map((mod) => (
+                        <SelectItem key={mod.sku} value={mod.sku} className="text-xs">
+                          {mod.name} {mod.basePrice > 0 ? `(+$${mod.basePrice.toFixed(2)})` : ""}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 )}

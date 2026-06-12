@@ -250,6 +250,14 @@ function applyDelta(
       break;
     }
 
+    case "modify_modifier_state": {
+      const item = items[delta.lineId];
+      if (item && item.selectedModifierState === delta.beforeState) {
+        item.selectedModifierState = delta.afterState;
+      }
+      break;
+    }
+
     case "batch_by_filter":
       applyBatchByFilter(items, allocations, delta, fullLog, catalog);
       break;

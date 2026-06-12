@@ -247,6 +247,7 @@ interface VCSStore {
   addModifier: (parentLineId: string, modifierSku: string, selectedModifierState?: string) => void;
   removeItem: (lineId: string) => void;
   modifyItemSku: (lineId: string, beforeSku: string, afterSku: string) => void;
+  modifyModifierState: (lineId: string, beforeState?: string, afterState?: string) => void;
   mimicOrder: (sourceAssignee: string, targetAssignee: string, targetPayer: string, paymentMethod: string) => void;
 
   // Actions — Branching
@@ -914,6 +915,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             lineId,
             beforeSku,
             afterSku,
+          },
+        ],
+        "pos-ui"
+      );
+    },
+
+    modifyModifierState: (lineId, beforeState, afterState) => {
+      get().commitDeltas(
+        [
+          {
+            action: "modify_modifier_state",
+            lineId,
+            beforeState,
+            afterState,
           },
         ],
         "pos-ui"
