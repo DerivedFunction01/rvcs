@@ -7,6 +7,11 @@ import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
 import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type {
   ProjectedLineItem,
   AllocationBlock,
@@ -611,7 +616,23 @@ function POSTerminalInner() {
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
 
   // Active check view filter state
-  const [filterGuest, setFilterGuest] = React.useState<string>("all");
+  const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(new Set([customerName]));
+
+  // Synchronize visibleGuests with guests on add/remove/reset
+  React.useEffect(() => {
+    setVisibleGuests((prev) => {
+      const next = new Set<string>();
+      for (const g of guests) {
+        if (prev.has(g)) {
+          next.add(g);
+        } else {
+          // If the guest is brand new (not in prev), make it visible by default
+          next.add(g);
+        }
+      }
+      return next;
+    });
+  }, [guests]);
 
   // ─── Dialog State ────────────────────────────────────────────────────
   const [paymentSwitchOpen, setPaymentSwitchOpen] = React.useState(false);
@@ -685,12 +706,11 @@ function POSTerminalInner() {
   );
 
   const filteredRootItems = React.useMemo(() => {
-    if (filterGuest === "all") return rootItems;
     return rootItems.filter((item) => {
       const assignee = getAssigneeFromItem(item, projectedState.allocations);
-      return assignee === filterGuest;
+      return visibleGuests.has(assignee);
     });
-  }, [rootItems, filterGuest, projectedState.allocations]);
+  }, [rootItems, visibleGuests, projectedState.allocations]);
 
   // Sync selection with current filteredRootItems (prune deleted ones)
   React.useEffect(() => {
@@ -711,7 +731,7 @@ function POSTerminalInner() {
   // Clear selection when filter changes
   React.useEffect(() => {
     setSelectedLineIds(new Set());
-  }, [filterGuest]);
+  }, [visibleGuests]);
 
   // Clear selection when branch or revision changes
   const currentBranchName = activeBranch();
@@ -1344,20 +1364,77 @@ function POSTerminalInner() {
                   </Badge>
                 )}
                 
-                {/* Guest Filter Dropdown */}
-                <Select value={filterGuest} onValueChange={setFilterGuest}>
-                  <SelectTrigger className="h-7 text-[11px] w-[130px] bg-background border hover:bg-accent ml-2">
-                    <SelectValue placeholder="All Guests" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-[11px]">All Guests</SelectItem>
-                    {guests.map((g) => (
-                      <SelectItem key={g} value={g} className="text-[11px]">
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Guest Filter Popover Grid */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5 ml-2 bg-background border hover:bg-accent">
+                      <User className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>
+                        {visibleGuests.size === guests.length
+                          ? "All Guests"
+                          : visibleGuests.size === 0
+                          ? "No Guests"
+                          : `${visibleGuests.size}/${guests.length} Guests`}
+                      </span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-3" align="start">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
+                          Filter Guests
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="link"
+                            className="h-auto p-0 text-[10px] font-semibold text-primary hover:no-underline"
+                            onClick={() => setVisibleGuests(new Set(guests))}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            variant="link"
+                            className="h-auto p-0 text-[10px] font-semibold text-destructive hover:no-underline"
+                            onClick={() => setVisibleGuests(new Set())}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                        {guests.map((g, idx) => {
+                          const isVisible = visibleGuests.has(g);
+                          const color = GUEST_PALETTE[idx % GUEST_PALETTE.length];
+                          return (
+                            <button
+                              key={g}
+                              onClick={() => {
+                                setVisibleGuests((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(g)) {
+                                    next.delete(g);
+                                  } else {
+                                    next.add(g);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 border rounded-lg text-left text-xs transition-all ${
+                                isVisible
+                                  ? "border-primary bg-primary/5 font-medium"
+                                  : "border-border bg-card opacity-60 hover:opacity-100"
+                              }`}
+                            >
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${color}`} />
+                              <span className="truncate flex-1">{g}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="flex items-center gap-4">
                 {projectedState.financials.personBreakdown.map((pb) => (
