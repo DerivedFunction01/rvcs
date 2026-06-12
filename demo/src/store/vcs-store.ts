@@ -271,6 +271,8 @@ interface VCSStore {
   viewRevision: (hash: string | null) => void; // null = HEAD
   setMainActiveBranch: (name: string) => void;
   mainActiveBranch: () => string;
+  updateBranchConfig: (name: string, config: { type?: "parallel" | "hypothetical"; label?: string }) => void;
+  renameBranch: (oldName: string, newName: string) => void;
 
   // Actions — Persistence
   persist: () => void;
@@ -1413,6 +1415,24 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     setMainActiveBranch: (name) => {
       const store = get();
       store.engine.setMainActiveBranch(name);
+      set({
+        projectedState: store.engine.projectCurrent(),
+      });
+      store.persist();
+    },
+
+    updateBranchConfig: (name, config) => {
+      const store = get();
+      store.engine.updateBranchConfig(name, config);
+      set({
+        projectedState: store.engine.projectCurrent(),
+      });
+      store.persist();
+    },
+
+    renameBranch: (oldName, newName) => {
+      const store = get();
+      store.engine.renameBranch(oldName, newName);
       set({
         projectedState: store.engine.projectCurrent(),
       });

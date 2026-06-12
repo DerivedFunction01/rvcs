@@ -126,7 +126,47 @@ export class VCSEngine {
     } else {
       headHash = this.repo.branches[this.repo.activeBranch]?.headHash ?? null;
     }
-    this.repo.branches[name] = { headHash };
+    this.repo.branches[name] = { headHash, type: "parallel" };
+  }
+
+  updateBranchConfig(name: string, config: { type?: "parallel" | "hypothetical"; label?: string }): void {
+    if (!this.repo.branches[name]) {
+      throw new Error(`Branch "${name}" does not exist`);
+    }
+    this.repo.branches[name] = {
+      ...this.repo.branches[name],
+      ...config,
+    };
+  }
+
+  renameBranch(oldName: string, newName: string): void {
+    if (oldName === newName) return;
+    if (!newName.trim()) {
+      throw new Error("Branch name cannot be empty");
+    }
+    if (!this.repo.branches[oldName]) {
+      throw new Error(`Branch "${oldName}" does not exist`);
+    }
+    if (this.repo.branches[newName]) {
+      throw new Error(`Branch "${newName}" already exists`);
+    }
+
+    this.repo.branches[newName] = this.repo.branches[oldName];
+    delete this.repo.branches[oldName];
+
+    if (this.repo.activeBranch === oldName) {
+      this.repo.activeBranch = newName;
+    }
+    if (this.repo.mainActiveBranch === oldName) {
+      this.repo.mainActiveBranch = newName;
+    }
+
+    // Update the branch property of all commits belonging to oldName
+    for (const commit of this.repo.log) {
+      if (commit.branch === oldName) {
+        commit.branch = newName;
+      }
+    }
   }
 
   setMainActiveBranch(name: string): void {

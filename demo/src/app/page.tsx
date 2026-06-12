@@ -2,11 +2,13 @@
 
 import React, { useCallback } from "react";
 import { useVCSStore, getPaymentAllocDisplayName, getAssignmentAllocDisplayName } from "@/store/vcs-store";
+import { buildCommitGraph } from "@/lib/vcs/graph";
 import { OrderInitScreen } from "@/components/vcs/order-init-screen";
 import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
 import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
+import { BranchConfigDialog } from "@/components/vcs/branch-config-dialog";
 import {
   Popover,
   PopoverContent,
@@ -40,6 +42,10 @@ import {
   Settings2,
   Split,
   Star,
+  ChevronDown,
+  ChevronRight,
+  GitBranch,
+  Lightbulb,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -558,6 +564,8 @@ function POSTerminalInner() {
     viewRevision,
     setMainActiveBranch,
     mainActiveBranch,
+    updateBranchConfig,
+    renameBranch,
     orderContext,
     resetOrder,
     defaultPaymentMethod,
@@ -638,6 +646,24 @@ function POSTerminalInner() {
   }, [guests]);
 
   const [newBranchFromHistoryName, setNewBranchFromHistoryName] = React.useState("");
+  
+  // Branch configuration dialog state
+  const [isBranchConfigOpen, setIsBranchConfigOpen] = React.useState(false);
+  const [branchToConfig, setBranchToConfig] = React.useState<string | null>(null);
+
+  const handleSaveBranchConfig = useCallback((newName: string, type: "parallel" | "hypothetical", label: string) => {
+    if (!branchToConfig) return;
+    try {
+      if (newName !== branchToConfig) {
+        renameBranch(branchToConfig, newName);
+        toast.success(`Branch "${branchToConfig}" renamed to "${newName}"`);
+      }
+      updateBranchConfig(newName, { type, label });
+      toast.success(`Branch configuration saved`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }, [branchToConfig, renameBranch, updateBranchConfig]);
 
   const handleBranchFromHistory = React.useCallback(() => {
     if (!newBranchFromHistoryName.trim() || !viewingHash) return;
@@ -649,6 +675,22 @@ function POSTerminalInner() {
       toast.error((e as Error).message);
     }
   }, [createBranch, newBranchFromHistoryName, viewingHash]);
+
+  const [expandedCommits, setExpandedCommits] = React.useState<Set<string>>(new Set());
+
+  const toggleCommitExpanded = React.useCallback((hash: string) => {
+    setExpandedCommits((prev) => {
+      const next = new Set(prev);
+      if (next.has(hash)) {
+        next.delete(hash);
+      } else {
+        next.add(hash);
+      }
+      return next;
+    });
+  }, []);
+
+
 
   // ─── Dialog State ────────────────────────────────────────────────────
   const [paymentSwitchOpen, setPaymentSwitchOpen] = React.useState(false);
@@ -911,6 +953,11 @@ function POSTerminalInner() {
   }, [activePaymentConfigId, defaultPaymentAllocId, defaultPaymentMethod, projectedState.allocations]);
 
   const log = commitLog();
+  const branches = useVCSStore.getState().engine.getRepo().branches;
+
+  const graphData = React.useMemo(() => {
+    return buildCommitGraph(log, activeBranch(), mainActiveBranch(), expandedCommits, branches);
+  }, [log, activeBranch, mainActiveBranch, expandedCommits, branches]);
   const isViewingHistory = viewingHash !== null && viewingHash !== headHash();
 
   // ─── Handlers (all hooks before any conditional returns) ─────────────────
@@ -1105,18 +1152,52 @@ function POSTerminalInner() {
 
           {/* Branch Tabs */}
           <div className="flex items-center gap-2">
-            {Object.keys(useVCSStore.getState().engine.getBranches()).map((branch) => {
+            {Object.entries(branches).map(([branch, pointer]) => {
               const isMainActive = mainActiveBranch() === branch;
               const isActive = activeBranch() === branch;
+              const isHypothetical = pointer.type === "hypothetical";
+              const displayName = pointer.label || branch;
               return (
-                <div key={branch} className="flex items-center gap-1 border rounded-md px-1.5 py-0.5 bg-card shrink-0">
+                <div
+                  key={branch}
+                  className={`flex items-center gap-1 border rounded-md px-1.5 py-0.5 shrink-0 transition-all ${
+                    isActive
+                      ? isHypothetical
+                        ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/20"
+                        : "border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500/20"
+                      : isHypothetical
+                        ? "border-amber-200/60 dark:border-amber-800/40 bg-amber-500/5 hover:bg-amber-500/10"
+                        : "border-border bg-card hover:bg-accent/40"
+                  }`}
+                >
+                  <span className="flex items-center shrink-0" title={isHypothetical ? "Hypothetical (What-if) Branch" : "Parallel Input Branch"}>
+                    {isHypothetical ? (
+                      <Lightbulb className="w-3 h-3 text-amber-500" />
+                    ) : (
+                      <GitBranch className="w-3 h-3 text-emerald-500" />
+                    )}
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={`text-xs h-6 px-1.5 ${isActive ? "font-bold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    className={`text-xs h-6 px-1 ${isActive ? "font-bold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     onClick={() => checkoutBranch(branch)}
+                    title={`Checkout ${branch}${pointer.label ? ` (${pointer.label})` : ""}`}
                   >
-                    {branch}
+                    {displayName}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 p-0 hover:bg-muted"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBranchToConfig(branch);
+                      setIsBranchConfigOpen(true);
+                    }}
+                    title="Configure branch"
+                  >
+                    <Settings2 className="w-3 h-3 text-muted-foreground/60 hover:text-foreground" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -1129,7 +1210,7 @@ function POSTerminalInner() {
                     }}
                     title={isMainActive ? "Main active branch" : "Mark as main active branch"}
                   >
-                    <Star className={`w-3.5 h-3.5 ${isMainActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`} />
+                    <Star className={`w-3 h-3 ${isMainActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"}`} />
                   </Button>
                 </div>
               );
@@ -1789,88 +1870,207 @@ function POSTerminalInner() {
             )}
 
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1.5">
-                {log.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground/50">
-                    <GitCommitHorizontal className="w-8 h-8 mx-auto mb-2" />
-                    <p className="text-xs">No commits yet</p>
-                  </div>
-                ) : (
-                  log.map((commit) => {
-                    const isActive =
-                      viewingHash === commit.commitHash ||
-                      (viewingHash === null &&
-                        commit.commitHash === headHash());
-                    const isAI = commit.authorId === "ai-agent";
-                    const isSystem = commit.authorId === "system-init";
-
-                    return (
-                      <button
-                        key={commit.commitHash}
-                        onClick={() => viewRevision(commit.commitHash)}
-                        className={`w-full text-left rounded-lg border p-2.5 transition-all text-sm ${
-                          isActive
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "border-transparent hover:border-border hover:bg-accent/50"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-mono text-[10px] font-medium text-muted-foreground truncate">
-                            {commit.commitHash.substring(0, 12)}
-                          </span>
-                          <Badge
-                            variant={isAI ? "default" : isSystem ? "secondary" : "secondary"}
-                            className={`text-[9px] h-4 px-1.5 shrink-0 ${isAI ? "bg-amber-500 text-white hover:bg-amber-500" : isSystem ? "bg-muted text-muted-foreground" : ""}`}
-                          >
-                            {commit.authorId}
-                          </Badge>
-                        </div>
-                        <div className="space-y-0.5">
-                          {commit.deltas.slice(0, 4).map((d, i) => (
-                            <div
-                              key={i}
-                              className="text-[10px] text-muted-foreground flex items-center gap-1.5"
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                  d.action === "declare_allocation"
-                                    ? "bg-violet-500"
-                                    : d.action === "add_item"
-                                      ? "bg-emerald-500"
-                                    : d.action === "remove_item"
-                                      ? "bg-red-500"
-                                    : d.action.startsWith("modify")
-                                      ? "bg-amber-500"
-                                      : "bg-sky-500"
-                                }`}
+              {log.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground/50">
+                  <GitCommitHorizontal className="w-8 h-8 mx-auto mb-2" />
+                  <p className="text-xs">No commits yet</p>
+                </div>
+              ) : (
+                <div className="relative flex min-h-full">
+                  {/* Left panel: SVG Commit Graph */}
+                  <div 
+                    style={{ width: graphData.width }} 
+                    className="relative shrink-0 select-none overflow-hidden"
+                  >
+                    <svg 
+                      width={graphData.width} 
+                      height={graphData.height} 
+                      className="absolute top-0 left-0"
+                    >
+                      {/* Render Connecting Lines */}
+                      {graphData.lines.map((line) => (
+                        <line
+                          key={line.id}
+                          x1={line.startX}
+                          y1={line.startY}
+                          x2={line.endX}
+                          y2={line.endY}
+                          stroke={line.color}
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeDasharray={line.dashed ? "4,4" : undefined}
+                        />
+                      ))}
+                      {/* Render Node Dots */}
+                      {graphData.nodes.map((node) => {
+                        const isActive =
+                          viewingHash === node.commitHash ||
+                          (viewingHash === null &&
+                            node.commitHash === headHash());
+                        return (
+                          <g key={node.commitHash}>
+                            {isActive && (
+                              <circle
+                                cx={node.x}
+                                cy={node.y}
+                                r={7}
+                                fill="none"
+                                stroke={node.color}
+                                strokeWidth={1.5}
+                                className="animate-pulse"
                               />
-                              <span className="font-mono truncate">{d.action}</span>
-                              {"sku" in d && d.sku && (
-                                <span className="truncate text-muted-foreground/60">
-                                  {String(d.sku).substring(0, 18)}
-                                </span>
-                              )}
-                              {d.action === "modify_item_allocations" && "lineId" in d && (
-                                <span className="truncate text-muted-foreground/60">
-                                  {(d as { lineId: string }).lineId.substring(0, 14)}
-                                </span>
-                              )}
+                            )}
+                            <circle
+                              cx={node.x}
+                              cy={node.y}
+                              r={isActive ? 4.5 : 3.5}
+                              fill={node.color}
+                              className="transition-all duration-200"
+                            />
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+
+                  {/* Right panel: Commit List */}
+                  <div className="flex-1 min-w-0 pr-2">
+                    {log.map((commit, idx) => {
+                      const isActive =
+                        viewingHash === commit.commitHash ||
+                        (viewingHash === null &&
+                          commit.commitHash === headHash());
+                      const isAI = commit.authorId === "ai-agent";
+                      const isSystem = commit.authorId === "system-init";
+                      const isExpanded = expandedCommits.has(commit.commitHash);
+                      const node = graphData.nodes[idx];
+
+                      return (
+                        <div
+                          key={commit.commitHash}
+                          style={{ height: node.rowHeight }}
+                          className="flex flex-col justify-start py-[3px]"
+                        >
+                          <div
+                            onClick={() => viewRevision(commit.commitHash)}
+                            className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-[50px] ${
+                              isActive
+                                ? "border-primary bg-primary/5 shadow-xs"
+                                : "border-transparent hover:border-border hover:bg-accent/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-mono text-[9px] font-semibold text-muted-foreground truncate max-w-[50px]">
+                                {commit.commitHash.substring(0, 7)}
+                              </span>
+                              <Badge
+                                variant={isAI ? "default" : isSystem ? "secondary" : "secondary"}
+                                className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${isAI ? "bg-amber-500 text-white hover:bg-amber-500" : isSystem ? "bg-muted text-muted-foreground" : ""}`}
+                              >
+                                {commit.authorId.split("-")[0]}
+                              </Badge>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCommitExpanded(commit.commitHash);
+                                }}
+                                className="p-0.5 rounded hover:bg-muted shrink-0 ml-auto"
+                                title="Toggle details"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                ) : (
+                                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                                )}
+                              </button>
                             </div>
-                          ))}
-                          {commit.deltas.length > 4 && (
-                            <div className="text-[10px] text-muted-foreground/50 pl-3">
-                              +{commit.deltas.length - 4} more
+                            <div className="flex items-center justify-between text-[8px] text-muted-foreground/75 mt-0.5 font-mono">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (activeBranch() !== commit.branch) {
+                                          checkoutBranch(commit.branch);
+                                          toast.success(`Switched active branch to "${commit.branch}"`);
+                                        }
+                                      }}
+                                      className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${
+                                        activeBranch() === commit.branch
+                                          ? "border-primary text-primary bg-primary/5 ring-[0.5px] ring-primary/20"
+                                          : branches[commit.branch]?.type === "hypothetical"
+                                            ? "border-amber-400/40 text-amber-600 bg-amber-500/[0.04] hover:bg-amber-500/10 hover:border-amber-500"
+                                            : "border-emerald-400/40 text-emerald-600 bg-emerald-500/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500"
+                                      }`}
+                                    >
+                                      {branches[commit.branch]?.type === "hypothetical" ? (
+                                        <Lightbulb className="w-2.5 h-2.5" />
+                                      ) : (
+                                        <GitBranch className="w-2.5 h-2.5" />
+                                      )}
+                                      <span className="truncate max-w-[60px]">
+                                        {branches[commit.branch]?.label || commit.branch}
+                                      </span>
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-[10px]">
+                                    {activeBranch() === commit.branch
+                                      ? `Current active branch: ${commit.branch}`
+                                      : `Click to switch active branch to "${commit.branch}"`}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+
+                              <span>
+                                {new Date(commit.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Expanded Deltas details list */}
+                          {isExpanded && (
+                            <div className="mt-1 pl-2 pr-1 space-y-1 overflow-y-auto max-h-[180px] border-l-2 border-primary/20 ml-2 animate-in fade-in duration-100">
+                              {commit.deltas.map((d, i) => (
+                                <div
+                                  key={i}
+                                  className="text-[9px] text-muted-foreground flex items-center gap-1.5"
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                      d.action === "declare_allocation"
+                                        ? "bg-violet-500"
+                                        : d.action === "add_item"
+                                          ? "bg-emerald-500"
+                                        : d.action === "remove_item"
+                                          ? "bg-red-500"
+                                        : d.action.startsWith("modify")
+                                          ? "bg-amber-500"
+                                          : "bg-sky-500"
+                                    }`}
+                                  />
+                                  <span className="font-mono font-medium truncate shrink-0">{d.action}</span>
+                                  {"sku" in d && d.sku && (
+                                    <span className="truncate text-muted-foreground/60 font-mono">
+                                      {String(d.sku)}
+                                    </span>
+                                  )}
+                                  {d.action === "modify_item_allocations" && "lineId" in d && (
+                                    <span className="truncate text-muted-foreground/60 font-mono">
+                                      {(d as { lineId: string }).lineId.substring(0, 8)}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
                             </div>
                           )}
                         </div>
-                        <div className="text-[9px] text-muted-foreground/50 mt-1.5 font-mono">
-                          {new Date(commit.timestamp).toLocaleTimeString()}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </ScrollArea>
 
             {/* Sync Status */}
@@ -1947,6 +2147,16 @@ function POSTerminalInner() {
             addGroupModifier(Array.from(selectedLineIds), sku, defaultState);
           }
         }}
+      />
+
+      <BranchConfigDialog
+        open={isBranchConfigOpen}
+        onOpenChange={setIsBranchConfigOpen}
+        branchName={branchToConfig || ""}
+        currentType={branchToConfig ? (branches[branchToConfig]?.type || "parallel") : "parallel"}
+        currentLabel={branchToConfig ? (branches[branchToConfig]?.label || "") : ""}
+        existingBranches={Object.keys(branches)}
+        onSave={handleSaveBranchConfig}
       />
     </TooltipProvider>
   );

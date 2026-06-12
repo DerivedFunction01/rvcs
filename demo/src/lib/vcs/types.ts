@@ -234,6 +234,8 @@ export interface ProjectedState {
 
 export interface BranchPointer {
   headHash: string | null;
+  type?: "parallel" | "hypothetical";
+  label?: string;
 }
 
 export type BranchMap = Record<string, BranchPointer>;
