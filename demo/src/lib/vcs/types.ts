@@ -97,6 +97,13 @@ export interface ModifyModifierStateDelta {
   afterState?: string;
 }
 
+export interface ModifyItemQtyDelta {
+  action: "modify_qty";
+  lineId: string;
+  beforeQty: number;
+  afterQty: number;
+}
+
 // ─── Filter & Batch System ─────────────────────────────────────────────────────
 
 export type FilterProperty =
@@ -174,6 +181,7 @@ export type Delta =
   | ModifyItemAllocationsDelta
   | ModifySkuDelta
   | ModifyModifierStateDelta
+  | ModifyItemQtyDelta
   | BatchByFilterDelta;
 
 // ─── Commit Envelope ───────────────────────────────────────────────────────────

@@ -163,7 +163,8 @@ interface VCSStore {
    */
   addItemWithDefaults: (
     sku: string,
-    qty: number
+    qty: number,
+    assigneeName?: string
   ) => void;
 
   /**
@@ -246,6 +247,7 @@ interface VCSStore {
   commitDeltas: (deltas: Delta[], authorId?: string) => VCSCommit;
   addModifier: (parentLineId: string, modifierSku: string, selectedModifierState?: string) => void;
   removeItem: (lineId: string) => void;
+  modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
   modifyItemSku: (lineId: string, beforeSku: string, afterSku: string) => void;
   modifyModifierState: (lineId: string, beforeState?: string, afterState?: string) => void;
   mimicOrder: (sourceAssignee: string, targetAssignee: string, targetPayer: string, paymentMethod: string) => void;
@@ -420,18 +422,41 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       void paymentMethod;
     },
 
-    addItemWithDefaults: (sku, qty) => {
+    addItemWithDefaults: (sku, qty, assigneeName) => {
       const store = get();
-      const assignId = store.defaultAssignmentAllocId;
+      const defaultAssignId = store.defaultAssignmentAllocId;
       const configId = store.activePaymentConfigId;
 
-      if (!assignId || !configId) {
+      if (!defaultAssignId || !configId) {
         console.error("Cannot add item: default allocations not initialized");
         return;
       }
 
-      // Find all allocations that match the activePaymentConfigId (either allocationId or correlationId)
       const state = store.projectedState;
+      let assignId = defaultAssignId;
+      const deltas: Delta[] = [];
+
+      const customerName = store.orderContext?.customerFields.name || "Guest";
+      if (assigneeName && assigneeName !== customerName) {
+        // Find existing assignment allocation for this guest name
+        const existingAssign = Object.values(state.allocations).find(
+          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === assigneeName
+        );
+        if (existingAssign) {
+          assignId = existingAssign.allocationId;
+        } else {
+          const newAssignId = generateAllocationId("assign");
+          const newAssignAlloc: AssignmentAllocation = {
+            allocationId: newAssignId,
+            type: "assignment",
+            entity: assigneeName,
+          };
+          deltas.push({ action: "declare_allocation", allocation: newAssignAlloc });
+          assignId = newAssignId;
+        }
+      }
+
+      // Find all allocations that match the activePaymentConfigId (either allocationId or correlationId)
       const payAllocs = Object.values(state.allocations).filter(
         (a): a is PaymentAllocation =>
           a.type === "payment" &&
@@ -439,17 +464,34 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
       const payIds = payAllocs.map((a) => a.allocationId);
 
+      const targetAllocations = [assignId, ...payIds];
+      const existingItem = Object.values(state.items).find(
+        (i) =>
+          !i.parentLineId &&
+          i.sku === sku &&
+          JSON.stringify([...i.allocations].sort()) === JSON.stringify([...targetAllocations].sort())
+      );
+
+      if (existingItem) {
+        deltas.push({
+          action: "modify_qty",
+          lineId: existingItem.lineId,
+          beforeQty: existingItem.qty,
+          afterQty: existingItem.qty + qty,
+        });
+        store.commitDeltas(deltas, "pos-ui");
+        return;
+      }
+
       const parentLineId = generateLineId();
-      const deltas: Delta[] = [
-        {
-          action: "add_item",
-          lineId: parentLineId,
-          parentLineId: null,
-          sku,
-          qty,
-          allocations: [assignId, ...payIds],
-        },
-      ];
+      deltas.push({
+        action: "add_item",
+        lineId: parentLineId,
+        parentLineId: null,
+        sku,
+        qty,
+        allocations: targetAllocations,
+      });
 
       // Auto-inject default size modifier if catalog entry has an applied size group
       const catalogEntry = store.catalog[sku];
@@ -903,6 +945,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const qty = item?.qty ?? 1;
       get().commitDeltas(
         [{ action: "remove_item", lineId, qty }],
+        "pos-ui"
+      );
+    },
+
+    modifyItemQty: (lineId, beforeQty, afterQty) => {
+      get().commitDeltas(
+        [
+          {
+            action: "modify_qty",
+            lineId,
+            beforeQty,
+            afterQty,
+          },
+        ],
         "pos-ui"
       );
     },

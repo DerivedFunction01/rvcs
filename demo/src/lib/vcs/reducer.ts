@@ -258,6 +258,14 @@ function applyDelta(
       break;
     }
 
+    case "modify_qty": {
+      const item = items[delta.lineId];
+      if (item && item.qty === delta.beforeQty) {
+        item.qty = delta.afterQty;
+      }
+      break;
+    }
+
     case "batch_by_filter":
       applyBatchByFilter(items, allocations, delta, fullLog, catalog);
       break;
@@ -544,6 +552,11 @@ function buildProjectedState(
     }
   }
 
+  // Scale children quantities recursively based on root parent quantity
+  for (const root of roots) {
+    scaleTreeQuantities(root, root.qty);
+  }
+
   const flatItems: Record<string, ProjectedLineItem> = {};
   for (const item of Object.values(itemMap)) {
     flatItems[item.lineId] = item;
@@ -670,6 +683,14 @@ function sumTree(item: ProjectedLineItem): number {
     total += sumTree(child);
   }
   return total;
+}
+
+function scaleTreeQuantities(item: ProjectedLineItem, parentQty: number): void {
+  for (const child of item.children) {
+    child.qty = child.qty * parentQty;
+    child.totalPrice = child.basePrice * child.qty;
+    scaleTreeQuantities(child, parentQty);
+  }
 }
 
 function getAssignee(

@@ -15,6 +15,7 @@ import type {
 import {
   ShoppingCart,
   Plus,
+  Minus,
   Trash2,
   GitCommitHorizontal,
   Clock,
@@ -223,9 +224,43 @@ function LineItemNode({
                 >
                   {item.name}
                 </span>
-                <span className="text-xs text-muted-foreground font-mono shrink-0">
-                  x{item.qty}
-                </span>
+                {isRoot ? (
+                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 p-0 hover:bg-background"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (item.qty > 1) {
+                          useVCSStore.getState().modifyItemQty(item.lineId, item.qty, item.qty - 1);
+                        } else {
+                          useVCSStore.getState().removeItem(item.lineId);
+                        }
+                      }}
+                    >
+                      <Minus className="w-2.5 h-2.5" />
+                    </Button>
+                    <span className="text-[10px] text-foreground font-mono font-semibold min-w-[10px] text-center select-none">
+                      {item.qty}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 p-0 hover:bg-background"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        useVCSStore.getState().modifyItemQty(item.lineId, item.qty, item.qty + 1);
+                      }}
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground font-mono shrink-0">
+                    x{item.qty}
+                  </span>
+                )}
                 {item.basePrice === 0 && (
                   <Badge variant="secondary" className="text-[9px] h-3.5 px-1">
                     mod
@@ -671,28 +706,10 @@ function POSTerminalInner() {
 
   const handleAddItem = useCallback(
     (sku: string) => {
-      // Reassign default assignment if selectedPerson differs from default
-      if (selectedPerson !== customerName && defaultAssignmentAllocId) {
-        // Need to create a new assignment for this guest
-        // Use addItemWithDefaults first, then reassign
-        addItemWithDefaults(sku, 1);
-
-        // Get the line that was just added (last root item)
-        const store = useVCSStore.getState();
-        const state = store.projectedState;
-        const items = Object.values(state.items).filter((i) => !i.parentLineId);
-        const lastItem = items[items.length - 1];
-        if (lastItem) {
-          reassignItem(lastItem.lineId, selectedPerson);
-        }
-
-        toast.success(`Added to ${selectedPerson}'s order`);
-      } else {
-        addItemWithDefaults(sku, 1);
-        toast.success(`Added to ${selectedPerson}'s order`);
-      }
+      addItemWithDefaults(sku, 1, selectedPerson);
+      toast.success(`Added to ${selectedPerson}'s order`);
     },
-    [addItemWithDefaults, selectedPerson, customerName, defaultAssignmentAllocId, reassignItem]
+    [addItemWithDefaults, selectedPerson]
   );
 
   const handleConfigChange = useCallback(
