@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator as SeparatorUI } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ShoppingCart, Plus, Minus, Copy, Trash2, User, ChevronDown, AlertCircle, Layers, Clock, ChevronsUpDown, LayoutList, XCircle } from "lucide-react";
 import { getGuestColor, GUEST_PALETTE } from "@/lib/pos/ui-utils";
 
@@ -57,8 +58,9 @@ export function ActiveCheckPanel(props: any) {
         <div className="flex items-center gap-4">
           {(() => {
             const breakdown = projectedState.financials.personBreakdown;
-            const sorted = [...breakdown.filter((pb: any) => pb.subtotal > 0 || pb.person === selectedPerson)].sort((a, b) => a.person === selectedPerson ? -1 : b.person === selectedPerson ? 1 : b.subtotal - a.subtotal);
+            const sorted = [...breakdown.filter((pb: any) => pb.subtotal > 0)].sort((a, b) => b.subtotal - a.subtotal);
             const visible = sorted.slice(0, 3);
+            const hiddenCount = sorted.length - visible.length;
             return (
               <>
                 {visible.map((pb: any) => (
@@ -67,6 +69,31 @@ export function ActiveCheckPanel(props: any) {
                     <div className="font-mono font-bold text-sm tabular-nums">${pb.subtotal.toFixed(2)}</div>
                   </div>
                 ))}
+                {hiddenCount > 0 && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-full px-2 text-xs text-muted-foreground hover:text-foreground">
+                        +{hiddenCount} more
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>All Paying Entities</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                        {sorted.map((pb: any) => (
+                          <div key={pb.person} className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(pb.person, guests)}`} />
+                              <span className="truncate font-medium">{resolveGuestName(pb.person)}</span>
+                            </div>
+                            <span className="font-mono font-semibold tabular-nums ml-2">${pb.subtotal.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </>
             );
           })()}

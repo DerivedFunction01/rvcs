@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Sheet,
@@ -1265,40 +1266,90 @@ function MergedStateSheet({
             <Separator />
 
             {/* Person breakdown */}
-            {personBreakdown.length > 0 && (
-              <section className="space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Per-Person Breakdown
-                </p>
-                <div className="space-y-2">
-                  {personBreakdown.map((pb) => (
-                    <div
-                      key={pb.person}
-                      className="flex items-center justify-between rounded-xl bg-muted/30 border px-3 py-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <User className="w-3.5 h-3.5 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs font-semibold">
-                            {resolveGuestName
-                              ? resolveGuestName(pb.person)
-                              : pb.person}
-                          </p>
-                          {pb.paymentMethod && (
-                            <p className="text-[10px] text-muted-foreground capitalize">
-                              {pb.paymentMethod}
+            {(() => {
+              const activePayers = personBreakdown.filter(pb => pb.subtotal > 0).sort((a, b) => b.subtotal - a.subtotal);
+              if (activePayers.length === 0) return null;
+              
+              const visible = activePayers.slice(0, 5);
+              const hiddenCount = activePayers.length - visible.length;
+              
+              return (
+                <section className="space-y-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    Per-Person Breakdown
+                  </p>
+                  <div className="space-y-2">
+                    {visible.map((pb) => (
+                      <div
+                        key={pb.person}
+                        className="flex items-center justify-between rounded-xl bg-muted/30 border px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs font-semibold">
+                              {resolveGuestName
+                                ? resolveGuestName(pb.person)
+                                : pb.person}
                             </p>
-                          )}
+                            {pb.paymentMethod && (
+                              <p className="text-[10px] text-muted-foreground capitalize">
+                                {pb.paymentMethod}
+                              </p>
+                            )}
+                          </div>
                         </div>
+                        <span className="text-sm font-bold tabular-nums">
+                          ${pb.subtotal.toFixed(2)}
+                        </span>
                       </div>
-                      <span className="text-sm font-bold tabular-nums">
-                        ${pb.subtotal.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+                    ))}
+                    {hiddenCount > 0 && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full text-xs">
+                            Show {hiddenCount} more paying entities
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader>
+                            <DialogTitle>All Paying Entities</DialogTitle>
+                            <DialogDescription>Full breakdown of amounts owed by each person.</DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                            {activePayers.map((pb) => (
+                              <div
+                                key={pb.person}
+                                className="flex items-center justify-between rounded-xl bg-muted/30 border px-3 py-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <User className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <div>
+                                    <p className="text-xs font-semibold">
+                                      {resolveGuestName
+                                        ? resolveGuestName(pb.person)
+                                        : pb.person}
+                                    </p>
+                                    {pb.paymentMethod && (
+                                      <p className="text-[10px] text-muted-foreground capitalize">
+                                        {pb.paymentMethod}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-sm font-bold tabular-nums">
+                                  ${pb.subtotal.toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
+                </section>
+              );
+            })()}
 
             <Separator />
 
