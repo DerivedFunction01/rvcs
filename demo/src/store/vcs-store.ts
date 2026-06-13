@@ -426,23 +426,6 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const payIds = payAllocs.map((a) => a.allocationId);
 
       const targetAllocations = [assignId, ...payIds];
-      const existingItem = Object.values(state.items).find(
-        (i) =>
-          !i.parentLineId &&
-          i.sku === sku &&
-          JSON.stringify([...i.allocations].sort()) === JSON.stringify([...targetAllocations].sort())
-      );
-
-      if (existingItem) {
-        deltas.push({
-          action: "modify_qty",
-          lineId: existingItem.lineId,
-          beforeQty: existingItem.qty,
-          afterQty: existingItem.qty + qty,
-        });
-        store.commitDeltas(deltas, "pos-ui");
-        return;
-      }
 
       const parentLineId = generateLineId();
       deltas.push({
