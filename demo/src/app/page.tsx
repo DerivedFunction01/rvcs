@@ -667,7 +667,7 @@ function LineItemNode({
               ) : null}
               {!isCanceled && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {isRoot && filteredModifiers.length > 0 && (
+                  {(isRoot || catalogEntry?.type === "item") && filteredModifiers.length > 0 && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -687,7 +687,7 @@ function LineItemNode({
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  {(isRoot || item.sku === "custom_note") && (
+                  {(isRoot || catalogEntry?.type === "item" || item.sku === "custom_note") && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
