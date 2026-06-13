@@ -74,6 +74,7 @@ import {
   Truck,
   ChevronsUpDown,
   Eraser,
+  LayoutList,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -267,6 +268,7 @@ function LineItemNode({
   isCollapsed,
   onToggleCollapse,
   collapsedItems,
+  detailLevel = "balanced",
 }: {
   item: ProjectedLineItem;
   allocations: Record<string, AllocationBlock>;
@@ -282,6 +284,7 @@ function LineItemNode({
   isCollapsed?: boolean;
   onToggleCollapse?: (lineId: string) => void;
   collapsedItems?: Set<string>;
+  detailLevel?: "simple" | "balanced" | "full";
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
@@ -311,6 +314,9 @@ function LineItemNode({
     return childEntry && childEntry.sizeGroupId === sizeGroup?.id;
   });
   const activeSku = activeSizeChild?.sku;
+
+  const showSku = detailLevel === "full";
+  const showAllocations = detailLevel !== "simple";
 
   return (
     <>
@@ -480,10 +486,12 @@ function LineItemNode({
                   </Badge>
                 )}
               </div>
-              <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 truncate">
-                {item.sku}
-              </div>
-              {(isRoot || item.allocations.length > 0) && (
+              {showSku && (
+                <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 truncate">
+                  {item.sku}
+                </div>
+              )}
+              {showAllocations && (isRoot || item.allocations.length > 0) && (
                 <AllocationBadges
                   allocationIds={item.allocations}
                   allocations={allocations}
@@ -684,6 +692,7 @@ function LineItemNode({
             isCollapsed={collapsedItems?.has(child.lineId)}
             onToggleCollapse={onToggleCollapse}
             collapsedItems={collapsedItems}
+            detailLevel={detailLevel}
           />
         ))}
     </>
@@ -910,6 +919,9 @@ function POSTerminalInner() {
       return next;
     });
   }, []);
+
+  const [detailLevel, setDetailLevel] = React.useState<"simple" | "balanced" | "full">("balanced");
+  const [hideCanceled, setHideCanceled] = React.useState(false);
 
   const hasCollapsedItems = collapsedItems.size > 0;
   const toggleAllCollapsed = React.useCallback(() => {
@@ -1167,10 +1179,11 @@ function POSTerminalInner() {
 
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
+      if (hideCanceled && item.status === "canceled") return false;
       const assignee = getAssigneeFromItem(item, projectedState.allocations, guests);
       return visibleGuests.has(assignee);
     });
-  }, [rootItems, visibleGuests, projectedState.allocations, guests]);
+  }, [rootItems, visibleGuests, projectedState.allocations, guests, hideCanceled]);
 
   // Sync selection with current filteredRootItems (prune deleted ones)
   React.useEffect(() => {
@@ -2129,6 +2142,48 @@ function POSTerminalInner() {
                     {hasCollapsedItems ? "Expand all items" : "Collapse all items"}
                   </TooltipContent>
                 </Tooltip>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 ml-1 text-muted-foreground hover:bg-accent"
+                    >
+                      <LayoutList className="w-4 h-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    <div className="space-y-1 text-xs">
+                      <p className="font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1 text-[10px]">Item Detail Level</p>
+                      {(["simple", "balanced", "full"] as const).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setDetailLevel(level)}
+                          className={`w-full flex flex-col px-2 py-1.5 rounded transition-colors text-left ${
+                            detailLevel === level ? "bg-primary/10 text-primary" : "hover:bg-accent text-foreground"
+                          }`}
+                        >
+                          <span className="font-medium capitalize">{level}</span>
+                          <span className="text-[9px] opacity-70">
+                            {level === "simple" && "Hide SKUs & allocations"}
+                            {level === "balanced" && "Standard view"}
+                            {level === "full" && "Show SKUs & full details"}
+                          </span>
+                        </button>
+                      ))}
+                      <div className="my-1 border-t" />
+                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors">
+                        <Checkbox 
+                          checked={hideCanceled} 
+                          onCheckedChange={(v) => setHideCanceled(!!v)} 
+                          className="w-3.5 h-3.5"
+                        />
+                        <span className="font-medium text-foreground">Hide voided items</span>
+                      </label>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="flex items-center gap-4">
                 {projectedState.financials.personBreakdown.map((pb) => (
@@ -2203,6 +2258,8 @@ function POSTerminalInner() {
                       isCollapsed={collapsedItems.has(item.lineId)}
                       onToggleCollapse={handleToggleCollapse}
                       collapsedItems={collapsedItems}
+                      detailLevel={detailLevel}
+                      hideCanceled={hideCanceled}
                     />
                   ))}
                 </div>
