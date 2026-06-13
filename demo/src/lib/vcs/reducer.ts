@@ -28,7 +28,10 @@ import { deriveCloneId, generateAllocationId } from "./id";
  * Walk the commit log from targetHash back to root, returning commits
  * in chronological order (root first).
  */
-function getCommitPath(log: VCSCommit[], targetHash: string | null): VCSCommit[] {
+function getCommitPath(
+  log: VCSCommit[],
+  targetHash: string | null,
+): VCSCommit[] {
   if (!targetHash || log.length === 0) return [];
 
   const hashSet = new Set(log.map((c) => c.commitHash));
@@ -51,7 +54,7 @@ function getCommitPath(log: VCSCommit[], targetHash: string | null): VCSCommit[]
 
 function evaluateFilter(
   value: string | number | undefined,
-  rule: FilterRule
+  rule: FilterRule,
 ): boolean {
   if (value === undefined) return false;
   const target = rule.value;
@@ -72,7 +75,9 @@ function evaluateFilter(
     case "like":
       return String(value).toLowerCase().includes(String(target).toLowerCase());
     case "not_like":
-      return !String(value).toLowerCase().includes(String(target).toLowerCase());
+      return !String(value)
+        .toLowerCase()
+        .includes(String(target).toLowerCase());
     case "in_set": {
       const set = Array.isArray(target) ? target : [target];
       return set.map(String).includes(String(value));
@@ -90,7 +95,7 @@ function evaluateFilter(
 function resolveFilterValue(
   item: InternalLineItem,
   property: string,
-  allocations: Record<string, AllocationBlock>
+  allocations: Record<string, AllocationBlock>,
 ): string | number | undefined {
   switch (property) {
     case "sku":
@@ -166,13 +171,17 @@ export function projectState(
   log: VCSCommit[],
   targetHash: string | null,
   catalog: Record<string, CatalogItemEntry>,
-  confirmedHash?: string | null
+  confirmedHash?: string | null,
 ): ProjectedState {
   const items: Record<string, InternalLineItem> = {};
   const allocations: Record<string, AllocationBlock> = {};
 
   if (!targetHash || log.length === 0) {
-    return { items: {}, allocations: {}, financials: { subtotal: 0, personBreakdown: [] } };
+    return {
+      items: {},
+      allocations: {},
+      financials: { subtotal: 0, personBreakdown: [] },
+    };
   }
 
   const confirmedAncestors = new Set<string>();
@@ -188,7 +197,15 @@ export function projectState(
   // Phase 1: Apply all deltas sequentially
   for (const commit of path) {
     for (const delta of commit.deltas) {
-      applyDelta(items, allocations, delta, log, catalog, commit.commitHash, confirmedAncestors);
+      applyDelta(
+        items,
+        allocations,
+        delta,
+        log,
+        catalog,
+        commit.commitHash,
+        confirmedAncestors,
+      );
     }
   }
 
@@ -207,7 +224,7 @@ export function projectState(
   resolveCatalog(items, catalog);
 
   // Phase 4: Build tree structure and compute financials
-  return buildProjectedState(items, allocations);
+  return buildProjectedState(items, allocations, catalog);
 }
 
 // ─── Delta Application ─────────────────────────────────────────────────────────
@@ -219,7 +236,7 @@ function applyDelta(
   fullLog: VCSCommit[],
   catalog: Record<string, CatalogItemEntry>,
   commitHash: string,
-  confirmedAncestors: Set<string>
+  confirmedAncestors: Set<string>,
 ): void {
   const isConfirmedDelta = confirmedAncestors.has(commitHash);
 
@@ -268,7 +285,8 @@ function applyDelta(
           JSON.stringify([...delta.beforeAllocations].sort());
         if (beforeMatch) {
           item.allocations = [...delta.afterAllocations];
-          if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
+          if (!isConfirmedDelta && item.isConfirmed)
+            item.hasPendingChanges = true;
         }
       }
       break;
@@ -278,7 +296,8 @@ function applyDelta(
       const item = items[delta.lineId];
       if (item && item.sku === delta.beforeSku) {
         item.sku = delta.afterSku;
-        if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
+        if (!isConfirmedDelta && item.isConfirmed)
+          item.hasPendingChanges = true;
       }
       break;
     }
@@ -287,7 +306,8 @@ function applyDelta(
       const item = items[delta.lineId];
       if (item && item.selectedModifierState === delta.beforeState) {
         item.selectedModifierState = delta.afterState;
-        if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
+        if (!isConfirmedDelta && item.isConfirmed)
+          item.hasPendingChanges = true;
       }
       break;
     }
@@ -296,16 +316,24 @@ function applyDelta(
       const item = items[delta.lineId];
       if (item && item.qty === delta.beforeQty) {
         if (delta.afterQty < item.qty && item.isConfirmed) {
-          item.canceledQty += (item.qty - delta.afterQty);
+          item.canceledQty += item.qty - delta.afterQty;
         }
         item.qty = delta.afterQty;
-        if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
+        if (!isConfirmedDelta && item.isConfirmed)
+          item.hasPendingChanges = true;
       }
       break;
     }
 
     case "batch_by_filter":
-      applyBatchByFilter(items, allocations, delta, fullLog, catalog, isConfirmedDelta);
+      applyBatchByFilter(
+        items,
+        allocations,
+        delta,
+        fullLog,
+        catalog,
+        isConfirmedDelta,
+      );
       break;
   }
 }
@@ -318,7 +346,7 @@ function applyBatchByFilter(
   delta: Extract<Delta, { action: "batch_by_filter" }>,
   fullLog: VCSCommit[],
   catalog: Record<string, CatalogItemEntry>,
-  isConfirmedDelta: boolean
+  isConfirmedDelta: boolean,
 ): void {
   // Project state at the base_revision_id for deterministic filtering
   const baseState = projectState(fullLog, delta.baseRevisionId, catalog, null);
@@ -330,7 +358,7 @@ function applyBatchByFilter(
       const value = resolveFilterValue(
         item as unknown as InternalLineItem,
         rule.property,
-        baseState.allocations
+        baseState.allocations,
       );
       return evaluateFilter(value, rule);
     });
@@ -344,7 +372,7 @@ function applyBatchByFilter(
         allocations,
         matchingItems,
         delta.templateMutation,
-        delta.baseRevisionId
+        delta.baseRevisionId,
       );
       break;
 
@@ -354,7 +382,7 @@ function applyBatchByFilter(
         allocations,
         matchingItems,
         delta.templateMutation,
-        isConfirmedDelta
+        isConfirmedDelta,
       );
       break;
 
@@ -363,7 +391,12 @@ function applyBatchByFilter(
       break;
 
     case "batch_modify_sku":
-      applyBatchModifySku(items, matchingItems, delta.templateMutation, isConfirmedDelta);
+      applyBatchModifySku(
+        items,
+        matchingItems,
+        delta.templateMutation,
+        isConfirmedDelta,
+      );
       break;
   }
 }
@@ -373,7 +406,7 @@ function applyBatchDuplicate(
   allocations: Record<string, AllocationBlock>,
   matchingItems: ProjectedLineItem[],
   template: BatchDuplicateAndReallocate,
-  baseRevisionId: string
+  baseRevisionId: string,
 ): void {
   // Register new allocations
   for (const allocBlock of template.patchAllocations) {
@@ -404,7 +437,7 @@ function cloneChildren(
   items: Record<string, InternalLineItem>,
   parent: ProjectedLineItem,
   newParentLineId: string,
-  newAllocations: AllocationBlock[]
+  newAllocations: AllocationBlock[],
 ): void {
   for (const child of parent.children) {
     const newChildId = `${child.lineId}-clone-${newParentLineId.substring(0, 8)}`;
@@ -429,7 +462,7 @@ function applyBatchModifyAllocations(
   allocations: Record<string, AllocationBlock>,
   matchingItems: ProjectedLineItem[],
   template: BatchModifyAllocations,
-  isConfirmedDelta: boolean
+  isConfirmedDelta: boolean,
 ): void {
   // Register the patch allocation
   allocations[template.patchAllocation.allocationId] = template.patchAllocation;
@@ -455,7 +488,7 @@ function applyBatchModifyAllocations(
 function applyBatchRemoveItems(
   items: Record<string, InternalLineItem>,
   matchingItems: ProjectedLineItem[],
-  isConfirmedDelta: boolean
+  isConfirmedDelta: boolean,
 ): void {
   for (const item of matchingItems) {
     const internal = items[item.lineId];
@@ -475,7 +508,7 @@ function applyBatchModifySku(
   items: Record<string, InternalLineItem>,
   matchingItems: ProjectedLineItem[],
   template: BatchModifySku,
-  isConfirmedDelta: boolean
+  isConfirmedDelta: boolean,
 ): void {
   for (const item of matchingItems) {
     const internal = items[item.lineId];
@@ -514,13 +547,15 @@ function cascadeDelete(items: Record<string, InternalLineItem>): void {
 
 function resolveCatalog(
   items: Record<string, InternalLineItem>,
-  catalog: Record<string, CatalogItemEntry>
+  catalog: Record<string, CatalogItemEntry>,
 ): void {
   // Pass 1: Resolve basic catalog info and modifier states for all items
   for (const lineId of Object.keys(items)) {
     const item = items[lineId];
     if (item.sku === "custom_note") {
-      item.resolvedName = item.selectedModifierState ? `Note: ${item.selectedModifierState}` : "Note";
+      item.resolvedName = item.selectedModifierState
+        ? `Note: ${item.selectedModifierState}`
+        : "Note";
       item.resolvedPrice = 0;
       continue;
     }
@@ -535,7 +570,7 @@ function resolveCatalog(
           if (parentEntry?.comboChoices) {
             // Case A: Direct child of a combo
             const comboChoice = parentEntry.comboChoices.find(
-              (c) => c.optionSku === item.sku && !c.modifierSku
+              (c) => c.optionSku === item.sku && !c.modifierSku,
             );
             if (comboChoice) {
               resolvedPrice = comboChoice.price;
@@ -547,7 +582,9 @@ function resolveCatalog(
               const grandparentEntry = catalog[grandparentItem.sku];
               if (grandparentEntry?.comboChoices) {
                 const comboChoice = grandparentEntry.comboChoices.find(
-                  (c) => c.optionSku === parentItem.sku && c.modifierSku === item.sku
+                  (c) =>
+                    c.optionSku === parentItem.sku &&
+                    c.modifierSku === item.sku,
                 );
                 if (comboChoice) {
                   resolvedPrice = comboChoice.price;
@@ -562,10 +599,13 @@ function resolveCatalog(
       // Resolve modifier states (e.g. NO onions, EXTRA cheese)
       if (item.selectedModifierState) {
         const foundState = entry.allowedStates?.find(
-          (s) => s.state === item.selectedModifierState
+          (s) => s.state === item.selectedModifierState,
         );
         if (foundState) {
-          if (foundState.priceOverride !== null && foundState.priceOverride !== undefined) {
+          if (
+            foundState.priceOverride !== null &&
+            foundState.priceOverride !== undefined
+          ) {
             item.resolvedPrice = foundState.priceOverride;
           }
           if (foundState.label) {
@@ -590,12 +630,17 @@ function resolveCatalog(
 
     if (parentEntry && parentEntry.appliedSizeGroupId) {
       // Find all children of this item
-      const children = Object.values(items).filter((c) => c.parentLineId === lineId);
-      
+      const children = Object.values(items).filter(
+        (c) => c.parentLineId === lineId,
+      );
+
       // Find if any child is a size modifier belonging to this item's appliedSizeGroup
       const sizeChild = children.find((c) => {
         const childEntry = catalog[c.sku];
-        return childEntry && childEntry.sizeGroupId === parentEntry.appliedSizeGroupId;
+        return (
+          childEntry &&
+          childEntry.sizeGroupId === parentEntry.appliedSizeGroupId
+        );
       });
 
       if (sizeChild) {
@@ -603,10 +648,10 @@ function resolveCatalog(
         if (sizeEntry) {
           // Format parent name, e.g. "Small Fries" or "Large Fountain Soda"
           item.resolvedName = `${sizeEntry.name} ${parentEntry.name}`;
-          
+
           // Merge size modifier price into parent resolvedPrice
           item.resolvedPrice += sizeChild.resolvedPrice;
-          
+
           // Clear resolvedName and resolvedPrice of sizeChild so it is hidden and has no price impact as a separate line
           sizeChild.resolvedName = "";
           sizeChild.resolvedPrice = 0;
@@ -620,7 +665,8 @@ function resolveCatalog(
 
 function buildProjectedState(
   items: Record<string, InternalLineItem>,
-  allocations: Record<string, AllocationBlock>
+  allocations: Record<string, AllocationBlock>,
+  catalog?: Record<string, CatalogItemEntry>,
 ): ProjectedState {
   // Build tree structure
   const itemMap: Record<string, ProjectedLineItem> = {};
@@ -662,6 +708,51 @@ function buildProjectedState(
     }
   }
 
+  // Sort children of combo items based on comboChoices order if catalog is provided
+  if (catalog) {
+    for (const item of Object.values(itemMap)) {
+      if (item.children.length > 1) {
+        const entry = catalog[item.sku];
+        if (entry?.comboChoices && entry.comboChoices.length > 0) {
+          // Build unique slot order list
+          const slotOrder: string[] = [];
+          for (const choice of entry.comboChoices) {
+            if (!slotOrder.includes(choice.slotSku)) {
+              slotOrder.push(choice.slotSku);
+            }
+          }
+
+          // Sort children based on their slot's index in slotOrder
+          item.children.sort((a, b) => {
+            const choiceA = entry.comboChoices!.find(
+              (c) => c.optionSku === a.sku,
+            );
+            const choiceB = entry.comboChoices!.find(
+              (c) => c.optionSku === b.sku,
+            );
+
+            const slotA = choiceA?.slotSku;
+            const slotB = choiceB?.slotSku;
+
+            const indexA = slotA ? slotOrder.indexOf(slotA) : -1;
+            const indexB = slotB ? slotOrder.indexOf(slotB) : -1;
+
+            if (indexA !== -1 && indexB !== -1) {
+              if (indexA !== indexB) {
+                return indexA - indexB;
+              }
+              return a.lineId.localeCompare(b.lineId);
+            }
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+
+            return a.lineId.localeCompare(b.lineId);
+          });
+        }
+      }
+    }
+  }
+
   // Scale children quantities recursively based on root parent quantity
   for (const root of roots) {
     scaleTreeQuantities(root);
@@ -685,7 +776,10 @@ function buildProjectedState(
     }
   }
 
-  const personMap = new Map<string, { subtotal: number; items: string[]; paymentMethod: string | null }>();
+  const personMap = new Map<
+    string,
+    { subtotal: number; items: string[]; paymentMethod: string | null }
+  >();
   for (const person of people) {
     personMap.set(person, { subtotal: 0, items: [], paymentMethod: null });
   }
@@ -695,7 +789,10 @@ function buildProjectedState(
     if (alloc.type === "payment") {
       const payAlloc = alloc as PaymentAllocation;
       if (payAlloc.paymentStrategy?.strategyType === "fixed_global") {
-        globalFixedBalances.set(alloc.allocationId, payAlloc.paymentStrategy.value ?? 0);
+        globalFixedBalances.set(
+          alloc.allocationId,
+          payAlloc.paymentStrategy.value ?? 0,
+        );
       }
     }
   }
@@ -711,12 +808,16 @@ function buildProjectedState(
     }
 
     const paymentAllocs = root.allocations
-      .map(id => allocations[id])
+      .map((id) => allocations[id])
       .filter((a): a is PaymentAllocation => a?.type === "payment");
 
     if (paymentAllocs.length === 0) {
       // No payment allocations: assignee pays the full amount
-      const pData = personMap.get(assignee) || { subtotal: 0, items: [], paymentMethod: null };
+      const pData = personMap.get(assignee) || {
+        subtotal: 0,
+        items: [],
+        paymentMethod: null,
+      };
       pData.subtotal += lineTotal;
       pData.items.push(root.lineId);
       const defaultPaymentMethod = getPaymentMethod(root, allocations);
@@ -729,7 +830,11 @@ function buildProjectedState(
       const allocatedAmounts = new Map<string, number>();
 
       // 1. Fixed payment strategies (item)
-      const fixedItemAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "fixed_item" || a.paymentStrategy?.strategyType === "fixed");
+      const fixedItemAllocs = paymentAllocs.filter(
+        (a) =>
+          a.paymentStrategy?.strategyType === "fixed_item" ||
+          a.paymentStrategy?.strategyType === "fixed",
+      );
       for (const alloc of fixedItemAllocs) {
         const val = alloc.paymentStrategy.value ?? 0;
         const amt = Math.min(remaining, val);
@@ -738,7 +843,9 @@ function buildProjectedState(
       }
 
       // 1.5 Fixed payment strategies (global)
-      const fixedGlobalAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "fixed_global");
+      const fixedGlobalAllocs = paymentAllocs.filter(
+        (a) => a.paymentStrategy?.strategyType === "fixed_global",
+      );
       for (const alloc of fixedGlobalAllocs) {
         const balance = globalFixedBalances.get(alloc.allocationId) ?? 0;
         if (balance > 0) {
@@ -752,20 +859,30 @@ function buildProjectedState(
       }
 
       // 2. Percentage payment strategies
-      const pctAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "percentage");
+      const pctAllocs = paymentAllocs.filter(
+        (a) => a.paymentStrategy?.strategyType === "percentage",
+      );
       for (const alloc of pctAllocs) {
         const val = alloc.paymentStrategy.value ?? 1.0;
         const amt = Math.min(remaining, lineTotal * val);
-        allocatedAmounts.set(alloc.allocationId, (allocatedAmounts.get(alloc.allocationId) || 0) + amt);
+        allocatedAmounts.set(
+          alloc.allocationId,
+          (allocatedAmounts.get(alloc.allocationId) || 0) + amt,
+        );
         remaining -= amt;
       }
 
       // 3. Remaining payment strategies
-      const remAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "remaining");
+      const remAllocs = paymentAllocs.filter(
+        (a) => a.paymentStrategy?.strategyType === "remaining",
+      );
       if (remAllocs.length > 0) {
         const share = remaining / remAllocs.length;
         for (const alloc of remAllocs) {
-          allocatedAmounts.set(alloc.allocationId, (allocatedAmounts.get(alloc.allocationId) || 0) + share);
+          allocatedAmounts.set(
+            alloc.allocationId,
+            (allocatedAmounts.get(alloc.allocationId) || 0) + share,
+          );
         }
         remaining = 0;
       }
@@ -774,7 +891,10 @@ function buildProjectedState(
       if (remaining > 0) {
         // Assign leftover to the first payment allocation
         const firstId = paymentAllocs[0].allocationId;
-        allocatedAmounts.set(firstId, (allocatedAmounts.get(firstId) || 0) + remaining);
+        allocatedAmounts.set(
+          firstId,
+          (allocatedAmounts.get(firstId) || 0) + remaining,
+        );
       }
 
       // Attribute allocated amounts to the respective payers
@@ -782,7 +902,11 @@ function buildProjectedState(
         const alloc = allocations[allocId] as PaymentAllocation;
         if (alloc) {
           const payer = alloc.payer || assignee;
-          const pData = personMap.get(payer) || { subtotal: 0, items: [], paymentMethod: null };
+          const pData = personMap.get(payer) || {
+            subtotal: 0,
+            items: [],
+            paymentMethod: null,
+          };
           pData.subtotal += amount;
           if (!pData.items.includes(root.lineId)) {
             pData.items.push(root.lineId);
@@ -801,12 +925,14 @@ function buildProjectedState(
     allocations,
     financials: {
       subtotal: Math.round(subtotal * 100) / 100,
-      personBreakdown: Array.from(personMap.entries()).map(([person, data]) => ({
-        person,
-        subtotal: Math.round(data.subtotal * 100) / 100,
-        items: data.items,
-        paymentMethod: data.paymentMethod,
-      })),
+      personBreakdown: Array.from(personMap.entries()).map(
+        ([person, data]) => ({
+          person,
+          subtotal: Math.round(data.subtotal * 100) / 100,
+          items: data.items,
+          paymentMethod: data.paymentMethod,
+        }),
+      ),
     },
   };
 }
@@ -823,26 +949,26 @@ function scaleTreeQuantities(item: ProjectedLineItem): void {
   for (const child of item.children) {
     const childRawQty = child.qty;
     const childRawCanceled = child.canceledQty;
-    
+
     const totalRaw = childRawQty + childRawCanceled;
     const totalParent = item.qty + item.canceledQty;
     const totalActive = childRawQty * item.qty;
-    
+
     child.qty = totalActive;
-    child.canceledQty = (totalRaw * totalParent) - totalActive;
+    child.canceledQty = totalRaw * totalParent - totalActive;
     child.totalPrice = child.basePrice * child.qty;
-    
+
     if (child.qty === 0 && child.canceledQty > 0) {
       child.status = "canceled";
     }
-    
+
     scaleTreeQuantities(child);
   }
 }
 
 function getAssignee(
   item: ProjectedLineItem,
-  allocations: Record<string, AllocationBlock>
+  allocations: Record<string, AllocationBlock>,
 ): string | null {
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
@@ -855,7 +981,7 @@ function getAssignee(
 
 function getPaymentMethod(
   item: ProjectedLineItem,
-  allocations: Record<string, AllocationBlock>
+  allocations: Record<string, AllocationBlock>,
 ): string | null {
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
