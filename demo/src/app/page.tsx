@@ -2294,19 +2294,83 @@ function POSTerminalInner() {
                 </Popover>
               </div>
               <div className="flex items-center gap-4">
-                {projectedState.financials.personBreakdown.map((pb) => (
-                  <div key={pb.person} className="text-right">
-                    <div className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
-                      <div
-                        className={`w-1.5 h-1.5 rounded-full ${getGuestColor(pb.person, guests)}`}
-                      />
-                      {pb.person}
-                    </div>
-                    <div className="font-mono font-bold text-sm tabular-nums">
-                      ${pb.subtotal.toFixed(2)}
-                    </div>
-                  </div>
-                ))}
+                {(() => {
+                  const breakdown = projectedState.financials.personBreakdown;
+                  const nonZeroBreakdown = breakdown.filter(
+                    (pb) => pb.subtotal > 0 || pb.person === selectedPerson,
+                  );
+                  const sortedBreakdown = [...nonZeroBreakdown].sort((a, b) => {
+                    if (a.person === selectedPerson) return -1;
+                    if (b.person === selectedPerson) return 1;
+                    return b.subtotal - a.subtotal;
+                  });
+                  const MAX_VISIBLE = 3;
+                  const visibleBreakdowns = sortedBreakdown.slice(0, MAX_VISIBLE);
+                  const hiddenBreakdowns = sortedBreakdown.slice(MAX_VISIBLE);
+
+                  return (
+                    <>
+                      {visibleBreakdowns.map((pb) => (
+                        <div key={pb.person} className="text-right">
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
+                            <div
+                              className={`w-1.5 h-1.5 rounded-full ${getGuestColor(pb.person, guests)}`}
+                            />
+                            <span className="truncate max-w-[70px]">{pb.person}</span>
+                          </div>
+                          <div className="font-mono font-bold text-sm tabular-nums">
+                            ${pb.subtotal.toFixed(2)}
+                          </div>
+                        </div>
+                      ))}
+                      {hiddenBreakdowns.length > 0 && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 flex flex-col items-center justify-center gap-0.5 hover:bg-accent border border-muted"
+                            >
+                              <span className="text-[10px] text-muted-foreground leading-none">
+                                +{hiddenBreakdowns.length}
+                              </span>
+                              <span className="text-[8px] text-muted-foreground leading-none">
+                                more
+                              </span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-52 p-3" align="end">
+                            <div className="space-y-3">
+                              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                Other Payers
+                              </h4>
+                              <div className="max-h-48 overflow-y-auto space-y-2">
+                                {hiddenBreakdowns.map((pb) => (
+                                  <div
+                                    key={pb.person}
+                                    className="flex justify-between items-center text-sm"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div
+                                        className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(pb.person, guests)}`}
+                                      />
+                                      <span className="truncate max-w-[120px] text-xs font-medium">
+                                        {pb.person}
+                                      </span>
+                                    </div>
+                                    <span className="font-mono font-semibold text-xs tabular-nums">
+                                      ${pb.subtotal.toFixed(2)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </>
+                  );
+                })()}
                 <SeparatorUI orientation="vertical" className="h-8" />
                 <div className="text-right">
                   <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">

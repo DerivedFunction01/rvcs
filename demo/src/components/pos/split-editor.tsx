@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -45,9 +46,12 @@ interface SplitEditorProps {
 }
 
 export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPrice }: SplitEditorProps) {
-  const [newSplitEntity, setNewSplitEntity] = useState("");
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
   const [showNewGuestInput, setShowNewGuestInput] = useState(false);
+
+  const [quickAddStrategy, setQuickAddStrategy] = useState<PaymentSplitEntry["strategyType"]>("percentage");
+  const [quickAddMethod, setQuickAddMethod] = useState<string>("any");
+  const [quickAddValue, setQuickAddValue] = useState<string>("");
 
   const totalPercentage = useMemo(
     () => splits.filter(s => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0),
@@ -80,15 +84,27 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     onChange(updated);
   }, [splits, onChange]);
 
-  const handleAddSplitEntry = useCallback(() => {
-    const entity = newSplitEntity.trim();
-    if (!entity) return;
-    if (splits.some((s) => s.entity.toLowerCase() === entity.toLowerCase())) return;
+  const handleAddSpecificGuest = useCallback((entity: string) => {
+    const trimmed = entity.trim();
+    if (!trimmed) return;
+    if (splits.some((s) => s.entity.toLowerCase() === trimmed.toLowerCase())) return;
+
+    let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
+    const isAutoPercent = quickAddStrategy === "percentage" && valueToUse === null;
+
+    if (valueToUse === null) {
+      valueToUse = quickAddStrategy === "remaining" ? 0 : 0;
+    }
 
     const n = splits.length + 1;
-    const newSplits = [...splits, { entity, strategyType: "percentage" as const, value: Math.floor(100 / n), method: null }];
-    const allPercentage = newSplits.every(s => s.strategyType === "percentage");
-    if (allPercentage) {
+    const newSplits = [...splits, { 
+      entity: trimmed, 
+      strategyType: quickAddStrategy, 
+      value: isAutoPercent ? Math.floor(100 / n) : valueToUse, 
+      method: quickAddMethod === "any" ? null : quickAddMethod 
+    }];
+
+    if (isAutoPercent && newSplits.every(s => s.strategyType === "percentage")) {
       const base = Math.floor(100 / n);
       newSplits.forEach((s) => {
         s.value = base;
@@ -98,8 +114,39 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     }
 
     onChange(newSplits);
-    setNewSplitEntity("");
-  }, [newSplitEntity, splits, onChange]);
+  }, [splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue]);
+
+  const handleAddAllAvailable = useCallback(() => {
+    const available = guests.filter(g => !splits.some(s => s.entity.toLowerCase() === g.toLowerCase()));
+    if (available.length === 0) return;
+
+    let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
+    const isAutoPercent = quickAddStrategy === "percentage" && valueToUse === null;
+
+    if (valueToUse === null) {
+      valueToUse = quickAddStrategy === "remaining" ? 0 : 0;
+    }
+
+    const n = splits.length + available.length;
+    const addedSplits = available.map(entity => ({
+      entity,
+      strategyType: quickAddStrategy,
+      value: isAutoPercent ? Math.floor(100 / n) : valueToUse!,
+      method: quickAddMethod === "any" ? null : quickAddMethod
+    }));
+
+    const newSplits = [...splits, ...addedSplits];
+    if (isAutoPercent && newSplits.every(s => s.strategyType === "percentage")) {
+      const base = Math.floor(100 / n);
+      newSplits.forEach((s) => {
+        s.value = base;
+      });
+      const remainder = 100 - base * n;
+      newSplits[0].value += remainder;
+    }
+
+    onChange(newSplits);
+  }, [splits, guests, onChange, quickAddStrategy, quickAddMethod, quickAddValue]);
 
   const handleRemoveSplitEntry = useCallback(
     (index: number) => {
@@ -158,20 +205,32 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     setShowNewGuestInput(false);
 
     if (splits.some((s) => s.entity.toLowerCase() === name.toLowerCase())) return;
+    
+    let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
+    const isAutoPercent = quickAddStrategy === "percentage" && valueToUse === null;
+
+    if (valueToUse === null) {
+      valueToUse = quickAddStrategy === "remaining" ? 0 : 0;
+    }
+
     const n = splits.length + 1;
     const newSplits = [
       ...splits,
-      { entity: name, strategyType: "percentage" as const, value: Math.floor(100 / n), method: null },
+      { 
+        entity: name, 
+        strategyType: quickAddStrategy, 
+        value: isAutoPercent ? Math.floor(100 / n) : valueToUse, 
+        method: quickAddMethod === "any" ? null : quickAddMethod 
+      },
     ];
-    const allPercentage = newSplits.every((s) => s.strategyType === "percentage");
-    if (allPercentage) {
+    if (isAutoPercent && newSplits.every((s) => s.strategyType === "percentage")) {
       const base = Math.floor(100 / n);
       newSplits.forEach((s) => { s.value = base; });
       const remainder = 100 - base * n;
       newSplits[0].value += remainder;
     }
     onChange(newSplits);
-  }, [dialogNewGuestName, onAddGuest, splits, onChange]);
+  }, [dialogNewGuestName, onAddGuest, splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue]);
 
   return (
     <div className="space-y-3">
@@ -281,37 +340,105 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
       <Separator />
 
       <div className="space-y-2 bg-muted/20 p-2.5 rounded-lg border">
+        <div className="flex justify-between items-center">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Quick Add Settings
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mb-2 pb-2 border-b border-border/50">
+          <Select
+            value={quickAddStrategy}
+            onValueChange={(val) => setQuickAddStrategy(val as any)}
+          >
+            <SelectTrigger className="h-7 text-[10px] w-24 sm:w-28 shrink-0 bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="percentage" className="text-xs">Percentage</SelectItem>
+              <SelectItem value="fixed_item" className="text-xs">Fixed/Item</SelectItem>
+              <SelectItem value="fixed_global" className="text-xs">Fixed Global</SelectItem>
+              <SelectItem value="remaining" className="text-xs">Remaining</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={quickAddMethod}
+            onValueChange={(val) => setQuickAddMethod(val)}
+          >
+            <SelectTrigger className="h-7 text-[10px] w-20 sm:w-24 shrink-0 bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any" className="text-xs">Method...</SelectItem>
+              <SelectItem value="cash" className="text-xs">Cash</SelectItem>
+              <SelectItem value="visa" className="text-xs">Visa</SelectItem>
+              <SelectItem value="mastercard" className="text-xs">Mastercard</SelectItem>
+              <SelectItem value="amex" className="text-xs">Amex</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {quickAddStrategy !== "remaining" && (
+            <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
+              <Input
+                type="number"
+                placeholder={quickAddStrategy === "percentage" ? "Auto" : "0.00"}
+                value={quickAddValue}
+                onChange={(e) => setQuickAddValue(e.target.value)}
+                className="h-7 text-xs px-1.5 font-mono text-right bg-background"
+              />
+              <span className="text-[10px] text-muted-foreground">
+                {quickAddStrategy === "percentage" ? "%" : "$"}
+              </span>
+            </div>
+          )}
+        </div>
+
         <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
           Add Payer to Split
         </div>
 
-        <div className="flex items-center gap-2">
-          <Select value={newSplitEntity} onValueChange={setNewSplitEntity}>
-            <SelectTrigger className="h-8 text-xs flex-1">
-              <SelectValue placeholder="Choose guest..." />
-            </SelectTrigger>
-            <SelectContent>
-              {guests
-                .filter(
-                  (g) => !splits.some((s) => s.entity.toLowerCase() === g.toLowerCase())
-                )
-                .map((g) => (
-                  <SelectItem key={g} value={g} className="text-xs">
-                    {g}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs shrink-0"
-            disabled={!newSplitEntity}
-            onClick={handleAddSplitEntry}
-          >
-            Add
-          </Button>
-        </div>
+      {(() => {
+        const availableGuests = guests.filter(
+          (g) => !splits.some((s) => s.entity.toLowerCase() === g.toLowerCase())
+        );
+
+        if (availableGuests.length === 0) {
+          return (
+            <div className="text-[11px] text-muted-foreground italic pb-1">
+              All current guests are included in the split.
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            {availableGuests.map((g) => (
+              <label
+                key={g}
+                className="flex items-center gap-1.5 px-2 py-1 border rounded bg-background cursor-pointer hover:bg-accent transition-colors"
+              >
+                <Checkbox
+                  checked={false}
+                  onCheckedChange={() => handleAddSpecificGuest(g)}
+                  className="w-3 h-3"
+                />
+                <span className="text-xs font-medium leading-none mt-0.5">{g}</span>
+              </label>
+            ))}
+            {availableGuests.length > 1 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7 text-[10px] px-2 ml-auto shrink-0"
+                onClick={handleAddAllAvailable}
+              >
+                Add Everyone
+              </Button>
+            )}
+          </div>
+        );
+      })()}
 
         {showNewGuestInput ? (
           <div className="flex items-center gap-1.5 pt-1 border-t">
