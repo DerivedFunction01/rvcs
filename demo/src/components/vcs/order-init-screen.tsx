@@ -115,8 +115,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
   const [selectedType, setSelectedType] = useState<OrderTypeConfig | null>(null);
   const [selectedServer, setSelectedServer] = useState("");
   const [selectedFloorId, setSelectedFloorId] = useState("");
-  const [selectedTableId, setSelectedTableId] = useState("");
-  const [selectedObjectId, setSelectedObjectId] = useState("");
+  const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [customerFields, setCustomerFields] = useState<Record<string, string>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -149,32 +148,69 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
     [floorConfigs, selectedFloorId],
   );
 
-  const selectedTable = useMemo(() => {
-    if (!selectedFloor) return null;
-    return (
-      selectedFloor.objects.find(
-        (object) => object.kind === "table" && object.id === selectedTableId,
-      ) ?? null
-    );
-  }, [selectedFloor, selectedTableId]);
+  const selectedObjects = useMemo(() => {
+    if (!selectedFloor) return [];
+    const selectedIds = new Set(selectedObjectIds);
+    return selectedFloor.objects.filter((object) => selectedIds.has(object.id));
+  }, [selectedFloor, selectedObjectIds]);
 
-  const selectedGuestNames = useMemo(
-    () => getSelectedGuestNames(selectedTable),
-    [selectedTable],
+  const selectedTables = useMemo(
+    () => selectedObjects.filter((object) => object.kind === "table"),
+    [selectedObjects],
   );
 
-  const selectedObject = useMemo(() => {
-    if (!selectedFloor) return null;
-    return selectedFloor.objects.find((object) => object.id === selectedObjectId) ?? null;
-  }, [selectedFloor, selectedObjectId]);
+  const selectedGuestNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const object of selectedObjects) {
+      if (object.kind === "table") {
+        for (const guest of getSelectedGuestNames(object)) {
+          names.add(guest);
+        }
+      } else if (object.kind === "chair") {
+        names.add(object.label || object.id);
+      }
+    }
+    return Array.from(names);
+  }, [selectedObjects]);
 
-  const linkedChairIds = useMemo(
-    () =>
-      selectedTable && selectedTable.kind === "table" && selectedTable.linkedChairIds
-        ? selectedTable.linkedChairIds
-        : [],
-    [selectedTable],
-  );
+  const linkedChairIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const object of selectedTables) {
+      if (object.kind === "table") {
+        for (const chairId of object.linkedChairIds || []) {
+          ids.add(chairId);
+        }
+      }
+    }
+    return ids;
+  }, [selectedTables]);
+
+  const selectedObjectNames = selectedObjects.map((object) => ({
+    id: object.id,
+    label: object.label || object.id,
+  }));
+
+  const toggleObjectSelection = (object: FloorObject | null | undefined) => {
+    if (!object || object.kind === "wall" || object.kind === "deadspace") return;
+    setSelectedObjectIds((prev) => {
+      const next = new Set(prev);
+      const isSelected = next.has(object.id);
+      if (object.kind === "table") {
+        if (isSelected) {
+          next.delete(object.id);
+          for (const chairId of object.linkedChairIds || []) next.delete(chairId);
+        } else {
+          next.add(object.id);
+          for (const chairId of object.linkedChairIds || []) next.add(chairId);
+        }
+      } else if (isSelected) {
+        next.delete(object.id);
+      } else {
+        next.add(object.id);
+      }
+      return Array.from(next);
+    });
+  };
 
   const handleSelectType = (type: OrderTypeConfig) => {
     setSelectedType(type);
@@ -184,8 +220,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
     }
     setCustomerFields(initial);
     setFieldErrors({});
-    setSelectedTableId("");
-    setSelectedObjectId("");
+    setSelectedObjectIds([]);
     setStep(type.id === "walk-in" ? "floor" : "details");
   };
 
@@ -237,9 +272,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
         orderTypeLabel: selectedType.label,
         serverName: selectedServer || servers[0]?.name || "Tom",
         floorConfigId: selectedFloor?.id ?? null,
-        tableConfigId: selectedTable?.kind === "table" ? selectedTable.id : null,
+        tableConfigId: selectedTables[0]?.id ?? null,
         initialGuestNames:
-          selectedType.id === "walk-in" && selectedTable
+          selectedType.id === "walk-in" && selectedObjects.length > 0
             ? selectedGuestNames
             : undefined,
         customerFields: trimmed,
@@ -414,8 +449,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                     value={selectedFloorId}
                     onValueChange={(value) => {
                       setSelectedFloorId(value);
-                      setSelectedTableId("");
-                      setSelectedObjectId("");
+                      setSelectedObjectIds([]);
                     }}
                   >
                     <SelectTrigger className="w-full">
@@ -433,10 +467,12 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
 
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Selected table
+                    Selected objects
                   </p>
                   <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-                    {selectedTable ? selectedTable.label || selectedTable.id : selectedObject ? selectedObject.label || selectedObject.id : "None selected"}
+                    {selectedObjectNames.length > 0
+                      ? `${selectedObjectNames.length} selected`
+                      : "None selected"}
                   </div>
                 </div>
 
@@ -466,9 +502,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                         }}
                       >
                         {floorGrid.map(({ x, y, object }) => {
-                          const selected = object?.id === selectedObjectId;
+                          const selected = object ? selectedObjectIds.includes(object.id) : false;
                           const linkedToSelectedTable =
-                            object?.kind === "chair" && linkedChairIds.includes(object.id);
+                            object?.kind === "chair" && linkedChairIds.has(object.id);
                           const baseClass =
                             object?.kind === "wall"
                               ? "bg-zinc-800 text-white"
@@ -491,15 +527,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                               key={`${x}-${y}`}
                               type="button"
                               className={`relative border border-dashed text-[10px] transition-colors ${baseClass}`}
-                              onClick={() => {
-                                if (object?.kind === "table") {
-                                  setSelectedTableId(object.id === selectedTableId ? "" : object.id);
-                                  setSelectedObjectId(object.id === selectedObjectId ? "" : object.id);
-                                } else if (object?.kind === "chair") {
-                                  setSelectedTableId("");
-                                  setSelectedObjectId(object.id === selectedObjectId ? "" : object.id);
-                                }
-                              }}
+                              onClick={() => toggleObjectSelection(object)}
                               disabled={object?.kind === "wall" || object?.kind === "deadspace" || !object}
                             >
                               <div className="absolute inset-0 flex items-center justify-center p-1 text-center whitespace-pre-line">
@@ -528,23 +556,33 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
               </div>
             </div>
 
-            {selectedObject && (
+            {selectedObjectNames.length > 0 && (
               <div className="rounded-xl border bg-card p-4 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{selectedObject.label || selectedObject.id}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {selectedObject.kind}
-                    </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">{selectedObjectNames.length} selected</Badge>
+                    {selectedTables.length > 0 && (
+                      <Badge variant="outline">{selectedTables.length} table(s)</Badge>
+                    )}
+                    {selectedObjectNames.map((object) => (
+                      <Badge key={object.id} variant="outline">
+                        {object.label}
+                      </Badge>
+                    ))}
                   </div>
-                  {selectedObject.kind === "table" && linkedChairIds.length > 0 && (
-                    <Badge variant="secondary">{linkedChairIds.length} linked chairs</Badge>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => setSelectedObjectIds([])}
+                  >
+                    Clear
+                  </Button>
                 </div>
               </div>
             )}
 
-            {selectedTable && selectedGuestNames.length > 0 && (
+            {selectedTables.length > 0 && selectedGuestNames.length > 0 && (
               <div className="rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/15 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
                   Guests to auto-load
