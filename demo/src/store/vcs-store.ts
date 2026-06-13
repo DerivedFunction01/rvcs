@@ -50,6 +50,11 @@ export interface IconConfig {
   color: string;
 }
 
+function isSystemBranch(branch: string | string[]): boolean {
+  const branches = Array.isArray(branch) ? branch : [branch];
+  return branches.some((b) => b.trim() === "system");
+}
+
 // ─── Create Default Repo ──────────────────────────────────────────────────────
 
 function createFreshRepo(orderContext?: OrderContext): VCSRepo {
@@ -1650,7 +1655,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const activeBranch = store.engine.getActiveBranch();
       const mainBranch = store.engine.getMainActiveBranch();
 
-      if (activeBranch === "system") {
+      if (isSystemBranch(activeBranch)) {
         toast.error("Cannot modify line items directly on the system branch.");
         return store.engine.getLog()[0]; // Return HEAD
       }
@@ -2441,7 +2446,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     // ─── Branching ─────────────────────────────────────────────────────────
 
     createBranch: (name, fromCommitHash) => {
-      if (name.trim() === "system") {
+      if (isSystemBranch(name)) {
         toast.error("Cannot use reserved branch name 'system'");
         return;
       }
@@ -2456,7 +2461,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     },
 
     checkoutBranch: (name) => {
-      if (name === "system") {
+      if (isSystemBranch(name)) {
         toast.error("The system branch cannot be checked out.");
         return;
       }
@@ -2498,7 +2503,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     },
 
     renameBranch: (oldName, newName) => {
-      if (newName.trim() === "system" || oldName === "system") {
+      if (isSystemBranch([oldName, newName])) {
         toast.error("Cannot rename 'system' branch or use it as a target name.");
         return;
       }
@@ -2513,14 +2518,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     // ─── Merge ─────────────────────────────────────────────────────────────
 
     previewMerge: (sourceBranches, targetBranch) => {
-      if (sourceBranches.includes("system") || targetBranch === "system") {
+      if (isSystemBranch([targetBranch, ...sourceBranches])) {
         throw new Error("The system branch cannot be merged.");
       }
       return get().engine.previewMerge(sourceBranches, targetBranch);
     },
 
     commitMerge: (sourceBranches, targetBranch, resolutionDeltas) => {
-      if (sourceBranches.includes("system") || targetBranch === "system") {
+      if (isSystemBranch([targetBranch, ...sourceBranches])) {
         toast.error("The system branch cannot be merged.");
         return;
       }
