@@ -73,18 +73,30 @@ export type AllocationBlock =
 
 // ─── Delta Operations (Polymorphic, Append-Only) ────────────────────────────────
 
+export enum DeltaActionType {
+  DeclareAllocation = "declare_allocation",
+  UndeclareAllocation = "undeclare_allocation",
+  AddItem = "add_item",
+  RemoveItem = "remove_item",
+  ModifyItemAllocations = "modify_item_allocations",
+  ModifySku = "modify_sku",
+  ModifyModifierState = "modify_modifier_state",
+  ModifyQty = "modify_qty",
+  BatchByFilter = "batch_by_filter",
+}
+
 export interface DeclareAllocationDelta {
-  action: "declare_allocation";
+  action: DeltaActionType.DeclareAllocation;
   allocation: AllocationBlock;
 }
 
 export interface UndeclareAllocationDelta {
-  action: "undeclare_allocation";
+  action: DeltaActionType.UndeclareAllocation;
   allocationId: string;
 }
 
 export interface AddItemDelta {
-  action: "add_item";
+  action: DeltaActionType.AddItem;
   lineId: string;
   parentLineId: string | null;
   sku: string;
@@ -94,34 +106,34 @@ export interface AddItemDelta {
 }
 
 export interface RemoveItemDelta {
-  action: "remove_item";
+  action: DeltaActionType.RemoveItem;
   lineId: string;
   qty: number;
 }
 
 export interface ModifyItemAllocationsDelta {
-  action: "modify_item_allocations";
+  action: DeltaActionType.ModifyItemAllocations;
   lineId: string;
   beforeAllocations: string[];
   afterAllocations: string[];
 }
 
 export interface ModifySkuDelta {
-  action: "modify_sku";
+  action: DeltaActionType.ModifySku;
   lineId: string;
   beforeSku: string;
   afterSku: string;
 }
 
 export interface ModifyModifierStateDelta {
-  action: "modify_modifier_state";
+  action: DeltaActionType.ModifyModifierState;
   lineId: string;
   beforeState?: string;
   afterState?: string;
 }
 
 export interface ModifyItemQtyDelta {
-  action: "modify_qty";
+  action: DeltaActionType.ModifyQty;
   lineId: string;
   beforeQty: number;
   afterQty: number;
@@ -190,7 +202,7 @@ export type TemplateMutation =
   | BatchDuplicateAndReallocate;
 
 export interface BatchByFilterDelta {
-  action: "batch_by_filter";
+  action: DeltaActionType.BatchByFilter;
   baseRevisionId: string;
   filters: FilterRule[];
   templateMutation: TemplateMutation;

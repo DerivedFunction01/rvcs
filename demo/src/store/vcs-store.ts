@@ -18,7 +18,7 @@ import type {
   ProjectedLineItem,
   MergePreview,
 } from "@/lib/vcs/types";
-import { BranchType, SquashType } from "@/lib/vcs/types";
+import { BranchType, SquashType, DeltaActionType } from "@/lib/vcs/types";
 import type { ResolvedChargeRule } from "@/lib/pos/financials";
 import { evaluateBusinessRules, type RenderedCheck } from "@/lib/pos/evaluate";
 import type { OrderContext } from "@/lib/pos/types";
@@ -73,7 +73,7 @@ function buildCloneDeltas(
   }
 
   deltas.push({
-    action: "add_item",
+    action: DeltaActionType.AddItem,
     lineId: newLineId,
     parentLineId: newParentId,
     sku: projItem.sku,
@@ -484,7 +484,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       };
 
       const deltas: Delta[] = [
-        { action: "declare_allocation", allocation: assignmentAlloc },
+        { action: DeltaActionType.DeclareAllocation, allocation: assignmentAlloc },
       ];
 
       const paymentMethods = ["cash", "visa", "mastercard", "amex"];
@@ -511,7 +511,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           },
         };
 
-        deltas.push({ action: "declare_allocation", allocation: paymentAlloc });
+        deltas.push({ action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc });
       }
 
       // Default fulfillment allocations for each order type
@@ -552,7 +552,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         };
 
         deltas.push({
-          action: "declare_allocation",
+          action: DeltaActionType.DeclareAllocation,
           allocation: defaultFulfillment,
         });
       }
@@ -681,7 +681,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       };
       const paymentMethods = ["cash", "visa", "mastercard", "amex"];
       const sanitized = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "guest";
-      const deltas: Delta[] = [{ action: "declare_allocation", allocation: assignmentAlloc }];
+      const deltas: Delta[] = [{ action: DeltaActionType.DeclareAllocation, allocation: assignmentAlloc }];
       for (const m of paymentMethods) {
         const correlationId = `group-${sanitized}-${m}`;
         const payAllocId = generateAllocationId(`${sanitized}-pay-${m}`);
@@ -697,7 +697,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             calculatedAt: new Date().toISOString(),
           },
         };
-        deltas.push({ action: "declare_allocation", allocation: paymentAlloc });
+        deltas.push({ action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc });
       }
       store.engine.commitSystem(deltas, "pos-ui");
       set({ projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog) });
@@ -712,7 +712,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           ...alloc,
           entity: name,
         };
-        store.engine.commitSystem([{ action: "declare_allocation", allocation: updatedAlloc }]);
+        store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: updatedAlloc }]);
         set({ projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog) });
         store.persist();
       }
@@ -723,7 +723,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const alloc = store.projectedState.allocations[id];
       if (alloc && alloc.type === "assignment") {
         const updatedAlloc: AssignmentAllocation = { ...alloc, hidden: true };
-        store.engine.commitSystem([{ action: "declare_allocation", allocation: updatedAlloc }]);
+        store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: updatedAlloc }]);
         set({ projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog) });
         store.persist();
       }
@@ -769,7 +769,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             calculatedAt: new Date().toISOString(),
           },
         };
-        deltas.push({ action: "declare_allocation", allocation: paymentAlloc });
+        deltas.push({ action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc });
       }
 
       store.engine.commitSystem(deltas, "system-guest");
@@ -811,7 +811,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             type: "assignment",
             entity: assigneeName,
           };
-          store.engine.commitSystem([{ action: "declare_allocation", allocation: newAssignAlloc }], "pos-ui");
+          store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
           assignId = newAssignId;
         }
       }
@@ -852,7 +852,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       const parentLineId = generateLineId();
       deltas.push({
-        action: "add_item",
+        action: DeltaActionType.AddItem,
         lineId: parentLineId,
         parentLineId: null,
         sku,
@@ -869,7 +869,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const defaultSku = entry.appliedSizeGroup.defaultSku;
           const childId = generateLineId();
           deltas.push({
-            action: "add_item",
+            action: DeltaActionType.AddItem,
             lineId: childId,
             parentLineId: itemLineId,
             sku: defaultSku,
@@ -887,7 +887,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               seenSlots.add(choice.slotSku);
               const childId = generateLineId();
               deltas.push({
-                action: "add_item",
+                action: DeltaActionType.AddItem,
                 lineId: childId,
                 parentLineId: itemLineId,
                 sku: choice.optionSku,
@@ -918,7 +918,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       
       store.engine.commitSystem([
         {
-          action: "declare_allocation",
+          action: DeltaActionType.DeclareAllocation,
           allocation: { allocationId: noteId, type: "note", text: text.trim() },
         },
       ], "pos-ui");
@@ -930,7 +930,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const before = item.allocations || [];
           const after = [...before.filter(id => id !== noteId), noteId];
           deltas.push({
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: before,
             afterAllocations: after,
@@ -958,7 +958,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const before = item.allocations || [];
           const after = before.filter(id => id !== noteId);
           deltas.push({
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: before,
             afterAllocations: after,
@@ -974,7 +974,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     cleanupStaleNotes: (noteIds) => {
       const store = get();
       const deltas: Delta[] = noteIds.map(noteId => ({
-        action: "undeclare_allocation",
+        action: DeltaActionType.UndeclareAllocation,
         allocationId: noteId,
       }));
       if (deltas.length > 0) {
@@ -999,11 +999,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       store.engine.commitSystem([
         {
-          action: "undeclare_allocation",
+          action: DeltaActionType.UndeclareAllocation,
           allocationId: noteId,
         },
         {
-          action: "declare_allocation",
+          action: DeltaActionType.DeclareAllocation,
           allocation: updatedAlloc,
         },
       ], "pos-ui");
@@ -1014,7 +1014,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         for (const item of activeItems) {
           if (item.allocations.includes(noteId)) {
             deltas.push({
-              action: "modify_item_allocations",
+              action: DeltaActionType.ModifyItemAllocations,
               lineId: item.lineId,
               beforeAllocations: item.allocations,
               afterAllocations: item.allocations.filter(id => id !== noteId),
@@ -1079,7 +1079,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const afterAllocations = [...nonOldAllocations, ...newPayIds];
 
           deltas.push({
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId: item.lineId,
             beforeAllocations: item.allocations,
             afterAllocations,
@@ -1152,7 +1152,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const afterAllocations = [...nonOldAllocations, ...newFulIds];
 
           deltas.push({
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId: item.lineId,
             beforeAllocations: item.allocations,
             afterAllocations,
@@ -1237,7 +1237,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }));
 
       const deltas: Delta[] = newPayAllocs.map((a) => ({
-        action: "declare_allocation" as const,
+        action: DeltaActionType.DeclareAllocation,
         allocation: a,
       }));
 
@@ -1351,7 +1351,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       store.engine.commitSystem(
         newPayAllocs.map((a) => ({
-          action: "declare_allocation" as const,
+          action: DeltaActionType.DeclareAllocation,
           allocation: a,
         })),
         "pos-ui"
@@ -1368,7 +1368,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         ];
 
         deltas.push({
-          action: "modify_item_allocations",
+          action: DeltaActionType.ModifyItemAllocations,
           lineId: i.lineId,
           beforeAllocations: i.allocations,
           afterAllocations,
@@ -1409,11 +1409,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         id === currentAssignAllocId ? newAssignAllocId : id,
       );
 
-      store.engine.commitSystem([{ action: "declare_allocation", allocation: newAssignAlloc }], "pos-ui");
+      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
       store.commitDeltas(
         [
           {
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -1477,11 +1477,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         newAllocations = [...item.allocations, newFulAllocId];
       }
 
-      store.engine.commitSystem([{ action: "declare_allocation", allocation: newFulAlloc }], "pos-ui");
+      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newFulAlloc }], "pos-ui");
       store.commitDeltas(
         [
           {
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -1541,7 +1541,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             )
           : [item];
 
-      store.engine.commitSystem([{ action: "declare_allocation", allocation: newPaymentAlloc }], "pos-ui");
+      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newPaymentAlloc }], "pos-ui");
 
       const deltas: Delta[] = [];
       for (const i of itemsToUpdate) {
@@ -1550,7 +1550,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         );
         const newAllocations = [...nonPaymentAllocs, newPayAllocId];
         deltas.push({
-          action: "modify_item_allocations",
+          action: DeltaActionType.ModifyItemAllocations,
           lineId: i.lineId,
           beforeAllocations: i.allocations,
           afterAllocations: newAllocations,
@@ -1577,7 +1577,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.commitDeltas(
         [
           {
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -1602,7 +1602,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       } as AllocationBlock;
 
       store.engine.commitSystem(
-        [{ action: "declare_allocation", allocation: updatedAlloc }],
+        [{ action: DeltaActionType.DeclareAllocation, allocation: updatedAlloc }],
         "pos-ui",
       );
       set({
@@ -1633,7 +1633,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.commitDeltas(
         [
           {
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -1677,7 +1677,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.commitDeltas(
         [
           {
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -1745,7 +1745,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       get().commitDeltas(
         [
           {
-            action: "add_item",
+            action: DeltaActionType.AddItem,
             lineId: generateLineId(),
             parentLineId,
             sku: modifierSku,
@@ -1768,7 +1768,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // 1. Remove the old choice
       deltas.push({
-        action: "remove_item",
+        action: DeltaActionType.RemoveItem,
         lineId: oldLineId,
         qty: oldItem.qty,
       });
@@ -1776,7 +1776,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // 2. Add the new choice child
       const childId = generateLineId();
       deltas.push({
-        action: "add_item",
+        action: DeltaActionType.AddItem,
         lineId: childId,
         parentLineId,
         sku: newSku,
@@ -1794,7 +1794,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const sizeSku = customSizeSku || entry.appliedSizeGroup.defaultSku;
           const newId = generateLineId();
           deltas.push({
-            action: "add_item",
+            action: DeltaActionType.AddItem,
             lineId: newId,
             parentLineId: itemLineId,
             sku: sizeSku,
@@ -1812,7 +1812,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               seenSlots.add(choice.slotSku);
               const newId = generateLineId();
               deltas.push({
-                action: "add_item",
+                action: DeltaActionType.AddItem,
                 lineId: newId,
                 parentLineId: itemLineId,
                 sku: choice.optionSku,
@@ -1842,7 +1842,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             if (isSupported) {
               const modId = generateLineId();
               deltas.push({
-                action: "add_item",
+                action: DeltaActionType.AddItem,
                 lineId: modId,
                 parentLineId: childId,
                 sku: child.sku,
@@ -1862,7 +1862,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = get().projectedState;
       const item = state.items[lineId];
       const qty = item?.qty ?? 1;
-      get().commitDeltas([{ action: "remove_item", lineId, qty }], "pos-ui");
+      get().commitDeltas([{ action: DeltaActionType.RemoveItem, lineId, qty }], "pos-ui");
     },
 
     modifyItemQty: (lineId, beforeQty, afterQty) => {
@@ -1880,7 +1880,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         get().commitDeltas(
           [
             {
-              action: "modify_qty",
+              action: DeltaActionType.ModifyQty,
               lineId,
               beforeQty,
               afterQty,
@@ -1930,7 +1930,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         entity: targetGuest,
       };
 
-      store.engine.commitSystem([{ action: "declare_allocation", allocation: newAssignAlloc }], "pos-ui");
+      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -1965,7 +1965,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           deltas.push({
-            action: "remove_item",
+            action: DeltaActionType.RemoveItem,
             lineId,
             qty: item.qty,
           });
@@ -1986,7 +1986,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const targetQty = item.qty + change;
           if (targetQty <= 0) {
             deltas.push({
-              action: "remove_item",
+              action: DeltaActionType.RemoveItem,
               lineId,
               qty: item.qty,
             });
@@ -1995,7 +1995,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             buildCloneDeltas(item, null, 1, deltas, { overrideRootQty: change });
           } else {
             deltas.push({
-              action: "modify_qty",
+              action: DeltaActionType.ModifyQty,
               lineId,
               beforeQty: item.qty,
               afterQty: targetQty,
@@ -2019,7 +2019,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         if (item) {
           if (targetQty <= 0) {
             deltas.push({
-              action: "remove_item",
+              action: DeltaActionType.RemoveItem,
               lineId,
               qty: item.qty,
             });
@@ -2028,7 +2028,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             buildCloneDeltas(item, null, 1, deltas, { overrideRootQty: change });
           } else {
             deltas.push({
-              action: "modify_qty",
+              action: DeltaActionType.ModifyQty,
               lineId,
               beforeQty: item.qty,
               afterQty: targetQty,
@@ -2054,7 +2054,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         entity: newAssignee,
       };
 
-      store.engine.commitSystem([{ action: "declare_allocation", allocation: newAssignAlloc }], "pos-ui");
+      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -2068,7 +2068,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           );
 
           deltas.push({
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -2115,7 +2115,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const newAllocations = [...nonPaymentAllocs, ...targetAllocIds];
 
           deltas.push({
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -2155,7 +2155,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const newAllocations = [...nonFulfillmentAllocs, ...targetAllocIds];
 
           deltas.push({
-            action: "modify_item_allocations",
+            action: DeltaActionType.ModifyItemAllocations,
             lineId,
             beforeAllocations: item.allocations,
             afterAllocations: newAllocations,
@@ -2179,7 +2179,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const hasMod = parent.children.some((c) => c.sku === modifierSku);
           if (!hasMod) {
             deltas.push({
-              action: "add_item",
+              action: DeltaActionType.AddItem,
               lineId: generateLineId(),
               parentLineId,
               sku: modifierSku,
@@ -2209,7 +2209,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           );
           if (childWithSku) {
             deltas.push({
-              action: "remove_item",
+              action: DeltaActionType.RemoveItem,
               lineId: childWithSku.lineId,
               qty: childWithSku.qty,
             });
@@ -2226,7 +2226,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       get().commitDeltas(
         [
           {
-            action: "modify_sku",
+            action: DeltaActionType.ModifySku,
             lineId,
             beforeSku,
             afterSku,
@@ -2240,7 +2240,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       get().commitDeltas(
         [
           {
-            action: "modify_modifier_state",
+            action: DeltaActionType.ModifyModifierState,
             lineId,
             beforeState,
             afterState,
@@ -2283,8 +2283,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       store.engine.commitSystem(
         [
-          { action: "declare_allocation", allocation: assignmentAlloc },
-          { action: "declare_allocation", allocation: paymentAlloc },
+          { action: DeltaActionType.DeclareAllocation, allocation: assignmentAlloc },
+          { action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc },
         ],
         "ai-agent"
       );
@@ -2292,7 +2292,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.commitDeltas(
         [
           {
-            action: "batch_by_filter",
+            action: DeltaActionType.BatchByFilter,
             baseRevisionId: headHash,
             filters: [
               {
@@ -2411,7 +2411,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     // ─── History Management ─────────────────────────────────────────────────
 
-    squashPendingCommits: (fromHash: string, type: "light" | "full") => {
+    squashPendingCommits: (fromHash: string, type: SquashType) => {
       const store = get();
       try {
         store.engine.squashPendingCommits(fromHash, type);
@@ -2473,7 +2473,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
           if (initCommit) {
             for (const delta of initCommit.deltas) {
-              if (delta.action === "declare_allocation") {
+              if (delta.action === DeltaActionType.DeclareAllocation) {
                 if (delta.allocation.type === "assignment") {
                   defaultAssignmentAllocId = delta.allocation.allocationId;
                 } else if (delta.allocation.type === "payment") {
@@ -2495,7 +2495,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           ) {
             const firstCommit = repo.log[0];
             for (const delta of firstCommit.deltas) {
-              if (delta.action === "declare_allocation") {
+              if (delta.action === DeltaActionType.DeclareAllocation) {
                 if (
                   delta.allocation.type === "assignment" &&
                   !defaultAssignmentAllocId

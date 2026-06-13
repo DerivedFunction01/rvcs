@@ -19,6 +19,7 @@ import type {
 } from "./types";
 import {
   BranchType,
+  DeltaActionType,
   MergeConflictType,
   SquashType,
 } from "./types";
@@ -42,8 +43,8 @@ function detectConflict(
 
   // add_item + add_item on same lineId
   if (
-    deltaA.action === "add_item" &&
-    deltaB.action === "add_item" &&
+    deltaA.action === DeltaActionType.AddItem &&
+    deltaB.action === DeltaActionType.AddItem &&
     deltaA.lineId === deltaB.lineId
   ) {
     // If every parameter is identical the two branches independently agreed — not a conflict.
@@ -69,11 +70,11 @@ function detectConflict(
 
   // remove_item vs modify_sku on same lineId
   if (
-    (deltaA.action === "remove_item" &&
-      deltaB.action === "modify_sku" &&
+    (deltaA.action === DeltaActionType.RemoveItem &&
+      deltaB.action === DeltaActionType.ModifySku &&
       deltaA.lineId === deltaB.lineId) ||
-    (deltaA.action === "modify_sku" &&
-      deltaB.action === "remove_item" &&
+    (deltaA.action === DeltaActionType.ModifySku &&
+      deltaB.action === DeltaActionType.RemoveItem &&
       deltaA.lineId === deltaB.lineId)
   ) {
     const lineId = (deltaA as { lineId: string }).lineId;
@@ -91,11 +92,11 @@ function detectConflict(
 
   // remove_item vs modify_item_allocations on same lineId
   if (
-    (deltaA.action === "remove_item" &&
-      deltaB.action === "modify_item_allocations" &&
+    (deltaA.action === DeltaActionType.RemoveItem &&
+      deltaB.action === DeltaActionType.ModifyItemAllocations &&
       deltaA.lineId === deltaB.lineId) ||
-    (deltaA.action === "modify_item_allocations" &&
-      deltaB.action === "remove_item" &&
+    (deltaA.action === DeltaActionType.ModifyItemAllocations &&
+      deltaB.action === DeltaActionType.RemoveItem &&
       deltaA.lineId === deltaB.lineId)
   ) {
     const lineId = (deltaA as { lineId: string }).lineId;
@@ -113,8 +114,8 @@ function detectConflict(
 
   // modify_sku + modify_sku on same lineId → only conflict if different SKUs
   if (
-    deltaA.action === "modify_sku" &&
-    deltaB.action === "modify_sku" &&
+    deltaA.action === DeltaActionType.ModifySku &&
+    deltaB.action === DeltaActionType.ModifySku &&
     deltaA.lineId === deltaB.lineId &&
     deltaA.afterSku !== deltaB.afterSku
   ) {
@@ -132,8 +133,8 @@ function detectConflict(
 
   // modify_item_allocations + modify_item_allocations on same lineId
   if (
-    deltaA.action === "modify_item_allocations" &&
-    deltaB.action === "modify_item_allocations" &&
+    deltaA.action === DeltaActionType.ModifyItemAllocations &&
+    deltaB.action === DeltaActionType.ModifyItemAllocations &&
     deltaA.lineId === deltaB.lineId
   ) {
     return {
@@ -150,8 +151,8 @@ function detectConflict(
 
   // declare_allocation + declare_allocation on same allocationId
   if (
-    deltaA.action === "declare_allocation" &&
-    deltaB.action === "declare_allocation" &&
+    deltaA.action === DeltaActionType.DeclareAllocation &&
+    deltaB.action === DeltaActionType.DeclareAllocation &&
     deltaA.allocation.allocationId === deltaB.allocation.allocationId
   ) {
     return {
@@ -477,10 +478,10 @@ export class VCSEngine {
 
     return this.commit(
       [
-        { action: "declare_allocation", allocation: assignmentAlloc },
-        { action: "declare_allocation", allocation: paymentAlloc },
+        { action: DeltaActionType.DeclareAllocation, allocation: assignmentAlloc },
+        { action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc },
         {
-          action: "add_item",
+          action: DeltaActionType.AddItem,
           lineId: generateLineId(),
           parentLineId: null,
           sku: params.sku,
@@ -503,7 +504,7 @@ export class VCSEngine {
     return this.commit(
       [
         {
-          action: "add_item",
+          action: DeltaActionType.AddItem,
           lineId: generateLineId(),
           parentLineId: params.parentLineId,
           sku: params.modifierSku,
@@ -528,7 +529,7 @@ export class VCSEngine {
     const qty = params.qty ?? item?.qty ?? 1;
 
     return this.commit(
-      [{ action: "remove_item", lineId: params.lineId, qty }],
+      [{ action: DeltaActionType.RemoveItem, lineId: params.lineId, qty }],
       params.authorId,
     );
   }
@@ -572,10 +573,10 @@ export class VCSEngine {
 
     return this.commit(
       [
-        { action: "declare_allocation", allocation: assignmentAlloc },
-        { action: "declare_allocation", allocation: paymentAlloc },
+        { action: DeltaActionType.DeclareAllocation, allocation: assignmentAlloc },
+        { action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc },
         {
-          action: "batch_by_filter",
+          action: DeltaActionType.BatchByFilter,
           baseRevisionId: headHash,
           filters: [
             {
@@ -944,7 +945,7 @@ export class VCSEngine {
       allDeltas.push(...c.deltas);
     }
 
-    const hasBatchDelta = allDeltas.some((d) => d.action === "batch_by_filter");
+    const hasBatchDelta = allDeltas.some((d) => d.action === DeltaActionType.BatchByFilter);
     const deadLineIds = new Set<string>();
     const createdWithinRange = new Set<string>();
     const finalQtyMap = new Map<string, number>();
@@ -958,18 +959,18 @@ export class VCSEngine {
       const finalQty = new Map<string, number>();
 
       for (const d of allDeltas) {
-        if (d.action === "add_item") {
+        if (d.action === DeltaActionType.AddItem) {
           createdLineIds.add(d.lineId);
           createdWithinRange.add(d.lineId);
           parentMap.set(d.lineId, d.parentLineId);
           finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) + d.qty);
           finalQtyMap.set(d.lineId, (finalQtyMap.get(d.lineId) || 0) + d.qty);
-        } else if (d.action === "remove_item") {
+        } else if (d.action === DeltaActionType.RemoveItem) {
           if (createdLineIds.has(d.lineId)) {
             finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) - d.qty);
           }
           finalQtyMap.set(d.lineId, (finalQtyMap.get(d.lineId) || 0) - d.qty);
-        } else if (d.action === "modify_qty") {
+        } else if (d.action === DeltaActionType.ModifyQty) {
           if (createdLineIds.has(d.lineId)) {
             finalQty.set(d.lineId, d.afterQty);
           }
@@ -1003,7 +1004,7 @@ export class VCSEngine {
       const optimizedDeltas: Delta[] = [];
       const lastModifyQtyDeltaMap = new Map<string, Delta>();
       for (const d of allDeltas) {
-        if (d.action === "modify_qty") {
+        if (d.action === DeltaActionType.ModifyQty) {
           lastModifyQtyDeltaMap.set(d.lineId, d);
         }
       }
@@ -1012,12 +1013,12 @@ export class VCSEngine {
         if ("lineId" in d && deadLineIds.has(d.lineId as string)) {
           continue;
         }
-        if (d.action === "add_item") {
+        if (d.action === DeltaActionType.AddItem) {
           const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
           optimizedDeltas.push({ ...d, qty: finalQty });
           continue;
         }
-        if (d.action === "modify_qty") {
+        if (d.action === DeltaActionType.ModifyQty) {
           if (createdWithinRange.has(d.lineId)) {
             continue;
           }
@@ -1062,7 +1063,7 @@ export class VCSEngine {
       const lastModifyQtyCommitMap = new Map<string, VCSCommit>();
       for (const c of rangeCommits) {
         for (const d of c.deltas) {
-          if (d.action === "modify_qty") {
+          if (d.action === DeltaActionType.ModifyQty) {
             lastModifyQtyCommitMap.set(d.lineId, c);
           }
         }
@@ -1079,7 +1080,7 @@ export class VCSEngine {
             continue;
           }
 
-          if (d.action === "add_item") {
+          if (d.action === DeltaActionType.AddItem) {
             const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
             filteredDeltas.push({
               ...d,
@@ -1088,7 +1089,7 @@ export class VCSEngine {
             continue;
           }
 
-          if (d.action === "modify_qty") {
+          if (d.action === DeltaActionType.ModifyQty) {
             if (createdWithinRange.has(d.lineId)) {
               continue;
             }

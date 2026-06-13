@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { GitCommitHorizontal, PanelRightClose, PanelRightOpen, AlertCircle, RotateCcw, ChevronDown, ChevronRight, GitBranch, Lightbulb, ChevronsUpDown, Eraser } from "lucide-react";
 import { toast } from "sonner";
+import { DeltaActionType } from "@/lib/vcs/types";
 
 export function CommitLedgerPanel(props: any) {
   const { isLedgerCollapsed, setIsLedgerCollapsed, log, viewingHash, headHash, isViewingHistory, viewRevision, graphData, expandedCommits, toggleCommitExpanded, checkoutBranch, activeBranch, branches, setHistoryOpDialog, engine, confirmedHash } = props;
@@ -110,10 +111,10 @@ export function CommitLedgerPanel(props: any) {
                           <div className="mt-1 pl-2 pr-1 space-y-1 overflow-y-auto max-h-45 border-l-2 border-primary/20 ml-2 animate-in fade-in duration-100">
                             {commit.deltas.map((d: any, i: number) => (
                               <div key={i} className="text-[9px] text-muted-foreground flex items-center gap-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.action === "declare_allocation" ? "bg-violet-500" : d.action === "add_item" ? "bg-emerald-500" : d.action === "remove_item" ? "bg-red-500" : d.action.startsWith("modify") ? "bg-amber-500" : "bg-sky-500"}`} />
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.action === DeltaActionType.DeclareAllocation ? "bg-violet-500" : d.action === DeltaActionType.AddItem ? "bg-emerald-500" : d.action === DeltaActionType.RemoveItem ? "bg-red-500" : d.action.includes("modify") ? "bg-amber-500" : "bg-sky-500"}`} />
                                 <span className="font-mono font-medium truncate shrink-0">{d.action}</span>
                                 {"sku" in d && d.sku && <span className="truncate text-muted-foreground/60 font-mono">{String(d.sku)}</span>}
-                                {d.action === "modify_item_allocations" && "lineId" in d && <span className="truncate text-muted-foreground/60 font-mono">{(d as { lineId: string }).lineId.substring(0, 8)}</span>}
+                                {d.action === DeltaActionType.ModifyItemAllocations && "lineId" in d && <span className="truncate text-muted-foreground/60 font-mono">{(d as { lineId: string }).lineId.substring(0, 8)}</span>}
                               </div>
                             ))}
                           </div>

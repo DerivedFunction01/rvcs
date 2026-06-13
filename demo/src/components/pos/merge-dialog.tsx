@@ -65,7 +65,7 @@ import type {
   PaymentAllocation,
   FulfillmentAllocation,
 } from "@/lib/vcs/types";
-import { MergeConflictType, SquashType } from "@/lib/vcs/types";
+import { MergeConflictType, SquashType, DeltaActionType } from "@/lib/vcs/types";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
@@ -114,15 +114,15 @@ function conflictLabel(c: MergeConflict): string {
 
 function deltaDescription(delta: Delta, branch: string): string {
   switch (delta.action) {
-    case "add_item":
+    case DeltaActionType.AddItem:
       return `Add item (${delta.sku})`;
-    case "remove_item":
+    case DeltaActionType.RemoveItem:
       return `Remove item`;
-    case "modify_sku":
+    case DeltaActionType.ModifySku:
       return `SKU → ${delta.afterSku}`;
-    case "modify_item_allocations":
+    case DeltaActionType.ModifyItemAllocations:
       return `Reallocate item`;
-    case "declare_allocation":
+    case DeltaActionType.DeclareAllocation:
       return `Update allocation`;
     default:
       return delta.action;
@@ -316,7 +316,7 @@ function findItemForConflict(
     const log = useVCSStore.getState().engine.getRepo().log;
     for (const commit of log) {
       for (const delta of commit.deltas) {
-        if (delta.action === "add_item" && delta.lineId === lineId) {
+        if (delta.action === DeltaActionType.AddItem && delta.lineId === lineId) {
           const sku = delta.sku;
           const catalogEntry = useVCSStore.getState().catalog[sku];
           if (catalogEntry) {
@@ -408,7 +408,7 @@ function formatDeltaDetails(
   initiatedAt: string | undefined,
 ): React.ReactNode {
   switch (delta.action) {
-    case "add_item": {
+    case DeltaActionType.AddItem: {
       const name = catalog[delta.sku]?.name || delta.sku;
       return (
         <div className="space-y-1 text-foreground/90">
@@ -451,7 +451,7 @@ function formatDeltaDetails(
         </div>
       );
     }
-    case "remove_item": {
+    case DeltaActionType.RemoveItem: {
       return (
         <div className="space-y-1 text-foreground/90">
           <div className="font-semibold text-rose-600 dark:text-rose-400">
@@ -463,7 +463,7 @@ function formatDeltaDetails(
         </div>
       );
     }
-    case "modify_sku": {
+    case DeltaActionType.ModifySku: {
       const beforeName = catalog[delta.beforeSku]?.name || delta.beforeSku;
       const afterName = catalog[delta.afterSku]?.name || delta.afterSku;
       return (
@@ -480,7 +480,7 @@ function formatDeltaDetails(
         </div>
       );
     }
-    case "modify_qty": {
+    case DeltaActionType.ModifyQty: {
       return (
         <div className="space-y-1 text-foreground/90">
           <div className="font-semibold text-amber-600 dark:text-amber-400">
@@ -497,7 +497,7 @@ function formatDeltaDetails(
         </div>
       );
     }
-    case "modify_modifier_state": {
+    case DeltaActionType.ModifyModifierState: {
       return (
         <div className="space-y-1 text-foreground/90">
           <div className="font-semibold text-amber-600 dark:text-amber-400">
@@ -514,7 +514,7 @@ function formatDeltaDetails(
         </div>
       );
     }
-    case "modify_item_allocations": {
+    case DeltaActionType.ModifyItemAllocations: {
       return (
         <div className="space-y-1 text-foreground/90">
           <div className="font-semibold text-amber-600 dark:text-amber-400">
@@ -565,7 +565,7 @@ function formatDeltaDetails(
         </div>
       );
     }
-    case "declare_allocation": {
+    case DeltaActionType.DeclareAllocation: {
       return (
         <div className="space-y-1 text-foreground/90">
           <div className="font-semibold text-emerald-600 dark:text-emerald-400">
@@ -582,7 +582,7 @@ function formatDeltaDetails(
         </div>
       );
     }
-    case "batch_by_filter": {
+    case DeltaActionType.BatchByFilter: {
       return (
         <div className="space-y-1 text-foreground/90">
           <div className="font-semibold text-purple-600 dark:text-purple-400">
@@ -609,7 +609,7 @@ function renderIncomingChangeBadges(
   const badges: React.ReactNode[] = [];
 
   switch (delta.action) {
-    case "add_item": {
+    case DeltaActionType.AddItem: {
       const name = catalog[delta.sku]?.name || delta.sku;
       badges.push(
         <Badge
@@ -694,7 +694,7 @@ function renderIncomingChangeBadges(
       }
       break;
     }
-    case "remove_item": {
+    case DeltaActionType.RemoveItem: {
       badges.push(
         <Badge
           key="remove"
@@ -716,7 +716,7 @@ function renderIncomingChangeBadges(
       );
       break;
     }
-    case "modify_sku": {
+    case DeltaActionType.ModifySku: {
       const beforeEntry = catalog[delta.beforeSku];
       const afterEntry = catalog[delta.afterSku];
 
@@ -745,7 +745,7 @@ function renderIncomingChangeBadges(
       );
       break;
     }
-    case "modify_qty": {
+    case DeltaActionType.ModifyQty: {
       badges.push(
         <Badge
           key="qty"
@@ -757,7 +757,7 @@ function renderIncomingChangeBadges(
       );
       break;
     }
-    case "modify_modifier_state": {
+    case DeltaActionType.ModifyModifierState: {
       badges.push(
         <Badge
           key="mod"
@@ -770,7 +770,7 @@ function renderIncomingChangeBadges(
       );
       break;
     }
-    case "modify_item_allocations": {
+    case DeltaActionType.ModifyItemAllocations: {
       // Find what allocations were added in afterAllocations
       const added = delta.afterAllocations.filter(
         (id) => !delta.beforeAllocations.includes(id),
@@ -856,7 +856,7 @@ function renderIncomingChangeBadges(
       }
       break;
     }
-    case "declare_allocation": {
+    case DeltaActionType.DeclareAllocation: {
       const block = delta.allocation;
       if (block.type === "assignment") {
         badges.push(
@@ -903,7 +903,7 @@ function renderIncomingChangeBadges(
       }
       break;
     }
-    case "batch_by_filter": {
+    case DeltaActionType.BatchByFilter: {
       badges.push(
         <Badge
           key="batch"

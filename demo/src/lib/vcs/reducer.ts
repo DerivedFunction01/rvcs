@@ -5,7 +5,7 @@
 // State is NEVER stored — it's computed on the fly (RAM only).
 // Prices and names are NEVER in commits — resolved from catalog at projection time.
 
-import type {
+import {
   VCSCommit,
   Delta,
   ProjectedState,
@@ -18,6 +18,7 @@ import type {
   BatchModifyAllocations,
   BatchRemoveItems,
   BatchModifySku,
+  DeltaActionType,
   PaymentAllocation,
 } from "./types";
 import { deriveCloneId, generateAllocationId } from "./id";
@@ -196,7 +197,7 @@ export function projectState(
     const systemPath = getCommitPath(log, systemHash);
     for (const commit of systemPath) {
       for (const delta of commit.deltas) {
-        if (delta.action === "declare_allocation" || delta.action === "undeclare_allocation") {
+        if (delta.action === DeltaActionType.DeclareAllocation || delta.action === DeltaActionType.UndeclareAllocation) {
           applyDelta(
             items,
             allocations,
@@ -272,15 +273,15 @@ function applyDelta(
   const isConfirmedDelta = confirmedAncestors.has(commitHash);
 
   switch (delta.action) {
-    case "declare_allocation":
+    case DeltaActionType.DeclareAllocation:
       allocations[delta.allocation.allocationId] = delta.allocation;
       break;
 
-    case "undeclare_allocation":
+    case DeltaActionType.UndeclareAllocation:
       delete allocations[delta.allocationId];
       break;
 
-    case "add_item":
+    case DeltaActionType.AddItem:
       items[delta.lineId] = {
         lineId: delta.lineId,
         parentLineId: delta.parentLineId,
@@ -296,7 +297,7 @@ function applyDelta(
       };
       break;
 
-    case "remove_item": {
+    case DeltaActionType.RemoveItem: {
       const item = items[delta.lineId];
       if (item) {
         if (item.isConfirmed) {
@@ -311,7 +312,7 @@ function applyDelta(
       break;
     }
 
-    case "modify_item_allocations": {
+    case DeltaActionType.ModifyItemAllocations: {
       const item = items[delta.lineId];
       if (item) {
         // Verify before_allocations matches current state (optimistic check)
@@ -327,7 +328,7 @@ function applyDelta(
       break;
     }
 
-    case "modify_sku": {
+    case DeltaActionType.ModifySku: {
       const item = items[delta.lineId];
       if (item && item.sku === delta.beforeSku) {
         item.sku = delta.afterSku;
@@ -337,7 +338,7 @@ function applyDelta(
       break;
     }
 
-    case "modify_modifier_state": {
+    case DeltaActionType.ModifyModifierState: {
       const item = items[delta.lineId];
       if (item && item.selectedModifierState === delta.beforeState) {
         item.selectedModifierState = delta.afterState;
@@ -347,7 +348,7 @@ function applyDelta(
       break;
     }
 
-    case "modify_qty": {
+    case DeltaActionType.ModifyQty: {
       const item = items[delta.lineId];
       if (item && item.qty === delta.beforeQty) {
         if (delta.afterQty < item.qty && item.isConfirmed) {
@@ -360,7 +361,7 @@ function applyDelta(
       break;
     }
 
-    case "batch_by_filter":
+    case DeltaActionType.BatchByFilter:
       applyBatchByFilter(
         items,
         allocations,
@@ -379,7 +380,7 @@ function applyDelta(
 function applyBatchByFilter(
   items: Record<string, InternalLineItem>,
   allocations: Record<string, AllocationBlock>,
-  delta: Extract<Delta, { action: "batch_by_filter" }>,
+  delta: Extract<Delta, { action: DeltaActionType.BatchByFilter }>,
   fullLog: VCSCommit[],
   catalog: Record<string, CatalogItemEntry>,
   isConfirmedDelta: boolean,
