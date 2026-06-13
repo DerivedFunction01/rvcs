@@ -10,14 +10,33 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, AlertCircle } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  AlertCircle,
+  Store,
+  PackageCheck,
+  Truck,
+  User,
+  Grid2x2,
+  Search,
+  ArrowLeft,
+  Check,
+  Plus,
+  HelpCircle,
+  ArrowRight,
+} from "lucide-react";
 import type {
   AllocationBlock,
   FulfillmentAllocation,
   ProjectedLineItem,
 } from "@/lib/vcs/types";
+import type { FloorConfig } from "@/lib/pos/types";
+import type { Guest } from "@/lib/pos/ui-utils";
+import { formatFulfillmentTime } from "@/lib/pos/utils";
 
 interface FulfillmentAllocationDialogProps {
   open: boolean;
@@ -27,10 +46,19 @@ interface FulfillmentAllocationDialogProps {
   allocations: Record<string, AllocationBlock>;
   activeFulfillmentConfigId: string | null;
   allItems: ProjectedLineItem[];
-  onApplyConfig: (
-    config: {
-      timeType: "immediate" | "scheduled" | "deferred";
-      calculatedAt: string | null;
+  floorConfigs: FloorConfig[];
+  guests: Guest[];
+  onApplyFulfillmentConfig: (
+    selection: {
+      type: "config" | "custom";
+      configId?: string;
+      customConfig?: {
+        method: string;
+        timeType: "immediate" | "scheduled" | "deferred";
+        calculatedAt: string | null;
+        destinationLabel: string;
+        destinationId: string | null;
+      };
     },
     mode?: "change-existing" | "new-only",
   ) => void;
@@ -56,49 +84,335 @@ export function FulfillmentAllocationDialog({
   allocations,
   activeFulfillmentConfigId,
   allItems,
-  onApplyConfig,
+  floorConfigs,
+  guests,
+  onApplyFulfillmentConfig,
 }: FulfillmentAllocationDialogProps) {
+  type ViewState = "main" | "customize";
+  const [view, setView] = useState<ViewState>("main");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Custom configuration states
+  const [method, setMethod] = useState<string>("walk-in");
   const [timeType, setTimeType] = useState<"immediate" | "scheduled" | "deferred">("immediate");
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
+  
+  const [destType, setDestType] = useState<"table" | "guest" | "custom">("guest");
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+  const [customDestLabel, setCustomDestLabel] = useState<string>("");
 
-  // Initialize form state based on the current context allocations
+  // For global switch confirmation flow
+  const [pendingSelection, setPendingSelection] = useState<{
+    type: "config" | "custom";
+    configId?: string;
+    customConfig?: {
+      method: string;
+      timeType: "immediate" | "scheduled" | "deferred";
+      calculatedAt: string | null;
+      destinationLabel: string;
+      destinationId: string | null;
+    };
+  } | null>(null);
+
+  // Initialize/reset states
   useEffect(() => {
-    if (!open) return;
+    if (open) {
+      setView("main");
+      setSearchQuery("");
+      setPendingSelection(null);
 
-    let targetAllocation: FulfillmentAllocation | null = null;
+      // Try to read active settings to prepopulate customize view
+      let target: FulfillmentAllocation | null = null;
+      if (context === "global") {
+        if (activeFulfillmentConfigId) {
+          const alloc = Object.values(allocations).find(
+            (a) =>
+              a.type === "fulfillment" &&
+              (a.allocationId === activeFulfillmentConfigId ||
+                a.correlationId === activeFulfillmentConfigId),
+          );
+          if (alloc) target = alloc as FulfillmentAllocation;
+        }
+      } else if (items.length > 0) {
+        for (const id of items[0].allocations) {
+          const alloc = allocations[id];
+          if (alloc?.type === "fulfillment") {
+            target = alloc as FulfillmentAllocation;
+            break;
+          }
+        }
+      }
+
+      if (target) {
+        setMethod(target.method);
+        setTimeType(target.time.type);
+        setCalculatedAt(target.time.calculatedAt);
+        const meta = target.fulfillmentMetadata;
+        if (meta.destinationId?.startsWith("__vcs_guest_")) {
+          setDestType("guest");
+          setSelectedGuestId(meta.destinationId);
+          setCustomDestLabel("");
+        } else if (meta.destinationId) {
+          setDestType("table");
+          setSelectedTableId(meta.destinationId);
+          setCustomDestLabel("");
+        } else {
+          setDestType("custom");
+          setCustomDestLabel(meta.destinationLabel || "");
+        }
+      } else {
+        setMethod("walk-in");
+        setTimeType("immediate");
+        setCalculatedAt(null);
+        setDestType("guest");
+        setSelectedGuestId(guests[0]?.id || null);
+        setSelectedTableId(null);
+        setCustomDestLabel("");
+      }
+    }
+  }, [open, context, items, allocations, activeFulfillmentConfigId, guests]);
+
+  // Extract all tables from layouts
+  const allTables = useMemo(() => {
+    const tables: Array<{ id: string; label: string }> = [];
+    for (const floor of floorConfigs) {
+      for (const obj of floor.objects) {
+        if (obj.kind === "table") {
+          tables.push({
+            id: obj.id,
+            label: obj.displayName || obj.label || `Table ${obj.id}`,
+          });
+        }
+      }
+    }
+    return tables;
+  }, [floorConfigs]);
+
+  // Set default selections based on destination type change
+  useEffect(() => {
+    if (destType === "table" && !selectedTableId && allTables.length > 0) {
+      setSelectedTableId(allTables[0].id);
+    }
+    if (destType === "guest" && !selectedGuestId && guests.length > 0) {
+      setSelectedGuestId(guests[0].id);
+    }
+  }, [destType, allTables, selectedTableId, guests, selectedGuestId]);
+
+  // List of active default configurations
+  const builtInConfigs = useMemo(() => {
+    return [
+      {
+        id: "group-default-walk-in",
+        label: "Walk In / Dine In",
+        method: "walk-in",
+        description: "Standard table or counter service default config",
+        icon: Store,
+      },
+      {
+        id: "group-default-pickup",
+        label: "Pickup",
+        method: "pickup",
+        description: "Counter pickup default configuration",
+        icon: PackageCheck,
+      },
+      {
+        id: "group-default-delivery",
+        label: "Delivery",
+        method: "delivery",
+        description: "Delivery tracking default configuration",
+        icon: Truck,
+      },
+    ];
+  }, []);
+
+  // Filtered built-in configs
+  const filteredBuiltIns = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return builtInConfigs;
+    return builtInConfigs.filter(
+      (c) =>
+        c.label.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.method.toLowerCase().includes(q),
+    );
+  }, [builtInConfigs, searchQuery]);
+
+  // Find other saved fulfillment configs in the repo allocations
+  const savedConfigs = useMemo(() => {
+    const configs: Array<{
+      id: string;
+      label: string;
+      description: string;
+      method: string;
+      destLabel: string;
+      timeLabel: string;
+      icon: React.ElementType;
+    }> = [];
+    const seen = new Set<string>();
+
+    for (const alloc of Object.values(allocations)) {
+      if (alloc.type === "fulfillment") {
+        const f = alloc as FulfillmentAllocation;
+        const isDefault = f.correlationId?.startsWith("group-default-");
+        if (isDefault) continue;
+
+        const id = f.correlationId || f.allocationId;
+        if (seen.has(id)) continue;
+        seen.add(id);
+
+        const methodLabel =
+          f.method === "walk-in"
+            ? "Walk In"
+            : f.method === "pickup"
+              ? "Pickup"
+              : f.method === "delivery"
+                ? "Delivery"
+                : f.method;
+
+        const destLabel = f.fulfillmentMetadata.destinationLabel || "Guest";
+        const timeLabel =
+          f.time.type === "immediate" || !f.time.calculatedAt
+            ? "Immediate"
+            : formatFulfillmentTime(f.time.calculatedAt);
+
+        const Icon =
+          f.method === "delivery"
+            ? Truck
+            : f.method === "pickup"
+              ? PackageCheck
+              : Store;
+
+        configs.push({
+          id,
+          label: `${methodLabel} to ${destLabel}`,
+          description: `Timing: ${timeLabel}`,
+          method: f.method,
+          destLabel,
+          timeLabel,
+          icon: Icon,
+        });
+      }
+    }
+    return configs;
+  }, [allocations]);
+
+  // Filtered saved configs
+  const filteredSavedConfigs = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return savedConfigs;
+    return savedConfigs.filter(
+      (c) =>
+        c.label.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.method.toLowerCase().includes(q),
+    );
+  }, [savedConfigs, searchQuery]);
+
+  // Retrieve current active config details for UI header
+  const activeConfigDetails = useMemo(() => {
+    if (!activeFulfillmentConfigId) return null;
+    const alloc = Object.values(allocations).find(
+      (a) =>
+        a.type === "fulfillment" &&
+        (a.allocationId === activeFulfillmentConfigId ||
+          a.correlationId === activeFulfillmentConfigId),
+    ) as FulfillmentAllocation | undefined;
+
+    if (!alloc) return null;
+
+    const methodLabel =
+      alloc.method === "walk-in"
+        ? "Walk In"
+        : alloc.method === "pickup"
+          ? "Pickup"
+          : alloc.method === "delivery"
+            ? "Delivery"
+            : alloc.method;
+
+    return {
+      id: activeFulfillmentConfigId,
+      methodLabel,
+      destLabel: alloc.fulfillmentMetadata.destinationLabel || "Guest",
+      timeLabel:
+        alloc.time.type === "immediate" || !alloc.time.calculatedAt
+          ? "Immediate"
+          : formatFulfillmentTime(alloc.time.calculatedAt),
+      icon:
+        alloc.method === "delivery"
+          ? Truck
+          : alloc.method === "pickup"
+            ? PackageCheck
+            : Store,
+    };
+  }, [activeFulfillmentConfigId, allocations]);
+
+  // Resolve destination details based on state
+  const resolvedDestination = useMemo(() => {
+    let label = "Guest";
+    let id: string | null = null;
+
+    if (destType === "table") {
+      const t = allTables.find((x) => x.id === selectedTableId);
+      label = t ? t.label : "Table";
+      id = selectedTableId;
+    } else if (destType === "guest") {
+      const g = guests.find((x) => x.id === selectedGuestId);
+      label = g ? (g.alias || `Guest ${g.number}`) : "Guest";
+      id = selectedGuestId;
+    } else {
+      label = customDestLabel.trim() || "Guest Address";
+      id = null;
+    }
+
+    return { label, id };
+  }, [destType, allTables, selectedTableId, guests, selectedGuestId, customDestLabel]);
+
+  // Save changes handler
+  const handleSelectConfig = (configId: string) => {
+    if (context === "global") {
+      setPendingSelection({ type: "config", configId });
+    } else {
+      onApplyFulfillmentConfig({ type: "config", configId });
+      onOpenChange(false);
+    }
+  };
+
+  const handleApplyCustom = () => {
+    const customConfig = {
+      method,
+      timeType,
+      calculatedAt: timeType === "immediate" ? null : calculatedAt,
+      destinationLabel: resolvedDestination.label,
+      destinationId: resolvedDestination.id,
+    };
 
     if (context === "global") {
-      if (activeFulfillmentConfigId) {
-        const alloc = allocations[activeFulfillmentConfigId];
-        if (alloc?.type === "fulfillment") {
-          targetAllocation = alloc as FulfillmentAllocation;
-        }
-      }
-    } else if (items.length > 0) {
-      // Find fulfillment allocation in first item
-      for (const id of items[0].allocations) {
-        const alloc = allocations[id];
-        if (alloc?.type === "fulfillment") {
-          targetAllocation = alloc as FulfillmentAllocation;
-          break;
-        }
-      }
-    }
-
-    if (targetAllocation) {
-      setTimeType(targetAllocation.time.type);
-      setCalculatedAt(targetAllocation.time.calculatedAt);
+      setPendingSelection({ type: "custom", customConfig });
     } else {
-      setTimeType("immediate");
-      setCalculatedAt(null);
+      onApplyFulfillmentConfig({ type: "custom", customConfig }, "change-existing");
+      onOpenChange(false);
     }
-  }, [open, context, items, allocations, activeFulfillmentConfigId]);
+  };
 
-  // For global context, trace which items will be affected by this swap
+  const handleConfirmPending = (mode: "change-existing" | "new-only") => {
+    if (!pendingSelection) return;
+    if (pendingSelection.type === "config" && pendingSelection.configId) {
+      onApplyFulfillmentConfig({ type: "config", configId: pendingSelection.configId }, mode);
+    } else if (pendingSelection.type === "custom" && pendingSelection.customConfig) {
+      onApplyFulfillmentConfig(
+        { type: "custom", customConfig: pendingSelection.customConfig },
+        mode,
+      );
+    }
+    onOpenChange(false);
+  };
+
+  // Find affected items list for global change warning
   const affectedItems = useMemo(() => {
     if (context !== "global" || !activeFulfillmentConfigId) return [];
-
-    // Retrieve the active allocations of the old config
+    
+    // Find all old allocations associated with active configuration ID
     const oldAllocs = Object.values(allocations).filter(
       (a) =>
         a.type === "fulfillment" &&
@@ -107,147 +421,428 @@ export function FulfillmentAllocationDialog({
     );
     const oldIds = oldAllocs.map((a) => a.allocationId);
 
-    // Find all items referencing those allocation IDs
     return allItems.filter((item) =>
       item.allocations.some((id) => oldIds.includes(id)),
     );
   }, [context, activeFulfillmentConfigId, allocations, allItems]);
 
-  const handleSave = (mode?: "change-existing" | "new-only") => {
-    onApplyConfig(
-      {
-        timeType,
-        calculatedAt: timeType === "immediate" ? null : calculatedAt,
-      },
-      mode,
-    );
-    onOpenChange(false);
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-emerald-600" />
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Clock className="w-5 h-5 text-emerald-600 shrink-0" />
             {context === "global"
               ? "Default Fulfillment Settings"
-              : "Fulfillment Scheduling"}
+              : context === "group"
+                ? "Fulfillment (Bulk)"
+                : "Fulfillment"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             {context === "global"
-              ? "Set the default fulfillment timing for new order items."
-              : `Configure when fulfillment occurs for ${
-                  items.length === 1 ? `"${items[0].name}"` : `${items.length} items`
-                }.`}
+              ? "Set default fulfillment methods, timing, and destinations for new order items."
+              : "Set fulfillment details for the selected items."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Main Select Buttons */}
-          <div className="flex gap-2.5">
-            <Button
-              variant={timeType === "immediate" ? "default" : "outline"}
-              className="flex-1 text-xs h-9 gap-1.5"
-              onClick={() => {
-                setTimeType("immediate");
-                setCalculatedAt(null);
-              }}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              On Confirmation
-            </Button>
-            <Button
-              variant={timeType !== "immediate" ? "default" : "outline"}
-              className="flex-1 text-xs h-9 gap-1.5"
-              onClick={() => {
-                setTimeType("scheduled");
-                if (!calculatedAt) {
-                  const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
-                  setCalculatedAt(oneHourLater.toISOString());
-                }
-              }}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              Scheduled Time
-            </Button>
-          </div>
-
-          {/* DateTime local Picker */}
-          {timeType !== "immediate" && (
-            <div className="space-y-2 rounded-lg border p-3 bg-muted/10">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-primary" />
-                Scheduled Date & Time
-              </label>
-              <input
-                type="datetime-local"
-                value={formatLocalDate(calculatedAt)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val) {
-                    setCalculatedAt(new Date(val).toISOString());
-                  }
-                }}
-                className="w-full bg-background border border-input rounded-md px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </div>
-          )}
-
-          {/* Affected Items list for Global Context */}
-          {context === "global" && affectedItems.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/55 dark:bg-amber-950/20 dark:border-amber-900/50 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-xs font-semibold">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{affectedItems.length} items will be affected</span>
-              </div>
-              <p className="text-[10px] text-amber-600/90 dark:text-amber-400/80 leading-relaxed">
-                Changing default fulfillment will overwrite the fulfillment timing of items using the current default settings.
+        {/* 1. Global Confirmation Flow */}
+        {pendingSelection ? (
+          <div className="space-y-4 py-3 animate-in fade-in zoom-in duration-200">
+            <div className="rounded-lg border p-4 bg-emerald-50/40 dark:bg-emerald-950/10 space-y-3">
+              <h3 className="font-semibold text-sm flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                <HelpCircle className="w-4 h-4" />
+                Apply Default Fulfillment
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Do you want to switch all existing items in the order to this configuration, or set it as default for new items only?
               </p>
-              <div className="max-h-20 overflow-y-auto border-t border-amber-200/50 pt-1.5 space-y-1">
-                {affectedItems.map((item) => (
-                  <div key={item.lineId} className="text-[10px] text-muted-foreground flex justify-between font-mono">
-                    <span>{item.name}</span>
-                    <span>qty {item.qty}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
 
-        <DialogFooter>
-          {context === "global" ? (
-            <div className="flex gap-2 w-full sm:justify-end">
+              {affectedItems.length > 0 ? (
+                <div className="space-y-1.5 pt-2 border-t border-emerald-100 dark:border-emerald-900/40">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Affected Items ({affectedItems.length})
+                  </div>
+                  <div className="max-h-24 overflow-y-auto space-y-1 bg-background/50 p-2 rounded border border-emerald-100/30 text-xs font-mono">
+                    {affectedItems.map((item) => (
+                      <div key={item.lineId} className="flex justify-between items-center text-muted-foreground">
+                        <span className="truncate">{item.name}</span>
+                        <span className="shrink-0 text-[10px]">qty {item.qty}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground pt-1.5 italic border-t border-emerald-100 dark:border-emerald-900/40">
+                  No existing items will be affected (none are currently using the default configuration).
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 sm:justify-end">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleSave("new-only")}
+                onClick={() => setPendingSelection(null)}
+              >
+                Go Back
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleConfirmPending("new-only")}
               >
                 New Items Only
               </Button>
               <Button
                 size="sm"
-                variant="default"
-                onClick={() => handleSave("change-existing")}
+                onClick={() => handleConfirmPending("change-existing")}
+                className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 Apply to Affected Items
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : view === "customize" ? (
+          /* 2. Custom Configurator View */
+          <div className="space-y-4 py-2 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between pb-1 border-b">
+              <span className="text-sm font-semibold">Custom Fulfillment Details</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setView("main")}
+              >
+                <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                Back to Configs
               </Button>
             </div>
-          ) : (
-            <div className="flex gap-2 justify-end w-full">
+
+            {/* Method Select */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Fulfillment Method
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { id: "walk-in", label: "Walk In", icon: Store },
+                  { id: "pickup", label: "Pickup", icon: PackageCheck },
+                  { id: "delivery", label: "Delivery", icon: Truck },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const active = method === item.id;
+                  return (
+                    <Button
+                      key={item.id}
+                      variant={active ? "default" : "outline"}
+                      className={`flex-1 gap-1.5 h-9 text-xs ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                      onClick={() => setMethod(item.id)}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {item.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Time Settings */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Timing
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { id: "immediate", label: "Immediate" },
+                  { id: "scheduled", label: "Scheduled" },
+                  { id: "deferred", label: "Deferred" },
+                ].map((item) => {
+                  const active = timeType === item.id;
+                  return (
+                    <Button
+                      key={item.id}
+                      variant={active ? "default" : "outline"}
+                      className={`flex-1 h-8 text-xs ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                      onClick={() => {
+                        setTimeType(item.id as any);
+                        if (item.id === "scheduled" && !calculatedAt) {
+                          setCalculatedAt(new Date(Date.now() + 60 * 60 * 1000).toISOString());
+                        }
+                      }}
+                    >
+                      {item.label}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              {timeType === "scheduled" && (
+                <div className="mt-2 rounded-lg border p-3 bg-muted/10">
+                  <input
+                    type="datetime-local"
+                    value={formatLocalDate(calculatedAt)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        setCalculatedAt(new Date(val).toISOString());
+                      }
+                    }}
+                    className="w-full bg-background border rounded px-3 py-2 text-xs focus-visible:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Destination Settings */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Destination Target
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { id: "guest", label: "Guest Pointer", icon: User },
+                  { id: "table", label: "Table layout", icon: Grid2x2 },
+                  { id: "custom", label: "Custom Location", icon: Truck },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const active = destType === item.id;
+                  return (
+                    <Button
+                      key={item.id}
+                      variant={active ? "default" : "outline"}
+                      className={`flex-1 gap-1 h-8 text-[11px] ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                      onClick={() => setDestType(item.id as any)}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      {item.label}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              {/* Destination Detail Picker */}
+              <div className="mt-2 rounded-lg border p-3 bg-muted/10 space-y-2">
+                {destType === "guest" && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Select Guest</span>
+                    <select
+                      value={selectedGuestId || ""}
+                      onChange={(e) => setSelectedGuestId(e.target.value || null)}
+                      className="w-full bg-background border rounded px-3 py-1.5 text-xs focus-visible:outline-none"
+                    >
+                      {guests.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.alias || `Guest ${g.number}`}
+                        </option>
+                      ))}
+                      {guests.length === 0 && <option value="">No guests defined</option>}
+                    </select>
+                  </div>
+                )}
+
+                {destType === "table" && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Select Table</span>
+                    <select
+                      value={selectedTableId || ""}
+                      onChange={(e) => setSelectedTableId(e.target.value || null)}
+                      className="w-full bg-background border rounded px-3 py-1.5 text-xs focus-visible:outline-none"
+                    >
+                      {allTables.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                      {allTables.length === 0 && <option value="">No tables on floor plan</option>}
+                    </select>
+                  </div>
+                )}
+
+                {destType === "custom" && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Custom Destination / Instructions</span>
+                    <Input
+                      placeholder="e.g. 123 Main St, curbside spot #3..."
+                      value={customDestLabel}
+                      onChange={(e) => setCustomDestLabel(e.target.value)}
+                      className="h-8 text-xs focus-visible:ring-1 focus-visible:ring-emerald-500"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2 border-t mt-4 gap-2 sm:justify-between">
               <Button
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                size="sm"
+                onClick={() => setView("main")}
               >
                 Cancel
               </Button>
-              <Button onClick={() => handleSave()}>
-                Save Scheduling
+              <Button
+                size="sm"
+                onClick={handleApplyCustom}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {context === "global" ? "Apply default..." : "Apply to Items"}
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          /* 3. Main Swap Configurations View */
+          <div className="space-y-4 animate-in fade-in duration-150">
+            {/* Active Config Header */}
+            {activeConfigDetails ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/15 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-100/50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-600 shrink-0">
+                    <activeConfigDetails.icon className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                      Active Default Configuration
+                    </span>
+                    <h4 className="text-sm font-bold truncate text-foreground leading-snug">
+                      {activeConfigDetails.methodLabel} to {activeConfigDetails.destLabel}
+                    </h4>
+                    <span className="text-[10px] text-muted-foreground">
+                      Timing: {activeConfigDetails.timeLabel}
+                    </span>
+                  </div>
+                </div>
+                <Badge className="bg-emerald-600 text-white select-none gap-1 border-transparent text-[10px] py-0.5 px-2">
+                  <Check className="w-3 h-3 shrink-0" />
+                  Active
+                </Badge>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground italic text-center p-3 rounded-lg border border-dashed">
+                No active default fulfillment config
+              </div>
+            )}
+
+            {/* Search and Toolbar */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search fulfillment configs..."
+                  className="pl-8 h-8.5 text-xs focus-visible:ring-1 focus-visible:ring-emerald-500"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Button
+                size="sm"
+                className="h-8.5 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                onClick={() => setView("customize")}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Custom...
               </Button>
             </div>
-          )}
-        </DialogFooter>
+
+            {/* Options List */}
+            <div className="space-y-4 max-h-[42vh] overflow-y-auto pr-1">
+              {/* Built-ins */}
+              <div className="space-y-2">
+                <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Built-in Default Configurations
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {filteredBuiltIns.map((choice) => {
+                    const isActive = choice.id === activeFulfillmentConfigId;
+                    const Icon = choice.icon;
+                    return (
+                      <button
+                        key={choice.id}
+                        onClick={() => handleSelectConfig(choice.id)}
+                        className={`flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${
+                          isActive
+                            ? "border-emerald-500 bg-emerald-50/5 dark:bg-emerald-950/10 ring-1 ring-emerald-500/20"
+                            : "bg-card"
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1 flex flex-col">
+                          <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1">
+                            {choice.label}
+                            {isActive && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate">
+                            {choice.description}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredBuiltIns.length === 0 && (
+                    <div className="text-[11px] text-muted-foreground italic col-span-2">
+                      No matching built-in configs
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Saved custom configs */}
+              <div className="space-y-2">
+                <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Custom & Saved Configurations
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {filteredSavedConfigs.map((choice) => {
+                    const isActive = choice.id === activeFulfillmentConfigId;
+                    const Icon = choice.icon;
+                    return (
+                      <button
+                        key={choice.id}
+                        onClick={() => handleSelectConfig(choice.id)}
+                        className={`flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${
+                          isActive
+                            ? "border-emerald-500 bg-emerald-50/5 dark:bg-emerald-950/10 ring-1 ring-emerald-500/20"
+                            : "bg-card"
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1 flex flex-col">
+                          <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1 font-mono">
+                            {choice.label}
+                            {isActive && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate font-mono">
+                            {choice.description}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredSavedConfigs.length === 0 && (
+                    <div className="text-xs text-muted-foreground italic py-4 text-center col-span-2 border rounded-lg bg-muted/5 border-dashed">
+                      No custom fulfillment configurations saved in the order history.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2 border-t mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto"
+              >
+                Close Dialog
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

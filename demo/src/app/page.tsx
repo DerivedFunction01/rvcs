@@ -48,6 +48,7 @@ import {
   getAssigneeFromItem,
 } from "@/lib/pos/ui-utils";
 import { OrderContextBanner } from "@/components/pos/order-context-banner";
+import type { FloorConfig, OrderTypeConfig } from "@/lib/pos/types";
 import { generateAllocationId } from "@/lib/vcs/id";
 import type {
   ProjectedLineItem,
@@ -80,7 +81,13 @@ import { toast } from "sonner";
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────
 
-function POSTerminalInner() {
+function POSTerminalInner({
+  floorConfigs,
+  orderTypes,
+}: {
+  floorConfigs: FloorConfig[];
+  orderTypes: OrderTypeConfig[];
+}) {
   const {
     engine,
     projectedState,
@@ -781,12 +788,26 @@ function POSTerminalInner() {
   const currentFulfillmentConfigName = React.useMemo(() => {
     const activeId = activeFulfillmentConfigId;
     if (!activeId) return "On Confirmation";
-    const alloc = projectedState.allocations[activeId];
-    if (alloc?.type === "fulfillment") {
-      const f = alloc as FulfillmentAllocation;
-      if (f.time.type === "immediate" || !f.time.calculatedAt)
-        return `${f.method} (On Confirmation)`;
-      return `${f.method} @ ${formatFulfillmentTime(f.time.calculatedAt, orderContext?.initiatedAt)}`;
+    const alloc = Object.values(projectedState.allocations).find(
+      (a) =>
+        a.type === "fulfillment" &&
+        (a.allocationId === activeId || a.correlationId === activeId),
+    ) as FulfillmentAllocation | undefined;
+    if (alloc) {
+      const methodLabel =
+        alloc.method === "walk-in"
+          ? "Walk In"
+          : alloc.method === "pickup"
+            ? "Pickup"
+            : alloc.method === "delivery"
+              ? "Delivery"
+              : alloc.method;
+      const destLabel = alloc.fulfillmentMetadata.destinationLabel
+        ? ` (${alloc.fulfillmentMetadata.destinationLabel})`
+        : "";
+      if (alloc.time.type === "immediate" || !alloc.time.calculatedAt)
+        return `${methodLabel}${destLabel} (Immediate)`;
+      return `${methodLabel}${destLabel} @ ${formatFulfillmentTime(alloc.time.calculatedAt, orderContext?.initiatedAt)}`;
     }
     return "On Confirmation";
   }, [
@@ -1518,94 +1539,169 @@ function POSTerminalInner() {
         allocations={projectedState.allocations}
         activeFulfillmentConfigId={activeFulfillmentConfigId}
         allItems={Object.values(projectedState.items)}
-        onApplyConfig={(config, mode) => {
+        floorConfigs={floorConfigs}
+        guests={guests}
+        onApplyFulfillmentConfig={(selection, mode) => {
           if (fulfillmentAllocationContext === "item") {
-            updateFulfillmentAllocation(
-              fulfillmentAllocationItems[0].lineId,
-              config.timeType,
-              config.calculatedAt,
-            );
-            toast.success("Fulfillment timing updated for item");
-          } else if (fulfillmentAllocationContext === "group") {
-            const newFulId = generateAllocationId("fulfillment");
-            const method = orderContext?.orderType || "dine_in";
-            const destinationLabel = orderContext?.tableConfigId
-              ? `Table ${orderContext.tableConfigId}`
-              : "Guest";
-            const destinationId = orderContext?.tableConfigId || null;
-            const newFulAlloc: FulfillmentAllocation = {
-              allocationId: newFulId,
-              type: "fulfillment",
-              method,
-              time: {
-                type: config.timeType,
-                calculatedAt: config.calculatedAt,
-              },
-              fulfillmentMetadata: { destinationLabel, destinationId },
-            };
-            const targetItemIds = fulfillmentAllocationItems.map(
-              (i) => i.lineId,
-            );
-            const deltas: Delta[] = [
-              { action: "declare_allocation", allocation: newFulAlloc },
-            ];
-            for (const lineId of targetItemIds) {
-              const item = projectedState.items[lineId];
-              if (item) {
-                const nonFulAllocs = item.allocations.filter(
-                  (id) =>
-                    projectedState.allocations[id]?.type !== "fulfillment",
-                );
-                deltas.push({
-                  action: "modify_item_allocations",
-                  lineId,
-                  beforeAllocations: item.allocations,
-                  afterAllocations: [...nonFulAllocs, newFulId],
-                });
+            if (selection.type === "config") {
+              const matchedAllocs = Object.values(
+                projectedState.allocations,
+              ).filter(
+                (a): a is FulfillmentAllocation =>
+                  a.type === "fulfillment" &&
+                  (a.allocationId === selection.configId ||
+                    a.correlationId === selection.configId),
+              );
+              if (matchedAllocs.length > 0) {
+                const targetAllocIds = matchedAllocs.map((a) => a.allocationId);
+                const item =
+                  projectedState.items[fulfillmentAllocationItems[0].lineId];
+                if (item) {
+                  const nonFulAllocs = item.allocations.filter(
+                    (id) =>
+                      projectedState.allocations[id]?.type !== "fulfillment",
+                  );
+                  useVCSStore.getState().commitDeltas(
+                    [
+                      {
+                        action: "modify_item_allocations",
+                        lineId: item.lineId,
+                        beforeAllocations: item.allocations,
+                        afterAllocations: [...nonFulAllocs, ...targetAllocIds],
+                      },
+                    ],
+                    "pos-ui",
+                  );
+                  toast.success("Fulfillment configuration updated for item");
+                }
               }
+            } else if (selection.type === "custom" && selection.customConfig) {
+              const c = selection.customConfig;
+              updateFulfillmentAllocation(
+                fulfillmentAllocationItems[0].lineId,
+                c.timeType,
+                c.calculatedAt,
+                c.method,
+                c.destinationLabel,
+                c.destinationId,
+              );
+              toast.success("Fulfillment updated for item");
             }
-            useVCSStore.getState().commitDeltas(deltas, "pos-ui");
-            toast.success(
-              `Fulfillment updated for ${fulfillmentAllocationItems.length} items`,
-            );
-            setSelectedLineIds(new Set());
+          } else if (fulfillmentAllocationContext === "group") {
+            if (selection.type === "config") {
+              const matchedAllocs = Object.values(
+                projectedState.allocations,
+              ).filter(
+                (a): a is FulfillmentAllocation =>
+                  a.type === "fulfillment" &&
+                  (a.allocationId === selection.configId ||
+                    a.correlationId === selection.configId),
+              );
+              if (matchedAllocs.length > 0) {
+                const targetAllocIds = matchedAllocs.map((a) => a.allocationId);
+                const targetItemIds = fulfillmentAllocationItems.map(
+                  (i) => i.lineId,
+                );
+                const deltas: Delta[] = [];
+                for (const lineId of targetItemIds) {
+                  const item = projectedState.items[lineId];
+                  if (item) {
+                    const nonFulAllocs = item.allocations.filter(
+                      (id) =>
+                        projectedState.allocations[id]?.type !== "fulfillment",
+                    );
+                    deltas.push({
+                      action: "modify_item_allocations",
+                      lineId,
+                      beforeAllocations: item.allocations,
+                      afterAllocations: [...nonFulAllocs, ...targetAllocIds],
+                    });
+                  }
+                }
+                useVCSStore.getState().commitDeltas(deltas, "pos-ui");
+                toast.success(
+                  `Fulfillment updated for ${fulfillmentAllocationItems.length} items`,
+                );
+                setSelectedLineIds(new Set());
+              }
+            } else if (selection.type === "custom" && selection.customConfig) {
+              const c = selection.customConfig;
+              const newFulId = generateAllocationId("fulfillment");
+              const newFulAlloc: FulfillmentAllocation = {
+                allocationId: newFulId,
+                type: "fulfillment",
+                method: c.method,
+                time: {
+                  type: c.timeType,
+                  calculatedAt: c.calculatedAt,
+                },
+                fulfillmentMetadata: {
+                  destinationLabel: c.destinationLabel,
+                  destinationId: c.destinationId,
+                },
+              };
+              const targetItemIds = fulfillmentAllocationItems.map(
+                (i) => i.lineId,
+              );
+              const deltas: Delta[] = [
+                { action: "declare_allocation", allocation: newFulAlloc },
+              ];
+              for (const lineId of targetItemIds) {
+                const item = projectedState.items[lineId];
+                if (item) {
+                  const nonFulAllocs = item.allocations.filter(
+                    (id) =>
+                      projectedState.allocations[id]?.type !== "fulfillment",
+                  );
+                  deltas.push({
+                    action: "modify_item_allocations",
+                    lineId,
+                    beforeAllocations: item.allocations,
+                    afterAllocations: [...nonFulAllocs, newFulId],
+                  });
+                }
+              }
+              useVCSStore.getState().commitDeltas(deltas, "pos-ui");
+              toast.success(
+                `Fulfillment updated for ${fulfillmentAllocationItems.length} items`,
+              );
+              setSelectedLineIds(new Set());
+            }
           } else {
-            const newFulId = generateAllocationId("default-fulfillment");
-            const method = orderContext?.orderType || "dine_in";
-            const destinationLabel = orderContext?.tableConfigId
-              ? `Table ${orderContext.tableConfigId}`
-              : "Guest";
-            const destinationId = orderContext?.tableConfigId || null;
-            const newFulAlloc: FulfillmentAllocation = {
-              allocationId: newFulId,
-              type: "fulfillment",
-              method,
-              time: {
-                type: config.timeType,
-                calculatedAt: config.calculatedAt,
-              },
-              fulfillmentMetadata: { destinationLabel, destinationId },
-            };
-            const deltas: Delta[] = [
-              { action: "declare_allocation", allocation: newFulAlloc },
-            ];
-            useVCSStore.getState().commitDeltas(deltas, "pos-ui");
-            selectFulfillmentConfig(
-              newFulId,
-              mode as "change-existing" | "new-only",
-            );
-            const timeLabel =
-              config.timeType === "immediate"
-                ? "On Confirmation"
-                : `Scheduled @ ${formatFulfillmentTime(config.calculatedAt!, orderContext?.initiatedAt)}`;
-            if (mode === "change-existing") {
-              toast.success(
-                `Default fulfillment switched to ${timeLabel} for all items`,
+            // global context
+            if (selection.type === "config") {
+              selectFulfillmentConfig(
+                selection.configId!,
+                mode as "change-existing" | "new-only",
               );
-            } else {
-              toast.success(
-                `Default fulfillment set to ${timeLabel} for new items`,
+              toast.success("Default fulfillment updated");
+            } else if (selection.type === "custom" && selection.customConfig) {
+              const c = selection.customConfig;
+              const correlationId = `custom-fulfillment-${Date.now()}`;
+              const newFulId = generateAllocationId("custom-fulfillment");
+              const newFulAlloc: FulfillmentAllocation = {
+                allocationId: newFulId,
+                correlationId,
+                type: "fulfillment",
+                method: c.method,
+                time: {
+                  type: c.timeType,
+                  calculatedAt: c.calculatedAt,
+                },
+                fulfillmentMetadata: {
+                  destinationLabel: c.destinationLabel,
+                  destinationId: c.destinationId,
+                },
+              };
+              const deltas: Delta[] = [
+                { action: "declare_allocation", allocation: newFulAlloc },
+              ];
+              useVCSStore.getState().commitDeltas(deltas, "pos-ui");
+              selectFulfillmentConfig(
+                correlationId,
+                mode as "change-existing" | "new-only",
               );
+              toast.success("Default fulfillment updated to custom settings");
             }
           }
         }}
@@ -1813,6 +1909,8 @@ export default function POSTerminal() {
   const [storeLabel, setStoreLabel] = React.useState("Main Location");
   const [defaultPaymentFromConfig, setDefaultPaymentFromConfig] =
     React.useState("cash");
+  const [orderTypes, setOrderTypes] = React.useState<OrderTypeConfig[]>([]);
+  const [floorConfigs, setFloorConfigs] = React.useState<FloorConfig[]>([]);
 
   React.useEffect(() => {
     hydrate();
@@ -1836,6 +1934,8 @@ export default function POSTerminal() {
         if (data.label) setStoreLabel(data.label);
         if (data.defaultPaymentMethod)
           setDefaultPaymentFromConfig(data.defaultPaymentMethod);
+        if (data.orderTypes) setOrderTypes(data.orderTypes);
+        if (data.floorConfigs) setFloorConfigs(data.floorConfigs);
       })
       .catch(() => {});
   }, []);
@@ -1870,6 +1970,10 @@ export default function POSTerminal() {
   const currentBranchName = useVCSStore.getState().activeBranch();
   const viewingHash = useVCSStore.getState().viewingHash;
   return (
-    <POSTerminalInner key={`${currentBranchName}-${viewingHash || "head"}`} />
+    <POSTerminalInner
+      key={`${currentBranchName}-${viewingHash || "head"}`}
+      floorConfigs={floorConfigs}
+      orderTypes={orderTypes}
+    />
   );
 }

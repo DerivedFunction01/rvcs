@@ -200,6 +200,9 @@ interface VCSStore {
     lineId: string,
     timeType: "immediate" | "scheduled" | "deferred",
     calculatedAt: string | null,
+    customMethod?: string,
+    customDestLabel?: string,
+    customDestId?: string | null,
   ) => void;
 
   /**
@@ -456,29 +459,48 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         deltas.push({ action: "declare_allocation", allocation: paymentAlloc });
       }
 
-      // Default fulfillment allocation
-      const defaultFulfillmentAllocId = generateAllocationId(
-        "default-fulfillment",
-      );
-      const defaultFulfillment: FulfillmentAllocation = {
-        allocationId: defaultFulfillmentAllocId,
-        type: "fulfillment",
-        method: orderContext.orderType || "dine_in",
-        time: {
-          type: "immediate",
-          calculatedAt: null,
-        },
-        fulfillmentMetadata: {
-          destinationLabel: orderContext.tableConfigId
+      // Default fulfillment allocations for each order type
+      const fulfillmentMethods = ["walk-in", "pickup", "delivery"];
+      const activeFulfillmentGroupId = `group-default-${orderContext.orderType || "walk-in"}`;
+
+      for (const method of fulfillmentMethods) {
+        const fulAllocId = generateAllocationId(`default-fulfillment-${method}`);
+        const correlationId = `group-default-${method}`;
+
+        let destLabel = "Guest";
+        let destId: string | null = null;
+
+        if (method === "walk-in") {
+          destLabel = orderContext.tableConfigId
             ? `Table ${orderContext.tableConfigId}`
-            : "Guest",
-          destinationId: orderContext.tableConfigId || null,
-        },
-      };
-      deltas.push({
-        action: "declare_allocation",
-        allocation: defaultFulfillment,
-      });
+            : (orderContext.customerFields?.name || "Guest");
+          destId = orderContext.tableConfigId || null;
+        } else if (method === "pickup") {
+          destLabel = orderContext.customerFields?.name || "Guest";
+        } else if (method === "delivery") {
+          destLabel = orderContext.customerFields?.address || orderContext.customerFields?.name || "Guest Address";
+        }
+
+        const defaultFulfillment: FulfillmentAllocation = {
+          allocationId: fulAllocId,
+          correlationId,
+          type: "fulfillment",
+          method,
+          time: {
+            type: "immediate",
+            calculatedAt: null,
+          },
+          fulfillmentMetadata: {
+            destinationLabel: destLabel,
+            destinationId: destId,
+          },
+        };
+
+        deltas.push({
+          action: "declare_allocation",
+          allocation: defaultFulfillment,
+        });
+      }
 
       newEngine.commit(deltas, "system-init");
 
@@ -503,7 +525,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         defaultAssignmentAllocId: assignAllocId,
         defaultPaymentAllocId: mainPayAllocId,
         activePaymentConfigId: activePayGroupId,
-        activeFulfillmentConfigId: defaultFulfillmentAllocId,
+        activeFulfillmentConfigId: activeFulfillmentGroupId,
       });
       get().persist();
 
@@ -1145,6 +1167,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       lineId: string,
       timeType: "immediate" | "scheduled" | "deferred",
       calculatedAt: string | null,
+      customMethod?: string,
+      customDestLabel?: string,
+      customDestId?: string | null,
     ) => {
       const store = get();
       const state = store.projectedState;
@@ -1152,11 +1177,13 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (!item) return;
 
       const orderContext = store.orderContext;
-      const method = orderContext?.orderType || "dine_in";
-      const destinationLabel = orderContext?.tableConfigId
-        ? `Table ${orderContext.tableConfigId}`
-        : "Guest";
-      const destinationId = orderContext?.tableConfigId || null;
+      const method = customMethod || orderContext?.orderType || "dine_in";
+      const destinationLabel = customDestLabel !== undefined
+        ? customDestLabel
+        : (orderContext?.tableConfigId ? `Table ${orderContext.tableConfigId}` : "Guest");
+      const destinationId = customDestId !== undefined
+        ? customDestId
+        : (orderContext?.tableConfigId || null);
 
       // Find current fulfillment alloc
       const currentFulAllocId = item.allocations.find(
