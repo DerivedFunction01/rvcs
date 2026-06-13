@@ -519,6 +519,11 @@ function resolveCatalog(
   // Pass 1: Resolve basic catalog info and modifier states for all items
   for (const lineId of Object.keys(items)) {
     const item = items[lineId];
+    if (item.sku === "custom_note") {
+      item.resolvedName = item.selectedModifierState ? `Note: ${item.selectedModifierState}` : "Note";
+      item.resolvedPrice = 0;
+      continue;
+    }
     const entry = catalog[item.sku];
     if (entry) {
       item.resolvedName = entry.name;

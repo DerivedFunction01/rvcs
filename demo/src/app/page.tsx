@@ -75,6 +75,7 @@ import {
   ChevronsUpDown,
   Eraser,
   LayoutList,
+  Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -259,6 +260,7 @@ function LineItemNode({
   defaultPaymentAllocId,
   onRemove,
   onAddModifier,
+  onAddNote,
   onAllocConfig,
   depth,
   modifiers,
@@ -276,6 +278,7 @@ function LineItemNode({
   defaultPaymentAllocId: string | null;
   onRemove: (lineId: string) => void;
   onAddModifier: (item: ProjectedLineItem) => void;
+  onAddNote: (item: ProjectedLineItem) => void;
   onAllocConfig: (item: ProjectedLineItem) => void;
   depth: number;
   modifiers: CatalogItemEntry[];
@@ -619,6 +622,26 @@ function LineItemNode({
                       </TooltipContent>
                     </Tooltip>
                   )}
+                  {(isRoot || item.sku === "custom_note") && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddNote(item);
+                          }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="text-xs">
+                        {item.sku === "custom_note" ? "Edit note" : "Add note"}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   {isRoot && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -685,6 +708,7 @@ function LineItemNode({
             defaultPaymentAllocId={defaultPaymentAllocId}
             onRemove={onRemove}
             onAddModifier={onAddModifier}
+            onAddNote={onAddNote}
             onAllocConfig={onAllocConfig}
             depth={depth + 1}
             modifiers={modifiers}
@@ -1108,6 +1132,33 @@ function POSTerminalInner() {
     },
     [],
   );
+
+  // Note Add Dialog State
+  const [noteDialogOpen, setNoteDialogOpen] = React.useState(false);
+  const [noteItem, setNoteItem] = React.useState<ProjectedLineItem | null>(null);
+  const [noteText, setNoteText] = React.useState("");
+
+  const handleOpenNoteDialog = React.useCallback((item: ProjectedLineItem) => {
+    setNoteItem(item);
+    if (item.sku === "custom_note") {
+      setNoteText(item.selectedModifierState || "");
+    } else {
+      setNoteText("");
+    }
+    setNoteDialogOpen(true);
+  }, []);
+
+  const handleAddNote = React.useCallback(() => {
+    if (!noteItem || !noteText.trim()) return;
+    if (noteItem.sku === "custom_note") {
+      useVCSStore.getState().modifyModifierState(noteItem.lineId, noteItem.selectedModifierState, noteText.trim());
+      toast.success("Note updated");
+    } else {
+      useVCSStore.getState().addModifier(noteItem.lineId, "custom_note", noteText.trim());
+      toast.success("Note added");
+    }
+    setNoteDialogOpen(false);
+  }, [noteItem, noteText]);
 
   // ─── Guest Management ──────────────────────────────────────────────────
 
@@ -2278,6 +2329,7 @@ function POSTerminalInner() {
                       defaultPaymentAllocId={defaultPaymentAllocId}
                       onRemove={removeItem}
                       onAddModifier={handleOpenModifierDialog}
+                      onAddNote={handleOpenNoteDialog}
                       onAllocConfig={handleAllocConfig}
                       depth={0}
                       modifiers={modifierItems}
@@ -3327,6 +3379,67 @@ function POSTerminalInner() {
             >
               <UserPlus className="w-3.5 h-3.5" />
               Add Guest
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={noteDialogOpen}
+        onOpenChange={(open) => {
+          setNoteDialogOpen(open);
+          if (!open) setNoteText("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-primary" />
+              {noteItem?.sku === "custom_note" ? "Edit Note" : "Add Note"}
+            </DialogTitle>
+            <DialogDescription>
+              {noteItem?.sku === "custom_note" ? "Edit the custom note." : "Add a custom note to this item."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Textarea
+              autoFocus
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Enter note here..."
+              className="min-h-24 resize-none text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setNoteDialogOpen(false);
+                  setNoteText("");
+                }
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleAddNote();
+                }
+              }}
+            />
+            <div className="text-[10px] text-muted-foreground">
+              Tip: press{" "}
+              <span className="font-medium text-foreground">Ctrl+Enter</span> or{" "}
+              <span className="font-medium text-foreground">Cmd+Enter</span> to
+              save.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNoteDialogOpen(false);
+                setNoteText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddNote}>
+              {noteItem?.sku === "custom_note" ? "Save Note" : "Add Note"}
             </Button>
           </DialogFooter>
         </DialogContent>
