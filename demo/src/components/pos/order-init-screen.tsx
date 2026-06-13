@@ -159,6 +159,7 @@ export function OrderInitScreen({
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [defaultPayerSeat, setDefaultPayerSeat] = useState<string | null>(null);
 
   React.useEffect(() => {
     Promise.all([fetch("/api/pos-config"), fetch("/api/servers")])
@@ -199,8 +200,14 @@ export function OrderInitScreen({
     };
 
     return [...selectedFloor.objects].sort((a, b) => {
-      const zA = a.zIndex !== undefined && a.zIndex !== null ? a.zIndex : (DEFAULT_LAYERS[a.kind] ?? 0);
-      const zB = b.zIndex !== undefined && b.zIndex !== null ? b.zIndex : (DEFAULT_LAYERS[b.kind] ?? 0);
+      const zA =
+        a.zIndex !== undefined && a.zIndex !== null
+          ? a.zIndex
+          : (DEFAULT_LAYERS[a.kind] ?? 0);
+      const zB =
+        b.zIndex !== undefined && b.zIndex !== null
+          ? b.zIndex
+          : (DEFAULT_LAYERS[b.kind] ?? 0);
       return zA - zB;
     });
   }, [selectedFloor]);
@@ -231,22 +238,51 @@ export function OrderInitScreen({
   const selectedGuestNames = useMemo(() => {
     const names = new Set<string>();
     for (const object of selectedObjects) {
-      if (object.kind === "table") {
-        for (const guest of getSelectedGuestNames(object)) {
-          names.add(guest);
-        }
-      } else if (object.kind === "chair") {
-        if (!linkedChairIds.has(object.id)) {
-          names.add(object.label || object.id);
-        }
+      if (object.kind === "chair") {
+        names.add(object.label || object.id);
       }
     }
     return Array.from(names);
-  }, [selectedObjects, linkedChairIds]);
+  }, [selectedObjects]);
+
+  // Sync default payer when selected guest list changes
+  React.useEffect(() => {
+    if (selectedGuestNames.length > 0) {
+      if (!defaultPayerSeat || !selectedGuestNames.includes(defaultPayerSeat)) {
+        setDefaultPayerSeat(selectedGuestNames[0]);
+      }
+    } else {
+      setDefaultPayerSeat(null);
+    }
+  }, [selectedGuestNames, defaultPayerSeat]);
+
+  // Autoload default payer into customer details name field
+  React.useEffect(() => {
+    if (defaultPayerSeat) {
+      setCustomerFields((prev) => ({
+        ...prev,
+        name: defaultPayerSeat,
+      }));
+    } else {
+      setCustomerFields((prev) => {
+        const currentName = prev.name || "";
+        const isChairName = selectedFloor?.objects.some(
+          (o) =>
+            o.kind === "chair" &&
+            (o.label === currentName || o.id === currentName),
+        );
+        if (!currentName || currentName === "Guest" || isChairName) {
+          return { ...prev, name: "Guest" };
+        }
+        return prev;
+      });
+    }
+  }, [defaultPayerSeat, selectedFloor]);
 
   const selectedObjectNames = selectedObjects.map((object) => ({
     id: object.id,
     label: object.label || object.id,
+    kind: object.kind,
   }));
 
   const toggleObjectSelection = (object: FloorObject | null | undefined) => {
@@ -266,6 +302,22 @@ export function OrderInitScreen({
         }
       } else if (isSelected) {
         next.delete(object.id);
+        if (object.kind === "chair" && "tableId" in object && object.tableId) {
+          const parentTableId = object.tableId;
+          const floorChairs =
+            selectedFloor?.objects.filter(
+              (o) =>
+                o.kind === "chair" &&
+                "tableId" in o &&
+                o.tableId === parentTableId,
+            ) || [];
+          const anyChairsSelected = floorChairs.some(
+            (c) => c.id !== object.id && next.has(c.id),
+          );
+          if (!anyChairsSelected) {
+            next.delete(parentTableId);
+          }
+        }
       } else {
         next.add(object.id);
       }
@@ -328,6 +380,14 @@ export function OrderInitScreen({
         trimmed[key] = value.trim();
       }
 
+      let guestNames = [...selectedGuestNames];
+      if (defaultPayerSeat) {
+        guestNames = [
+          defaultPayerSeat,
+          ...guestNames.filter((name) => name !== defaultPayerSeat),
+        ];
+      }
+
       onOrderStart({
         orderType: selectedType.id,
         orderTypeLabel: selectedType.label,
@@ -336,7 +396,7 @@ export function OrderInitScreen({
         tableConfigId: selectedTables[0]?.id ?? null,
         initialGuestNames:
           selectedType.id === "walk-in" && selectedObjects.length > 0
-            ? selectedGuestNames
+            ? guestNames
             : undefined,
         customerFields: trimmed,
         estimatedTimeLabel: selectedType.estimatedTimeLabel ?? null,
@@ -803,11 +863,33 @@ export function OrderInitScreen({
                         {selectedTables.length} table(s)
                       </Badge>
                     )}
-                    {selectedObjectNames.map((object) => (
-                      <Badge key={object.id} variant="outline">
-                        {object.label}
-                      </Badge>
-                    ))}
+                    {selectedObjectNames.map((object) => {
+                      const isChair = object.kind === "chair";
+                      const isPayer =
+                        isChair && object.label === defaultPayerSeat;
+                      return (
+                        <Badge
+                          key={object.id}
+                          variant={isPayer ? "default" : "outline"}
+                          className={`${
+                            isChair ? "cursor-pointer transition-colors" : ""
+                          } ${
+                            isPayer
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold border-transparent"
+                              : isChair
+                                ? "hover:bg-muted-foreground/10"
+                                : ""
+                          }`}
+                          onClick={() => {
+                            if (isChair) {
+                              setDefaultPayerSeat(object.label);
+                            }
+                          }}
+                        >
+                          {object.label} {isPayer && "★"}
+                        </Badge>
+                      );
+                    })}
                   </div>
                   <Button
                     variant="ghost"
@@ -824,14 +906,26 @@ export function OrderInitScreen({
             {selectedTables.length > 0 && selectedGuestNames.length > 0 && (
               <div className="rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/15 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                  Guests to auto-load
+                  Guests to auto-load (Click to select default payer)
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedGuestNames.map((guest) => (
-                    <Badge key={guest} variant="secondary">
-                      {guest}
-                    </Badge>
-                  ))}
+                  {selectedGuestNames.map((guest) => {
+                    const isPayer = guest === defaultPayerSeat;
+                    return (
+                      <Badge
+                        key={guest}
+                        variant={isPayer ? "default" : "secondary"}
+                        className={`cursor-pointer transition-colors ${
+                          isPayer
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                            : "hover:bg-muted-foreground/10"
+                        }`}
+                        onClick={() => setDefaultPayerSeat(guest)}
+                      >
+                        {guest} {isPayer && "★"}
+                      </Badge>
+                    );
+                  })}
                 </div>
               </div>
             )}
