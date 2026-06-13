@@ -25,6 +25,8 @@ import {
   User,
   ChevronRight,
   Check,
+  Pencil,
+  Copy,
 } from "lucide-react";
 import { SplitEditor, PaymentSplitEntry, validateSplit } from "./split-editor";
 import type {
@@ -311,6 +313,52 @@ export function PaymentAllocationDialog({
       setPendingSelection(null);
     }
   }, [open]);
+
+  // Load split config details to populate custom split editor (Edit / Duplicate)
+  const loadSplitConfig = useCallback(
+    (configId: string) => {
+      const matchedAllocs = Object.values(allocations).filter(
+        (a) =>
+          a.type === "payment" &&
+          (a.allocationId === configId || a.correlationId === configId),
+      ) as PaymentAllocation[];
+
+      if (matchedAllocs.length > 0) {
+        const loadedSplits: PaymentSplitEntry[] = matchedAllocs.map((a) => {
+          const strat = a.paymentStrategy;
+          let strategyType:
+            | "percentage"
+            | "fixed_item"
+            | "fixed_global"
+            | "remaining" = "percentage";
+          const rawType = strat.strategyType as string;
+          if (rawType === "fixed" || rawType === "fixed_item") {
+            strategyType = "fixed_item";
+          } else if (rawType === "fixed_global") {
+            strategyType = "fixed_global";
+          } else if (rawType === "remaining") {
+            strategyType = "remaining";
+          } else if (rawType === "percentage") {
+            strategyType = "percentage";
+          }
+
+          const val =
+            strategyType === "percentage"
+              ? (strat.value ?? 1) * 100
+              : (strat.value ?? 0);
+          return {
+            entity: a.payer,
+            strategyType,
+            value: val,
+            method: a.method || null,
+          };
+        });
+        setSplits(loadedSplits);
+        setView("custom-split");
+      }
+    },
+    [allocations],
+  );
 
   // Initialize splits for custom split editor
   const handleStartCustomSplit = useCallback(() => {
@@ -680,22 +728,53 @@ export function PaymentAllocationDialog({
                         {filteredSavedSplits.map((choice) => {
                           const isActive = choice.id === resolvedActiveId;
                           return (
-                            <button
+                            <div
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
+                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${
                                 isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
                               }`}
                             >
-                              <div className="flex w-full items-start justify-between gap-2">
-                                <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
-                                  {isActive && (
-                                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                                  )}
-                                  {choice.label}
+                              <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
+                                <div className="flex w-full items-start justify-between gap-2">
+                                  <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
+                                    {isActive && (
+                                      <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    )}
+                                    {choice.label}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 font-mono">
+                                  {choice.description}
                                 </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                                  title="Edit configuration"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    loadSplitConfig(choice.id);
+                                  }}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                                  title="Duplicate configuration"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    loadSplitConfig(choice.id);
+                                  }}
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </Button>
                                 <Badge
                                   variant="outline"
                                   className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40"
@@ -703,10 +782,7 @@ export function PaymentAllocationDialog({
                                   Split
                                 </Badge>
                               </div>
-                              <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 font-mono">
-                                {choice.description}
-                              </span>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -722,22 +798,53 @@ export function PaymentAllocationDialog({
                         {filteredSavedSingles.map((choice) => {
                           const isActive = choice.id === resolvedActiveId;
                           return (
-                            <button
+                            <div
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
+                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${
                                 isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
                               }`}
                             >
-                              <div className="flex w-full items-start justify-between gap-2">
-                                <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
-                                  {isActive && (
-                                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                                  )}
-                                  {choice.label}
+                              <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
+                                <div className="flex w-full items-start justify-between gap-2">
+                                  <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
+                                    {isActive && (
+                                      <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    )}
+                                    {choice.label}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 font-mono">
+                                  {choice.description}
                                 </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                                  title="Edit configuration"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    loadSplitConfig(choice.id);
+                                  }}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                                  title="Duplicate configuration"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    loadSplitConfig(choice.id);
+                                  }}
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </Button>
                                 <Badge
                                   variant="outline"
                                   className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40"
@@ -745,10 +852,7 @@ export function PaymentAllocationDialog({
                                   Saved
                                 </Badge>
                               </div>
-                              <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 font-mono">
-                                {choice.description}
-                              </span>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

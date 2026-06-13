@@ -2321,6 +2321,7 @@ function POSTerminalInner() {
         paymentConfigs={paymentConfigs}
         activePaymentConfigId={activePaymentConfigId}
         selectedGuestName={selectedPerson}
+        allItems={Object.values(projectedState.items)}
         onApplyConfig={(configIdOrMethod, mode) => {
           if (paymentAllocationContext === "item") {
             groupItemsPaymentConfig(
