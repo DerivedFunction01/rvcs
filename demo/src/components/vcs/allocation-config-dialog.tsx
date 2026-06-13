@@ -29,7 +29,11 @@ import {
   Link2,
   X,
 } from "lucide-react";
-import type { AllocationBlock, PaymentAllocation, ProjectedLineItem } from "@/lib/vcs/types";
+import type {
+  AllocationBlock,
+  PaymentAllocation,
+  ProjectedLineItem,
+} from "@/lib/vcs/types";
 import {
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
@@ -49,7 +53,9 @@ interface AllocationConfigDialogProps {
   onTriggerPaymentAllocation: (item: ProjectedLineItem) => void;
 }
 
-function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Record<string, AllocationBlock> {
+function getPatchedAllocations(
+  allocations: Record<string, AllocationBlock>,
+): Record<string, AllocationBlock> {
   const patched: Record<string, AllocationBlock> = {};
   for (const [id, alloc] of Object.entries(allocations)) {
     if (alloc.type === "payment") {
@@ -58,7 +64,7 @@ function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Re
       if (stratType === "fixed_item" || stratType === "fixed_global") {
         patched[id] = {
           ...p,
-          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" }
+          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" },
         } as any;
         continue;
       }
@@ -106,7 +112,7 @@ export function AllocationConfigDialog({
   }, [item, allocations]);
 
   const hasNonDefaultPayment = currentPayments.some(
-    (p) => p.allocationId !== defaultPaymentAllocId
+    (p) => p.allocationId !== defaultPaymentAllocId,
   );
   const correlationId = currentPayments[0]?.correlationId;
 
@@ -123,7 +129,7 @@ export function AllocationConfigDialog({
       if (!item) return;
       onReassign(item.lineId, newVal);
     },
-    [item, onReassign]
+    [item, onReassign],
   );
 
   const handleAddNewGuestForAssignment = useCallback(() => {
@@ -161,9 +167,13 @@ export function AllocationConfigDialog({
         <div className="rounded-lg border bg-muted/30 p-3 flex items-center justify-between">
           <div>
             <div className="font-medium text-sm">{item.name}</div>
-            <div className="text-xs text-muted-foreground font-mono">{item.sku}</div>
+            <div className="text-xs text-muted-foreground font-mono">
+              {item.sku}
+            </div>
           </div>
-          <div className="font-mono font-bold text-sm">${item.totalPrice.toFixed(2)}</div>
+          <div className="font-mono font-bold text-sm">
+            ${item.totalPrice.toFixed(2)}
+          </div>
         </div>
 
         {/* Assignment (Who Consumes) */}
@@ -190,9 +200,15 @@ export function AllocationConfigDialog({
                 value={newGuestInputName}
                 onChange={(e) => setNewGuestInputName(e.target.value)}
                 className="h-8 text-xs flex-1"
-                onKeyDown={(e) => e.key === "Enter" && handleAddNewGuestForAssignment()}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && handleAddNewGuestForAssignment()
+                }
               />
-              <Button size="sm" className="h-8 text-xs" onClick={handleAddNewGuestForAssignment}>
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={handleAddNewGuestForAssignment}
+              >
                 Add & Assign
               </Button>
               <Button
@@ -206,7 +222,10 @@ export function AllocationConfigDialog({
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Select value={currentAssignee} onValueChange={handleAssigneeChange}>
+              <Select
+                value={currentAssignee}
+                onValueChange={handleAssigneeChange}
+              >
                 <SelectTrigger className="h-8 text-xs flex-1 bg-background">
                   <User className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
                   <SelectValue />
@@ -238,33 +257,66 @@ export function AllocationConfigDialog({
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium truncate">
-                    {getPaymentAllocDisplayName(getPatchedAllocations(allocations)[payAlloc.allocationId] as PaymentAllocation, getPatchedAllocations(allocations))}
+                    {getPaymentAllocDisplayName(
+                      getPatchedAllocations(allocations)[
+                        payAlloc.allocationId
+                      ] as PaymentAllocation,
+                      getPatchedAllocations(allocations),
+                    )}
                   </span>
-                  {payAlloc.correlationId && (
-                    <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">
-                      <Split className="w-2.5 h-2.5 mr-0.5" />
-                      split
-                    </Badge>
-                  )}
+                  {(() => {
+                    const siblings = payAlloc.correlationId
+                      ? Object.values(allocations).filter(
+                          (a) =>
+                            a.type === "payment" &&
+                            a.correlationId === payAlloc.correlationId &&
+                            a.allocationId !== payAlloc.allocationId,
+                        )
+                      : [];
+                    const isTrueSplit = siblings.length > 0;
+                    return (
+                      isTrueSplit && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] h-4 px-1 shrink-0"
+                        >
+                          <Split className="w-2.5 h-2.5 mr-0.5" />
+                          split
+                        </Badge>
+                      )
+                    );
+                  })()}
                 </div>
                 <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0">
-                  {(payAlloc.paymentStrategy.strategyType as string) === "percentage"
+                  {(payAlloc.paymentStrategy.strategyType as string) ===
+                  "percentage"
                     ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
-                    : (payAlloc.paymentStrategy.strategyType as string) === "fixed_item" || (payAlloc.paymentStrategy.strategyType as string) === "fixed"
-                    ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
-                    : (payAlloc.paymentStrategy.strategyType as string) === "fixed_global"
-                    ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)} total`
-                    : "remaining"}
+                    : (payAlloc.paymentStrategy.strategyType as string) ===
+                          "fixed_item" ||
+                        (payAlloc.paymentStrategy.strategyType as string) ===
+                          "fixed"
+                      ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
+                      : (payAlloc.paymentStrategy.strategyType as string) ===
+                          "fixed_global"
+                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)} total`
+                        : "remaining"}
                 </span>
               </div>
             ))}
           </div>
 
-          {correlationId && (
-            <div className="text-[9px] font-mono text-muted-foreground/60 px-1 truncate">
-              correlation: {correlationId}
-            </div>
-          )}
+          {(() => {
+            if (!correlationId) return null;
+            const groupAllocs = Object.values(allocations).filter(
+              (a) => a.type === "payment" && a.correlationId === correlationId,
+            );
+            if (groupAllocs.length <= 1) return null;
+            return (
+              <div className="text-[9px] font-mono text-muted-foreground/60 px-1 truncate">
+                correlation: {correlationId}
+              </div>
+            );
+          })()}
 
           <Separator className="my-1" />
 

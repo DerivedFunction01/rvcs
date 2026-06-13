@@ -193,7 +193,15 @@ function AllocationBadges({
             patchedAllocs,
           );
           const isDefault = id === defaultPaymentAllocId;
-          const isSplit = !!payAlloc.correlationId;
+          const siblings = payAlloc.correlationId
+            ? Object.values(patchedAllocs).filter(
+                (a) =>
+                  a.type === "payment" &&
+                  a.correlationId === payAlloc.correlationId &&
+                  a.allocationId !== payAlloc.allocationId,
+              )
+            : [];
+          const isSplit = siblings.length > 0;
           return (
             <Badge
               key={id}
@@ -1130,11 +1138,13 @@ function POSTerminalInner() {
     });
 
     splitGroups.forEach((group, correlationId) => {
-      const displayName = `Split: ${getPaymentAllocDisplayName(patchedAllocs[group[0].allocationId] as PaymentAllocation, patchedAllocs)}`;
+      const isTrueSplit = group.length > 1;
+      const prefix = isTrueSplit ? "Split" : "Single";
+      const displayName = `${prefix}: ${getPaymentAllocDisplayName(patchedAllocs[group[0].allocationId] as PaymentAllocation, patchedAllocs)}`;
       configs.push({
         id: correlationId,
         name: displayName,
-        isSplit: true,
+        isSplit: isTrueSplit,
       });
     });
 
@@ -1163,7 +1173,15 @@ function POSTerminalInner() {
     );
     if (activeAlloc) {
       const patchedAllocs = getPatchedAllocations(allocations);
-      const typeLabel = activeAlloc.correlationId ? "Split" : "Single";
+      const siblings = activeAlloc.correlationId
+        ? Object.values(patchedAllocs).filter(
+            (a) =>
+              a.type === "payment" &&
+              a.correlationId === activeAlloc.correlationId &&
+              a.allocationId !== activeAlloc.allocationId,
+          )
+        : [];
+      const typeLabel = siblings.length > 0 ? "Split" : "Single";
       return `${typeLabel}: ${getPaymentAllocDisplayName(patchedAllocs[activeAlloc.allocationId] as PaymentAllocation, patchedAllocs)}`;
     }
     return "Default Config";
@@ -2350,19 +2368,24 @@ function POSTerminalInner() {
               );
             }
             // Resolve display name: check paymentConfigs first, then derive from allocations
-            let targetName =
-              configIdOrMethod.startsWith("group-default-")
-                ? `${customerName} (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
-                : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name;
+            let targetName = configIdOrMethod.startsWith("group-default-")
+              ? `${customerName} (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
+              : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name;
             if (!targetName) {
               // Guest-specific config: find an allocation in the group
-              const representativeAlloc = Object.values(projectedState.allocations).find(
-                (a) => a.type === "payment" &&
+              const representativeAlloc = Object.values(
+                projectedState.allocations,
+              ).find(
+                (a) =>
+                  a.type === "payment" &&
                   ((a as PaymentAllocation).allocationId === configIdOrMethod ||
-                    (a as PaymentAllocation).correlationId === configIdOrMethod)
+                    (a as PaymentAllocation).correlationId ===
+                      configIdOrMethod),
               ) as PaymentAllocation | undefined;
               if (representativeAlloc) {
-                const methodLabel = (representativeAlloc.method || "").toUpperCase();
+                const methodLabel = (
+                  representativeAlloc.method || ""
+                ).toUpperCase();
                 targetName = `${representativeAlloc.payer} (${methodLabel})`;
               } else {
                 targetName = "Selected Config";
