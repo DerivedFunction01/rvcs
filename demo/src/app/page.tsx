@@ -1039,12 +1039,26 @@ function POSTerminalInner() {
     const configs: Array<{ id: string; name: string; isSplit: boolean }> = [];
     const allocations = projectedState.allocations;
 
+    const referencedIds = new Set<string>();
+    for (const item of Object.values(projectedState.items)) {
+      for (const id of item.allocations) referencedIds.add(id);
+    }
+
     const singlePayers = new Map<string, PaymentAllocation>();
     const splitGroups = new Map<string, PaymentAllocation[]>();
 
     for (const alloc of Object.values(allocations)) {
       if (alloc.type === "payment") {
         const pay = alloc as PaymentAllocation;
+        
+        const isReferenced = referencedIds.has(alloc.allocationId);
+        const isActive = activePaymentConfigId === alloc.allocationId || activePaymentConfigId === alloc.correlationId;
+        const isDefault = pay.correlationId?.startsWith("group-default-");
+
+        if (!isReferenced && !isActive && !isDefault) {
+          continue;
+        }
+
         if (pay.correlationId) {
           // Exclude the standard defaults
           if (pay.correlationId.startsWith("group-default-")) {
@@ -1080,7 +1094,7 @@ function POSTerminalInner() {
     });
 
     return configs;
-  }, [projectedState.allocations, defaultPaymentAllocId]);
+  }, [projectedState.allocations, projectedState.items, defaultPaymentAllocId, activePaymentConfigId]);
 
   const currentConfigName = React.useMemo(() => {
     if (
@@ -1235,8 +1249,9 @@ function POSTerminalInner() {
         strategyType: "percentage" | "fixed" | "remaining";
         value: number;
       }>,
+        mode: "group" | "item" = "group"
     ) => {
-      splitItemPayment(lineId, splits);
+        splitItemPayment(lineId, splits, mode);
       const splitName = [...splits]
         .sort((a, b) => b.value - a.value)
         .map((s) => {
@@ -1261,7 +1276,7 @@ function POSTerminalInner() {
   );
 
   const handleSwitchItemPayment = useCallback(
-    (lineId: string, newMethod: string) => {
+    (lineId: string, newMethod: string, mode: "group" | "item" = "item") => {
       // Find the current assignee of this item to use as payer
       const state = useVCSStore.getState().projectedState;
       const item = state.items[lineId];
@@ -1275,8 +1290,8 @@ function POSTerminalInner() {
           }
         }
       }
-      switchItemPayment(lineId, newMethod, payer);
-      toast.success(`Payment switched to ${newMethod} for this item`);
+      switchItemPayment(lineId, newMethod, payer, mode);
+      toast.success(`Payment switched to ${newMethod} for ${mode === "group" ? "group" : "this item"}`);
     },
     [switchItemPayment, selectedPerson],
   );

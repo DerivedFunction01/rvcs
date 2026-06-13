@@ -141,7 +141,8 @@ interface VCSStore {
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
       value: number; // decimal for percentage (e.g. 0.6), absolute value for fixed, 0 for remaining
-    }>
+    }>,
+    mode?: "group" | "item"
   ) => void;
 
   /**
@@ -153,7 +154,7 @@ interface VCSStore {
    * Switch an individual item's payment method (creates a new payment alloc just for this item).
    * Removes any existing split/custom payment and replaces with a single new payment.
    */
-  switchItemPayment: (lineId: string, newMethod: string, payer: string) => void;
+  switchItemPayment: (lineId: string, newMethod: string, payer: string, mode?: "group" | "item") => void;
 
   /**
    * Reset an item's payment back to the current default payment allocation.
@@ -535,8 +536,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       const finalSplits = [...splits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
+        let remEntity = customerName;
+        let suffix = 2;
+        while (finalSplits.some(s => s.entity === remEntity)) {
+          remEntity = `${customerName} ${suffix}`;
+          suffix++;
+        }
         finalSplits.push({
-          entity: customerName,
+          entity: remEntity,
           strategyType: "remaining",
           value: 0,
         });
@@ -547,7 +554,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           entity: s.entity,
           percentage: s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
         }))
-      );
+      ) + `-${Date.now().toString().slice(-4)}`;
 
       const newPayAllocs: PaymentAllocation[] = finalSplits.map((split) => ({
         allocationId: generateAllocationId("split-pay"),
@@ -577,7 +584,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
         value: number;
-      }>
+      }>,
+      mode: "group" | "item" = "group"
     ) => {
       const store = get();
       const state = store.projectedState;
@@ -593,8 +601,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       const finalSplits = [...splits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
+        let remEntity = customerName;
+        let suffix = 2;
+        while (finalSplits.some(s => s.entity === remEntity)) {
+          remEntity = `${customerName} ${suffix}`;
+          suffix++;
+        }
         finalSplits.push({
-          entity: customerName,
+          entity: remEntity,
           strategyType: "remaining",
           value: 0,
         });
@@ -609,14 +623,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         (a) => a.correlationId && !a.correlationId.startsWith("group-default-")
       )?.correlationId;
 
-      const correlationId =
-        existingCorrelationId ||
-        generateSplitCorrelationId(
-          finalSplits.map((s) => ({
-            entity: s.entity,
-            percentage: s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
-          }))
-        );
+      const correlationId = generateSplitCorrelationId(
+        finalSplits.map((s) => ({
+          entity: s.entity,
+          percentage: s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
+        }))
+      ) + `-${Date.now().toString().slice(-4)}`;
 
       // Create new payment allocations
       const newPayAllocs: PaymentAllocation[] = finalSplits.map((split) => ({
@@ -639,10 +651,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             .map((a) => a.allocationId)
         : currentPayAllocs.map((a) => a.allocationId);
 
-      // Find all items referencing these old allocations to update them concurrently
-      const itemsToUpdate = Object.values(state.items).filter((i) =>
-        i.allocations.some((id) => oldPayIds.includes(id))
-      );
+      // Find items to update based on the mode
+      const itemsToUpdate = mode === "group"
+        ? Object.values(state.items).filter((i) =>
+            i.allocations.some((id) => oldPayIds.includes(id))
+          )
+        : [item];
 
       const deltas: Delta[] = [
         ...newPayAllocs.map((a) => ({
@@ -664,6 +678,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
 
       store.commitDeltas(deltas, "pos-ui");
+
+      if (existingCorrelationId && store.activePaymentConfigId === existingCorrelationId) {
+        set({ activePaymentConfigId: correlationId });
+        store.persist();
+      }
     },
 
     reassignItem: (lineId: string, newAssignee: string) => {
@@ -703,7 +722,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
     },
 
-    switchItemPayment: (lineId: string, newMethod: string, payer: string) => {
+    switchItemPayment: (lineId: string, newMethod: string, payer: string, mode: "group" | "item" = "item") => {
       const store = get();
       const state = store.projectedState;
       const item = state.items[lineId];
@@ -720,24 +739,40 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         timeOfPayment: { type: "immediate", calculatedAt: new Date().toISOString() },
       };
 
-      // Remove all existing payment allocations, add the new one
-      const nonPaymentAllocs = item.allocations.filter(
-        (id) => state.allocations[id]?.type !== "payment"
-      );
-      const newAllocations = [...nonPaymentAllocs, newPayAllocId];
+      // Find old payment group
+      const currentPayAllocs = item.allocations
+        .map((id) => state.allocations[id])
+        .filter((a) => a?.type === "payment") as PaymentAllocation[];
+        
+      const existingCorrelationId = currentPayAllocs.find((a) => a.correlationId)?.correlationId;
+      const oldPayIds = existingCorrelationId
+        ? Object.values(state.allocations)
+            .filter((a): a is PaymentAllocation => a.type === "payment" && a.correlationId === existingCorrelationId)
+            .map((a) => a.allocationId)
+        : currentPayAllocs.map((a) => a.allocationId);
 
-      store.commitDeltas(
-        [
-          { action: "declare_allocation", allocation: newPaymentAlloc },
-          {
-            action: "modify_item_allocations",
-            lineId,
-            beforeAllocations: item.allocations,
-            afterAllocations: newAllocations,
-          },
-        ],
-        "pos-ui"
-      );
+      const itemsToUpdate = mode === "group"
+        ? Object.values(state.items).filter((i) =>
+            i.allocations.some((id) => oldPayIds.includes(id))
+          )
+        : [item];
+
+      const deltas: Delta[] = [
+        { action: "declare_allocation", allocation: newPaymentAlloc }
+      ];
+
+      for (const i of itemsToUpdate) {
+        const nonPaymentAllocs = i.allocations.filter((id) => !oldPayIds.includes(id));
+        const newAllocations = [...nonPaymentAllocs, newPayAllocId];
+        deltas.push({
+          action: "modify_item_allocations",
+          lineId: i.lineId,
+          beforeAllocations: i.allocations,
+          afterAllocations: newAllocations,
+        });
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
     },
 
     resetItemPaymentToDefault: (lineId: string) => {

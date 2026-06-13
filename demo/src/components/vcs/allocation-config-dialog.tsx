@@ -59,7 +59,8 @@ interface AllocationConfigDialogProps {
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
       value: number;
-    }>
+    }>,
+    mode: "group" | "item"
   ) => void;
   onResetToDefault: (lineId: string) => void;
   onSwitchItemPayment: (lineId: string, newMethod: string) => void;
@@ -294,14 +295,14 @@ export function AllocationConfigDialog({
     });
   };
 
-  const handleApplySplit = useCallback(() => {
+  const handleApplySplit = useCallback((mode: "group" | "item") => {
     if (!item || !isValidSplit) return;
     const mappedSplits = splits.map((s) => ({
       entity: s.entity,
       strategyType: s.strategyType,
       value: s.strategyType === "percentage" ? s.value / 100 : s.value,
     }));
-    onSplitPayment(item.lineId, mappedSplits);
+    onSplitPayment(item.lineId, mappedSplits, mode);
     setIsSplitting(false);
     setSplits([]);
     onOpenChange(false);
@@ -626,7 +627,7 @@ export function AllocationConfigDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className={isSplitting ? "sm:justify-between w-full" : ""}>
           {isSplitting && (
             <>
               <Button
@@ -639,13 +640,23 @@ export function AllocationConfigDialog({
               >
                 Cancel
               </Button>
-              <Button
-                size="sm"
-                disabled={!isValidSplit}
-                onClick={handleApplySplit}
-              >
-                Apply Splits
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={!isValidSplit}
+                  onClick={() => handleApplySplit("item")}
+                >
+                  Apply to Item Only
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!isValidSplit}
+                  onClick={() => handleApplySplit("group")}
+                >
+                  Update Entire Group
+                </Button>
+              </div>
             </>
           )}
           {!isSplitting && (
