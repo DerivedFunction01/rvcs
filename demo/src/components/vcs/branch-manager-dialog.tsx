@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   GitBranch,
   GitMerge,
@@ -21,6 +22,7 @@ import {
   Settings2,
   Star,
 } from "lucide-react";
+import { generateDraftBranchName } from "@/lib/pos/id";
 import type { BranchMap } from "@/lib/vcs/types";
 
 interface BranchManagerDialogProps {
@@ -29,9 +31,10 @@ interface BranchManagerDialogProps {
   branches: BranchMap;
   activeBranch: string;
   viewingHash: string | null;
+  serverName: string;
   onCheckout: (branch: string) => void;
   onConfigure: (branch: string) => void;
-  onCreateBranch: (name: string) => void;
+  onCreateBranch: (name: string, startFromEmpty: boolean) => void;
   onOpenMerge: () => void;
 }
 
@@ -148,24 +151,38 @@ export function BranchManagerDialog({
   branches,
   activeBranch,
   viewingHash,
+  serverName,
   onCheckout,
   onConfigure,
   onCreateBranch,
   onOpenMerge,
 }: BranchManagerDialogProps) {
   const [newBranchName, setNewBranchName] = useState("");
+  const [startFromEmpty, setStartFromEmpty] = useState(false);
   const branchEntries = Object.entries(branches);
   const branchCount = branchEntries.length;
 
   useEffect(() => {
-    if (open) setNewBranchName("");
+    if (open) {
+      setNewBranchName("");
+      setStartFromEmpty(false);
+    }
   }, [open]);
 
   const handleCreate = () => {
-    const trimmed = newBranchName.trim();
-    if (!trimmed) return;
-    onCreateBranch(trimmed);
+    let trimmed = newBranchName.trim();
+    if (!trimmed) {
+      const baseName = generateDraftBranchName(serverName);
+      trimmed = baseName;
+      let suffix = 2;
+      while (branches[trimmed]) {
+        trimmed = `${baseName}-${suffix}`;
+        suffix++;
+      }
+    }
+    onCreateBranch(trimmed, startFromEmpty);
     setNewBranchName("");
+    setStartFromEmpty(false);
   };
 
   return (
@@ -205,23 +222,35 @@ export function BranchManagerDialog({
               <Input
                 value={newBranchName}
                 onChange={(e) => setNewBranchName(e.target.value)}
-                placeholder="new-branch"
-                className={`h-8 text-xs flex-1 ${viewingHash ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
+              placeholder="Leave blank to auto-generate"
+              className={`h-8 text-xs flex-1 ${viewingHash && !startFromEmpty ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
               />
               <Button
                 variant="outline"
                 size="sm"
-                className={`h-8 px-2.5 gap-1 shrink-0 ${viewingHash ? "border-amber-400/50 text-amber-600" : ""}`}
+              className={`h-8 px-2.5 gap-1 shrink-0 ${viewingHash && !startFromEmpty ? "border-amber-400/50 text-amber-600" : ""}`}
                 onClick={handleCreate}
-                disabled={!newBranchName.trim()}
               >
                 <Plus className="w-3.5 h-3.5" />
                 Create
               </Button>
             </div>
+          <div className="flex items-center gap-2 mt-2">
+            <Checkbox
+              id="empty-branch-cb"
+              checked={startFromEmpty}
+              onCheckedChange={(c) => setStartFromEmpty(!!c)}
+              className="h-3.5 w-3.5"
+            />
+            <label htmlFor="empty-branch-cb" className="text-[10px] text-muted-foreground cursor-pointer select-none font-medium">
+              Start from empty (root of main)
+            </label>
+          </div>
             <p className="text-[10px] text-muted-foreground">
-              {viewingHash
+            {startFromEmpty
+              ? "Branches from the initial system state."
+              : viewingHash
                 ? `Branches from commit ${viewingHash.slice(0, 7)}`
                 : "Branches from current HEAD"}
             </p>

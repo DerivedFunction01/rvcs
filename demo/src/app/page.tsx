@@ -1372,21 +1372,29 @@ function POSTerminalInner() {
   }, []);
 
   const handleCreateBranch = useCallback(
-    (name: string) => {
+    (name: string, startFromEmpty: boolean) => {
       const trimmed = name.trim();
       if (!trimmed) return;
       try {
-        createBranch(trimmed, viewingHash);
-        const fromLabel = viewingHash
-          ? ` at commit ${viewingHash.substring(0, 7)}`
-          : "";
+        let fromHash = viewingHash;
+        if (startFromEmpty) {
+          const fullLog = useVCSStore.getState().commitLog();
+          const rootCommit = fullLog.find((c) => c.authorId === "system-init") || fullLog[fullLog.length - 1];
+          fromHash = rootCommit?.commitHash || null;
+        }
+        createBranch(trimmed, fromHash);
+        const fromLabel = startFromEmpty
+          ? " from empty root"
+          : fromHash
+            ? ` at commit ${fromHash.substring(0, 7)}`
+            : "";
         toast.success(`Branch "${trimmed}" created${fromLabel}`);
       } catch (e) {
-        toast.error((e as Error).message);
-      }
-    },
-    [createBranch, viewingHash],
-  );
+
+      toast.error((e as Error).message);
+    }
+  }, [createBranch, viewingHash]);  
+
 
   const handleResetOrder = useCallback(() => {
     resetOrder();
@@ -2593,6 +2601,7 @@ function POSTerminalInner() {
         branches={branches}
         activeBranch={activeBranch()}
         viewingHash={viewingHash}
+        serverName={orderContext?.serverName || "default"}
         onCheckout={(branch) => {
           checkoutBranch(branch);
           toast.success(`Switched to "${branch}"`);
