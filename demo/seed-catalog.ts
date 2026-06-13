@@ -171,7 +171,7 @@ const SEED_DATA = [
     basePrice: 8.99,
     category: "chinese",
     type: "item",
-    dietaryFlags: [],
+    dietaryFlags: ["spicy"],
     allergens: ["wheat", "soy"],
     brand: "GreatWall",
   },
@@ -181,7 +181,7 @@ const SEED_DATA = [
     basePrice: 8.99,
     category: "chinese",
     type: "item",
-    dietaryFlags: [],
+    dietaryFlags: ["spicy"],
     allergens: ["wheat", "soy"],
     brand: "GreatWall",
   },
@@ -191,7 +191,7 @@ const SEED_DATA = [
     basePrice: 8.99,
     category: "chinese",
     type: "item",
-    dietaryFlags: [],
+    dietaryFlags: ["spicy"],
     allergens: ["wheat", "soy", "peanuts"],
     brand: "GreatWall",
   },
@@ -201,7 +201,7 @@ const SEED_DATA = [
     basePrice: 8.99,
     category: "chinese",
     type: "item",
-    dietaryFlags: [],
+    dietaryFlags: ["spicy"],
     allergens: ["wheat", "soy"],
     brand: "GreatWall",
   },
@@ -251,7 +251,7 @@ const SEED_DATA = [
     basePrice: 9.99,
     category: "chinese",
     type: "item",
-    dietaryFlags: [],
+    dietaryFlags: ["spicy"],
     allergens: ["wheat", "soy"],
     brand: "GreatWall",
   },
@@ -342,7 +342,7 @@ const SEED_DATA = [
     basePrice: 3.50,
     category: "appetizer",
     type: "item",
-    dietaryFlags: ["vegetarian"],
+    dietaryFlags: ["vegetarian", "spicy"],
     allergens: ["wheat", "soy", "egg"],
     brand: "GreatWall",
   },
@@ -426,6 +426,16 @@ const SEED_DATA = [
     type: "modifier",
     dietaryFlags: ["vegetarian", "gluten_free"],
     allergens: ["egg"],
+    brand: "",
+  },
+  {
+    sku: "sku-spicy-mod",
+    name: "Spice Level",
+    basePrice: 0.0,
+    category: "modifier",
+    type: "modifier",
+    dietaryFlags: ["vegan", "gluten_free"],
+    allergens: [],
     brand: "",
   },
   // ─── Modifiers ───────────────────────────────────────────────────────────
@@ -999,6 +1009,16 @@ async function main() {
     ],
   });
 
+  // 8. Spice States
+  await prisma.modifierStateOption.createMany({
+    data: [
+      { modifierSku: "sku-spicy-mod", state: "NO", label: "Not Spicy", priceOverride: 0.0 },
+      { modifierSku: "sku-spicy-mod", state: "MILD", label: "Mild", priceOverride: 0.0 },
+      { modifierSku: "sku-spicy-mod", state: "MEDIUM", label: "Medium", priceOverride: 0.0 },
+      { modifierSku: "sku-spicy-mod", state: "EXTRA", label: "Extra Spicy", priceOverride: 0.0 },
+    ],
+  });
+
   // Link modifiers to burgers
   const burgerSkus = ["SKU-BURGER-REG", "SKU-BURGER-DLX", "SKU-BURGER-VEG"];
   const burgerModifiers = [
@@ -1041,6 +1061,28 @@ async function main() {
         },
       });
     }
+  }
+
+  // Link Spice level modifier to Chinese dishes
+  const spicySkus = [
+    "SKU-CHINESE-GEN-TSO",
+    "SKU-CHINESE-ORANGE-CHK",
+    "SKU-CHINESE-KUNGPAO-CHK",
+    "SKU-CHINESE-SWEETFIRE-CHK",
+    "SKU-CHINESE-BEIJING-BEEF",
+    "SKU-CHINESE-BLKPEPPER-CHK",
+    "SKU-CHINESE-BLKPEPPER-STEAK",
+    "SKU-FRIED-RICE",
+    "SKU-FRIED-RICE-PORK",
+    "SKU-FRIED-RICE-CHICKEN",
+    "SKU-FRIED-RICE-SHRIMP",
+    "SKU-SIDE-CHOWMEIN",
+  ];
+
+  for (const sku of spicySkus) {
+    await prisma.itemModifier.create({
+      data: { itemSku: sku, modifierSku: "sku-spicy-mod" },
+    });
   }
 
   const count = await prisma.catalogItem.count();

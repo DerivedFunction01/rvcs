@@ -79,6 +79,15 @@ import {
   Eraser,
   LayoutList,
   Pencil,
+  Flame,
+  Leaf,
+  WheatOff,
+  Wheat,
+  Milk,
+  Egg,
+  Fish,
+  Nut,
+  Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -118,6 +127,29 @@ const ORDER_TYPE_ICONS: Record<string, React.ElementType> = {
   pickup: PackageCheck,
   delivery: Truck,
 };
+
+const FLAG_ICONS: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  spicy: { icon: Flame, color: "text-rose-500", label: "Spicy" },
+  vegetarian: { icon: Leaf, color: "text-emerald-500", label: "Vegetarian" },
+  vegan: { icon: Leaf, color: "text-emerald-600", label: "Vegan" },
+  gluten_free: { icon: WheatOff, color: "text-amber-500", label: "Gluten Free" },
+};
+
+const ALLERGEN_ICONS: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  dairy: { icon: Milk, color: "text-sky-500", label: "Dairy" },
+  wheat: { icon: Wheat, color: "text-amber-600", label: "Wheat" },
+  egg: { icon: Egg, color: "text-yellow-600", label: "Egg" },
+  shellfish: { icon: Fish, color: "text-blue-500", label: "Shellfish" },
+  peanuts: { icon: Nut, color: "text-amber-700", label: "Peanuts" },
+  tree_nuts: { icon: Nut, color: "text-amber-700", label: "Tree Nuts" },
+  soy: { icon: Info, color: "text-muted-foreground", label: "Soy" },
+  pork: { icon: Info, color: "text-rose-400", label: "Pork" },
+  mustard: { icon: Info, color: "text-yellow-500", label: "Mustard" },
+};
+
+function formatLabel(str: string) {
+  return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
 
 // Guest color palette — cycled by index. Deterministic: same name at same index = same color.
 const GUEST_PALETTE = [
@@ -2492,9 +2524,26 @@ function POSTerminalInner() {
                               onClick={() => handleAddItem(item.sku)}
                               className="w-full text-left rounded-lg px-2.5 py-2 hover:bg-accent transition-colors group flex justify-between items-center"
                             >
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                                  {item.name}
+                              <div className="min-w-0 flex-1 flex flex-col">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                    {item.name}
+                                  </span>
+                                  {(item.dietaryFlags.length > 0 || item.allergens.length > 0) && (
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                      {item.dietaryFlags.map((flag) => {
+                                        const config = FLAG_ICONS[flag];
+                                        if (!config) return null;
+                                        const Icon = config.icon;
+                                        return <Icon key={flag} className={`w-3.5 h-3.5 ${config.color}`} />;
+                                      })}
+                                      {item.allergens.map((allergen) => {
+                                        const config = ALLERGEN_ICONS[allergen] || { icon: Info, color: "text-muted-foreground", label: formatLabel(allergen) };
+                                        const Icon = config.icon;
+                                        return <Icon key={allergen} className={`w-3.5 h-3.5 ${config.color}`} />;
+                                      })}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="text-[10px] text-muted-foreground font-mono">
                                   {item.sku}
@@ -2511,8 +2560,13 @@ function POSTerminalInner() {
                               {item.sku}
                             </div>
                             {item.dietaryFlags.length > 0 && (
-                              <div className="text-emerald-500">
-                                {item.dietaryFlags.join(", ")}
+                              <div className="text-emerald-500 mt-1">
+                                {item.dietaryFlags.map(f => FLAG_ICONS[f]?.label || formatLabel(f)).join(", ")}
+                              </div>
+                            )}
+                            {item.allergens.length > 0 && (
+                              <div className="text-amber-500 mt-0.5">
+                                Contains: {item.allergens.map(a => ALLERGEN_ICONS[a]?.label || formatLabel(a)).join(", ")}
                               </div>
                             )}
                           </TooltipContent>
