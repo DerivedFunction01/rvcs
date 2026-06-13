@@ -1395,17 +1395,58 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     },
 
     modifyItemQty: (lineId, beforeQty, afterQty) => {
-      get().commitDeltas(
-        [
-          {
-            action: "modify_qty",
-            lineId,
-            beforeQty,
-            afterQty,
-          },
-        ],
-        "pos-ui",
-      );
+      const store = get();
+      const state = store.projectedState;
+      const item = state.items[lineId];
+
+      if (item && item.status === "confirmed" && afterQty > beforeQty) {
+        const change = afterQty - beforeQty;
+        const deltas: Delta[] = [];
+        
+        const cloneItemWithQty = (
+          projItem: ProjectedLineItem,
+          newParentId: string | null,
+          parentScaledQty: number,
+          overrideRootQty?: number
+        ) => {
+          const newLineId = generateLineId();
+          let rawQty = newParentId && parentScaledQty > 0 ? projItem.qty / parentScaledQty : projItem.qty;
+          if (!newParentId && overrideRootQty !== undefined) {
+            rawQty = overrideRootQty;
+          }
+
+          deltas.push({
+            action: "add_item",
+            lineId: newLineId,
+            parentLineId: newParentId,
+            sku: projItem.sku,
+            qty: rawQty,
+            allocations: newParentId ? [] : [...projItem.allocations],
+            selectedModifierState: projItem.selectedModifierState,
+          });
+
+          for (const child of projItem.children) {
+            if (child.status !== "canceled") {
+              cloneItemWithQty(child, newLineId, projItem.qty);
+            }
+          }
+        };
+
+        cloneItemWithQty(item, null, 1, change);
+        store.commitDeltas(deltas, "pos-ui");
+      } else {
+        get().commitDeltas(
+          [
+            {
+              action: "modify_qty",
+              lineId,
+              beforeQty,
+              afterQty,
+            },
+          ],
+          "pos-ui",
+        );
+      }
     },
 
     duplicateItem: (lineId) => {
@@ -1419,24 +1460,29 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const cloneItem = (
         projItem: ProjectedLineItem,
         newParentId: string | null,
+        parentScaledQty: number
       ) => {
         const newLineId = generateLineId();
+        const rawQty = newParentId && parentScaledQty > 0 ? projItem.qty / parentScaledQty : projItem.qty;
+        
         deltas.push({
           action: "add_item",
           lineId: newLineId,
           parentLineId: newParentId,
           sku: projItem.sku,
-          qty: projItem.qty,
+          qty: rawQty,
           allocations: newParentId ? [] : [...projItem.allocations],
           selectedModifierState: projItem.selectedModifierState,
         });
 
         for (const child of projItem.children) {
-          cloneItem(child, newLineId);
+          if (child.status !== "canceled") {
+            cloneItem(child, newLineId, projItem.qty);
+          }
         }
       };
 
-      cloneItem(item, null);
+      cloneItem(item, null, 1);
       store.commitDeltas(deltas, "pos-ui");
     },
 
@@ -1448,27 +1494,32 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const cloneItem = (
         projItem: ProjectedLineItem,
         newParentId: string | null,
+        parentScaledQty: number
       ) => {
         const newLineId = generateLineId();
+        const rawQty = newParentId && parentScaledQty > 0 ? projItem.qty / parentScaledQty : projItem.qty;
+
         deltas.push({
           action: "add_item",
           lineId: newLineId,
           parentLineId: newParentId,
           sku: projItem.sku,
-          qty: projItem.qty,
+          qty: rawQty,
           allocations: newParentId ? [] : [...projItem.allocations],
           selectedModifierState: projItem.selectedModifierState,
         });
 
         for (const child of projItem.children) {
-          cloneItem(child, newLineId);
+          if (child.status !== "canceled") {
+            cloneItem(child, newLineId, projItem.qty);
+          }
         }
       };
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
-          cloneItem(item, null);
+          cloneItem(item, null, 1);
         }
       }
 
@@ -1492,6 +1543,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const cloneItem = (
         projItem: ProjectedLineItem,
         newParentId: string | null,
+        parentScaledQty: number
       ) => {
         const newLineId = generateLineId();
 
@@ -1510,25 +1562,29 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           }
         }
 
+        const rawQty = newParentId && parentScaledQty > 0 ? projItem.qty / parentScaledQty : projItem.qty;
+
         deltas.push({
           action: "add_item",
           lineId: newLineId,
           parentLineId: newParentId,
           sku: projItem.sku,
-          qty: projItem.qty,
+          qty: rawQty,
           allocations: targetAllocations,
           selectedModifierState: projItem.selectedModifierState,
         });
 
         for (const child of projItem.children) {
-          cloneItem(child, newLineId);
+          if (child.status !== "canceled") {
+            cloneItem(child, newLineId, projItem.qty);
+          }
         }
       };
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
-          cloneItem(item, null);
+          cloneItem(item, null, 1);
         }
       }
 
@@ -1559,6 +1615,35 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const deltas: Delta[] = [];
 
+      const cloneItemWithQty = (
+        projItem: ProjectedLineItem,
+        newParentId: string | null,
+        parentScaledQty: number,
+        overrideRootQty?: number
+      ) => {
+        const newLineId = generateLineId();
+        let rawQty = newParentId && parentScaledQty > 0 ? projItem.qty / parentScaledQty : projItem.qty;
+        if (!newParentId && overrideRootQty !== undefined) {
+          rawQty = overrideRootQty;
+        }
+
+        deltas.push({
+          action: "add_item",
+          lineId: newLineId,
+          parentLineId: newParentId,
+          sku: projItem.sku,
+          qty: rawQty,
+          allocations: newParentId ? [] : [...projItem.allocations],
+          selectedModifierState: projItem.selectedModifierState,
+        });
+
+        for (const child of projItem.children) {
+          if (child.status !== "canceled") {
+            cloneItemWithQty(child, newLineId, projItem.qty);
+          }
+        }
+      };
+
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
@@ -1569,6 +1654,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               lineId,
               qty: item.qty,
             });
+          } else if (item.status === "confirmed" && targetQty > item.qty) {
+            const change = targetQty - item.qty;
+            cloneItemWithQty(item, null, 1, change);
           } else {
             deltas.push({
               action: "modify_qty",
@@ -1590,6 +1678,35 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const deltas: Delta[] = [];
 
+      const cloneItemWithQty = (
+        projItem: ProjectedLineItem,
+        newParentId: string | null,
+        parentScaledQty: number,
+        overrideRootQty?: number
+      ) => {
+        const newLineId = generateLineId();
+        let rawQty = newParentId && parentScaledQty > 0 ? projItem.qty / parentScaledQty : projItem.qty;
+        if (!newParentId && overrideRootQty !== undefined) {
+          rawQty = overrideRootQty;
+        }
+
+        deltas.push({
+          action: "add_item",
+          lineId: newLineId,
+          parentLineId: newParentId,
+          sku: projItem.sku,
+          qty: rawQty,
+          allocations: newParentId ? [] : [...projItem.allocations],
+          selectedModifierState: projItem.selectedModifierState,
+        });
+
+        for (const child of projItem.children) {
+          if (child.status !== "canceled") {
+            cloneItemWithQty(child, newLineId, projItem.qty);
+          }
+        }
+      };
+
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
@@ -1599,6 +1716,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               lineId,
               qty: item.qty,
             });
+          } else if (item.status === "confirmed" && targetQty > item.qty) {
+            const change = targetQty - item.qty;
+            cloneItemWithQty(item, null, 1, change);
           } else {
             deltas.push({
               action: "modify_qty",
