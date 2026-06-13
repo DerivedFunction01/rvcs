@@ -2,7 +2,10 @@
 
 import React, { useCallback } from "react";
 import { useVCSStore } from "@/store/vcs-store";
-import { formatFulfillmentTime, getPaymentAllocDisplayName } from "@/lib/pos/utils";
+import {
+  formatFulfillmentTime,
+  getPaymentAllocDisplayName,
+} from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { OrderInitScreen } from "@/components/pos/order-init-screen";
 import { AllocationConfigDialog } from "@/components/pos/allocation-config-dialog";
@@ -17,6 +20,18 @@ import {
 import { BranchConfigDialog } from "@/components/pos/branch-config-dialog";
 import { BranchManagerDialog } from "@/components/pos/branch-manager-dialog";
 import { MergeBranchDialog } from "@/components/pos/merge-dialog";
+
+import { HistoryOpDialog } from "@/components/pos/history-op-dialog";
+import { NoteDialog } from "@/components/pos/note-dialog";
+import {
+  AddGuestDialog,
+  GuestPickerDialog,
+  EditGuestDialog,
+} from "@/components/pos/guest-dialogs";
+import { CatalogPanel } from "@/components/pos/catalog-panel";
+import { ActiveCheckPanel } from "@/components/pos/active-check-panel";
+import { CommitLedgerPanel } from "@/components/pos/commit-ledger-panel";
+
 import {
   Dialog,
   DialogContent,
@@ -27,20 +42,12 @@ import {
 } from "@/components/ui/dialog";
 import {
   type Guest,
-  formatLabel,
-  GUEST_PALETTE,
   getGuestColor,
   getUniqueGuestLabel,
   getPatchedAllocations,
   getAssigneeFromItem,
 } from "@/lib/pos/ui-utils";
-import { LineItemNode } from "@/components/pos/line-item-node";
 import { OrderContextBanner } from "@/components/pos/order-context-banner";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { generateAllocationId } from "@/lib/vcs/id";
 import type {
   ProjectedLineItem,
@@ -50,51 +57,25 @@ import type {
   FulfillmentAllocation,
 } from "@/lib/vcs/types";
 import {
-  ShoppingCart,
-  Plus,
-  Minus,
-  Copy,
-  Trash2,
   GitCommitHorizontal,
   Clock,
   User,
   CreditCard,
-  AlertCircle,
-  Layers,
-  RotateCcw,
   XCircle,
   Phone,
   MapPin,
-  UserPlus,
   Settings2,
   ChevronDown,
-  ChevronRight,
   GitBranch,
   Lightbulb,
-  Search,
-  PanelRightClose,
-  PanelRightOpen,
-  Filter,
   Lock,
-  ChevronsUpDown,
-  Eraser,
-  LayoutList,
-  Pencil,
 } from "lucide-react";
-import * as LucideIcons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator as SeparatorUI } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────
@@ -169,27 +150,20 @@ function POSTerminalInner() {
       return orderContext.initialGuestNames.map((name, idx) => {
         const nextNum = idx + 1;
         const match = name.match(/^Guest\s+(\d+)(?:\s+\((.+)\))?$/i);
-        if (match) {
+        if (match)
           return {
             id: `__vcs_guest_${match[1]}__`,
             number: parseInt(match[1], 10),
             alias: match[2] || undefined,
           };
-        }
         const gMatch = name.match(/^__vcs_guest_(\d+)__$/i);
-        if (gMatch) {
+        if (gMatch)
           return {
             id: name,
             number: parseInt(gMatch[1], 10),
             alias: undefined,
           };
-        }
-        // If it does not match standard Guest format, it is a custom floor/chair alias!
-        return {
-          id: `__vcs_guest_${nextNum}__`,
-          number: nextNum,
-          alias: name,
-        };
+        return { id: `__vcs_guest_${nextNum}__`, number: nextNum, alias: name };
       });
     }
     return [primary];
@@ -201,13 +175,10 @@ function POSTerminalInner() {
     (idOrName: string): string => {
       const g = guests.find((g) => g.id === idOrName);
       if (g) return g.alias || `Guest ${g.number}`;
-
       const match = idOrName.match(/^__vcs_guest_(\d+)__$/i);
       if (match) return `Guest ${match[1]}`;
-
       const legacyMatch = idOrName.match(/^Guest\s+(\d+)(?:\s+\((.+)\))?$/i);
       if (legacyMatch) return legacyMatch[2] || `Guest ${legacyMatch[1]}`;
-
       return idOrName;
     },
     [guests],
@@ -226,68 +197,46 @@ function POSTerminalInner() {
     [guests],
   );
 
-  const guestStrings = React.useMemo(() => {
-    return guests.map((g) => g.alias || `Guest ${g.number}`);
-  }, [guests]);
+  const guestStrings = React.useMemo(
+    () => guests.map((g) => g.alias || `Guest ${g.number}`),
+    [guests],
+  );
 
   const resolvedAllocations = React.useMemo(() => {
     const resolved: Record<string, AllocationBlock> = {};
     for (const [id, alloc] of Object.entries(projectedState.allocations)) {
-      if (alloc.type === "assignment") {
-        resolved[id] = {
-          ...alloc,
-          entity: resolveGuestName(alloc.entity),
-        };
-      } else if (alloc.type === "payment") {
-        resolved[id] = {
-          ...alloc,
-          payer: resolveGuestName(alloc.payer),
-        };
-      } else {
-        resolved[id] = alloc;
-      }
+      if (alloc.type === "assignment")
+        resolved[id] = { ...alloc, entity: resolveGuestName(alloc.entity) };
+      else if (alloc.type === "payment")
+        resolved[id] = { ...alloc, payer: resolveGuestName(alloc.payer) };
+      else resolved[id] = alloc;
     }
     return resolved;
   }, [projectedState.allocations, resolveGuestName]);
 
-  // Bulk actions selection state
   const [selectedLineIds, setSelectedLineIds] = React.useState<Set<string>>(
     new Set(),
   );
+  const checklistRef = React.useRef<HTMLDivElement | null>(null);
+  const bulkActionsBarRef = React.useRef<HTMLDivElement | null>(null);
 
   const handleSelectToggle = useCallback((lineId: string) => {
     setSelectedLineIds((prev) => {
       const next = new Set(prev);
-      if (next.has(lineId)) {
-        next.delete(lineId);
-      } else {
-        next.add(lineId);
-      }
+      if (next.has(lineId)) next.delete(lineId);
+      else next.add(lineId);
       return next;
     });
   }, []);
-
-  // Refs for tracking click outside selection
-  const checklistRef = React.useRef<HTMLDivElement | null>(null);
-  const bulkActionsBarRef = React.useRef<HTMLDivElement | null>(null);
 
   // Dropdown key states
   const [selectedPerson, setSelectedPerson] = React.useState(
     initialGuests[0].id,
   );
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
-  const [addGuestCount, setAddGuestCount] = React.useState(1);
-  const [addGuestAlias, setAddGuestAlias] = React.useState("");
-  const [addGuestDescription, setAddGuestDescription] = React.useState("");
   const [editGuestOpen, setEditGuestOpen] = React.useState(false);
   const [guestToEdit, setGuestToEdit] = React.useState<Guest | null>(null);
-  const [editGuestAlias, setEditGuestAlias] = React.useState("");
-  const [editGuestDescription, setEditGuestDescription] = React.useState("");
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
-  const [guestSearchQuery, setGuestSearchQuery] = React.useState("");
-  const [catalogFilter, setCatalogFilter] = React.useState("");
-  const [requireTags, setRequireTags] = React.useState<Set<string>>(new Set());
-  const [avoidTags, setAvoidTags] = React.useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
@@ -295,11 +244,15 @@ function POSTerminalInner() {
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
     React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
-
   const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(
     new Set(),
   );
+  const [detailLevel, setDetailLevel] = React.useState<
+    "simple" | "balanced" | "full"
+  >("balanced");
+  const [hideCanceled, setHideCanceled] = React.useState(false);
 
+  const hasCollapsedItems = collapsedItems.size > 0;
   const handleToggleCollapse = React.useCallback((lineId: string) => {
     setCollapsedItems((prev) => {
       const next = new Set(prev);
@@ -312,15 +265,9 @@ function POSTerminalInner() {
     });
   }, []);
 
-  const [detailLevel, setDetailLevel] = React.useState<
-    "simple" | "balanced" | "full"
-  >("balanced");
-  const [hideCanceled, setHideCanceled] = React.useState(false);
-
-  const hasCollapsedItems = collapsedItems.size > 0;
   const toggleAllCollapsed = React.useCallback(() => {
     if (hasCollapsedItems) {
-      setCollapsedItems(new Set()); // Expand all
+      setCollapsedItems(new Set());
     } else {
       const allParentIds = new Set<string>();
       const findParents = (items: ProjectedLineItem[]) => {
@@ -336,13 +283,17 @@ function POSTerminalInner() {
     }
   }, [hasCollapsedItems, projectedState.items]);
 
-  // ─── History Operation Confirm Dialog State ───────────────────────────────
+  // ─── Dialog State ───────────────────────────────
   const [historyOpDialog, setHistoryOpDialog] = React.useState<{
     type: "squash" | "reset";
     targetHash: string;
     label: string;
     description: string;
   } | null>(null);
+  const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
+  const [editedCustomerFields, setEditedCustomerFields] = React.useState<
+    Record<string, string>
+  >({});
 
   const handleConfirmHistoryOp = React.useCallback(() => {
     if (!historyOpDialog) return;
@@ -361,12 +312,6 @@ function POSTerminalInner() {
     }
   }, [historyOpDialog, squashPendingCommits, resetToCommit]);
 
-  // ─── Customer Edit Dialog State ────────────────────────────────────────
-  const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
-  const [editedCustomerFields, setEditedCustomerFields] = React.useState<
-    Record<string, string>
-  >({});
-
   const handleOpenCustomerDialog = React.useCallback(() => {
     setEditedCustomerFields(
       orderContext?.customerFields ? { ...orderContext.customerFields } : {},
@@ -375,19 +320,16 @@ function POSTerminalInner() {
   }, [orderContext]);
 
   const handleSaveCustomerFields = React.useCallback(() => {
-    useVCSStore.getState().updateOrderContext({
-      customerFields: editedCustomerFields,
-    });
-    // Sync guest display name if the primary customer name changed
+    useVCSStore
+      .getState()
+      .updateOrderContext({ customerFields: editedCustomerFields });
     const newNameRaw = editedCustomerFields.name?.trim();
     if (newNameRaw) {
       const primaryAlias =
         newNameRaw.toLowerCase() === "guest" ? undefined : newNameRaw;
       setGuests((prev) => {
         const next = [...prev];
-        if (next[0]) {
-          next[0] = { ...next[0], alias: primaryAlias };
-        }
+        if (next[0]) next[0] = { ...next[0], alias: primaryAlias };
         return next;
       });
     }
@@ -395,22 +337,15 @@ function POSTerminalInner() {
     toast.success("Customer info updated");
   }, [editedCustomerFields]);
 
-  // Active check view filter state
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
     new Set(initialGuests.map((g) => g.id)),
   );
-
-  // Synchronize visibleGuests with guests on add/remove/reset
   React.useEffect(() => {
     setVisibleGuests((prev) => {
       const next = new Set<string>();
       for (const g of guests) {
-        if (prev.has(g.id)) {
-          next.add(g.id);
-        } else {
-          // If the guest is brand new (not in prev), make it visible by default
-          next.add(g.id);
-        }
+        if (prev.has(g.id)) next.add(g.id);
+        else next.add(g.id);
       }
       return next;
     });
@@ -418,15 +353,11 @@ function POSTerminalInner() {
 
   const [newBranchFromHistoryName, setNewBranchFromHistoryName] =
     React.useState("");
-
-  // Branch manager / configuration dialog state
   const [isBranchManagerOpen, setIsBranchManagerOpen] = React.useState(false);
   const [isBranchConfigOpen, setIsBranchConfigOpen] = React.useState(false);
   const [branchToConfig, setBranchToConfig] = React.useState<string | null>(
     null,
   );
-
-  // Merge dialog state
   const [isMergeOpen, setIsMergeOpen] = React.useState(false);
 
   const handleSaveBranchConfig = useCallback(
@@ -446,40 +377,20 @@ function POSTerminalInner() {
     [branchToConfig, renameBranch, updateBranchConfig],
   );
 
-  const handleBranchFromHistory = React.useCallback(() => {
-    if (!newBranchFromHistoryName.trim() || !viewingHash) return;
-    try {
-      createBranch(newBranchFromHistoryName.trim(), viewingHash);
-      toast.success(
-        `Branch "${newBranchFromHistoryName.trim()}" created at commit ${viewingHash.substring(0, 7)}`,
-      );
-      setNewBranchFromHistoryName("");
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }, [createBranch, newBranchFromHistoryName, viewingHash]);
-
   const [expandedCommits, setExpandedCommits] = React.useState<Set<string>>(
     new Set(),
   );
-
   const toggleCommitExpanded = React.useCallback((hash: string) => {
     setExpandedCommits((prev) => {
       const next = new Set(prev);
-      if (next.has(hash)) {
-        next.delete(hash);
-      } else {
-        next.add(hash);
-      }
+      if (next.has(hash)) next.delete(hash);
+      else next.add(hash);
       return next;
     });
   }, []);
 
-  // ─── Dialog State ────────────────────────────────────────────────────
   const [allocConfigItem, setAllocConfigItem] =
     React.useState<ProjectedLineItem | null>(null);
-
-  // Unified Payment Allocation State
   const [paymentAllocationOpen, setPaymentAllocationOpen] =
     React.useState(false);
   const [paymentAllocationContext, setPaymentAllocationContext] =
@@ -487,16 +398,12 @@ function POSTerminalInner() {
   const [paymentAllocationItems, setPaymentAllocationItems] = React.useState<
     ProjectedLineItem[]
   >([]);
-
-  // Unified Fulfillment Allocation State
   const [fulfillmentAllocationOpen, setFulfillmentAllocationOpen] =
     React.useState(false);
   const [fulfillmentAllocationContext, setFulfillmentAllocationContext] =
     React.useState<"item" | "group" | "global">("item");
   const [fulfillmentAllocationItems, setFulfillmentAllocationItems] =
     React.useState<ProjectedLineItem[]>([]);
-
-  // Modifier Add Dialog State
   const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
   const [modifierAddItem, setModifierAddItem] =
     React.useState<ProjectedLineItem | null>(null);
@@ -509,16 +416,13 @@ function POSTerminalInner() {
     [],
   );
 
-  // Combo Choice Swap Dialog State
   const [swapChoiceState, setSwapChoiceState] = React.useState<{
     lineId: string;
     parentLineId: string;
     slotSku: string;
   } | null>(null);
-
   const [retainModifiersDuringSwap, setRetainModifiersDuringSwap] =
     React.useState<boolean>(true);
-
   const handleOpenSwapDialog = React.useCallback(
     (lineId: string, parentLineId: string, slotSku: string) => {
       setSwapChoiceState({ lineId, parentLineId, slotSku });
@@ -526,14 +430,10 @@ function POSTerminalInner() {
     [],
   );
 
-  // Note Add Dialog State
   const [noteDialogOpen, setNoteDialogOpen] = React.useState(false);
   const [noteItem, setNoteItem] = React.useState<ProjectedLineItem | null>(
     null,
   );
-  const [noteText, setNoteText] = React.useState("");
-  const [linkNoteToComboBase, setLinkNoteToComboBase] =
-    React.useState<boolean>(false);
 
   const isComboChildItem = React.useMemo(() => {
     if (!noteItem || !noteItem.parentLineId) return false;
@@ -545,129 +445,123 @@ function POSTerminalInner() {
 
   const handleOpenNoteDialog = React.useCallback((item: ProjectedLineItem) => {
     setNoteItem(item);
-    setLinkNoteToComboBase(false);
-    if (item.sku === "custom_note") {
-      setNoteText(item.selectedModifierState || "");
-    } else {
-      setNoteText("");
-    }
     setNoteDialogOpen(true);
   }, []);
 
-  const handleAddNote = React.useCallback(() => {
-    if (!noteItem || !noteText.trim()) return;
-    if (noteItem.sku === "custom_note") {
-      useVCSStore
-        .getState()
-        .modifyModifierState(
-          noteItem.lineId,
-          noteItem.selectedModifierState,
-          noteText.trim(),
-        );
-      toast.success("Note updated");
-    } else {
-      const parentId =
-        linkNoteToComboBase && noteItem.parentLineId
-          ? noteItem.parentLineId
-          : noteItem.lineId;
-      useVCSStore
-        .getState()
-        .addModifier(parentId, "custom_note", noteText.trim());
-      toast.success("Note added");
-    }
-    setNoteDialogOpen(false);
-  }, [noteItem, noteText, linkNoteToComboBase]);
+  const handleSaveNote = React.useCallback(
+    (text: string, linkToComboBase: boolean) => {
+      if (!noteItem || !text.trim()) return;
+      if (noteItem.sku === "custom_note") {
+        useVCSStore
+          .getState()
+          .modifyModifierState(
+            noteItem.lineId,
+            noteItem.selectedModifierState,
+            text.trim(),
+          );
+        toast.success("Note updated");
+      } else {
+        const parentId =
+          linkToComboBase && noteItem.parentLineId
+            ? noteItem.parentLineId
+            : noteItem.lineId;
+        useVCSStore
+          .getState()
+          .addModifier(parentId, "custom_note", text.trim());
+        toast.success("Note added");
+      }
+      setNoteDialogOpen(false);
+    },
+    [noteItem],
+  );
 
   // ─── Guest Management ──────────────────────────────────────────────────
-
   const addGuests = useCallback(
     (newGuests: Guest[]) => {
-      const valid = newGuests.filter((ng) => {
-        return !guests.some(
-          (g) =>
-            g.id === ng.id ||
-            (ng.alias &&
-              g.alias &&
-              g.alias.toLowerCase() === ng.alias.toLowerCase()),
-        );
-      });
-
+      const valid = newGuests.filter(
+        (ng) =>
+          !guests.some(
+            (g) =>
+              g.id === ng.id ||
+              (ng.alias &&
+                g.alias &&
+                g.alias.toLowerCase() === ng.alias.toLowerCase()),
+          ),
+      );
       if (valid.length === 0) return;
-
       setGuests((prev) => [...prev, ...valid]);
-      for (const g of valid) {
-        addGuestPaymentAllocation(g.id);
-      }
-
-      if (valid.length === 1) {
-        const displayName = valid[0].alias || `Guest ${valid[0].number}`;
-        toast.success(`${displayName} added to the order`);
-      } else {
-        toast.success(`${valid.length} guests added to the order`);
-      }
+      for (const g of valid) addGuestPaymentAllocation(g.id);
+      if (valid.length === 1)
+        toast.success(
+          `${valid[0].alias || `Guest ${valid[0].number}`} added to the order`,
+        );
+      else toast.success(`${valid.length} guests added to the order`);
     },
     [guests, addGuestPaymentAllocation],
   );
 
-  const removeGuest = useCallback(
-    (id: string) => {
-      const guest = guests.find((g) => g.id === id);
-      if (!guest) return;
-      if (id === guests[0].id) {
-        toast.error("Cannot remove the primary customer");
-        return;
+  const handleSaveRenameGuest = useCallback(
+    (newAlias: string, newDescription: string) => {
+      if (!guestToEdit) return;
+      const trimmedAlias = newAlias.trim();
+      const trimmedDesc = newDescription.trim();
+      if (guestToEdit.id === guests[0]?.id) {
+        const currentFields =
+          useVCSStore.getState().orderContext?.customerFields || {};
+        useVCSStore.getState().updateOrderContext({
+          customerFields: { ...currentFields, name: trimmedAlias || "Guest" },
+        });
       }
-      setGuests((prev) => prev.filter((g) => g.id !== id));
-      if (selectedPerson === id) setSelectedPerson(guests[0].id);
-      toast.success(`${guest.alias || `Guest ${guest.number}`} removed`);
+      setGuests((prev) =>
+        prev.map((g) =>
+          g.id === guestToEdit.id
+            ? {
+                ...g,
+                alias: trimmedAlias || undefined,
+                description: trimmedDesc || undefined,
+              }
+            : g,
+        ),
+      );
+      toast.success(`Guest updated`);
+      setEditGuestOpen(false);
+      setGuestToEdit(null);
     },
-    [guests, selectedPerson],
+    [guestToEdit, guests],
   );
 
-  const handleSaveRenameGuest = useCallback(() => {
-    if (!guestToEdit) return;
-    const trimmedAlias = editGuestAlias.trim();
-    const trimmedDesc = editGuestDescription.trim();
+  const handleAddGuestFromDialog = useCallback(
+    (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const currentMax =
+        guests.length > 0 ? Math.max(...guests.map((g) => g.number)) : 0;
+      const nextNum = currentMax + 1;
+      const newGuestId = `__vcs_guest_${nextNum}__`;
+      const isGuestFormat = /^guest\s*\d*$/i.test(trimmed);
+      const alias = isGuestFormat ? undefined : trimmed;
+      if (
+        guests.some(
+          (g) => g.alias?.toLowerCase() === alias?.toLowerCase() && alias,
+        )
+      )
+        return;
+      addGuests([{ id: newGuestId, number: nextNum, alias }]);
+    },
+    [guests, addGuests],
+  );
 
-    // If we're editing the primary customer, sync it to orderContext
-    if (guestToEdit.id === guests[0]?.id) {
-      const currentFields =
-        useVCSStore.getState().orderContext?.customerFields || {};
-      useVCSStore.getState().updateOrderContext({
-        customerFields: {
-          ...currentFields,
-          name: trimmedAlias || "Guest",
-        },
-      });
-    }
-
-    setGuests((prev) =>
-      prev.map((g) =>
-        g.id === guestToEdit.id
-          ? {
-              ...g,
-              alias: trimmedAlias || undefined,
-              description: trimmedDesc || undefined,
-            }
-          : g,
-      ),
-    );
-    toast.success(`Guest updated`);
-    setEditGuestOpen(false);
-    setGuestToEdit(null);
-    setEditGuestAlias("");
-    setEditGuestDescription("");
-  }, [guestToEdit, editGuestAlias, editGuestDescription, guests]);
+  const handleOpenAddGuestDialog = useCallback(() => {
+    setAddGuestOpen(true);
+  }, []);
 
   // ─── Derived State ──────────────────────────────────────────────────────
-
   const catalogItems = Object.values(catalog).filter(
     (i) => i.active && i.type === "item" && i.category !== "combo-slot",
   );
   const modifierItems = Object.values(catalog).filter(
     (i) => i.active && i.type === "modifier",
   );
-
   const groupedCatalog = catalogItems.reduce<
     Record<string, typeof catalogItems>
   >((acc, item) => {
@@ -676,7 +570,6 @@ function POSTerminalInner() {
     acc[cat].push(item);
     return acc;
   }, {});
-
   const availableTags = React.useMemo(() => {
     const tags = new Set<string>();
     for (const item of catalogItems) {
@@ -689,7 +582,6 @@ function POSTerminalInner() {
   const rootItems = Object.values(projectedState.items).filter(
     (i) => !i.parentLineId,
   );
-
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
       if (hideCanceled && item.status === "canceled") return false;
@@ -711,69 +603,46 @@ function POSTerminalInner() {
   const canceledCount = React.useMemo(() => {
     let count = 0;
     const countCanceled = (item: ProjectedLineItem) => {
-      if (item.status === "canceled") {
-        count++;
-      } else {
-        item.children.forEach(countCanceled);
-      }
+      if (item.status === "canceled") count++;
+      else item.children.forEach(countCanceled);
     };
     for (const item of rootItems) {
-      const assignee = getAssigneeFromItem(
-        item,
-        projectedState.allocations,
-        guests,
-      );
-      if (visibleGuests.has(assignee)) {
+      if (
+        visibleGuests.has(
+          getAssigneeFromItem(item, projectedState.allocations, guests),
+        )
+      )
         countCanceled(item);
-      }
     }
     return count;
   }, [rootItems, projectedState.allocations, guests, visibleGuests]);
 
-  // Sync selection with current filteredRootItems (prune deleted ones)
   React.useEffect(() => {
     setSelectedLineIds((prev) => {
       const next = new Set<string>();
       for (const item of filteredRootItems) {
-        if (prev.has(item.lineId)) {
-          next.add(item.lineId);
-        }
+        if (prev.has(item.lineId)) next.add(item.lineId);
       }
-      if (next.size !== prev.size) {
-        return next;
-      }
-      return prev;
+      return next.size !== prev.size ? next : prev;
     });
   }, [filteredRootItems]);
-
-  // Clear selection when filter changes
   React.useEffect(() => {
     setSelectedLineIds(new Set());
   }, [visibleGuests]);
-
-  // Clear selection when branch or revision changes
   const currentBranchName = activeBranch();
   React.useEffect(() => {
     setSelectedLineIds(new Set());
   }, [currentBranchName, viewingHash]);
-
-  // Click away listener
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (selectedLineIds.size === 0) return;
-
       const target = e.target as HTMLElement;
       if (!target) return;
-
-      // Do not clear if click is inside the checklist scroll area or bulk actions bar
       if (
         checklistRef.current?.contains(target) ||
         bulkActionsBarRef.current?.contains(target)
-      ) {
+      )
         return;
-      }
-
-      // Do not clear if click is inside portal elements (e.g. Radix Select contents, dialogs, popovers)
       if (
         target.closest("[data-radix-portal]") ||
         target.closest("[data-radix-popper-content-wrapper]") ||
@@ -782,139 +651,91 @@ function POSTerminalInner() {
         target.closest('[role="menu"]') ||
         target.closest(".bg-popover") ||
         target.closest(".radix-select-content")
-      ) {
+      )
         return;
-      }
-
-      // Clicked away!
       setSelectedLineIds(new Set());
     };
-
     document.addEventListener("click", handleClickOutside, true);
     return () => {
       document.removeEventListener("click", handleClickOutside, true);
     };
   }, [selectedLineIds]);
 
-  const selectedItems = React.useMemo(() => {
-    return rootItems.filter((item) => selectedLineIds.has(item.lineId));
-  }, [rootItems, selectedLineIds]);
-
+  const selectedItems = React.useMemo(
+    () => rootItems.filter((item) => selectedLineIds.has(item.lineId)),
+    [rootItems, selectedLineIds],
+  );
   const compatibleModifiers = React.useMemo(() => {
     if (selectedItems.length === 0) return [];
-    const firstEntry = catalog[selectedItems[0].sku];
-    let commonSkus = firstEntry?.allowedModifiers || [];
+    let commonSkus = catalog[selectedItems[0].sku]?.allowedModifiers || [];
     for (let i = 1; i < selectedItems.length; i++) {
-      const entry = catalog[selectedItems[i].sku];
-      const allowed = entry?.allowedModifiers || [];
+      const allowed = catalog[selectedItems[i].sku]?.allowedModifiers || [];
       commonSkus = commonSkus.filter((sku) => allowed.includes(sku));
     }
     return modifierItems.filter((mod) => commonSkus.includes(mod.sku));
   }, [selectedItems, catalog, modifierItems]);
-
   const singleItemCompatibleModifiers = React.useMemo(() => {
     if (!modifierAddItem) return [];
-    const entry = catalog[modifierAddItem.sku];
-    const allowed = entry?.allowedModifiers || [];
+    const allowed = catalog[modifierAddItem.sku]?.allowedModifiers || [];
     return modifierItems.filter((mod) => allowed.includes(mod.sku));
   }, [modifierAddItem, catalog, modifierItems]);
-
   const activeModifiersOnSelected = React.useMemo(() => {
     if (selectedItems.length === 0) return [];
     const activeModifierSkus = new Set<string>();
     for (const item of selectedItems) {
       for (const child of item.children) {
-        const childEntry = catalog[child.sku];
-        if (childEntry && childEntry.type === "modifier") {
+        if (catalog[child.sku]?.type === "modifier")
           activeModifierSkus.add(child.sku);
-        }
       }
     }
     return modifierItems.filter((mod) => activeModifierSkus.has(mod.sku));
   }, [selectedItems, catalog, modifierItems]);
 
-  // Count items on the active payment configuration group
-  const itemsOnActiveConfig = React.useMemo(() => {
-    if (!activePaymentConfigId) return 0;
-
-    const activeAllocations = Object.values(projectedState.allocations).filter(
-      (a): a is PaymentAllocation =>
-        a.type === "payment" &&
-        (a.allocationId === activePaymentConfigId ||
-          (a.correlationId !== null &&
-            a.correlationId === activePaymentConfigId)),
-    );
-    const activePayIds = activeAllocations.map((a) => a.allocationId);
-
-    return Object.values(projectedState.items).filter((item) =>
-      item.allocations.some((id) => activePayIds.includes(id)),
-    ).length;
-  }, [projectedState.items, projectedState.allocations, activePaymentConfigId]);
-
-  // Dynamically derive the list of all available payment configs
   const paymentConfigs = React.useMemo(() => {
     const configs: Array<{ id: string; name: string; isSplit: boolean }> = [];
     const allocations = projectedState.allocations;
-
     const referencedIds = new Set<string>();
     for (const item of Object.values(projectedState.items)) {
       for (const id of item.allocations) referencedIds.add(id);
     }
-
     const singlePayers = new Map<string, PaymentAllocation>();
     const splitGroups = new Map<string, PaymentAllocation[]>();
-
     for (const alloc of Object.values(allocations)) {
       if (alloc.type === "payment") {
         const pay = alloc as PaymentAllocation;
-
         const isReferenced = referencedIds.has(alloc.allocationId);
         const isActive =
           activePaymentConfigId === alloc.allocationId ||
           activePaymentConfigId === alloc.correlationId;
         const isDefault = pay.correlationId?.startsWith("group-default-");
-
-        if (!isReferenced && !isActive && !isDefault) {
-          continue;
-        }
-
+        if (!isReferenced && !isActive && !isDefault) continue;
         if (pay.correlationId) {
-          // Exclude the standard defaults
-          if (pay.correlationId.startsWith("group-default-")) {
-            continue;
-          }
+          if (pay.correlationId.startsWith("group-default-")) continue;
           const group = splitGroups.get(pay.correlationId) || [];
           group.push(pay);
           splitGroups.set(pay.correlationId, group);
         } else {
-          if (pay.allocationId !== defaultPaymentAllocId) {
+          if (pay.allocationId !== defaultPaymentAllocId)
             singlePayers.set(pay.allocationId, pay);
-          }
         }
       }
     }
-
     const patchedAllocs = getPatchedAllocations(allocations);
     singlePayers.forEach((pay, id) => {
-      const displayName = `Single: ${getPaymentAllocDisplayName(patchedAllocs[id] as PaymentAllocation, patchedAllocs)}`;
       configs.push({
         id,
-        name: displayName,
+        name: `Single: ${getPaymentAllocDisplayName(patchedAllocs[id] as PaymentAllocation, patchedAllocs)}`,
         isSplit: false,
       });
     });
-
     splitGroups.forEach((group, correlationId) => {
       const isTrueSplit = group.length > 1;
-      const prefix = isTrueSplit ? "Split" : "Single";
-      const displayName = `${prefix}: ${getPaymentAllocDisplayName(patchedAllocs[group[0].allocationId] as PaymentAllocation, patchedAllocs)}`;
       configs.push({
         id: correlationId,
-        name: displayName,
+        name: `${isTrueSplit ? "Split" : "Single"}: ${getPaymentAllocDisplayName(patchedAllocs[group[0].allocationId] as PaymentAllocation, patchedAllocs)}`,
         isSplit: isTrueSplit,
       });
     });
-
     return configs;
   }, [
     projectedState.allocations,
@@ -927,10 +748,8 @@ function POSTerminalInner() {
     if (
       activePaymentConfigId &&
       activePaymentConfigId.startsWith("group-default-")
-    ) {
-      const method = activePaymentConfigId.replace("group-default-", "");
-      return `${customerName} (${method.toUpperCase()})`;
-    }
+    )
+      return `${customerName} (${activePaymentConfigId.replace("group-default-", "").toUpperCase()})`;
     const allocations = projectedState.allocations;
     const activeAlloc = Object.values(allocations).find(
       (a) =>
@@ -948,8 +767,7 @@ function POSTerminalInner() {
               a.allocationId !== activeAlloc.allocationId,
           )
         : [];
-      const typeLabel = siblings.length > 0 ? "Split" : "Single";
-      return `${typeLabel}: ${getPaymentAllocDisplayName(patchedAllocs[activeAlloc.allocationId] as PaymentAllocation, patchedAllocs)}`;
+      return `${siblings.length > 0 ? "Split" : "Single"}: ${getPaymentAllocDisplayName(patchedAllocs[activeAlloc.allocationId] as PaymentAllocation, patchedAllocs)}`;
     }
     return "Default Config";
   }, [
@@ -959,15 +777,15 @@ function POSTerminalInner() {
     projectedState.allocations,
     customerName,
   ]);
+
   const currentFulfillmentConfigName = React.useMemo(() => {
     const activeId = activeFulfillmentConfigId;
     if (!activeId) return "On Confirmation";
     const alloc = projectedState.allocations[activeId];
     if (alloc?.type === "fulfillment") {
       const f = alloc as FulfillmentAllocation;
-      if (f.time.type === "immediate" || !f.time.calculatedAt) {
+      if (f.time.type === "immediate" || !f.time.calculatedAt)
         return `${f.method} (On Confirmation)`;
-      }
       return `${f.method} @ ${formatFulfillmentTime(f.time.calculatedAt, orderContext?.initiatedAt)}`;
     }
     return "On Confirmation";
@@ -976,33 +794,32 @@ function POSTerminalInner() {
     projectedState.allocations,
     orderContext?.initiatedAt,
   ]);
+
   const log = commitLog();
   const confirmedHash = engine.getConfirmedHash();
   const branches = useVCSStore.getState().engine.getRepo().branches;
-
   const mainBranchName = mainActiveBranch();
   const isMergedToMain = React.useMemo(() => {
     if (currentBranchName === mainBranchName) return false;
     const currentHead = branches[currentBranchName]?.headHash;
     const mainHead = branches[mainBranchName]?.headHash;
-    if (!currentHead || !mainHead) return false;
-    if (currentHead === mainHead) return false;
+    if (!currentHead || !mainHead || currentHead === mainHead) return false;
     return useVCSStore.getState().engine.isAncestorOf(currentHead, mainHead);
   }, [currentBranchName, mainBranchName, branches]);
-
-  const graphData = React.useMemo(() => {
-    return buildCommitGraph(
-      log,
-      activeBranch(),
-      mainActiveBranch(),
-      expandedCommits,
-      branches,
-    );
-  }, [log, activeBranch, mainActiveBranch, expandedCommits, branches]);
+  const graphData = React.useMemo(
+    () =>
+      buildCommitGraph(
+        log,
+        activeBranch(),
+        mainActiveBranch(),
+        expandedCommits,
+        branches,
+      ),
+    [log, activeBranch, mainActiveBranch, expandedCommits, branches],
+  );
   const isViewingHistory = viewingHash !== null && viewingHash !== headHash();
 
-  // ─── Handlers (all hooks before any conditional returns) ─────────────────
-
+  // ─── Handlers ────────────────────────────────────────────────────────────
   const handleAddItem = useCallback(
     (sku: string) => {
       addItemWithDefaults(sku, 1, selectedPerson);
@@ -1010,16 +827,13 @@ function POSTerminalInner() {
     },
     [addItemWithDefaults, selectedPerson, resolveGuestName],
   );
-
   const handleReassign = useCallback(
     (lineId: string, newAssignee: string) => {
-      const stableId = getGuestStableId(newAssignee);
-      reassignItem(lineId, stableId);
+      reassignItem(lineId, getGuestStableId(newAssignee));
       toast.success(`Reassigned to ${newAssignee}`);
     },
     [reassignItem, getGuestStableId],
   );
-
   const handleUpdateFulfillment = useCallback(
     (
       lineId: string,
@@ -1035,7 +849,6 @@ function POSTerminalInner() {
     },
     [updateFulfillmentAllocation, orderContext?.initiatedAt],
   );
-
   const handleSplitPayment = useCallback(
     (
       lineId: string,
@@ -1051,26 +864,22 @@ function POSTerminalInner() {
       }>,
       mode: "group" | "item" = "group",
     ) => {
-      const mappedSplits = splits.map((s) => ({
-        ...s,
-        entity: getGuestStableId(s.entity),
-      }));
-      splitItemPayment(lineId, mappedSplits, mode);
+      splitItemPayment(
+        lineId,
+        splits.map((s) => ({ ...s, entity: getGuestStableId(s.entity) })),
+        mode,
+      );
       const splitName = [...splits]
         .sort((a, b) => b.value - a.value)
-        .map((s) => {
-          const valLabel =
-            s.strategyType === "percentage"
-              ? `${Math.round(s.value * 100)}%`
-              : `$${s.value}`;
-          return `${s.entity} ${s.strategyType === "remaining" ? "rem" : valLabel}`;
-        })
+        .map(
+          (s) =>
+            `${s.entity} ${s.strategyType === "remaining" ? "rem" : s.strategyType === "percentage" ? `${Math.round(s.value * 100)}%` : `$${s.value}`}`,
+        )
         .join(" / ");
       toast.success(`Payment split: ${splitName}`);
     },
     [splitItemPayment, getGuestStableId],
   );
-
   const handleResetToDefault = useCallback(
     (lineId: string) => {
       resetItemPaymentToDefault(lineId);
@@ -1078,114 +887,15 @@ function POSTerminalInner() {
     },
     [resetItemPaymentToDefault, defaultPaymentMethod],
   );
-
-  const handleSwitchItemPayment = useCallback(
-    (lineId: string, newMethod: string, mode: "group" | "item" = "item") => {
-      // Find the current assignee of this item to use as payer
-      const state = useVCSStore.getState().projectedState;
-      const item = state.items[lineId];
-      let payer = selectedPerson;
-      if (item) {
-        for (const allocId of item.allocations) {
-          const alloc = state.allocations[allocId];
-          if (alloc?.type === "assignment") {
-            payer = (alloc as { entity: string }).entity;
-            break;
-          }
-        }
-      }
-      switchItemPayment(lineId, newMethod, payer, mode);
-      toast.success(
-        `Payment switched to ${newMethod} for ${mode === "group" ? "group" : "this item"}`,
-      );
-    },
-    [switchItemPayment, selectedPerson],
-  );
-
-  // Expose addGuest for the allocation config dialog
-  const handleAddGuestFromDialog = useCallback(
-    (name: string) => {
-      const trimmed = name.trim();
-      if (!trimmed) return;
-
-      const currentMax =
-        guests.length > 0 ? Math.max(...guests.map((g) => g.number)) : 0;
-      const nextNum = currentMax + 1;
-      const newGuestId = `__vcs_guest_${nextNum}__`;
-
-      const isGuestFormat = /^guest\s*\d*$/i.test(trimmed);
-      const alias = isGuestFormat ? undefined : trimmed;
-
-      if (
-        guests.some(
-          (g) => g.alias?.toLowerCase() === alias?.toLowerCase() && alias,
-        )
-      ) {
-        // Already exists — just silently accept
-        return;
-      }
-
-      const newGuest: Guest = {
-        id: newGuestId,
-        number: nextNum,
-        alias,
-      };
-
-      addGuests([newGuest]);
-    },
-    [guests, addGuests],
-  );
-
-  const handleOpenAddGuestDialog = useCallback(() => {
-    setAddGuestCount(1);
-    setAddGuestAlias("");
-    setAddGuestOpen(true);
-  }, []);
-
-  const handleSubmitAddGuest = useCallback(() => {
-    const currentMax =
-      guests.length > 0 ? Math.max(...guests.map((g) => g.number)) : 0;
-
-    const newGuests: Guest[] = [];
-    if (addGuestCount === 1) {
-      const alias = addGuestAlias.trim() || undefined;
-      const description = addGuestDescription.trim() || undefined;
-      const nextNum = currentMax + 1;
-      newGuests.push({
-        id: `__vcs_guest_${nextNum}__`,
-        number: nextNum,
-        alias,
-        description,
-      });
-    } else {
-      for (let i = 0; i < addGuestCount; i++) {
-        const nextNum = currentMax + 1 + i;
-        newGuests.push({
-          id: `__vcs_guest_${nextNum}__`,
-          number: nextNum,
-          alias: undefined,
-          description: undefined,
-        });
-      }
-    }
-
-    addGuests(newGuests);
-
-    setAddGuestOpen(false);
-    setAddGuestCount(1);
-    setAddGuestAlias("");
-    setAddGuestDescription("");
-  }, [addGuests, addGuestCount, addGuestAlias, addGuestDescription, guests]);
-
   const handleSetBulkQty = useCallback(
     (qty: number) => {
-      if (selectedLineIds.size === 0) return;
-      setItemsQty(Array.from(selectedLineIds), qty);
-      toast.success(`Set quantity to ${qty}`);
+      if (selectedLineIds.size > 0) {
+        setItemsQty(Array.from(selectedLineIds), qty);
+        toast.success(`Set quantity to ${qty}`);
+      }
     },
     [selectedLineIds, setItemsQty],
   );
-
   const guestChoiceOptions = React.useMemo(
     () =>
       guests.map((guest) => ({
@@ -1197,7 +907,6 @@ function POSTerminalInner() {
       })),
     [guests],
   );
-
   const removeModChoiceOptions = React.useMemo(
     () =>
       activeModifiersOnSelected.map((mod) => ({
@@ -1207,35 +916,18 @@ function POSTerminalInner() {
       })),
     [activeModifiersOnSelected],
   );
-
-  const filteredGuests = React.useMemo(() => {
-    const query = guestSearchQuery.trim().toLowerCase();
-    if (!query) return guests;
-    return guests.filter((guest) => {
-      const label = guest.alias || `Guest ${guest.number}`;
-      const desc = guest.description || "";
-      return (
-        label.toLowerCase().includes(query) ||
-        desc.toLowerCase().includes(query)
-      );
-    });
-  }, [guests, guestSearchQuery]);
-
   const selectedGuestCount = guests.length;
   const selectedGuestLabel = getUniqueGuestLabel(
     resolveGuestName(selectedPerson),
     guestStrings,
   );
-
-  const selectedGuestDescription = React.useMemo(() => {
-    const g = guests.find((g) => g.id === selectedPerson);
-    return g?.description;
-  }, [guests, selectedPerson]);
-
+  const selectedGuestDescription = React.useMemo(
+    () => guests.find((g) => g.id === selectedPerson)?.description,
+    [guests, selectedPerson],
+  );
   const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
     setAllocConfigItem((prev) => (prev === item ? null : item));
   }, []);
-
   const handleCreateBranch = useCallback(
     (name: string, startFromEmpty: boolean) => {
       const trimmed = name.trim();
@@ -1244,38 +936,28 @@ function POSTerminalInner() {
         let fromHash = viewingHash;
         if (startFromEmpty) {
           const fullLog = useVCSStore.getState().commitLog();
-          const rootCommit =
-            fullLog.find((c) => c.authorId === "system-init") ||
-            fullLog[fullLog.length - 1];
-          fromHash = rootCommit?.commitHash || null;
+          fromHash =
+            (
+              fullLog.find((c) => c.authorId === "system-init") ||
+              fullLog[fullLog.length - 1]
+            )?.commitHash || null;
         }
         createBranch(trimmed, fromHash);
-        const fromLabel = startFromEmpty
-          ? " from empty root"
-          : fromHash
-            ? ` at commit ${fromHash.substring(0, 7)}`
-            : "";
-        toast.success(`Branch "${trimmed}" created${fromLabel}`);
+        toast.success(
+          `Branch "${trimmed}" created${startFromEmpty ? " from empty root" : fromHash ? ` at commit ${fromHash.substring(0, 7)}` : ""}`,
+        );
       } catch (e) {
         toast.error((e as Error).message);
       }
     },
     [createBranch, viewingHash],
   );
-
   const handleResetOrder = useCallback(() => {
     resetOrder();
     setShowResetConfirm(false);
-    setAddGuestCount(1);
-    setAddGuestAlias("");
     setAddGuestOpen(false);
-    setCatalogFilter("");
-    setRequireTags(new Set());
-    setAvoidTags(new Set());
     toast.success("Order reset — ready for a new order");
   }, [resetOrder]);
-
-  // ─── Render ─────────────────────────────────────────────────────────────
 
   const swapOptions = React.useMemo<ChoiceDialogOption[]>(() => {
     if (!swapChoiceState) return [];
@@ -1284,21 +966,14 @@ function POSTerminalInner() {
     if (!parentItem) return [];
     const parentEntry = catalog[parentItem.sku];
     if (!parentEntry?.comboChoices) return [];
-
-    // Filter comboChoices for the current slot
     const slotChoices = parentEntry.comboChoices.filter(
       (c) => c.slotSku === slotSku,
     );
-
     return slotChoices.map((choice) => {
-      const choiceEntry = catalog[choice.optionSku];
-      const name = choiceEntry?.name || choice.optionSku;
-
+      const name = catalog[choice.optionSku]?.name || choice.optionSku;
       const modifierName = choice.modifierSku
         ? catalog[choice.modifierSku]?.name
         : undefined;
-      const label = modifierName ? `${name} (${modifierName})` : name;
-
       const currentItem = projectedState.items[swapChoiceState.lineId];
       const isCurrent =
         choice.optionSku === currentItem?.sku &&
@@ -1310,10 +985,9 @@ function POSTerminalInner() {
                   sc.optionSku === choice.optionSku && sc.modifierSku === c.sku,
               ),
             ));
-
       return {
         id: `${choice.optionSku}:${choice.modifierSku || ""}`,
-        label: label,
+        label: modifierName ? `${name} (${modifierName})` : name,
         description: `$${choice.price.toFixed(2)}`,
         badge: isCurrent ? (
           <Badge className="bg-primary/20 text-primary border-transparent text-[9px] h-3.5 px-1 inline-flex">
@@ -1323,7 +997,6 @@ function POSTerminalInner() {
       };
     });
   }, [swapChoiceState, projectedState.items, catalog]);
-
   const slotName = swapChoiceState
     ? catalog[swapChoiceState.slotSku]?.name || "Slot Choice"
     : "Slot Choice";
@@ -1345,14 +1018,12 @@ function POSTerminalInner() {
             </div>
           </div>
 
-          {/* Active branch — compact; full list in dialog */}
           <div className="flex items-center gap-2">
             {(() => {
               const active = activeBranch();
               const main = mainActiveBranch();
               const pointer = branches[active];
               const isHypothetical = pointer?.type === "hypothetical";
-              const displayName = pointer?.label || active;
               const branchCount = Object.keys(branches).length;
               const isMain = active === main;
               const isMerged =
@@ -1371,15 +1042,7 @@ function POSTerminalInner() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-7 gap-1.5 pr-2 ${
-                    isMain
-                      ? "border-primary/50 bg-primary/5 hover:bg-primary/10"
-                      : isMerged
-                        ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground"
-                        : isHypothetical
-                          ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10"
-                          : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"
-                  }`}
+                  className={`h-7 gap-1.5 pr-2 ${isMain ? "border-primary/50 bg-primary/5 hover:bg-primary/10" : isMerged ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground" : isHypothetical ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10" : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"}`}
                   onClick={() => setIsBranchManagerOpen(true)}
                 >
                   {isMain ? (
@@ -1392,7 +1055,7 @@ function POSTerminalInner() {
                     <GitBranch className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   )}
                   <span className="text-xs font-semibold max-w-30 truncate">
-                    {displayName}
+                    {pointer?.label || active}
                   </span>
                   {main !== active && (
                     <span className="text-[10px] text-muted-foreground font-normal">
@@ -1413,7 +1076,6 @@ function POSTerminalInner() {
             })()}
           </div>
 
-          {/* Guest Selector + Payment + New Order */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Guest:</span>
             <Button
@@ -1421,7 +1083,6 @@ function POSTerminalInner() {
               size="sm"
               className="h-auto py-1 gap-1.5 px-2.5 max-w-52.5"
               onClick={() => {
-                setGuestSearchQuery("");
                 setGuestPickerOpen(true);
               }}
               title={
@@ -1516,7 +1177,6 @@ function POSTerminalInner() {
           </div>
         </header>
 
-        {/* ─── Order Context Banner ────────────────────────────────────── */}
         {orderContext && (
           <OrderContextBanner
             context={orderContext}
@@ -1529,21 +1189,17 @@ function POSTerminalInner() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <User className="w-4 h-4 text-primary" />
-                Edit Customer Info
+                <User className="w-4 h-4 text-primary" /> Edit Customer Info
               </DialogTitle>
               <DialogDescription>
                 Update the customer details for this order. Changes apply
                 immediately.
               </DialogDescription>
             </DialogHeader>
-
             <div className="space-y-4 py-2">
-              {/* Name */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <User className="w-3 h-3" />
-                  Name
+                  <User className="w-3 h-3" /> Name
                 </label>
                 <Input
                   id="customer-name"
@@ -1559,12 +1215,9 @@ function POSTerminalInner() {
                   autoComplete="name"
                 />
               </div>
-
-              {/* Phone */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Phone className="w-3 h-3" />
-                  Phone
+                  <Phone className="w-3 h-3" /> Phone
                 </label>
                 <Input
                   id="customer-phone"
@@ -1581,13 +1234,10 @@ function POSTerminalInner() {
                   autoComplete="tel"
                 />
               </div>
-
-              {/* Address — shown for delivery */}
               {orderContext?.orderType === "delivery" && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3" />
-                    Delivery Address
+                    <MapPin className="w-3 h-3" /> Delivery Address
                   </label>
                   <Input
                     id="customer-address"
@@ -1604,12 +1254,9 @@ function POSTerminalInner() {
                   />
                 </div>
               )}
-
-              {/* Notes */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Settings2 className="w-3 h-3" />
-                  Order Notes
+                  <Settings2 className="w-3 h-3" /> Order Notes
                 </label>
                 <Textarea
                   id="customer-notes"
@@ -1626,7 +1273,6 @@ function POSTerminalInner() {
                 />
               </div>
             </div>
-
             <DialogFooter className="gap-2">
               <Button
                 variant="outline"
@@ -1636,8 +1282,7 @@ function POSTerminalInner() {
                 Cancel
               </Button>
               <Button size="sm" onClick={handleSaveCustomerFields}>
-                <User className="w-3.5 h-3.5 mr-1.5" />
-                Save Changes
+                <User className="w-3.5 h-3.5 mr-1.5" /> Save Changes
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1645,1179 +1290,83 @@ function POSTerminalInner() {
 
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          {/* ─── LEFT PANEL: Catalog ─────────────────────────────────── */}
-          <aside className="w-lg border-r bg-card flex flex-col shrink-0">
-            <div className="p-3 border-b space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Catalog
-                </h2>
-                <div className="flex items-center gap-1">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={`h-6 text-[10px] px-2 gap-1.5 ${(requireTags.size > 0 || avoidTags.size > 0) ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
-                      >
-                        <Filter className="w-3 h-3" />
-                        {(requireTags.size > 0 || avoidTags.size > 0) ? `Filters (${requireTags.size + avoidTags.size})` : "Filters"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2" align="start">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between px-1 pb-1 border-b">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Filter Items</span>
-                          {(requireTags.size > 0 || avoidTags.size > 0) && (
-                            <Button variant="link" className="h-auto p-0 text-[10px]" onClick={() => { setRequireTags(new Set()); setAvoidTags(new Set()); }}>Clear</Button>
-                          )}
-                        </div>
-                        <div className="max-h-64 overflow-y-auto pt-1 space-y-1">
-                          {availableTags.map((tag) => {
-                            const config = iconConfigs[tag];
-                            const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
-                            const isRequired = requireTags.has(tag);
-                            const isAvoided = avoidTags.has(tag);
-                            
-                            let stateClass = "hover:bg-accent text-foreground";
-                            let iconColor = config ? config.color : "text-muted-foreground";
-                            if (isRequired) {
-                              stateClass = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
-                              iconColor = "text-emerald-600 dark:text-emerald-400";
-                            } else if (isAvoided) {
-                              stateClass = "bg-rose-500/10 text-rose-700 dark:text-rose-400";
-                              iconColor = "text-rose-600 dark:text-rose-400";
-                            }
-
-                            return (
-                              <button
-                                key={tag}
-                                className={`w-full flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${stateClass}`}
-                                onClick={() => {
-                                  if (!isRequired && !isAvoided) {
-                                    setRequireTags(prev => new Set(prev).add(tag));
-                                  } else if (isRequired) {
-                                    setRequireTags(prev => { const n = new Set(prev); n.delete(tag); return n; });
-                                    setAvoidTags(prev => new Set(prev).add(tag));
-                                  } else if (isAvoided) {
-                                    setAvoidTags(prev => { const n = new Set(prev); n.delete(tag); return n; });
-                                  }
-                                }}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
-                                  <span className="text-xs font-medium capitalize">
-                                    {config ? config.label : formatLabel(tag)}
-                                  </span>
-                                </div>
-                                {isRequired && <Plus className="w-3.5 h-3.5 opacity-70" />}
-                                {isAvoided && <Minus className="w-3.5 h-3.5 opacity-70" />}
-                              </button>
-                            );
-                          })}
-                          {availableTags.length === 0 && (
-                            <div className="text-xs text-muted-foreground text-center py-2">No tags found</div>
-                          )}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search items..."
-                  value={catalogFilter}
-                  onChange={(e) => setCatalogFilter(e.target.value)}
-                  className="h-8 text-xs pl-8"
-                />
-              </div>
-            </div>
-
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="p-2 space-y-1">
-                {Object.entries(groupedCatalog).map(([category, items]) => {
-                  const filteredItems = items.filter((i) => {
-                    if (
-                      catalogFilter &&
-                      !i.name.toLowerCase().includes(catalogFilter.toLowerCase()) &&
-                      !i.sku.toLowerCase().includes(catalogFilter.toLowerCase())
-                    ) {
-                      return false;
-                    }
-                    if (avoidTags.size > 0) {
-                      for (const a of i.allergens) {
-                        if (avoidTags.has(a)) return false;
-                      }
-                      for (const f of i.dietaryFlags) {
-                        if (avoidTags.has(f)) return false;
-                      }
-                    }
-                    if (requireTags.size > 0) {
-                      for (const tag of requireTags) {
-                        if (!i.allergens.includes(tag) && !i.dietaryFlags.includes(tag)) return false;
-                      }
-                    }
-                    return true;
-                  });
-
-                  if (filteredItems.length === 0) return null;
-
-                  return (
-                    <div key={category}>
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5 mt-1">
-                        {category}
-                      </div>
-                      {filteredItems.map((item) => (
-                        <Tooltip key={item.sku}>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => handleAddItem(item.sku)}
-                              className="w-full text-left rounded-lg px-2.5 py-2 hover:bg-accent transition-colors group flex justify-between items-center"
-                            >
-                              <div className="min-w-0 flex-1 flex flex-col">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                                    {item.name}
-                                  </span>
-                                  {(item.dietaryFlags.length > 0 || item.allergens.length > 0) && (
-                                    <div className="flex items-center gap-0.5 shrink-0">
-                                      {item.dietaryFlags.map((flag) => {
-                                        const config = iconConfigs[flag];
-                                        if (!config) return null;
-                                        const Icon = (LucideIcons as any)[config.icon] || LucideIcons.Info;
-                                        return <Icon key={flag} className={`w-3.5 h-3.5 ${config.color}`} />;
-                                      })}
-                                      {item.allergens.map((allergen) => {
-                                        const config = iconConfigs[allergen];
-                                        const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
-                                        const color = config ? config.color : "text-muted-foreground";
-                                        return <Icon key={allergen} className={`w-3.5 h-3.5 ${color}`} />;
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground font-mono">
-                                  {item.sku}
-                                </div>
-                              </div>
-                              <span className="font-mono text-xs font-semibold text-muted-foreground group-hover:text-foreground shrink-0 ml-2">
-                                ${item.basePrice.toFixed(2)}
-                              </span>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="text-xs">
-                            <div>{item.name}</div>
-                            <div className="text-muted-foreground">
-                              {item.sku}
-                            </div>
-                            {item.dietaryFlags.length > 0 && (
-                              <div className="text-emerald-500 mt-1">
-                                {item.dietaryFlags.map(f => iconConfigs[f]?.label || formatLabel(f)).join(", ")}
-                              </div>
-                            )}
-                            {item.allergens.length > 0 && (
-                              <div className="text-amber-500 mt-0.5">
-                                Contains: {item.allergens.map(a => iconConfigs[a]?.label || formatLabel(a)).join(", ")}
-                              </div>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </aside>
-
-          {/* ─── CENTER PANEL: Active Check Projection ────────────────── */}
-          <main className="flex-1 flex flex-col min-w-0">
-            {/* Financial Summary Bar */}
-            <div className="border-b bg-card px-6 py-3 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <h2 className="text-base font-bold">Active Check</h2>
-                <Badge variant="secondary" className="text-[10px]">
-                  <Layers className="w-2.5 h-2.5 mr-1" />
-                  {activeBranch()}
-                </Badge>
-                {isViewingHistory && (
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] text-amber-600 border-amber-300 bg-amber-50"
-                  >
-                    <Clock className="w-2.5 h-2.5 mr-1" />
-                    Viewing history
-                  </Badge>
-                )}
-
-                {/* Guest Filter Popover Grid */}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px] gap-1.5 ml-2 bg-background border hover:bg-accent"
-                    >
-                      <User className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>
-                        {visibleGuests.size === guests.length
-                          ? "All Guests"
-                          : visibleGuests.size === 0
-                            ? "No Guests"
-                            : `${visibleGuests.size}/${guests.length} Guests`}
-                      </span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3" align="start">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
-                          Filter Guests
-                        </span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="link"
-                            className="h-auto p-0 text-[10px] font-semibold text-primary hover:no-underline"
-                            onClick={() =>
-                              setVisibleGuests(new Set(guests.map((g) => g.id)))
-                            }
-                          >
-                            Select All
-                          </Button>
-                          <Button
-                            variant="link"
-                            className="h-auto p-0 text-[10px] font-semibold text-destructive hover:no-underline"
-                            onClick={() => setVisibleGuests(new Set())}
-                          >
-                            Clear All
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-                        {guests.map((g, idx) => {
-                          const isVisible = visibleGuests.has(g.id);
-                          const color =
-                            GUEST_PALETTE[idx % GUEST_PALETTE.length];
-                          return (
-                            <button
-                              key={g.id}
-                              onClick={() => {
-                                setVisibleGuests((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(g.id)) {
-                                    next.delete(g.id);
-                                  } else {
-                                    next.add(g.id);
-                                  }
-                                  return next;
-                                });
-                              }}
-                              className={`flex items-center gap-2 px-2.5 py-1.5 border rounded-lg text-left text-xs transition-all ${
-                                isVisible
-                                  ? "border-primary bg-primary/5 font-medium"
-                                  : "border-border bg-card opacity-60 hover:opacity-100"
-                              }`}
-                            >
-                              <div
-                                className={`w-2 h-2 rounded-full shrink-0 ${color}`}
-                              />
-                              <span className="truncate flex-1">
-                                {g.alias || `Guest ${g.number}`}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 ml-1 text-muted-foreground hover:bg-accent"
-                      onClick={toggleAllCollapsed}
-                    >
-                      <ChevronsUpDown className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {hasCollapsedItems
-                      ? "Expand all items"
-                      : "Collapse all items"}
-                  </TooltipContent>
-                </Tooltip>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 ml-1 text-muted-foreground hover:bg-accent relative"
-                    >
-                      <LayoutList className="w-4 h-4" />
-                      {hideCanceled && canceledCount > 0 && (
-                        <Badge
-                          variant="destructive"
-                          className="absolute -top-1.5 -right-1.5 h-4 min-w-4 flex items-center justify-center px-1 text-[8px] border-background"
-                        >
-                          {canceledCount}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-48 p-2" align="start">
-                    <div className="space-y-1 text-xs">
-                      <p className="font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1 text-[10px]">
-                        Item Detail Level
-                      </p>
-                      {(["simple", "balanced", "full"] as const).map(
-                        (level) => (
-                          <button
-                            key={level}
-                            onClick={() => setDetailLevel(level)}
-                            className={`w-full flex flex-col px-2 py-1.5 rounded transition-colors text-left ${
-                              detailLevel === level
-                                ? "bg-primary/10 text-primary"
-                                : "hover:bg-accent text-foreground"
-                            }`}
-                          >
-                            <span className="font-medium capitalize">
-                              {level}
-                            </span>
-                            <span className="text-[9px] opacity-70">
-                              {level === "simple" && "Hide SKUs & allocations"}
-                              {level === "balanced" && "Standard view"}
-                              {level === "full" && "Show SKUs & full details"}
-                            </span>
-                          </button>
-                        ),
-                      )}
-                      <div className="my-1 border-t" />
-                      <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors">
-                        <Checkbox
-                          checked={hideCanceled}
-                          onCheckedChange={(v) => setHideCanceled(!!v)}
-                          className="w-3.5 h-3.5"
-                        />
-                        <span className="font-medium text-foreground">
-                          Hide voided items
-                        </span>
-                        {canceledCount > 0 && (
-                          <span className="ml-auto text-[10px] font-mono font-medium text-destructive">
-                            ({canceledCount})
-                          </span>
-                        )}
-                      </label>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="flex items-center gap-4">
-                {(() => {
-                  const breakdown = projectedState.financials.personBreakdown;
-                  const nonZeroBreakdown = breakdown.filter(
-                    (pb) => pb.subtotal > 0 || pb.person === selectedPerson,
-                  );
-                  const sortedBreakdown = [...nonZeroBreakdown].sort((a, b) => {
-                    if (a.person === selectedPerson) return -1;
-                    if (b.person === selectedPerson) return 1;
-                    return b.subtotal - a.subtotal;
-                  });
-                  const MAX_VISIBLE = 3;
-                  const visibleBreakdowns = sortedBreakdown.slice(
-                    0,
-                    MAX_VISIBLE,
-                  );
-                  const hiddenBreakdowns = sortedBreakdown.slice(MAX_VISIBLE);
-
-                  return (
-                    <>
-                      {visibleBreakdowns.map((pb) => (
-                        <div key={pb.person} className="text-right">
-                          <div className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
-                            <div
-                              className={`w-1.5 h-1.5 rounded-full ${getGuestColor(pb.person, guests)}`}
-                            />
-                            <span className="truncate max-w-17.5">
-                              {resolveGuestName(pb.person)}
-                            </span>
-                          </div>
-                          <div className="font-mono font-bold text-sm tabular-nums">
-                            ${pb.subtotal.toFixed(2)}
-                          </div>
-                        </div>
-                      ))}
-                      {hiddenBreakdowns.length > 0 && (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 flex flex-col items-center justify-center gap-0.5 hover:bg-accent border border-muted"
-                            >
-                              <span className="text-[10px] text-muted-foreground leading-none">
-                                +{hiddenBreakdowns.length}
-                              </span>
-                              <span className="text-[8px] text-muted-foreground leading-none">
-                                more
-                              </span>
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-52 p-3" align="end">
-                            <div className="space-y-3">
-                              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                                Other Payers
-                              </h4>
-                              <div className="max-h-48 overflow-y-auto space-y-2">
-                                {hiddenBreakdowns.map((pb) => (
-                                  <div
-                                    key={pb.person}
-                                    className="flex justify-between items-center text-sm"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <div
-                                        className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(pb.person, guests)}`}
-                                      />
-                                      <span className="truncate max-w-30 text-xs font-medium">
-                                        {resolveGuestName(pb.person)}
-                                      </span>
-                                    </div>
-                                    <span className="font-mono font-semibold text-xs tabular-nums">
-                                      ${pb.subtotal.toFixed(2)}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      )}
-                    </>
-                  );
-                })()}
-                <SeparatorUI orientation="vertical" className="h-8" />
-                <div className="text-right">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                    Subtotal
-                  </div>
-                  <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-                    ${projectedState.financials.subtotal.toFixed(2)}
-                  </div>
-                </div>
-
-                {projectedState.financials.chargeTotal > 0 && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className="text-right hover:bg-accent px-1 rounded transition-colors cursor-pointer flex flex-col items-end">
-                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1">
-                          Tax & Fees <ChevronDown className="w-2.5 h-2.5" />
-                        </div>
-                        <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-                          ${projectedState.financials.chargeTotal.toFixed(2)}
-                        </div>
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-3" align="end">
-                      <div className="space-y-2">
-                        <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          Charge Breakdown
-                        </h4>
-                        <div className="space-y-1">
-                          {projectedState.financials.chargeBreakdown.map(
-                            (charge, idx) => (
-                              <div
-                                key={idx}
-                                className="flex justify-between items-center text-xs"
-                              >
-                                <span className="truncate pr-2 text-muted-foreground">
-                                  {charge.label}
-                                </span>
-                                <span className="font-mono font-medium tabular-nums">
-                                  ${charge.chargeAmount.toFixed(2)}
-                                </span>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
-
-                <div className="text-right bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
-                  <div className="text-[10px] text-primary/80 uppercase tracking-wider font-bold">
-                    Total
-                  </div>
-                  <div className="font-mono font-bold text-lg tabular-nums text-primary leading-tight">
-                    ${projectedState.financials.grandTotal.toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Read-Only Warning */}
-            {(currentBranchName === mainBranchName || isMergedToMain) &&
-              !isViewingHistory && (
-                <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-900/50 px-6 py-2.5 flex items-start gap-2.5 shrink-0">
-                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                    <strong className="font-semibold uppercase tracking-wider text-[10px] mr-1.5">
-                      {currentBranchName === mainBranchName
-                        ? "Read-Only Trunk:"
-                        : "Merged Branch:"}
-                    </strong>
-                    {currentBranchName === mainBranchName
-                      ? "Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger."
-                      : "This branch has already been merged into main and is read-only. Any modifications made here will automatically create a new draft branch."}
-                  </p>
-                </div>
-              )}
-
-            {/* Cart Items */}
-            <div ref={checklistRef} className="flex-1 overflow-y-auto">
-              {filteredRootItems.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-muted-foreground/50">
-                  <ShoppingCart className="w-12 h-12 mb-3" />
-                  <p className="text-sm font-medium">No items in check</p>
-                  <p className="text-xs mt-1">
-                    Select items from the catalog to begin
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 space-y-2">
-                  {filteredRootItems.map((item) => (
-                    <LineItemNode
-                      key={item.lineId}
-                      item={item}
-                      allocations={resolvedAllocations}
-                      defaultPaymentAllocId={defaultPaymentAllocId}
-                      onRemove={removeItem}
-                      onAddModifier={handleOpenModifierDialog}
-                      onAddNote={handleOpenNoteDialog}
-                      onAllocConfig={handleAllocConfig}
-                      onSwapComboChoice={handleOpenSwapDialog}
-                      depth={0}
-                      modifiers={modifierItems}
-                      guests={guests}
-                      isSelected={selectedLineIds.has(item.lineId)}
-                      onSelectToggle={handleSelectToggle}
-                      isCollapsed={collapsedItems.has(item.lineId)}
-                      onToggleCollapse={handleToggleCollapse}
-                      collapsedItems={collapsedItems}
-                      detailLevel={detailLevel}
-                      hideCanceled={hideCanceled}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Bulk Actions Bar */}
-            {selectedLineIds.size > 0 && (
-              <div
-                ref={bulkActionsBarRef}
-                className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex flex-col gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={
-                        selectedLineIds.size > 0 &&
-                        selectedLineIds.size === filteredRootItems.length
-                      }
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedLineIds(
-                            new Set(filteredRootItems.map((i) => i.lineId)),
-                          );
-                        } else {
-                          setSelectedLineIds(new Set());
-                        }
-                      }}
-                    />
-                    <span className="text-xs font-semibold text-foreground select-none">
-                      {selectedLineIds.size} selected
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
-                    onClick={() => setSelectedLineIds(new Set())}
-                  >
-                    <XCircle className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  {/* QTY Group */}
-                  <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                      Qty
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => {
-                        modifyItemsQty(Array.from(selectedLineIds), -1);
-                        toast.success("Selected items quantity decreased");
-                      }}
-                    >
-                      <Minus className="w-3.5 h-3.5 mr-1" />- 1
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => {
-                        modifyItemsQty(Array.from(selectedLineIds), 1);
-                        toast.success("Selected items quantity increased");
-                      }}
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" />+ 1
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => setQtyPadOpen(true)}
-                    >
-                      Set Qty
-                    </Button>
-                  </div>
-
-                  {/* ACTION Group */}
-                  <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                      Action
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => {
-                        duplicateItems(Array.from(selectedLineIds));
-                        toast.success("Selected items duplicated");
-                      }}
-                    >
-                      <Copy className="w-3.5 h-3.5 mr-1" />
-                      Duplicate
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => setDupMoveDialogOpen(true)}
-                    >
-                      Dup & Move
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium hover:bg-destructive/90"
-                      onClick={() => {
-                        removeItems(Array.from(selectedLineIds));
-                        setSelectedLineIds(new Set());
-                        toast.success("Selected items removed");
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      Remove
-                    </Button>
-                  </div>
-
-                  {/* ASSIGN Group */}
-                  <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                      Assign
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => setAssignGuestDialogOpen(true)}
-                    >
-                      Guest
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => {
-                        const selectedItems = Array.from(selectedLineIds)
-                          .map((id) => projectedState.items[id])
-                          .filter(Boolean);
-                        setPaymentAllocationItems(selectedItems);
-                        setPaymentAllocationContext("group");
-                        setPaymentAllocationOpen(true);
-                      }}
-                    >
-                      Payment
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                      onClick={() => {
-                        const selectedItems = Array.from(selectedLineIds)
-                          .map((id) => projectedState.items[id])
-                          .filter(Boolean);
-                        setFulfillmentAllocationItems(selectedItems);
-                        setFulfillmentAllocationContext("group");
-                        setFulfillmentAllocationOpen(true);
-                      }}
-                    >
-                      Fulfillment
-                    </Button>
-                  </div>
-
-                  {/* MODIFIERS Group */}
-                  {(compatibleModifiers.length > 0 ||
-                    activeModifiersOnSelected.length > 0) && (
-                    <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                        Mods
-                      </span>
-                      {compatibleModifiers.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-primary hover:bg-primary/5 gap-1"
-                          onClick={() => {
-                            setModifierAddItem(null);
-                            setModifierAddOpen(true);
-                          }}
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Add
-                        </Button>
-                      )}
-                      {activeModifiersOnSelected.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-destructive hover:bg-destructive/5 gap-1"
-                          onClick={() => setRemoveModDialogOpen(true)}
-                        >
-                          <Minus className="w-3.5 h-3.5" /> Remove
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </main>
-
-          {/* ─── RIGHT PANEL: Commit Ledger (DAG) ─────────────────────── */}
-          <aside
-            className={`border-l bg-card flex flex-col shrink-0 transition-all duration-200 ${
-              isLedgerCollapsed ? "w-12" : "w-72"
-            }`}
-          >
-            <div className="p-3 border-b flex items-center justify-between gap-2">
-              {!isLedgerCollapsed && (
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <GitCommitHorizontal className="w-3.5 h-3.5" />
-                  Ledger
-                </h2>
-              )}
-              <div className="flex items-center gap-1">
-                {!isLedgerCollapsed && (
-                  <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                    {log.length}
-                  </Badge>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  onClick={() => setIsLedgerCollapsed((prev) => !prev)}
-                  title={
-                    isLedgerCollapsed ? "Expand ledger" : "Minimize ledger"
-                  }
-                >
-                  {isLedgerCollapsed ? (
-                    <PanelRightOpen className="w-3.5 h-3.5" />
-                  ) : (
-                    <PanelRightClose className="w-3.5 h-3.5" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {!isLedgerCollapsed && (
-              <>
-                {isViewingHistory && (
-                  <div className="px-3 py-2 border-b bg-amber-50 dark:bg-amber-950/20 flex items-center justify-between gap-2">
-                    <span className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1 font-medium">
-                      <AlertCircle className="w-3 h-3" />
-                      Time-traveling
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-5 text-[10px] px-2 text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 shrink-0"
-                      onClick={() => viewRevision(null)}
-                    >
-                      <RotateCcw className="w-2.5 h-2.5 mr-0.5" />
-                      Back to HEAD
-                    </Button>
-                  </div>
-                )}
-
-                <ScrollArea className="flex-1 min-h-0">
-                  {log.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground/50">
-                      <GitCommitHorizontal className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-xs">No commits yet</p>
-                    </div>
-                  ) : (
-                    <div className="relative flex min-h-full">
-                      {/* Left panel: SVG Commit Graph */}
-                      <div
-                        style={{ width: graphData.width }}
-                        className="relative shrink-0 select-none overflow-hidden"
-                      >
-                        <svg
-                          width={graphData.width}
-                          height={graphData.height}
-                          className="absolute top-0 left-0"
-                        >
-                          {/* Render Connecting Lines */}
-                          {graphData.lines.map((line) => (
-                            <g key={line.id}>
-                              {line.isMain && (
-                                <line
-                                  x1={line.startX}
-                                  y1={line.startY}
-                                  x2={line.endX}
-                                  y2={line.endY}
-                                  stroke={line.color}
-                                  strokeWidth={6}
-                                  strokeOpacity={0.2}
-                                  strokeLinecap="round"
-                                />
-                              )}
-                              <line
-                                x1={line.startX}
-                                y1={line.startY}
-                                x2={line.endX}
-                                y2={line.endY}
-                                stroke={line.color}
-                                strokeWidth={line.isMain ? 3 : 2}
-                                strokeLinecap="round"
-                                strokeDasharray={
-                                  line.dashed ? "4,4" : undefined
-                                }
-                              />
-                            </g>
-                          ))}
-                          {/* Render Node Dots */}
-                          {graphData.nodes.map((node) => {
-                            const isActive =
-                              viewingHash === node.commitHash ||
-                              (viewingHash === null &&
-                                node.commitHash === headHash());
-                            return (
-                              <g key={node.commitHash}>
-                                {isActive && (
-                                  <circle
-                                    cx={node.x}
-                                    cy={node.y}
-                                    r={7}
-                                    fill="none"
-                                    stroke={node.color}
-                                    strokeWidth={1.5}
-                                    className="animate-pulse"
-                                  />
-                                )}
-                                <circle
-                                  cx={node.x}
-                                  cy={node.y}
-                                  r={isActive ? 4.5 : 3.5}
-                                  fill={node.color}
-                                  className="transition-all duration-200"
-                                />
-                              </g>
-                            );
-                          })}
-                        </svg>
-                      </div>
-
-                      {/* Right panel: Commit List */}
-                      <div className="flex-1 min-w-0 pr-2">
-                        {log.map((commit, idx) => {
-                          const isActive =
-                            viewingHash === commit.commitHash ||
-                            (viewingHash === null &&
-                              commit.commitHash === headHash());
-                          const isAI = commit.authorId === "ai-agent";
-                          const isSystem = commit.authorId === "system-init";
-                          const isSquash = commit.authorId === "pos-squash";
-                          const isExpanded = expandedCommits.has(
-                            commit.commitHash,
-                          );
-                          const node = graphData.nodes[idx];
-                          // A commit is confirmed if it has merge parents or is system-init,
-                          // or is an ancestor of such a commit.
-                          const isHead = commit.commitHash === headHash();
-                          const isConfirmed = !!(
-                            confirmedHash &&
-                            (commit.commitHash === confirmedHash ||
-                              engine.isAncestorOf(
-                                commit.commitHash,
-                                confirmedHash,
-                              ))
-                          );
-
-                          return (
-                            <div
-                              key={commit.commitHash}
-                              style={{ height: node.rowHeight }}
-                              className="flex flex-col justify-start py-0.75 group/commit"
-                            >
-                              <div
-                                onClick={() => viewRevision(commit.commitHash)}
-                                className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-12.5 relative ${
-                                  isActive
-                                    ? "border-primary bg-primary/5 shadow-xs"
-                                    : "border-transparent hover:border-border hover:bg-accent/40"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="font-mono text-[9px] font-semibold text-muted-foreground truncate max-w-12.5">
-                                    {commit.commitHash.substring(0, 7)}
-                                  </span>
-                                  <Badge
-                                    variant={
-                                      isAI
-                                        ? "default"
-                                        : isSystem
-                                          ? "secondary"
-                                          : "secondary"
-                                    }
-                                    className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${
-                                      isAI
-                                        ? "bg-amber-500 text-white hover:bg-amber-500"
-                                        : isSystem
-                                          ? "bg-muted text-muted-foreground"
-                                          : isSquash
-                                            ? "bg-sky-500 text-white hover:bg-sky-500"
-                                            : ""
-                                    }`}
-                                  >
-                                    {isSquash
-                                      ? "squash"
-                                      : commit.authorId.split("-")[0]}
-                                  </Badge>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleCommitExpanded(commit.commitHash);
-                                    }}
-                                    className="p-0.5 rounded hover:bg-muted shrink-0 ml-auto"
-                                    title="Toggle details"
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                                    ) : (
-                                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                                    )}
-                                  </button>
-                                </div>
-                                <div className="flex items-center justify-between text-[8px] text-muted-foreground/75 mt-0.5 font-mono">
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge
-                                          variant="outline"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (
-                                              activeBranch() !== commit.branch
-                                            ) {
-                                              checkoutBranch(commit.branch);
-                                              toast.success(
-                                                `Switched active branch to "${commit.branch}"`,
-                                              );
-                                            }
-                                          }}
-                                          className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${
-                                            activeBranch() === commit.branch
-                                              ? "border-primary text-primary bg-primary/5 ring-[0.5px] ring-primary/20"
-                                              : branches[commit.branch]
-                                                    ?.type === "hypothetical"
-                                                ? "border-amber-400/40 text-amber-600 bg-amber-500/4 hover:bg-amber-500/10 hover:border-amber-500"
-                                                : "border-emerald-400/40 text-emerald-600 bg-emerald-500/4 hover:bg-emerald-500/10 hover:border-emerald-500"
-                                          }`}
-                                        >
-                                          {branches[commit.branch]?.type ===
-                                          "hypothetical" ? (
-                                            <Lightbulb className="w-2.5 h-2.5" />
-                                          ) : (
-                                            <GitBranch className="w-2.5 h-2.5" />
-                                          )}
-                                          <span className="truncate max-w-15">
-                                            {branches[commit.branch]?.label ||
-                                              commit.branch}
-                                          </span>
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="text-[10px]"
-                                      >
-                                        {activeBranch() === commit.branch
-                                          ? `Current active branch: ${commit.branch}`
-                                          : `Click to switch active branch to "${commit.branch}"`}
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-
-                                  <span>
-                                    {new Date(
-                                      commit.timestamp,
-                                    ).toLocaleTimeString([], {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                      second: "2-digit",
-                                    })}
-                                  </span>
-                                </div>
-
-                                {/* Per-commit hover actions for non-confirmed, non-HEAD commits */}
-                                {!isConfirmed &&
-                                  !isHead &&
-                                  !commit.authorId.startsWith("system-") && (
-                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover/commit:opacity-100 transition-opacity pointer-events-none group-hover/commit:pointer-events-auto">
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                // squash = collapse this commit up to HEAD
-                                                setHistoryOpDialog({
-                                                  type: "squash",
-                                                  targetHash: commit.commitHash,
-                                                  label: "Squash to HEAD",
-                                                  description: `Collapse the pending commits from ${commit.commitHash.substring(0, 7)} up to HEAD into a single commit. Confirmed history is preserved.`,
-                                                });
-                                              }}
-                                              className="h-5 w-5 rounded flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 border border-sky-500/20"
-                                              title="Squash to HEAD"
-                                            >
-                                              <ChevronsUpDown className="w-3 h-3" />
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent
-                                            side="left"
-                                            className="text-[10px]"
-                                          >
-                                            Squash from here to HEAD
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setHistoryOpDialog({
-                                                  type: "reset",
-                                                  targetHash: commit.commitHash,
-                                                  label: "Reset to here",
-                                                  description: `Reset the branch HEAD to ${commit.commitHash.substring(0, 7)}, discarding all pending commits after it. Confirmed history is preserved.`,
-                                                });
-                                              }}
-                                              className="h-5 w-5 rounded flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20"
-                                              title="Reset to here"
-                                            >
-                                              <Eraser className="w-3 h-3" />
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent
-                                            side="left"
-                                            className="text-[10px]"
-                                          >
-                                            Reset branch to here
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </div>
-                                  )}
-                              </div>
-
-                              {/* Expanded Deltas details list */}
-                              {isExpanded && (
-                                <div className="mt-1 pl-2 pr-1 space-y-1 overflow-y-auto max-h-45 border-l-2 border-primary/20 ml-2 animate-in fade-in duration-100">
-                                  {commit.deltas.map((d, i) => (
-                                    <div
-                                      key={i}
-                                      className="text-[9px] text-muted-foreground flex items-center gap-1.5"
-                                    >
-                                      <span
-                                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                          d.action === "declare_allocation"
-                                            ? "bg-violet-500"
-                                            : d.action === "add_item"
-                                              ? "bg-emerald-500"
-                                              : d.action === "remove_item"
-                                                ? "bg-red-500"
-                                                : d.action.startsWith("modify")
-                                                  ? "bg-amber-500"
-                                                  : "bg-sky-500"
-                                        }`}
-                                      />
-                                      <span className="font-mono font-medium truncate shrink-0">
-                                        {d.action}
-                                      </span>
-                                      {"sku" in d && d.sku && (
-                                        <span className="truncate text-muted-foreground/60 font-mono">
-                                          {String(d.sku)}
-                                        </span>
-                                      )}
-                                      {d.action === "modify_item_allocations" &&
-                                        "lineId" in d && (
-                                          <span className="truncate text-muted-foreground/60 font-mono">
-                                            {(
-                                              d as { lineId: string }
-                                            ).lineId.substring(0, 8)}
-                                          </span>
-                                        )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </ScrollArea>
-              </>
-            )}
-
-            {/* Sync Status */}
-            <div className="p-3 border-t">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Offline-ready
-                </span>
-                <span>{log.length} local commits</span>
-              </div>
-            </div>
-          </aside>
+          <CatalogPanel
+            catalogItems={catalogItems}
+            groupedCatalog={groupedCatalog}
+            availableTags={availableTags}
+            iconConfigs={iconConfigs}
+            onAddItem={handleAddItem}
+          />
+          <ActiveCheckPanel
+            activeBranch={activeBranch()}
+            mainBranchName={mainBranchName}
+            isMergedToMain={isMergedToMain}
+            isViewingHistory={isViewingHistory}
+            projectedState={projectedState}
+            guests={guests}
+            resolveGuestName={resolveGuestName}
+            visibleGuests={visibleGuests}
+            setVisibleGuests={setVisibleGuests}
+            toggleAllCollapsed={toggleAllCollapsed}
+            hasCollapsedItems={hasCollapsedItems}
+            hideCanceled={hideCanceled}
+            setHideCanceled={setHideCanceled}
+            canceledCount={canceledCount}
+            detailLevel={detailLevel}
+            setDetailLevel={setDetailLevel}
+            selectedPerson={selectedPerson}
+            filteredRootItems={filteredRootItems}
+            resolvedAllocations={resolvedAllocations}
+            defaultPaymentAllocId={defaultPaymentAllocId}
+            removeItem={removeItem}
+            handleOpenModifierDialog={handleOpenModifierDialog}
+            handleOpenNoteDialog={handleOpenNoteDialog}
+            handleAllocConfig={handleAllocConfig}
+            handleOpenSwapDialog={handleOpenSwapDialog}
+            modifierItems={modifierItems}
+            selectedLineIds={selectedLineIds}
+            setSelectedLineIds={setSelectedLineIds}
+            handleSelectToggle={handleSelectToggle}
+            collapsedItems={collapsedItems}
+            handleToggleCollapse={handleToggleCollapse}
+            checklistRef={checklistRef}
+            bulkActionsBarRef={bulkActionsBarRef}
+            modifyItemsQty={modifyItemsQty}
+            setQtyPadOpen={setQtyPadOpen}
+            duplicateItems={duplicateItems}
+            setDupMoveDialogOpen={setDupMoveDialogOpen}
+            removeItems={removeItems}
+            setAssignGuestDialogOpen={setAssignGuestDialogOpen}
+            setPaymentAllocationItems={setPaymentAllocationItems}
+            setPaymentAllocationContext={setPaymentAllocationContext}
+            setPaymentAllocationOpen={setPaymentAllocationOpen}
+            setFulfillmentAllocationItems={setFulfillmentAllocationItems}
+            setFulfillmentAllocationContext={setFulfillmentAllocationContext}
+            setFulfillmentAllocationOpen={setFulfillmentAllocationOpen}
+            compatibleModifiers={compatibleModifiers}
+            setModifierAddItem={setModifierAddItem}
+            setModifierAddOpen={setModifierAddOpen}
+            activeModifiersOnSelected={activeModifiersOnSelected}
+            setRemoveModDialogOpen={setRemoveModDialogOpen}
+          />
+          <CommitLedgerPanel
+            isLedgerCollapsed={isLedgerCollapsed}
+            setIsLedgerCollapsed={setIsLedgerCollapsed}
+            log={log}
+            viewingHash={viewingHash}
+            headHash={headHash()}
+            isViewingHistory={isViewingHistory}
+            viewRevision={viewRevision}
+            graphData={graphData}
+            expandedCommits={expandedCommits}
+            toggleCommitExpanded={toggleCommitExpanded}
+            checkoutBranch={checkoutBranch}
+            activeBranch={activeBranch()}
+            branches={branches}
+            setHistoryOpDialog={setHistoryOpDialog}
+            engine={engine}
+            confirmedHash={confirmedHash}
+          />
         </div>
 
         {/* ─── Footer ──────────────────────────────────────────────────── */}
@@ -2830,58 +1379,16 @@ function POSTerminalInner() {
         </footer>
       </div>
 
-      {/* ─── History Op Confirm Dialog ───────────────────────────────────── */}
-      <Dialog
+      {/* ─── Dialogs ─────────────────────────────────────────────────── */}
+      <HistoryOpDialog
         open={!!historyOpDialog}
         onOpenChange={(open) => {
           if (!open) setHistoryOpDialog(null);
         }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {historyOpDialog?.type === "squash" ? (
-                <ChevronsUpDown className="w-4 h-4 text-sky-500" />
-              ) : (
-                <Eraser className="w-4 h-4 text-rose-500" />
-              )}
-              {historyOpDialog?.label}
-            </DialogTitle>
-            <DialogDescription className="text-xs leading-relaxed">
-              {historyOpDialog?.description}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-1">
-            <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2 flex items-start gap-2">
-              <Lock className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" />
-              Confirmed orders are never modified. Only pending (unconfirmed)
-              commits are affected.
-            </p>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setHistoryOpDialog(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              variant={
-                historyOpDialog?.type === "reset" ? "destructive" : "default"
-              }
-              onClick={handleConfirmHistoryOp}
-            >
-              {historyOpDialog?.type === "squash"
-                ? "Squash Commits"
-                : "Reset Branch"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        operation={historyOpDialog}
+        onConfirm={handleConfirmHistoryOp}
+      />
 
-      {/* ─── Allocation Config Dialog ───────────────────────────────────── */}
       <AllocationConfigDialog
         open={!!allocConfigItem}
         onOpenChange={(open) => {
@@ -2908,7 +1415,6 @@ function POSTerminalInner() {
         initiatedAt={orderContext?.initiatedAt}
       />
 
-      {/* ─── Unified Payment Allocation Dialog ──────────────────────────── */}
       <PaymentAllocationDialog
         open={paymentAllocationOpen}
         onOpenChange={setPaymentAllocationOpen}
@@ -2939,22 +1445,21 @@ function POSTerminalInner() {
             );
             setSelectedLineIds(new Set());
           } else {
-            // header context
             if (configIdOrMethod.startsWith("group-default-")) {
-              const m = configIdOrMethod.replace("group-default-", "");
-              changeDefaultPayment(m, mode as "change-existing" | "new-only");
+              changeDefaultPayment(
+                configIdOrMethod.replace("group-default-", ""),
+                mode as "change-existing" | "new-only",
+              );
             } else {
               selectPaymentConfig(
                 configIdOrMethod,
                 mode as "change-existing" | "new-only",
               );
             }
-            // Resolve display name: check paymentConfigs first, then derive from allocations
             let targetName = configIdOrMethod.startsWith("group-default-")
               ? `${customerName} (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
               : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name;
             if (!targetName) {
-              // Guest-specific config: find an allocation in the group
               const representativeAlloc = Object.values(
                 projectedState.allocations,
               ).find(
@@ -2965,10 +1470,7 @@ function POSTerminalInner() {
                       configIdOrMethod),
               ) as PaymentAllocation | undefined;
               if (representativeAlloc) {
-                const methodLabel = (
-                  representativeAlloc.method || ""
-                ).toUpperCase();
-                targetName = `${resolveGuestName(representativeAlloc.payer)} (${methodLabel})`;
+                targetName = `${resolveGuestName(representativeAlloc.payer)} (${(representativeAlloc.method || "").toUpperCase()})`;
               } else {
                 targetName = "Selected Config";
               }
@@ -2998,14 +1500,11 @@ function POSTerminalInner() {
             );
             setSelectedLineIds(new Set());
           } else {
-            // header context
             const corrId = createTableSplitConfig(splits);
             selectPaymentConfig(corrId, mode as "change-existing" | "new-only");
-            if (mode === "change-existing") {
+            if (mode === "change-existing")
               toast.success("Custom split applied to all existing items");
-            } else {
-              toast.success("Custom split set as default for new items");
-            }
+            else toast.success("Custom split set as default for new items");
           }
         }}
         onAddGuest={handleAddGuestFromDialog}
@@ -3034,7 +1533,6 @@ function POSTerminalInner() {
               ? `Table ${orderContext.tableConfigId}`
               : "Guest";
             const destinationId = orderContext?.tableConfigId || null;
-
             const newFulAlloc: FulfillmentAllocation = {
               allocationId: newFulId,
               type: "fulfillment",
@@ -3043,19 +1541,14 @@ function POSTerminalInner() {
                 type: config.timeType,
                 calculatedAt: config.calculatedAt,
               },
-              fulfillmentMetadata: {
-                destinationLabel,
-                destinationId,
-              },
+              fulfillmentMetadata: { destinationLabel, destinationId },
             };
-
             const targetItemIds = fulfillmentAllocationItems.map(
               (i) => i.lineId,
             );
             const deltas: Delta[] = [
               { action: "declare_allocation", allocation: newFulAlloc },
             ];
-
             for (const lineId of targetItemIds) {
               const item = projectedState.items[lineId];
               if (item) {
@@ -3071,21 +1564,18 @@ function POSTerminalInner() {
                 });
               }
             }
-
             useVCSStore.getState().commitDeltas(deltas, "pos-ui");
             toast.success(
               `Fulfillment updated for ${fulfillmentAllocationItems.length} items`,
             );
             setSelectedLineIds(new Set());
           } else {
-            // global context
             const newFulId = generateAllocationId("default-fulfillment");
             const method = orderContext?.orderType || "dine_in";
             const destinationLabel = orderContext?.tableConfigId
               ? `Table ${orderContext.tableConfigId}`
               : "Guest";
             const destinationId = orderContext?.tableConfigId || null;
-
             const newFulAlloc: FulfillmentAllocation = {
               allocationId: newFulId,
               type: "fulfillment",
@@ -3094,27 +1584,20 @@ function POSTerminalInner() {
                 type: config.timeType,
                 calculatedAt: config.calculatedAt,
               },
-              fulfillmentMetadata: {
-                destinationLabel,
-                destinationId,
-              },
+              fulfillmentMetadata: { destinationLabel, destinationId },
             };
-
             const deltas: Delta[] = [
               { action: "declare_allocation", allocation: newFulAlloc },
             ];
             useVCSStore.getState().commitDeltas(deltas, "pos-ui");
-
             selectFulfillmentConfig(
               newFulId,
               mode as "change-existing" | "new-only",
             );
-
             const timeLabel =
               config.timeType === "immediate"
                 ? "On Confirmation"
                 : `Scheduled @ ${formatFulfillmentTime(config.calculatedAt!, orderContext?.initiatedAt)}`;
-
             if (mode === "change-existing") {
               toast.success(
                 `Default fulfillment switched to ${timeLabel} for all items`,
@@ -3128,409 +1611,38 @@ function POSTerminalInner() {
         }}
       />
 
-      <Dialog
+      <AddGuestDialog
         open={addGuestOpen}
-        onOpenChange={(open) => {
-          setAddGuestOpen(open);
-          if (!open) {
-            setAddGuestCount(1);
-            setAddGuestAlias("");
-            setAddGuestDescription("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-primary" />
-              Add Guests
-            </DialogTitle>
-            <DialogDescription>
-              Add one or more guests to the order. Guests are automatically
-              numbered.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Number of guests to add
-              </label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() =>
-                    setAddGuestCount(Math.max(1, addGuestCount - 1))
-                  }
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </Button>
-                <Input
-                  type="number"
-                  value={addGuestCount}
-                  onChange={(e) =>
-                    setAddGuestCount(Math.max(1, parseInt(e.target.value) || 1))
-                  }
-                  className="h-8 w-20 text-center text-xs font-mono"
-                  min={1}
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setAddGuestCount(addGuestCount + 1)}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            {addGuestCount === 1 && (
-              <>
-                <div className="space-y-1.5 mt-4">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Alias / Name (Optional)
-                  </label>
-                  <Input
-                    autoFocus
-                    value={addGuestAlias}
-                    onChange={(e) => setAddGuestAlias(e.target.value)}
-                    placeholder="e.g. John"
-                    className="h-9 text-xs"
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setAddGuestOpen(false);
-                      }
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSubmitAddGuest();
-                      }
-                    }}
-                  />
-                </div>
-                <div className="space-y-1.5 mt-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Description / Details (Optional)
-                  </label>
-                  <Input
-                    value={addGuestDescription}
-                    onChange={(e) => setAddGuestDescription(e.target.value)}
-                    placeholder="e.g. Allergy: Peanut, or Host"
-                    className="h-9 text-xs"
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setAddGuestOpen(false);
-                      }
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSubmitAddGuest();
-                      }
-                    }}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAddGuestOpen(false);
-                setAddGuestCount(1);
-                setAddGuestAlias("");
-                setAddGuestDescription("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSubmitAddGuest}>
-              Add {addGuestCount} Guest{addGuestCount !== 1 ? "s" : ""}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
+        onOpenChange={setAddGuestOpen}
+        guests={guests}
+        onAddGuests={addGuests}
+      />
+      <GuestPickerDialog
         open={guestPickerOpen}
-        onOpenChange={(open) => {
-          setGuestPickerOpen(open);
-          if (!open) setGuestSearchQuery("");
+        onOpenChange={setGuestPickerOpen}
+        guests={guests}
+        selectedPerson={selectedPerson}
+        onSelectPerson={setSelectedPerson}
+        onEditGuest={(g: any) => {
+          setGuestToEdit(g);
+          setEditGuestOpen(true);
         }}
-      >
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="w-5 h-5 text-primary" />
-              Select Guest
-            </DialogTitle>
-            <DialogDescription>
-              Choose a guest from the grid or add a new one if they are not
-              listed.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="relative">
-            <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              autoFocus
-              value={guestSearchQuery}
-              onChange={(e) => setGuestSearchQuery(e.target.value)}
-              placeholder="Search guests..."
-              className="pl-9"
-            />
-          </div>
-
-          <ScrollArea className="max-h-[52vh] pr-2">
-            {filteredGuests.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                No guests match "{guestSearchQuery.trim()}".
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                {filteredGuests.map((guest) => {
-                  const idx = guests.findIndex((g) => g.id === guest.id);
-                  const color = GUEST_PALETTE[idx % GUEST_PALETTE.length];
-                  const isActive = selectedPerson === guest.id;
-                  const displayName = guest.alias || `Guest ${guest.number}`;
-                  return (
-                    <div
-                      key={guest.id}
-                      onClick={() => {
-                        setSelectedPerson(guest.id);
-                        setGuestPickerOpen(false);
-                      }}
-                      className={`relative group flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 cursor-pointer ${
-                        isActive ? "border-primary bg-primary/5" : "bg-card"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setGuestToEdit(guest);
-                            setEditGuestAlias(guest.alias || "");
-                            setEditGuestDescription(guest.description || "");
-                            setEditGuestOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                      </div>
-                      <span className="w-full truncate text-sm font-semibold">
-                        {displayName}
-                      </span>
-                      {guest.description && (
-                        <span className="text-[10px] text-muted-foreground/85 italic mt-0.5 truncate w-full">
-                          {guest.description}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-muted-foreground mt-0.5">
-                        {guest.id === guests[0]?.id
-                          ? "Primary guest"
-                          : `Guest ${guest.number}`}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </ScrollArea>
-
-          <DialogFooter className="gap-2 sm:justify-between">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setGuestPickerOpen(false);
-                setGuestSearchQuery("");
-              }}
-            >
-              Close
-            </Button>
-            <Button
-              onClick={() => {
-                setGuestPickerOpen(false);
-                setGuestSearchQuery("");
-                handleOpenAddGuestDialog();
-              }}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              Add Guest
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Edit Guest Dialog ────────────────────────────────────────── */}
-      <Dialog
+        onOpenAddGuest={handleOpenAddGuestDialog}
+      />
+      <EditGuestDialog
         open={editGuestOpen}
-        onOpenChange={(open) => {
-          setEditGuestOpen(open);
-          if (!open) {
-            setGuestToEdit(null);
-            setEditGuestAlias("");
-            setEditGuestDescription("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-5 h-5 text-primary" />
-              Edit Guest
-            </DialogTitle>
-            <DialogDescription>
-              Update the name alias and description details for Guest{" "}
-              {guestToEdit?.number}.
-            </DialogDescription>
-          </DialogHeader>
+        onOpenChange={setEditGuestOpen}
+        guestToEdit={guestToEdit}
+        onSave={handleSaveRenameGuest}
+      />
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label
-                htmlFor="rename-guest-input"
-                className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
-              >
-                Guest Name (Alias)
-              </label>
-              <Input
-                id="rename-guest-input"
-                autoFocus
-                value={editGuestAlias}
-                onChange={(e) => setEditGuestAlias(e.target.value)}
-                placeholder={`Guest ${guestToEdit?.number}`}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSaveRenameGuest();
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="edit-guest-description-input"
-                className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
-              >
-                Description / Details (Optional)
-              </label>
-              <Input
-                id="edit-guest-description-input"
-                value={editGuestDescription}
-                onChange={(e) => setEditGuestDescription(e.target.value)}
-                placeholder="e.g. Allergy: Peanut, or Host"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSaveRenameGuest();
-                  }
-                }}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEditGuestOpen(false);
-                setGuestToEdit(null);
-                setEditGuestAlias("");
-                setEditGuestDescription("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveRenameGuest}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
+      <NoteDialog
         open={noteDialogOpen}
-        onOpenChange={(open) => {
-          setNoteDialogOpen(open);
-          if (!open) setNoteText("");
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="w-5 h-5 text-primary" />
-              {noteItem?.sku === "custom_note" ? "Edit Note" : "Add Note"}
-            </DialogTitle>
-            <DialogDescription>
-              {noteItem?.sku === "custom_note"
-                ? "Edit the custom note."
-                : "Add a custom note to this item."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 py-2">
-            <Textarea
-              autoFocus
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Enter note here..."
-              className="min-h-24 resize-none text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setNoteDialogOpen(false);
-                  setNoteText("");
-                }
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  handleAddNote();
-                }
-              }}
-            />
-            <div className="text-[10px] text-muted-foreground">
-              Tip: press{" "}
-              <span className="font-medium text-foreground">Ctrl+Enter</span> or{" "}
-              <span className="font-medium text-foreground">Cmd+Enter</span> to
-              save.
-            </div>
-
-            {isComboChildItem && noteItem?.sku !== "custom_note" && (
-              <div className="flex items-center gap-2 pt-2">
-                <Checkbox
-                  id="link-to-base-checkbox"
-                  checked={linkNoteToComboBase}
-                  onCheckedChange={(checked) =>
-                    setLinkNoteToComboBase(!!checked)
-                  }
-                />
-                <label
-                  htmlFor="link-to-base-checkbox"
-                  className="text-xs font-semibold leading-none cursor-pointer select-none text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Apply note to combo base (will not be deleted if item is
-                  swapped)
-                </label>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNoteDialogOpen(false);
-                setNoteText("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAddNote}>
-              {noteItem?.sku === "custom_note" ? "Save Note" : "Add Note"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setNoteDialogOpen}
+        noteItem={noteItem}
+        isComboChildItem={isComboChildItem}
+        onSave={handleSaveNote}
+      />
 
       <ModifierAddDialog
         open={modifierAddOpen}
@@ -3544,14 +1656,11 @@ function POSTerminalInner() {
           modifierAddItem ? singleItemCompatibleModifiers : compatibleModifiers
         }
         onAdd={(sku, defaultState) => {
-          if (modifierAddItem) {
+          if (modifierAddItem)
             addModifier(modifierAddItem.lineId, sku, defaultState);
-          } else {
-            addGroupModifier(Array.from(selectedLineIds), sku, defaultState);
-          }
+          else addGroupModifier(Array.from(selectedLineIds), sku, defaultState);
         }}
       />
-
       <NumberPadDialog
         open={qtyPadOpen}
         onOpenChange={setQtyPadOpen}
@@ -3562,7 +1671,6 @@ function POSTerminalInner() {
         min={1}
         onConfirm={handleSetBulkQty}
       />
-
       <ChoiceDialog
         open={!!swapChoiceState}
         onOpenChange={(open) => {
@@ -3591,7 +1699,6 @@ function POSTerminalInner() {
           }
         }}
       />
-
       <ChoiceDialog
         open={dupMoveDialogOpen}
         onOpenChange={setDupMoveDialogOpen}
@@ -3608,7 +1715,6 @@ function POSTerminalInner() {
           );
         }}
       />
-
       <ChoiceDialog
         open={assignGuestDialogOpen}
         onOpenChange={setAssignGuestDialogOpen}
@@ -3622,7 +1728,6 @@ function POSTerminalInner() {
           toast.success(`Selected items assigned to ${option.label}`);
         }}
       />
-
       <ChoiceDialog
         open={removeModDialogOpen}
         onOpenChange={setRemoveModDialogOpen}
@@ -3658,7 +1763,6 @@ function POSTerminalInner() {
           setIsMergeOpen(true);
         }}
       />
-
       <BranchConfigDialog
         open={isBranchConfigOpen}
         onOpenChange={setIsBranchConfigOpen}
@@ -3674,7 +1778,6 @@ function POSTerminalInner() {
         existingBranches={Object.keys(branches)}
         onSave={handleSaveBranchConfig}
       />
-
       <MergeBranchDialog
         open={isMergeOpen}
         onOpenChange={setIsMergeOpen}
@@ -3705,22 +1808,11 @@ function POSTerminalInner() {
 // ─── Main Page (gates Init Screen vs POS Terminal) ─────────────────────────
 
 export default function POSTerminal() {
-  const {
-    isInitialized,
-    orderContext,
-    initRepo,
-    loadCatalog,
-    catalogLoaded,
-    hydrate,
-    viewingHash,
-    activeBranch,
-  } = useVCSStore();
-
+  const { isInitialized, initRepo, loadCatalog, catalogLoaded, hydrate } =
+    useVCSStore();
   const [storeLabel, setStoreLabel] = React.useState("Main Location");
   const [defaultPaymentFromConfig, setDefaultPaymentFromConfig] =
     React.useState("cash");
-
-  // ─── Initialize (runs always, no conditional hooks) ─────────────────────
 
   React.useEffect(() => {
     hydrate();
@@ -3731,9 +1823,7 @@ export default function POSTerminal() {
       fetch("/api/catalog")
         .then((r) => r.json())
         .then((data) => {
-          if (data.catalog) {
-            loadCatalog(data.catalog);
-          }
+          if (data.catalog) loadCatalog(data.catalog);
         })
         .catch(console.error);
     }
@@ -3744,25 +1834,20 @@ export default function POSTerminal() {
       .then((r) => r.json())
       .then((data) => {
         if (data.label) setStoreLabel(data.label);
-        if (data.defaultPaymentMethod) {
+        if (data.defaultPaymentMethod)
           setDefaultPaymentFromConfig(data.defaultPaymentMethod);
-        }
-      })
-      .catch(() => {});
-  }, []);
-  
-  React.useEffect(() => {
-    fetch("/api/icon-config")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.configs) {
-          useVCSStore.getState().loadIconConfigs(data.configs);
-        }
       })
       .catch(() => {});
   }, []);
 
-  // ─── Handle Order Init (stable callback) ───────────────────────────────
+  React.useEffect(() => {
+    fetch("/api/icon-config")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.configs) useVCSStore.getState().loadIconConfigs(data.configs);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleOrderStart = useCallback(
     (context: Parameters<typeof initRepo>[0]) => {
@@ -3774,18 +1859,16 @@ export default function POSTerminal() {
     [initRepo, defaultPaymentFromConfig],
   );
 
-  // ─── Gate: Init Screen vs POS Terminal ─────────────────────────────────
-
-  if (!isInitialized) {
+  if (!isInitialized)
     return (
       <OrderInitScreen
         onOrderStart={handleOrderStart}
         storeLabel={storeLabel}
       />
     );
-  }
 
-  const currentBranchName = activeBranch();
+  const currentBranchName = useVCSStore.getState().activeBranch();
+  const viewingHash = useVCSStore.getState().viewingHash;
   return (
     <POSTerminalInner key={`${currentBranchName}-${viewingHash || "head"}`} />
   );

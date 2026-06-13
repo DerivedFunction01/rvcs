@@ -114,8 +114,8 @@ export function ActiveCheckPanel(props: any) {
             <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">Assign</span>
               <Button variant="ghost" size="sm" className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent" onClick={() => setAssignGuestDialogOpen(true)}>Guest</Button>
-              <Button variant="ghost" size="sm" className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent" onClick={() => { setPaymentAllocationItems(Array.from(selectedLineIds).map(id => projectedState.items[id]).filter(Boolean)); setPaymentAllocationContext("group"); setPaymentAllocationOpen(true); }}>Payment</Button>
-              <Button variant="ghost" size="sm" className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent" onClick={() => { setFulfillmentAllocationItems(Array.from(selectedLineIds).map(id => projectedState.items[id]).filter(Boolean)); setFulfillmentAllocationContext("group"); setFulfillmentAllocationOpen(true); }}>Fulfillment</Button>
+              <Button variant="ghost" size="sm" className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent" onClick={() => { setPaymentAllocationItems(Array.from(selectedLineIds).map(id => projectedState.items[id as string]).filter(Boolean)); setPaymentAllocationContext("group"); setPaymentAllocationOpen(true); }}>Payment</Button>
+              <Button variant="ghost" size="sm" className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent" onClick={() => { setFulfillmentAllocationItems(Array.from(selectedLineIds).map(id => projectedState.items[id as string]).filter(Boolean)); setFulfillmentAllocationContext("group"); setFulfillmentAllocationOpen(true); }}>Fulfillment</Button>
             </div>
             {(compatibleModifiers.length > 0 || activeModifiersOnSelected.length > 0) && (
               <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
