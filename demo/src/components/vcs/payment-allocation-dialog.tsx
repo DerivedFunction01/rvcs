@@ -47,6 +47,7 @@ interface PaymentAllocationDialogProps {
   paymentConfigs: Array<{ id: string; name: string; isSplit: boolean }>;
   activePaymentConfigId: string | null;
   selectedGuestName?: string | null;
+  allItems?: ProjectedLineItem[];
 
   onApplyConfig: (
     configIdOrMethod: string,
@@ -78,6 +79,7 @@ export function PaymentAllocationDialog({
   paymentConfigs,
   activePaymentConfigId,
   selectedGuestName,
+  allItems = [],
   onApplyConfig,
   onApplyCustomSplit,
   onAddGuest,
@@ -109,6 +111,27 @@ export function PaymentAllocationDialog({
     if (defaultPaymentMethod) return `group-default-${defaultPaymentMethod}`;
     return null;
   }, [activePaymentConfigId, defaultPaymentMethod]);
+
+  // Find all allocation IDs belonging to the active configuration
+  const activeAllocIds = useMemo(() => {
+    if (!resolvedActiveId) return [];
+    return Object.values(allocations)
+      .filter(
+        (a) =>
+          a.type === "payment" &&
+          (a.allocationId === resolvedActiveId ||
+            a.correlationId === resolvedActiveId),
+      )
+      .map((a) => a.allocationId);
+  }, [resolvedActiveId, allocations]);
+
+  // Find existing items affected when swapping this default configuration
+  const affectedItems = useMemo(() => {
+    if (activeAllocIds.length === 0) return [];
+    return allItems.filter((item) =>
+      item.allocations.some((id) => activeAllocIds.includes(id)),
+    );
+  }, [allItems, activeAllocIds]);
 
   const primaryGuest = useMemo(() => {
     return guests[0] || "Guest";
@@ -507,7 +530,7 @@ export function PaymentAllocationDialog({
         {/* Header Mode Confirmation Flow */}
         {pendingSelection ? (
           <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-200">
-            <div className="rounded-lg border p-4 bg-primary/5 space-y-2">
+            <div className="rounded-lg border p-4 bg-primary/5 space-y-3">
               <h3 className="font-semibold text-sm flex items-center gap-1.5 text-primary">
                 <HelpCircle className="w-4 h-4" />
                 Apply Payment Allocation
@@ -516,6 +539,37 @@ export function PaymentAllocationDialog({
                 Do you want to switch all existing items in the order to this
                 configuration, or set it as default for new items only?
               </p>
+
+              {affectedItems.length > 0 ? (
+                <div className="space-y-1.5 pt-2 border-t border-primary/10">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Affected Items ({affectedItems.length})
+                  </div>
+                  <div className="max-h-32 overflow-y-auto space-y-1 bg-background/50 p-2 rounded border border-primary/5 text-xs font-medium text-foreground">
+                    {affectedItems.map((item) => (
+                      <div
+                        key={item.lineId}
+                        className="flex justify-between items-center gap-2"
+                      >
+                        <span className="truncate">
+                          {item.name}{" "}
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            ({item.sku})
+                          </span>
+                        </span>
+                        <span className="font-mono text-[10px] text-muted-foreground font-bold shrink-0">
+                          ${item.totalPrice.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground pt-1.5 italic border-t border-primary/10">
+                  No existing items will be affected (none are currently using
+                  the default configuration).
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 pt-2 justify-end">
@@ -538,7 +592,7 @@ export function PaymentAllocationDialog({
                 onClick={() => handleApplyHeaderChoice("change-existing")}
                 className="gap-1"
               >
-                Apply to All Items
+                Apply to Affected Items
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </div>
