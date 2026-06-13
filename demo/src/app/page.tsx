@@ -2319,6 +2319,8 @@ function POSTerminalInner() {
         defaultPaymentAllocId={defaultPaymentAllocId}
         defaultPaymentMethod={defaultPaymentMethod}
         paymentConfigs={paymentConfigs}
+        activePaymentConfigId={activePaymentConfigId}
+        selectedGuestName={selectedPerson}
         onApplyConfig={(configIdOrMethod, mode) => {
           if (paymentAllocationContext === "item") {
             groupItemsPaymentConfig(
@@ -2346,10 +2348,25 @@ function POSTerminalInner() {
                 mode as "change-existing" | "new-only",
               );
             }
-            const targetName = configIdOrMethod.startsWith("group-default-")
-              ? `${customerName} (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
-              : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name ||
-                "Selected Config";
+            // Resolve display name: check paymentConfigs first, then derive from allocations
+            let targetName =
+              configIdOrMethod.startsWith("group-default-")
+                ? `${customerName} (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
+                : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name;
+            if (!targetName) {
+              // Guest-specific config: find an allocation in the group
+              const representativeAlloc = Object.values(projectedState.allocations).find(
+                (a) => a.type === "payment" &&
+                  ((a as PaymentAllocation).allocationId === configIdOrMethod ||
+                    (a as PaymentAllocation).correlationId === configIdOrMethod)
+              ) as PaymentAllocation | undefined;
+              if (representativeAlloc) {
+                const methodLabel = (representativeAlloc.method || "").toUpperCase();
+                targetName = `${representativeAlloc.payer} (${methodLabel})`;
+              } else {
+                targetName = "Selected Config";
+              }
+            }
             if (mode === "change-existing") {
               toast.success(`All items switched to ${targetName}`);
             } else {
