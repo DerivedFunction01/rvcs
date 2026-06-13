@@ -154,14 +154,22 @@ function BranchBadge({
 function ConflictCard({
   conflict,
   onChange,
+  autoMergedState,
 }: {
   conflict: MergeConflict;
   onChange: (id: string, resolution: string) => void;
+  autoMergedState?: ProjectedState;
 }) {
   const options = [
     { branch: conflict.branchA, delta: conflict.deltaA },
     { branch: conflict.branchB, delta: conflict.deltaB },
   ];
+
+  const isAutoResolved = areDeltasIdentical(
+    conflict.deltaA,
+    conflict.deltaB,
+    autoMergedState,
+  );
 
   return (
     <div
@@ -178,9 +186,19 @@ function ConflictCard({
           }`}
         />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground leading-tight">
-            {conflictLabel(conflict)}
-          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-xs font-semibold text-foreground leading-tight">
+              {conflictLabel(conflict)}
+            </p>
+            {isAutoResolved && (
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1.5 h-4 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shrink-0 font-medium py-0"
+              >
+                Auto-Resolved
+              </Badge>
+            )}
+          </div>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             <code className="font-mono">{conflict.branchA}</code> vs{" "}
             <code className="font-mono">{conflict.branchB}</code>
@@ -896,6 +914,159 @@ function renderIncomingChangeBadges(
   return badges;
 }
 
+function areAllocationsFunctionallyIdentical(
+  allocA: AllocationBlock,
+  allocB: AllocationBlock,
+): boolean {
+  if (allocA.type !== allocB.type) return false;
+  if (allocA.type === "assignment") {
+    return allocA.entity === (allocB as any).entity;
+  }
+  if (allocA.type === "payment") {
+    const pA = allocA as PaymentAllocation;
+    const pB = allocB as PaymentAllocation;
+    return (
+      pA.payer === pB.payer &&
+      pA.method === pB.method &&
+      pA.paymentStrategy?.strategyType === pB.paymentStrategy?.strategyType &&
+      pA.paymentStrategy?.value === pB.paymentStrategy?.value &&
+      pA.timeOfPayment?.type === pB.timeOfPayment?.type &&
+      pA.timeOfPayment?.calculatedAt === pB.timeOfPayment?.calculatedAt
+    );
+  }
+  if (allocA.type === "fulfillment") {
+    const fA = allocA as FulfillmentAllocation;
+    const fB = allocB as FulfillmentAllocation;
+    return (
+      fA.method === fB.method &&
+      fA.time?.type === fB.time?.type &&
+      fA.time?.calculatedAt === fB.time?.calculatedAt &&
+      fA.fulfillmentMetadata?.destinationLabel ===
+        fB.fulfillmentMetadata?.destinationLabel &&
+      fA.fulfillmentMetadata?.destinationId ===
+        fB.fulfillmentMetadata?.destinationId
+    );
+  }
+  return false;
+}
+
+function areAllocIdsFunctionallyIdentical(
+  idA: string,
+  idB: string,
+  state?: ProjectedState,
+): boolean {
+  if (idA === idB) return true;
+  const blockA = getAllocationBlock(idA, state);
+  const blockB = getAllocationBlock(idB, state);
+  if (!blockA || !blockB) return false;
+  return areAllocationsFunctionallyIdentical(blockA, blockB);
+}
+
+function areAllocListsFunctionallyIdentical(
+  listA: string[] | undefined,
+  listB: string[] | undefined,
+  state?: ProjectedState,
+): boolean {
+  if (!listA && !listB) return true;
+  if (!listA || !listB) return false;
+  if (listA.length !== listB.length) return false;
+  const unmatchedB = [...listB];
+  for (const idA of listA) {
+    const idxB = unmatchedB.findIndex((idB) =>
+      areAllocIdsFunctionallyIdentical(idA, idB, state),
+    );
+    if (idxB === -1) return false;
+    unmatchedB.splice(idxB, 1);
+  }
+  return true;
+}
+
+function areDeltasIdentical(
+  deltaA: Delta,
+  deltaB: Delta,
+  state?: ProjectedState,
+): boolean {
+  if (deltaA.action !== deltaB.action) return false;
+
+  switch (deltaA.action) {
+    case "declare_allocation": {
+      return areAllocationsFunctionallyIdentical(
+        (deltaA as any).allocation,
+        (deltaB as any).allocation,
+      );
+    }
+    case "add_item": {
+      const dA = deltaA as any;
+      const dB = deltaB as any;
+      return (
+        dA.sku === dB.sku &&
+        dA.qty === dB.qty &&
+        dA.parentLineId === dB.parentLineId &&
+        dA.selectedModifierState === dB.selectedModifierState &&
+        areAllocListsFunctionallyIdentical(
+          dA.allocations,
+          dB.allocations,
+          state,
+        )
+      );
+    }
+    case "remove_item": {
+      const dA = deltaA as any;
+      const dB = deltaB as any;
+      return dA.lineId === dB.lineId && dA.qty === dB.qty;
+    }
+    case "modify_sku": {
+      const dA = deltaA as any;
+      const dB = deltaB as any;
+      return (
+        dA.lineId === dB.lineId &&
+        dA.beforeSku === dB.beforeSku &&
+        dA.afterSku === dB.afterSku
+      );
+    }
+    case "modify_qty": {
+      const dA = deltaA as any;
+      const dB = deltaB as any;
+      return (
+        dA.lineId === dB.lineId &&
+        dA.beforeQty === dB.beforeQty &&
+        dA.afterQty === dB.afterQty
+      );
+    }
+    case "modify_modifier_state": {
+      const dA = deltaA as any;
+      const dB = deltaB as any;
+      return (
+        dA.lineId === dB.lineId &&
+        dA.beforeState === dB.beforeState &&
+        dA.afterState === dB.afterState
+      );
+    }
+    case "modify_item_allocations": {
+      const dA = deltaA as any;
+      const dB = deltaB as any;
+      return (
+        dA.lineId === dB.lineId &&
+        areAllocListsFunctionallyIdentical(
+          dA.beforeAllocations,
+          dB.beforeAllocations,
+          state,
+        ) &&
+        areAllocListsFunctionallyIdentical(
+          dA.afterAllocations,
+          dB.afterAllocations,
+          state,
+        )
+      );
+    }
+    case "batch_by_filter": {
+      return JSON.stringify(deltaA) === JSON.stringify(deltaB);
+    }
+    default:
+      return false;
+  }
+}
+
 function ConflictsDialog({
   open,
   onOpenChange,
@@ -969,6 +1140,7 @@ function ConflictsDialog({
                 <ConflictCard
                   conflict={activeConflict}
                   onChange={onConflictChange}
+                  autoMergedState={autoMergedState}
                 />
               )}
 
@@ -981,10 +1153,12 @@ function ConflictsDialog({
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {renderIncomingChangeBadges(
-                      activeConflict.resolution === activeConflict.branchA ? activeConflict.deltaA : activeConflict.deltaB,
+                      activeConflict.resolution === activeConflict.branchA
+                        ? activeConflict.deltaA
+                        : activeConflict.deltaB,
                       autoMergedState,
                       catalog,
-                      initiatedAt
+                      initiatedAt,
                     )}
                   </div>
                 </div>
@@ -1030,19 +1204,35 @@ function ConflictsDialog({
                       <div className="grid grid-cols-2 gap-3.5 text-[11px] leading-relaxed">
                         {/* Column A */}
                         <div className="p-2.5 rounded-lg border bg-muted/20 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b text-foreground font-mono font-semibold truncate" title={activeConflict.branchA}>
+                          <div
+                            className="flex items-center gap-1.5 mb-2 pb-1.5 border-b text-foreground font-mono font-semibold truncate"
+                            title={activeConflict.branchA}
+                          >
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                             {activeConflict.branchA}
                           </div>
-                          {formatDeltaDetails(activeConflict.deltaA, autoMergedState, catalog, initiatedAt)}
+                          {formatDeltaDetails(
+                            activeConflict.deltaA,
+                            autoMergedState,
+                            catalog,
+                            initiatedAt,
+                          )}
                         </div>
                         {/* Column B */}
                         <div className="p-2.5 rounded-lg border bg-muted/20 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b text-foreground font-mono font-semibold truncate" title={activeConflict.branchB}>
+                          <div
+                            className="flex items-center gap-1.5 mb-2 pb-1.5 border-b text-foreground font-mono font-semibold truncate"
+                            title={activeConflict.branchB}
+                          >
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                             {activeConflict.branchB}
                           </div>
-                          {formatDeltaDetails(activeConflict.deltaB, autoMergedState, catalog, initiatedAt)}
+                          {formatDeltaDetails(
+                            activeConflict.deltaB,
+                            autoMergedState,
+                            catalog,
+                            initiatedAt,
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1758,7 +1948,18 @@ export function MergeBranchDialog({
     if (sourceBranches.length === 0) return;
     const result = onPreview(sourceBranches, targetBranch);
     setPreview(result);
-    setConflicts(result.conflicts.map((c) => ({ ...c, resolution: null })));
+    const mapped = result.conflicts.map((c) => {
+      const isIdentical = areDeltasIdentical(
+        c.deltaA,
+        c.deltaB,
+        result.autoMergedState,
+      );
+      return {
+        ...c,
+        resolution: isIdentical ? c.branchA : null,
+      };
+    });
+    setConflicts(mapped);
     setStep("preview");
   };
 
