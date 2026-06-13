@@ -28,7 +28,10 @@ interface ChoiceDialogProps {
   description?: string;
   searchPlaceholder?: string;
   options: ChoiceDialogOption[];
-  onChoose: (option: ChoiceDialogOption) => void;
+  onChoose?: (option: ChoiceDialogOption) => void;
+  onChooseMultiple?: (selected: ChoiceDialogOption[]) => void;
+  isMultiSelect?: boolean;
+  initialSelectedIds?: string[];
   footer?: React.ReactNode;
   emptyText?: string;
   extraToggle?: {
@@ -46,15 +49,36 @@ export function ChoiceDialog({
   searchPlaceholder = "Search...",
   options,
   onChoose,
+  onChooseMultiple,
+  isMultiSelect = false,
+  initialSelectedIds,
   footer,
   emptyText = "No matching results.",
   extraToggle,
 }: ChoiceDialogProps) {
   const [query, setQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   React.useEffect(() => {
-    if (open) setQuery("");
-  }, [open]);
+    if (open) {
+      setQuery("");
+      setSelectedIds(initialSelectedIds || []);
+    }
+  }, [open, initialSelectedIds]);
+
+  const toggleOption = (option: ChoiceDialogOption) => {
+    if (isMultiSelect) {
+      setSelectedIds((prev) => {
+        if (prev.includes(option.id)) {
+          return prev.filter((id) => id !== option.id);
+        } else {
+          return [...prev, option.id];
+        }
+      });
+    } else {
+      onChoose?.(option);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -72,7 +96,10 @@ export function ChoiceDialog({
       open={open}
       onOpenChange={(nextOpen) => {
         onOpenChange(nextOpen);
-        if (!nextOpen) setQuery("");
+        if (!nextOpen) {
+          setQuery("");
+          setSelectedIds([]);
+        }
       }}
     >
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden">
@@ -117,30 +144,70 @@ export function ChoiceDialog({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {filtered.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => onChoose(option)}
-                  className="flex flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40"
-                >
-                  <div className="flex w-full items-start justify-between gap-2">
-                    <span className="min-w-0 truncate text-sm font-semibold">
-                      {option.label}
-                    </span>
-                    {option.badge}
+              {filtered.map((option) => {
+                const isSelected = selectedIds.includes(option.id);
+                return (
+                  <div
+                    key={option.id}
+                    onClick={() => toggleOption(option)}
+                    className={`flex flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-all cursor-pointer hover:border-primary/50 ${
+                      isMultiSelect && isSelected
+                        ? "border-primary bg-primary/5 text-primary shadow-xs"
+                        : "hover:bg-accent/40"
+                    }`}
+                  >
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isMultiSelect && (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleOption(option)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="h-3.5 w-3.5 border-muted-foreground/30 data-[state=checked]:border-primary"
+                          />
+                        )}
+                        <span className="min-w-0 truncate text-sm font-semibold">
+                          {option.label}
+                        </span>
+                      </div>
+                      {option.badge}
+                    </div>
+                    {option.description && (
+                      <span className={`text-[10px] text-muted-foreground ${isMultiSelect ? "pl-5.5" : ""}`}>
+                        {option.description}
+                      </span>
+                    )}
                   </div>
-                  {option.description && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {option.description}
-                    </span>
-                  )}
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {footer && <DialogFooter>{footer}</DialogFooter>}
+        {isMultiSelect ? (
+          <DialogFooter className="flex items-center justify-between gap-2 sm:justify-between border-t pt-3 mt-1">
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.length} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  const selectedOptions = options.filter((o) => selectedIds.includes(o.id));
+                  onChooseMultiple?.(selectedOptions);
+                }}
+                disabled={selectedIds.length === 0}
+              >
+                Apply
+              </Button>
+            </div>
+          </DialogFooter>
+        ) : (
+          footer && <DialogFooter>{footer}</DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

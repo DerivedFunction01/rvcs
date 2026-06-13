@@ -34,6 +34,9 @@ export const GUEST_PALETTE = [
 ];
 
 export function getGuestColor(name: string, guests: Guest[]): string {
+  if (name.includes(",")) {
+    return "bg-gradient-to-tr from-sky-500 via-indigo-500 to-purple-500 border border-primary/20";
+  }
   const idx = guests.findIndex((g) => g.id === name);
   if (idx >= 0) return GUEST_PALETTE[idx % GUEST_PALETTE.length];
   // Fallback: hash the name to a stable index for historical commits
@@ -104,12 +107,13 @@ export function getAssigneeFromItem(
       break;
     }
   }
-  if (
-    guests &&
-    guests.length > 0 &&
-    (!assignee || !guests.some((g) => g.id === assignee))
-  ) {
-    return guests[0].id;
+  if (guests && guests.length > 0) {
+    if (!assignee) return guests[0].id;
+    const parts = assignee.split(",").map((p) => p.trim());
+    const hasValidGuest = parts.some((p) => guests.some((g) => g.id === p));
+    if (!hasValidGuest) {
+      return guests[0].id;
+    }
   }
   return assignee;
 }

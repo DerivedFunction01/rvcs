@@ -36,24 +36,26 @@ import type {
   PaymentAllocation,
   FulfillmentAllocation,
   ProjectedLineItem,
+  AssignmentAllocation,
 } from "@/lib/vcs/types";
 import {
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
   formatFulfillmentTime,
 } from "@/lib/pos/utils";
+import type { Guest } from "@/lib/pos/ui-utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 interface AllocationConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   item: ProjectedLineItem | null;
   allocations: Record<string, AllocationBlock>;
-  guests: string[];
   defaultPaymentAllocId: string | null;
   defaultPaymentMethod: string;
-  onReassign: (lineId: string, newAssignee: string) => void;
   onResetToDefault: (lineId: string) => void;
-  onAddGuest: (name: string) => void;
+  onTriggerAssignmentAllocation: (item: ProjectedLineItem) => void;
   onTriggerPaymentAllocation: (item: ProjectedLineItem) => void;
   onTriggerFulfillmentAllocation: (item: ProjectedLineItem) => void;
   initiatedAt?: string;
@@ -85,25 +87,20 @@ export function AllocationConfigDialog({
   onOpenChange,
   item,
   allocations,
-  guests,
   defaultPaymentAllocId,
   defaultPaymentMethod,
-  onReassign,
   onResetToDefault,
-  onAddGuest,
+  onTriggerAssignmentAllocation,
   onTriggerPaymentAllocation,
   onTriggerFulfillmentAllocation,
   initiatedAt,
 }: AllocationConfigDialogProps) {
-  const [showAddGuestInput, setShowAddGuestInput] = useState(false);
-  const [newGuestInputName, setNewGuestInputName] = useState("");
-
   // Current item's assignment info
   const currentAssignment = useMemo(() => {
     if (!item) return null;
     for (const id of item.allocations) {
       const a = allocations[id];
-      if (a?.type === "assignment") return a;
+      if (a?.type === "assignment") return a as AssignmentAllocation;
     }
     return null;
   }, [item, allocations]);
@@ -135,30 +132,8 @@ export function AllocationConfigDialog({
 
   // Reset state when dialog opens
   React.useEffect(() => {
-    if (open && item) {
-      setShowAddGuestInput(false);
-      setNewGuestInputName("");
-    }
+    // no-op
   }, [open, item]);
-
-  const handleAssigneeChange = useCallback(
-    (newVal: string) => {
-      if (!item) return;
-      onReassign(item.lineId, newVal);
-    },
-    [item, onReassign],
-  );
-
-  const handleAddNewGuestForAssignment = useCallback(() => {
-    const name = newGuestInputName.trim();
-    if (!name) return;
-    onAddGuest(name);
-    if (item) {
-      onReassign(item.lineId, name);
-    }
-    setNewGuestInputName("");
-    setShowAddGuestInput(false);
-  }, [newGuestInputName, onAddGuest, item, onReassign]);
 
   const handleResetToDefault = useCallback(() => {
     if (!item) return;
@@ -194,69 +169,30 @@ export function AllocationConfigDialog({
         </div>
 
         {/* Assignment (Who Consumes) */}
-        <div className="space-y-2.5 rounded-lg border p-3.5">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Assigned Guest
-            </div>
-            {!showAddGuestInput && (
-              <Button
-                variant="link"
-                className="h-auto p-0 text-xs text-primary font-semibold flex items-center gap-1 hover:no-underline"
-                onClick={() => setShowAddGuestInput(true)}
-              >
-                <Plus className="w-3 h-3" /> Add Guest
-              </Button>
-            )}
+        <div className="space-y-3 rounded-lg border p-3.5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+            <span>Assigned Guests (Who Consumes)</span>
           </div>
 
-          {showAddGuestInput ? (
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="New guest name..."
-                value={newGuestInputName}
-                onChange={(e) => setNewGuestInputName(e.target.value)}
-                className="h-8 text-xs flex-1"
-                onKeyDown={(e) =>
-                  e.key === "Enter" && handleAddNewGuestForAssignment()
-                }
-              />
-              <Button
-                size="sm"
-                className="h-8 text-xs"
-                onClick={handleAddNewGuestForAssignment}
-              >
-                Add & Assign
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => setShowAddGuestInput(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Select
-                value={currentAssignee}
-                onValueChange={handleAssigneeChange}
-              >
-                <SelectTrigger className="h-8 text-xs flex-1 bg-background">
-                  <User className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {guests.map((g) => (
-                    <SelectItem key={g} value={g} className="text-xs">
-                      {g}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium px-1">
+            <User className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="truncate">{currentAssignee || "None"}</span>
+          </div>
+
+          <div className="pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8 gap-1.5 font-medium"
+              onClick={() => {
+                onTriggerAssignmentAllocation(item);
+                onOpenChange(false);
+              }}
+            >
+              <User className="w-3.5 h-3.5 text-primary" />
+              Change Assignment...
+            </Button>
+          </div>
         </div>
 
         {/* Fulfillment Configuration (When) */}

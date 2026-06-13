@@ -11,6 +11,7 @@ import { OrderInitScreen } from "@/components/pos/order-init-screen";
 import { AllocationConfigDialog } from "@/components/pos/allocation-config-dialog";
 import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dialog";
 import { FulfillmentAllocationDialog } from "@/components/pos/fulfillment-allocation-dialog";
+import { AssignmentAllocationDialog } from "@/components/pos/assignment-allocation-dialog";
 import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
 import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
 import {
@@ -187,6 +188,21 @@ function POSTerminalInner({
 
   const resolveGuestName = useCallback(
     (idOrName: string): string => {
+      if (idOrName.includes(",")) {
+        return idOrName
+          .split(",")
+          .map((item) => item.trim())
+          .map((id) => {
+            const g = guests.find((g) => g.id === id);
+            if (g) return g.alias || `Guest ${g.number}`;
+            const match = id.match(/^__vcs_guest_(\d+)__$/i);
+            if (match) return `Guest ${match[1]}`;
+            const legacyMatch = id.match(/^Guest\s+(\d+)(?:\s+\((.+)\))?$/i);
+            if (legacyMatch) return legacyMatch[2] || `Guest ${legacyMatch[1]}`;
+            return id;
+          })
+          .join(" + ");
+      }
       const g = guests.find((g) => g.id === idOrName);
       if (g) return g.alias || `Guest ${g.number}`;
       const match = idOrName.match(/^__vcs_guest_(\d+)__$/i);
@@ -253,11 +269,10 @@ function POSTerminalInner({
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
-  const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] = React.useState(false);
+  const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] =
+    React.useState(false);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
   const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
-  const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
-    React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
   const [groupNoteOpen, setGroupNoteOpen] = React.useState(false);
   const [groupNoteLineIds, setGroupNoteLineIds] = React.useState<string[]>([]);
@@ -309,47 +324,54 @@ function POSTerminalInner({
   } | null>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
 
-  const handleConfirmHistoryOp = React.useCallback((squashType?: "light" | "full") => {
-    if (!historyOpDialog) return;
-    try {
-      if (historyOpDialog.type === "squash") {
-        squashPendingCommits(historyOpDialog.targetHash, squashType || "light");
-        toast.success(
-          squashType === "full"
-            ? "Commits squashed to a single commit"
-            : "Net-zero items removed from pending history"
-        );
-      } else if (historyOpDialog.type === "reset") {
-        resetToCommit(historyOpDialog.targetHash);
-        toast.success("Branch reset to selected commit");
+  const handleConfirmHistoryOp = React.useCallback(
+    (squashType?: "light" | "full") => {
+      if (!historyOpDialog) return;
+      try {
+        if (historyOpDialog.type === "squash") {
+          squashPendingCommits(
+            historyOpDialog.targetHash,
+            squashType || "light",
+          );
+          toast.success(
+            squashType === "full"
+              ? "Commits squashed to a single commit"
+              : "Net-zero items removed from pending history",
+          );
+        } else if (historyOpDialog.type === "reset") {
+          resetToCommit(historyOpDialog.targetHash);
+          toast.success("Branch reset to selected commit");
+        }
+      } catch (e) {
+        toast.error((e as Error).message);
+      } finally {
+        setHistoryOpDialog(null);
       }
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setHistoryOpDialog(null);
-    }
-  }, [historyOpDialog, squashPendingCommits, resetToCommit]);
+    },
+    [historyOpDialog, squashPendingCommits, resetToCommit],
+  );
 
   const handleOpenCustomerDialog = React.useCallback(() => {
     setCustomerDialogOpen(true);
   }, []);
 
-  const handleSaveCustomerFields = React.useCallback((fields: Record<string, string>) => {
-    useVCSStore
-      .getState()
-      .updateOrderContext({ customerFields: fields });
-    const newNameRaw = fields.name?.trim();
-    if (newNameRaw) {
-      const primaryAlias =
-        newNameRaw.toLowerCase() === "guest" ? undefined : newNameRaw;
-      setGuests((prev) => {
-        const next = [...prev];
-        if (next[0]) next[0] = { ...next[0], alias: primaryAlias };
-        return next;
-      });
-    }
-    toast.success("Customer info updated");
-  }, [setGuests]);
+  const handleSaveCustomerFields = React.useCallback(
+    (fields: Record<string, string>) => {
+      useVCSStore.getState().updateOrderContext({ customerFields: fields });
+      const newNameRaw = fields.name?.trim();
+      if (newNameRaw) {
+        const primaryAlias =
+          newNameRaw.toLowerCase() === "guest" ? undefined : newNameRaw;
+        setGuests((prev) => {
+          const next = [...prev];
+          if (next[0]) next[0] = { ...next[0], alias: primaryAlias };
+          return next;
+        });
+      }
+      toast.success("Customer info updated");
+    },
+    [setGuests],
+  );
 
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
     new Set(initialGuests.map((g) => g.id)),
@@ -405,6 +427,13 @@ function POSTerminalInner({
 
   const [allocConfigItem, setAllocConfigItem] =
     React.useState<ProjectedLineItem | null>(null);
+  const [assignmentAllocationOpen, setAssignmentAllocationOpen] =
+    React.useState(false);
+  const [assignmentAllocationContext, setAssignmentAllocationContext] =
+    React.useState<"item" | "group">("item");
+  const [assignmentAllocationItems, setAssignmentAllocationItems] = React.useState<
+    ProjectedLineItem[]
+  >([]);
   const [paymentAllocationOpen, setPaymentAllocationOpen] =
     React.useState(false);
   const [paymentAllocationContext, setPaymentAllocationContext] =
@@ -604,7 +633,8 @@ function POSTerminalInner({
         projectedState.allocations,
         guests,
       );
-      return visibleGuests.has(assignee);
+      const parts = assignee.split(",").map((p) => p.trim());
+      return parts.some((p) => visibleGuests.has(p));
     });
   }, [
     rootItems,
@@ -621,12 +651,15 @@ function POSTerminalInner({
       else item.children.forEach(countCanceled);
     };
     for (const item of rootItems) {
-      if (
-        visibleGuests.has(
-          getAssigneeFromItem(item, projectedState.allocations, guests),
-        )
-      )
+      const assignee = getAssigneeFromItem(
+        item,
+        projectedState.allocations,
+        guests,
+      );
+      const parts = assignee.split(",").map((p) => p.trim());
+      if (parts.some((p) => visibleGuests.has(p))) {
         countCanceled(item);
+      }
     }
     return count;
   }, [rootItems, projectedState.allocations, guests, visibleGuests]);
@@ -857,10 +890,18 @@ function POSTerminalInner({
   );
   const handleReassign = useCallback(
     (lineId: string, newAssignee: string) => {
-      reassignItem(lineId, getGuestStableId(newAssignee));
-      toast.success(`Reassigned to ${newAssignee}`);
+      const stableIds = newAssignee
+        .split(",")
+        .map((p) => getGuestStableId(p.trim()))
+        .join(",");
+      reassignItem(lineId, stableIds);
+      const displayNames = stableIds
+        .split(",")
+        .map((id) => resolveGuestName(id))
+        .join(" + ");
+      toast.success(`Reassigned to ${displayNames}`);
     },
-    [reassignItem, getGuestStableId],
+    [reassignItem, getGuestStableId, resolveGuestName],
   );
   const handleUpdateFulfillment = useCallback(
     (
@@ -930,22 +971,34 @@ function POSTerminalInner({
     setGroupNoteOpen(true);
   }, []);
 
-  const handleSaveGroupNote = useCallback((text: string) => {
-    addGroupNote(groupNoteLineIds, text);
-    setSelectedLineIds(new Set());
-  }, [addGroupNote, groupNoteLineIds]);
+  const handleSaveGroupNote = useCallback(
+    (text: string) => {
+      addGroupNote(groupNoteLineIds, text);
+      setSelectedLineIds(new Set());
+    },
+    [addGroupNote, groupNoteLineIds],
+  );
 
-  const handleRemoveNoteFromItems = useCallback((lineIds: string[], noteId: string) => {
-    removeGroupNote(lineIds, noteId);
-  }, [removeGroupNote]);
+  const handleRemoveNoteFromItems = useCallback(
+    (lineIds: string[], noteId: string) => {
+      removeGroupNote(lineIds, noteId);
+    },
+    [removeGroupNote],
+  );
 
-  const handleCleanupStaleNotes = useCallback((noteIds: string[]) => {
-    cleanupStaleNotes(noteIds);
-  }, [cleanupStaleNotes]);
+  const handleCleanupStaleNotes = useCallback(
+    (noteIds: string[]) => {
+      cleanupStaleNotes(noteIds);
+    },
+    [cleanupStaleNotes],
+  );
 
-  const handleAttachNoteToOrder = useCallback((noteId: string, attached: boolean) => {
-    attachNoteToOrder(noteId, attached);
-  }, [attachNoteToOrder]);
+  const handleAttachNoteToOrder = useCallback(
+    (noteId: string, attached: boolean) => {
+      attachNoteToOrder(noteId, attached);
+    },
+    [attachNoteToOrder],
+  );
   const guestChoiceOptions = React.useMemo(
     () =>
       guests.map((guest) => ({
@@ -1291,7 +1344,9 @@ function POSTerminalInner({
             duplicateItems={duplicateItems}
             setDupMoveDialogOpen={setDupMoveDialogOpen}
             removeItems={removeItems}
-            setAssignGuestDialogOpen={setAssignGuestDialogOpen}
+            setAssignmentAllocationItems={setAssignmentAllocationItems}
+            setAssignmentAllocationContext={setAssignmentAllocationContext}
+            setAssignmentAllocationOpen={setAssignmentAllocationOpen}
             setPaymentAllocationItems={setPaymentAllocationItems}
             setPaymentAllocationContext={setPaymentAllocationContext}
             setPaymentAllocationOpen={setPaymentAllocationOpen}
@@ -1360,12 +1415,14 @@ function POSTerminalInner({
         }}
         item={allocConfigItem}
         allocations={resolvedAllocations}
-        guests={guestStrings}
         defaultPaymentAllocId={defaultPaymentAllocId}
         defaultPaymentMethod={defaultPaymentMethod}
-        onReassign={handleReassign}
         onResetToDefault={handleResetToDefault}
-        onAddGuest={handleAddGuestFromDialog}
+        onTriggerAssignmentAllocation={(item) => {
+          setAssignmentAllocationItems([item]);
+          setAssignmentAllocationContext("item");
+          setAssignmentAllocationOpen(true);
+        }}
         onTriggerPaymentAllocation={(item) => {
           setPaymentAllocationItems([item]);
           setPaymentAllocationContext("item");
@@ -1377,6 +1434,34 @@ function POSTerminalInner({
           setFulfillmentAllocationOpen(true);
         }}
         initiatedAt={orderContext?.initiatedAt}
+      />
+
+      <AssignmentAllocationDialog
+        open={assignmentAllocationOpen}
+        onOpenChange={setAssignmentAllocationOpen}
+        context={assignmentAllocationContext}
+        items={assignmentAllocationItems}
+        allocations={projectedState.allocations}
+        guests={guests}
+        onApplyConfig={(guestIds) => {
+          if (assignmentAllocationContext === "item") {
+            handleReassign(assignmentAllocationItems[0].lineId, guestIds);
+          } else {
+            reassignItems(
+              assignmentAllocationItems.map((i) => i.lineId),
+              guestIds,
+            );
+            const displayNames = guestIds
+              .split(",")
+              .map((id) => resolveGuestName(id))
+              .join(" + ");
+            toast.success(
+              `Assigned selected ${assignmentAllocationItems.length} items to ${displayNames}`,
+            );
+            setSelectedLineIds(new Set());
+          }
+        }}
+        onAddGuest={handleAddGuestFromDialog}
       />
 
       <PaymentAllocationDialog
@@ -1754,19 +1839,7 @@ function POSTerminalInner({
           );
         }}
       />
-      <ChoiceDialog
-        open={assignGuestDialogOpen}
-        onOpenChange={setAssignGuestDialogOpen}
-        title="Assign Guest"
-        description="Choose a guest for the selected items."
-        searchPlaceholder="Search guests..."
-        options={guestChoiceOptions}
-        onChoose={(option) => {
-          reassignItems(Array.from(selectedLineIds), option.id);
-          setAssignGuestDialogOpen(false);
-          toast.success(`Selected items assigned to ${option.label}`);
-        }}
-      />
+
       <ChoiceDialog
         open={removeModDialogOpen}
         onOpenChange={setRemoveModDialogOpen}
