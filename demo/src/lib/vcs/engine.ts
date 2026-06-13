@@ -16,7 +16,6 @@ import type {
   PaymentAllocation,
   MergeConflict,
   MergePreview,
-  ResolvedChargeRule,
 } from "./types";
 import { projectState } from "./reducer";
 import { generateCommitHash, generateLineId, generateAllocationId } from "./id";
@@ -175,10 +174,9 @@ function projectMergedDeltas(
   allDeltas: Delta[],
   catalog: Record<string, import("./types").CatalogItemEntry>,
   confirmedHash: string | null,
-  chargeRules?: ResolvedChargeRule[],
 ): import("./types").ProjectedState {
   if (allDeltas.length === 0) {
-    return projectState(log, lcaHash, catalog, confirmedHash, chargeRules);
+    return projectState(log, lcaHash, catalog, confirmedHash);
   }
   // Create a virtual commit on top of lcaHash
   const virtualCommit: VCSCommit = {
@@ -195,7 +193,6 @@ function projectMergedDeltas(
     "__merge_preview__",
     catalog,
     confirmedHash,
-    chargeRules,
   );
 }
 
@@ -204,7 +201,6 @@ function projectMergedDeltas(
 export class VCSEngine {
   private repo: VCSRepo;
   private catalog: Record<string, CatalogItemEntry> = {};
-  private chargeRules: ResolvedChargeRule[] = [];
 
   constructor(repo: VCSRepo) {
     this.repo = repo;
@@ -217,14 +213,6 @@ export class VCSEngine {
     for (const item of items) {
       this.catalog[item.sku] = item;
     }
-  }
-
-  setChargeRules(rules: ResolvedChargeRule[]): void {
-    this.chargeRules = rules;
-  }
-
-  getChargeRules(): ResolvedChargeRule[] {
-    return this.chargeRules;
   }
 
   getCatalog(): Record<string, CatalogItemEntry> {
@@ -271,7 +259,6 @@ export class VCSEngine {
       hash,
       this.catalog,
       this.getConfirmedHash(),
-      this.chargeRules,
     );
   }
 
@@ -732,7 +719,6 @@ export class VCSEngine {
       allDeltasInOrder,
       this.catalog,
       this.getConfirmedHash(),
-      this.chargeRules,
     );
 
     // Fast-forward: LCA is the target head (target is strictly behind all sources)

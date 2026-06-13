@@ -2766,10 +2766,49 @@ function POSTerminalInner() {
                 <SeparatorUI orientation="vertical" className="h-8" />
                 <div className="text-right">
                   <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                    Subtotal
+                  </div>
+                  <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
+                    ${projectedState.financials.subtotal.toFixed(2)}
+                  </div>
+                </div>
+
+                {projectedState.financials.chargeTotal > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="text-right hover:bg-accent px-1 rounded transition-colors cursor-pointer flex flex-col items-end">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1">
+                          Tax & Fees <ChevronDown className="w-2.5 h-2.5" />
+                        </div>
+                        <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
+                          ${projectedState.financials.chargeTotal.toFixed(2)}
+                        </div>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3" align="end">
+                      <div className="space-y-2">
+                        <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Charge Breakdown
+                        </h4>
+                        <div className="space-y-1">
+                          {projectedState.financials.chargeBreakdown.map((charge, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-xs">
+                              <span className="truncate pr-2 text-muted-foreground">{charge.label}</span>
+                              <span className="font-mono font-medium tabular-nums">${charge.chargeAmount.toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                <div className="text-right bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
+                  <div className="text-[10px] text-primary/80 uppercase tracking-wider font-bold">
                     Total
                   </div>
-                  <div className="font-mono font-bold text-lg tabular-nums text-primary">
-                    ${projectedState.financials.subtotal.toFixed(2)}
+                  <div className="font-mono font-bold text-lg tabular-nums text-primary leading-tight">
+                    ${projectedState.financials.grandTotal.toFixed(2)}
                   </div>
                 </div>
               </div>

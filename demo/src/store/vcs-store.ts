@@ -18,6 +18,8 @@ import type {
   ProjectedLineItem,
   MergePreview,
 } from "@/lib/vcs/types";
+import type { ResolvedChargeRule } from "@/lib/pos/financials";
+import { evaluateBusinessRules, type RenderedCheck } from "@/lib/pos/evaluate";
 import type { OrderContext } from "@/lib/pos/types";
 import { generateAllocationId, generateLineId } from "@/lib/vcs/id";
 import { generateDraftBranchName } from "@/lib/pos/id";
@@ -58,7 +60,8 @@ function createFreshRepo(orderContext?: OrderContext): VCSRepo {
 interface VCSStore {
   // State
   engine: VCSEngine;
-  projectedState: ProjectedState;
+  projectedState: RenderedCheck;
+  chargeRules: ResolvedChargeRule[];
   viewingHash: string | null; // null = follow HEAD
   catalog: Record<string, CatalogItemEntry>;
   catalogLoaded: boolean;
@@ -81,6 +84,7 @@ interface VCSStore {
 
   // Actions — Catalog
   loadCatalog: (items: CatalogItemEntry[]) => void;
+  setChargeRules: (rules: ResolvedChargeRule[]) => void;
 
   // Actions — Order Init/Reset
   initRepo: (orderContext: OrderContext, defaultPaymentMethod: string) => void;
@@ -322,7 +326,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
   return {
     engine,
-    projectedState: engine.projectCurrent(),
+    projectedState: evaluateBusinessRules(engine.projectCurrent(), [], {}),
+    chargeRules: [],
     viewingHash: null,
     catalog: {},
     catalogLoaded: false,
@@ -369,7 +374,15 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       set({
         catalog: catalogMap,
         catalogLoaded: true,
-        projectedState: store.engine.projectCurrent(),
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, catalogMap),
+      });
+    },
+
+    setChargeRules: (rules) => {
+      const store = get();
+      set({
+        chargeRules: rules,
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), rules, store.catalog),
       });
     },
 
@@ -463,7 +476,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       set({
         engine: newEngine,
-        projectedState: newEngine.projectCurrent(),
+        projectedState: evaluateBusinessRules(newEngine.projectCurrent(), store.chargeRules, store.catalog),
         viewingHash: null,
         isInitialized: true,
         orderContext,
@@ -474,6 +487,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         activeFulfillmentConfigId: defaultFulfillmentAllocId,
       });
       get().persist();
+
+      // Fetch charge rules from backend for the new repo
+      fetch("/api/charge-rules")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.rules) {
+            get().setChargeRules(data.rules);
+          }
+        })
+        .catch((err) => console.error("Failed to fetch charge rules:", err));
     },
 
     resetOrder: () => {
@@ -492,7 +515,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
       set({
         engine: newEngine,
-        projectedState: newEngine.projectCurrent(),
+        projectedState: evaluateBusinessRules(newEngine.projectCurrent(), store.chargeRules, store.catalog),
         viewingHash: null,
         isInitialized: false,
         orderContext: null,
@@ -1398,7 +1421,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const commit = store.engine.commit(deltas, authorId);
       set({
         viewingHash: null, // Reset to HEAD after new commit
-        projectedState: store.engine.projectCurrent(),
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
       });
       store.persist();
       return commit;
@@ -2133,7 +2156,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.engine.checkout(name);
       set({
         viewingHash: null,
-        projectedState: store.engine.projectCurrent(),
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
       });
       store.persist();
     },
@@ -2143,7 +2166,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.engine.checkout(name);
       set({
         viewingHash: null,
-        projectedState: store.engine.projectCurrent(),
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
       });
       store.persist();
     },
@@ -2152,9 +2175,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       set({ viewingHash: hash });
       if (hash === null) {
-        set({ projectedState: store.engine.projectCurrent() });
+        set({ projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog) });
       } else {
-        set({ projectedState: store.engine.projectAt(hash) });
+        set({ projectedState: evaluateBusinessRules(store.engine.projectAt(hash), store.chargeRules, store.catalog) });
       }
     },
 
@@ -2162,7 +2185,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       store.engine.setMainActiveBranch(name);
       set({
-        projectedState: store.engine.projectCurrent(),
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
       });
       store.persist();
     },
@@ -2171,7 +2194,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       store.engine.updateBranchConfig(name, config);
       set({
-        projectedState: store.engine.projectCurrent(),
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
       });
       store.persist();
     },
@@ -2180,7 +2203,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       store.engine.renameBranch(oldName, newName);
       set({
-        projectedState: store.engine.projectCurrent(),
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
       });
       store.persist();
     },
@@ -2198,7 +2221,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (store.engine.getActiveBranch() === targetBranch) {
         set({
           viewingHash: null,
-          projectedState: store.engine.projectCurrent(),
+          projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
         });
       }
       store.persist();
@@ -2210,7 +2233,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       try {
         store.engine.squashPendingCommits(fromHash);
-        const newProjected = store.engine.projectCurrent();
+        const newProjected = evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog);
         set({ projectedState: newProjected, viewingHash: null });
         store.persist();
       } catch (e) {
@@ -2222,7 +2245,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       try {
         store.engine.resetToCommit(targetHash);
-        const newProjected = store.engine.projectCurrent();
+        const newProjected = evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog);
         set({ projectedState: newProjected, viewingHash: null });
         store.persist();
       } catch (e) {
@@ -2341,7 +2364,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
           set({
             engine: newEngine,
-            projectedState: currentProj,
+            projectedState: evaluateBusinessRules(currentProj, store.chargeRules, store.catalog),
             isInitialized: hasOrderContext,
             orderContext: (repo.orderContext as OrderContext) ?? null,
             defaultAssignmentAllocId,
@@ -2350,6 +2373,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             activeFulfillmentConfigId,
             defaultPaymentMethod,
           });
+
+          // Also fetch charge rules upon hydration to reapply taxes
+          fetch("/api/charge-rules")
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.rules) {
+                get().setChargeRules(data.rules);
+              }
+            })
+            .catch((err) => console.error("Failed to fetch charge rules:", err));
         }
       } catch {
         // Corrupted data — start fresh
