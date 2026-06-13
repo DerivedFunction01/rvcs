@@ -1838,9 +1838,8 @@ export function MergeBranchDialog({
     [selectedSources],
   );
 
-  const handlePreview = () => {
-    if (sourceBranches.length === 0) return;
-    const result = onPreview(sourceBranches, targetBranch);
+  const runPreview = (sources: string[], target: string) => {
+    const result = onPreview(sources, target);
     setPreview(result);
     const mapped = result.conflicts.map((c) => {
       const isIdentical = areDeltasIdentical(
@@ -1855,6 +1854,24 @@ export function MergeBranchDialog({
     });
     setConflicts(mapped);
     setStep("preview");
+  };
+
+  const handlePreview = () => {
+    if (sourceBranches.length === 0) return;
+    runPreview(sourceBranches, targetBranch);
+  };
+
+  const mainBranchName = useVCSStore.getState().mainActiveBranch();
+  const canQuickPreviewToMain =
+    step === "select" &&
+    activeBranch !== mainBranchName &&
+    branches[mainBranchName] !== undefined &&
+    !isAlreadyMerged(activeBranch, mainBranchName);
+
+  const handleQuickPreviewToMain = () => {
+    setTargetBranch(mainBranchName);
+    setSelectedSources(new Set([activeBranch]));
+    runPreview([activeBranch], mainBranchName);
   };
 
   const handleConflictChange = (id: string, resolution: string) => {
@@ -1948,6 +1965,25 @@ export function MergeBranchDialog({
           </DialogTitle>
           <DialogDescription>{stepDescription}</DialogDescription>
         </DialogHeader>
+
+        {/* Quick merge to main shortcut */}
+        {canQuickPreviewToMain && (
+          <button
+            onClick={handleQuickPreviewToMain}
+            className="flex items-center gap-2 w-full rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 px-3 py-2 text-left transition-colors group shrink-0"
+          >
+            <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-primary leading-tight">
+                Quick preview: {activeBranch} → {mainBranchName}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Skip selection and preview this merge now
+              </p>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-primary/60 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </button>
+        )}
 
         {/* Step indicator */}
         <div className="flex items-center gap-1 px-1 shrink-0">
