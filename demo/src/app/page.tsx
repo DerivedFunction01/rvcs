@@ -71,6 +71,7 @@ import {
   Search,
   PanelRightClose,
   PanelRightOpen,
+  Filter,
   Lock,
   Store,
   PackageCheck,
@@ -1139,6 +1140,8 @@ function POSTerminalInner() {
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [guestSearchQuery, setGuestSearchQuery] = React.useState("");
   const [catalogFilter, setCatalogFilter] = React.useState("");
+  const [avoidAllergens, setAvoidAllergens] = React.useState<Set<string>>(new Set());
+  const [requireDietaryFlags, setRequireDietaryFlags] = React.useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
@@ -1527,6 +1530,22 @@ function POSTerminalInner() {
     acc[cat].push(item);
     return acc;
   }, {});
+
+  const availableAllergens = React.useMemo(() => {
+    const allergens = new Set<string>();
+    for (const item of catalogItems) {
+      for (const a of item.allergens) allergens.add(a);
+    }
+    return Array.from(allergens).sort();
+  }, [catalogItems]);
+
+  const availableDietaryFlags = React.useMemo(() => {
+    const flags = new Set<string>();
+    for (const item of catalogItems) {
+      for (const f of item.dietaryFlags) flags.add(f);
+    }
+    return Array.from(flags).sort();
+  }, [catalogItems]);
 
   const rootItems = Object.values(projectedState.items).filter(
     (i) => !i.parentLineId,
@@ -2112,6 +2131,8 @@ function POSTerminalInner() {
     setAddGuestAlias("");
     setAddGuestOpen(false);
     setCatalogFilter("");
+    setAvoidAllergens(new Set());
+    setRequireDietaryFlags(new Set());
     toast.success("Order reset — ready for a new order");
   }, [resetOrder]);
 
@@ -2487,37 +2508,167 @@ function POSTerminalInner() {
         <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* ─── LEFT PANEL: Catalog ─────────────────────────────────── */}
           <aside className="w-lg border-r bg-card flex flex-col shrink-0">
-            <div className="p-3 border-b">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Catalog
-              </h2>
-              <Input
-                placeholder="Search items..."
-                value={catalogFilter}
-                onChange={(e) => setCatalogFilter(e.target.value)}
-                className="h-8 text-xs"
-              />
+            <div className="p-3 border-b space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Catalog
+                </h2>
+                <div className="flex items-center gap-1">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`h-6 text-[10px] px-2 gap-1.5 ${requireDietaryFlags.size > 0 ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" : ""}`}
+                      >
+                        <Filter className="w-3 h-3" />
+                        {requireDietaryFlags.size > 0 ? `Dietary (${requireDietaryFlags.size})` : "Dietary"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-2" align="start">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between px-1 pb-1 border-b">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Dietary Needs</span>
+                          {requireDietaryFlags.size > 0 && (
+                            <Button variant="link" className="h-auto p-0 text-[10px]" onClick={() => setRequireDietaryFlags(new Set())}>Clear</Button>
+                          )}
+                        </div>
+                        <div className="max-h-48 overflow-y-auto pt-1 space-y-1">
+                          {availableDietaryFlags.map((flag) => {
+                            const config = FLAG_ICONS[flag];
+                            const Icon = config?.icon || Info;
+                            const isChecked = requireDietaryFlags.has(flag);
+                            return (
+                              <label
+                                key={flag}
+                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors"
+                              >
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    setRequireDietaryFlags((prev) => {
+                                      const next = new Set(prev);
+                                      if (checked) next.add(flag);
+                                      else next.delete(flag);
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-3.5 h-3.5"
+                                />
+                                <Icon className={`w-3.5 h-3.5 ${config?.color || "text-muted-foreground"}`} />
+                                <span className="text-xs font-medium capitalize">
+                                  {config?.label || formatLabel(flag)}
+                                </span>
+                              </label>
+                            );
+                          })}
+                          {availableDietaryFlags.length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center py-2">No dietary flags found</div>
+                          )}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`h-6 text-[10px] px-2 gap-1.5 ${avoidAllergens.size > 0 ? "border-amber-500/50 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20" : ""}`}
+                      >
+                        <Filter className="w-3 h-3" />
+                        {avoidAllergens.size > 0 ? `Avoid ${avoidAllergens.size}` : "Allergens"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56 p-2" align="start">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between px-1 pb-1 border-b">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Avoid Allergens</span>
+                          {avoidAllergens.size > 0 && (
+                            <Button variant="link" className="h-auto p-0 text-[10px]" onClick={() => setAvoidAllergens(new Set())}>Clear</Button>
+                          )}
+                        </div>
+                        <div className="max-h-48 overflow-y-auto pt-1 space-y-1">
+                          {availableAllergens.map((allergen) => {
+                            const config = ALLERGEN_ICONS[allergen];
+                            const Icon = config?.icon || Info;
+                            const isChecked = avoidAllergens.has(allergen);
+                            return (
+                              <label
+                                key={allergen}
+                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors"
+                              >
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    setAvoidAllergens((prev) => {
+                                      const next = new Set(prev);
+                                      if (checked) next.add(allergen);
+                                      else next.delete(allergen);
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-3.5 h-3.5"
+                                />
+                                <Icon className={`w-3.5 h-3.5 ${config?.color || "text-muted-foreground"}`} />
+                                <span className="text-xs font-medium capitalize">
+                                  {config?.label || formatLabel(allergen)}
+                                </span>
+                              </label>
+                            );
+                          })}
+                          {availableAllergens.length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center py-2">No allergens found</div>
+                          )}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search items..."
+                  value={catalogFilter}
+                  onChange={(e) => setCatalogFilter(e.target.value)}
+                  className="h-8 text-xs pl-8"
+                />
+              </div>
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
               <div className="p-2 space-y-1">
-                {Object.entries(groupedCatalog).map(([category, items]) => (
-                  <div key={category}>
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5 mt-1">
-                      {category}
-                    </div>
-                    {items
-                      .filter(
-                        (i) =>
-                          !catalogFilter ||
-                          i.name
-                            .toLowerCase()
-                            .includes(catalogFilter.toLowerCase()) ||
-                          i.sku
-                            .toLowerCase()
-                            .includes(catalogFilter.toLowerCase()),
-                      )
-                      .map((item) => (
+                {Object.entries(groupedCatalog).map(([category, items]) => {
+                  const filteredItems = items.filter((i) => {
+                    if (
+                      catalogFilter &&
+                      !i.name.toLowerCase().includes(catalogFilter.toLowerCase()) &&
+                      !i.sku.toLowerCase().includes(catalogFilter.toLowerCase())
+                    ) {
+                      return false;
+                    }
+                    if (avoidAllergens.size > 0) {
+                      for (const a of i.allergens) {
+                        if (avoidAllergens.has(a)) return false;
+                      }
+                    }
+                    if (requireDietaryFlags.size > 0) {
+                      for (const f of requireDietaryFlags) {
+                        if (!i.dietaryFlags.includes(f)) return false;
+                      }
+                    }
+                    return true;
+                  });
+
+                  if (filteredItems.length === 0) return null;
+
+                  return (
+                    <div key={category}>
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5 mt-1">
+                        {category}
+                      </div>
+                      {filteredItems.map((item) => (
                         <Tooltip key={item.sku}>
                           <TooltipTrigger asChild>
                             <button
@@ -2572,8 +2723,9 @@ function POSTerminalInner() {
                           </TooltipContent>
                         </Tooltip>
                       ))}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           </aside>
