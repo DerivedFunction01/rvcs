@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface ChoiceDialogOption {
   id: string;
@@ -30,6 +31,11 @@ interface ChoiceDialogProps {
   onChoose: (option: ChoiceDialogOption) => void;
   footer?: React.ReactNode;
   emptyText?: string;
+  extraToggle?: {
+    label: string;
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+  };
 }
 
 export function ChoiceDialog({
@@ -42,6 +48,7 @@ export function ChoiceDialog({
   onChoose,
   footer,
   emptyText = "No matching results.",
+  extraToggle,
 }: ChoiceDialogProps) {
   const [query, setQuery] = useState("");
 
@@ -84,6 +91,24 @@ export function ChoiceDialog({
             className="pl-9"
           />
         </div>
+
+        {extraToggle && (
+          <div className="flex items-center gap-2 px-1 py-1 text-xs">
+            <Checkbox
+              id="choice-dialog-toggle"
+              checked={extraToggle.checked}
+              onCheckedChange={(checked) =>
+                extraToggle.onCheckedChange(!!checked)
+              }
+            />
+            <label
+              htmlFor="choice-dialog-toggle"
+              className="text-xs font-semibold leading-none cursor-pointer select-none text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {extraToggle.label}
+            </label>
+          </div>
+        )}
 
         <div className="min-h-0 max-h-[55vh] overflow-y-auto pr-1">
           {filtered.length === 0 ? (

@@ -1317,6 +1317,8 @@ function POSTerminalInner() {
     slotSku: string;
   } | null>(null);
 
+  const [retainModifiersDuringSwap, setRetainModifiersDuringSwap] = React.useState<boolean>(true);
+
   const handleOpenSwapDialog = React.useCallback(
     (lineId: string, parentLineId: string, slotSku: string) => {
       setSwapChoiceState({ lineId, parentLineId, slotSku });
@@ -1330,9 +1332,19 @@ function POSTerminalInner() {
     null,
   );
   const [noteText, setNoteText] = React.useState("");
+  const [linkNoteToComboBase, setLinkNoteToComboBase] = React.useState<boolean>(false);
+
+  const isComboChildItem = React.useMemo(() => {
+    if (!noteItem || !noteItem.parentLineId) return false;
+    const parent = projectedState.items[noteItem.parentLineId];
+    if (!parent) return false;
+    const parentEntry = catalog[parent.sku];
+    return !!parentEntry?.comboChoices;
+  }, [noteItem, projectedState.items, catalog]);
 
   const handleOpenNoteDialog = React.useCallback((item: ProjectedLineItem) => {
     setNoteItem(item);
+    setLinkNoteToComboBase(false);
     if (item.sku === "custom_note") {
       setNoteText(item.selectedModifierState || "");
     } else {
@@ -1353,13 +1365,16 @@ function POSTerminalInner() {
         );
       toast.success("Note updated");
     } else {
+      const parentId = linkNoteToComboBase && noteItem.parentLineId
+        ? noteItem.parentLineId
+        : noteItem.lineId;
       useVCSStore
         .getState()
-        .addModifier(noteItem.lineId, "custom_note", noteText.trim());
+        .addModifier(parentId, "custom_note", noteText.trim());
       toast.success("Note added");
     }
     setNoteDialogOpen(false);
-  }, [noteItem, noteText]);
+  }, [noteItem, noteText, linkNoteToComboBase]);
 
   // ─── Guest Management ──────────────────────────────────────────────────
 
@@ -4078,6 +4093,22 @@ function POSTerminalInner() {
               <span className="font-medium text-foreground">Cmd+Enter</span> to
               save.
             </div>
+
+            {isComboChildItem && noteItem?.sku !== "custom_note" && (
+              <div className="flex items-center gap-2 pt-2">
+                <Checkbox
+                  id="link-to-base-checkbox"
+                  checked={linkNoteToComboBase}
+                  onCheckedChange={(checked) => setLinkNoteToComboBase(!!checked)}
+                />
+                <label
+                  htmlFor="link-to-base-checkbox"
+                  className="text-xs font-semibold leading-none cursor-pointer select-none text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Apply note to combo base (will not be deleted if item is swapped)
+                </label>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -4136,6 +4167,11 @@ function POSTerminalInner() {
         title={`Swap ${slotName}`}
         description="Select an alternative option to swap for this slot."
         options={swapOptions}
+        extraToggle={{
+          label: "Retain compatible modifiers (e.g. extra cheese)",
+          checked: retainModifiersDuringSwap,
+          onCheckedChange: setRetainModifiersDuringSwap,
+        }}
         onChoose={(option) => {
           if (swapChoiceState) {
             const [optionSku, modifierSku] = option.id.split(":");
@@ -4143,7 +4179,8 @@ function POSTerminalInner() {
               swapChoiceState.lineId,
               swapChoiceState.parentLineId,
               optionSku,
-              modifierSku || undefined
+              modifierSku || undefined,
+              retainModifiersDuringSwap
             );
             setSwapChoiceState(null);
             toast.success("Combo choice updated");

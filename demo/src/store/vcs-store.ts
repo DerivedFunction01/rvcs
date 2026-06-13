@@ -240,6 +240,7 @@ interface VCSStore {
     parentLineId: string,
     newSku: string,
     modifierSku?: string,
+    retainModifiers?: boolean,
   ) => void;
   removeItem: (lineId: string) => void;
   modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
@@ -1420,7 +1421,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
     },
 
-    swapComboChoice: (oldLineId, parentLineId, newSku, modifierSku) => {
+    swapComboChoice: (oldLineId, parentLineId, newSku, modifierSku, retainModifiers) => {
       const store = get();
       const state = store.projectedState;
       const oldItem = state.items[oldLineId];
@@ -1488,6 +1489,34 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       };
 
       injectDefaults(newSku, childId, modifierSku);
+
+      // 4. Retain compatible general modifiers if selected
+      if (retainModifiers && oldItem.children && oldItem.children.length > 0) {
+        const newEntry = store.catalog[newSku];
+        for (const child of oldItem.children) {
+          const childEntry = store.catalog[child.sku];
+          if (
+            childEntry &&
+            childEntry.type === "modifier" &&
+            childEntry.category !== "size"
+          ) {
+            // Check if new item supports this modifier
+            const isSupported = newEntry?.allowedModifiers?.includes(child.sku);
+            if (isSupported) {
+              const modId = generateLineId();
+              deltas.push({
+                action: "add_item",
+                lineId: modId,
+                parentLineId: childId,
+                sku: child.sku,
+                qty: child.qty,
+                allocations: [],
+                selectedModifierState: child.selectedModifierState,
+              });
+            }
+          }
+        }
+      }
 
       store.commitDeltas(deltas, "pos-ui");
     },
