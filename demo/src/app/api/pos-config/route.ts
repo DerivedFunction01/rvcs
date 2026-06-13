@@ -27,6 +27,8 @@ interface FloorRow {
     id: string;
     type: string;
     name: string | null;
+    displayName: string | null;
+    zIndex: number | null;
     shapeType: string | null;
     x: number;
     y: number;
@@ -144,16 +146,16 @@ function defaultFloorSeed() {
       name: "Main Floor",
       sortOrder: 0,
       objects: [
-        { kind: "wall", label: "North Wall", shape: "rectangle", x: 4, y: 0.5, width: 8, height: 1, rotation: 0 },
-        { kind: "deadspace", label: "Entry", shape: "rectangle", x: 0.5, y: 1.5, width: 1, height: 1, rotation: 0 },
-        { kind: "table", label: "Table 1", shape: "rectangle", x: 3, y: 1.5, width: 2, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 1 Chair 1", shape: "rectangle", x: 2.5, y: 2.5, width: 1, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 1 Chair 2", shape: "rectangle", x: 3.5, y: 2.5, width: 1, height: 1, rotation: 0 },
-        { kind: "table", label: "Table 2", shape: "circle", x: 6, y: 2, radius: 1, rotation: 0 },
-        { kind: "chair", label: "Table 2 Chair 1", shape: "rectangle", x: 5.5, y: 3.5, width: 1, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 2 Chair 2", shape: "rectangle", x: 6.5, y: 3.5, width: 1, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 2 Chair 3", shape: "rectangle", x: 6.5, y: 2.5, width: 1, height: 1, rotation: 0 },
-        { kind: "wall", label: "South Wall", shape: "rectangle", x: 4, y: 4.5, width: 8, height: 1, rotation: 0 },
+        { kind: "wall", label: "North Wall", displayName: null, shape: "rectangle", x: 4, y: 0.5, width: 8, height: 1, rotation: 0 },
+        { kind: "deadspace", label: "Entry", displayName: "Entry", shape: "rectangle", x: 0.5, y: 1.5, width: 1, height: 1, rotation: 0 },
+        { kind: "table", label: "Table 1", displayName: "Table 1", shape: "rectangle", x: 3, y: 1.5, width: 2, height: 1, rotation: 0 },
+        { kind: "chair", label: "Table 1 Chair 1", displayName: "C1", shape: "rectangle", x: 2.5, y: 2.5, width: 1, height: 1, rotation: 0 },
+        { kind: "chair", label: "Table 1 Chair 2", displayName: "C2", shape: "rectangle", x: 3.5, y: 2.5, width: 1, height: 1, rotation: 0 },
+        { kind: "table", label: "Table 2", displayName: "Table 2", shape: "circle", x: 6, y: 2, radius: 1, rotation: 0 },
+        { kind: "chair", label: "Table 2 Chair 1", displayName: "C1", shape: "rectangle", x: 5.5, y: 3.5, width: 1, height: 1, rotation: 0 },
+        { kind: "chair", label: "Table 2 Chair 2", displayName: "C2", shape: "rectangle", x: 6.5, y: 3.5, width: 1, height: 1, rotation: 0 },
+        { kind: "chair", label: "Table 2 Chair 3", displayName: "C3", shape: "rectangle", x: 6.5, y: 2.5, width: 1, height: 1, rotation: 0 },
+        { kind: "wall", label: "South Wall", displayName: null, shape: "rectangle", x: 4, y: 4.5, width: 8, height: 1, rotation: 0 },
       ],
       links: [
         { tableLabel: "Table 1", chairLabel: "Table 1 Chair 1" },
@@ -210,6 +212,8 @@ async function ensureDefaultFloors(posConfigId: string) {
           floorId: floor.id,
           type: object.kind,
           name: object.label || "Unnamed",
+          displayName: 'displayName' in object ? object.displayName : null,
+          zIndex: 'zIndex' in object ? (object as any).zIndex : null,
           shapeType: object.shape,
           x: object.x,
           y: object.y,
@@ -290,6 +294,8 @@ async function readFloorConfigs(posConfigId: string): Promise<Array<{
         kind: object.type as "table" | "chair" | "wall" | "deadspace",
         shape: (object.shapeType as "circle" | "ellipse" | "rectangle" | "triangle" | "polygon") || undefined,
         label: object.name || undefined,
+        displayName: object.displayName || undefined,
+        zIndex: object.zIndex ?? undefined,
         x: object.x,
         y: object.y,
         rotation: object.rotation,

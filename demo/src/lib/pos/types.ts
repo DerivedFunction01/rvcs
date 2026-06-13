@@ -1,7 +1,7 @@
 export interface OrderContext {
-  orderType: string;         // "walk-in" | "pickup" | "delivery"
-  orderTypeLabel: string;    // "Walk In" | "Pickup" | "Delivery"
-  serverName: string;       // server / account login for the terminal
+  orderType: string; // "walk-in" | "pickup" | "delivery"
+  orderTypeLabel: string; // "Walk In" | "Pickup" | "Delivery"
+  serverName: string; // server / account login for the terminal
   tableConfigId?: string | null;
   floorConfigId?: string | null;
   initialGuestNames?: string[];
@@ -38,13 +38,20 @@ export interface PosConfigResponse {
 }
 
 export type FloorObjectKind = "table" | "chair" | "wall" | "deadspace";
-export type FloorShape = "circle" | "ellipse" | "rectangle" | "triangle" | "polygon";
+export type FloorShape =
+  | "circle"
+  | "ellipse"
+  | "rectangle"
+  | "triangle"
+  | "polygon";
 
 export interface FloorObjectBase {
   id: string;
   kind: FloorObjectKind;
   shape?: FloorShape;
   label?: string;
+  displayName?: string;
+  zIndex?: number;
   x: number;
   y: number;
   rotation?: number;

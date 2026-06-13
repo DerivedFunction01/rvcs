@@ -108,14 +108,7 @@ function getSelectedGuestNames(table: FloorObject | null): string[] {
 }
 
 function getDisplayLabel(object: FloorObject): string {
-  if (!object.label) return "";
-  if (object.kind === "chair") {
-    const chairMatch = object.label.match(/Chair\s+(\d+)/i);
-    if (chairMatch) return `C${chairMatch[1]}`;
-    const numMatch = object.label.match(/(\d+)$/);
-    if (numMatch) return `C${numMatch[1]}`;
-  }
-  return object.label;
+  return object.displayName || object.label || "";
 }
 
 function getFontSize(object: FloorObject, label: string): number {
@@ -194,6 +187,23 @@ export function OrderInitScreen({
     () => floorConfigs.find((floor) => floor.id === selectedFloorId) ?? null,
     [floorConfigs, selectedFloorId],
   );
+
+  const sortedObjects = useMemo(() => {
+    if (!selectedFloor) return [];
+
+    const DEFAULT_LAYERS: Record<string, number> = {
+      deadspace: 0,
+      wall: 10,
+      table: 20,
+      chair: 30,
+    };
+
+    return [...selectedFloor.objects].sort((a, b) => {
+      const zA = a.zIndex !== undefined && a.zIndex !== null ? a.zIndex : (DEFAULT_LAYERS[a.kind] ?? 0);
+      const zB = b.zIndex !== undefined && b.zIndex !== null ? b.zIndex : (DEFAULT_LAYERS[b.kind] ?? 0);
+      return zA - zB;
+    });
+  }, [selectedFloor]);
 
   const selectedObjects = useMemo(() => {
     if (!selectedFloor) return [];
@@ -594,7 +604,7 @@ export function OrderInitScreen({
                         viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
                         className="w-full h-full max-h-[600px]"
                       >
-                        {selectedFloor.objects.map((object) => {
+                        {sortedObjects.map((object) => {
                           const selected = object
                             ? selectedObjectIds.includes(object.id)
                             : false;

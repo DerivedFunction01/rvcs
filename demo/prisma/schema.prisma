@@ -107,6 +107,8 @@ model FloorObject {
   floor      Floor      @relation(fields: [floorId], references: [id], onDelete: Cascade)
   type       String     // table | chair | wall | deadspace
   name       String
+  displayName String?
+  zIndex     Int?
   shapeType  String?    // circle | ellipse | rectangle | triangle | polygon
   x          Float
   y          Float
