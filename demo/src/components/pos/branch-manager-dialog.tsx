@@ -42,9 +42,7 @@ function BranchRow({
   branch,
   pointer,
   isActive,
-  isMainActive,
   onCheckout,
-  onSetMainActive,
   onConfigure,
 }: {
   branch: string;

@@ -377,11 +377,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         newEngine.setCatalog(Object.values(store.catalog));
       }
       // Auto-create the default allocations
-      const customerNameRaw = orderContext.customerFields.name || "Guest";
-      let customerName = customerNameRaw.toLowerCase() === "guest" ? "Guest 1" : `Guest 1 (${customerNameRaw})`;
-      if (orderContext.initialGuestNames?.length && orderContext.initialGuestNames[0] !== "Guest 1") {
-         customerName = orderContext.initialGuestNames[0];
-      }
+      const customerName = "__vcs_guest_1__";
       const assignAllocId = generateAllocationId("default-assign");
 
       const assignmentAlloc: AssignmentAllocation = {
@@ -597,8 +593,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let assignId = defaultAssignId;
       const deltas: Delta[] = [];
 
-      const customerName = store.orderContext?.customerFields.name || "Guest";
-      if (assigneeName && assigneeName !== customerName) {
+      if (assigneeName && assigneeName !== "__vcs_guest_1__") {
         // Find existing assignment allocation for this guest name
         const existingAssign = Object.values(state.allocations).find(
           (a) =>
@@ -836,7 +831,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       method: string | null = null,
     ) => {
       const store = get();
-      const customerName = store.orderContext?.customerFields.name || "Guest";
+      const customerName = "__vcs_guest_1__";
 
       // Check if we need to auto-add a remaining allocator
       const hasRemaining = splits.some((s) => s.strategyType === "remaining");
@@ -916,7 +911,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const item = state.items[lineId];
       if (!item) return;
 
-      const customerName = store.orderContext?.customerFields.name || "Guest";
+      const customerName = "__vcs_guest_1__";
 
       // Check if we need to auto-add a remaining allocator
       const hasRemaining = splits.some((s) => s.strategyType === "remaining");
