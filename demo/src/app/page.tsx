@@ -136,6 +136,34 @@ function getGuestColor(name: string, guests: string[]): string {
   return GUEST_PALETTE[Math.abs(hash) % GUEST_PALETTE.length];
 }
 
+function getUniqueGuestLabel(name: string, allGuests: string[]): string {
+  if (name.toLowerCase().startsWith("guest")) return name;
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return name;
+
+  const firstName = parts[0];
+  const rest = parts.slice(1).join(" ");
+  
+  const sameFirst = allGuests.filter((g) => {
+    if (g === name || g.toLowerCase().startsWith("guest")) return false;
+    return g.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
+  });
+
+  if (sameFirst.length === 0) return firstName;
+
+  for (let i = 1; i <= rest.length; i++) {
+    const candidate = `${firstName} ${rest.substring(0, i)}`;
+    const conflict = sameFirst.some((other) => {
+      const otherRest = other.trim().split(/\s+/).slice(1).join(" ");
+      const otherCandidate = `${firstName} ${otherRest}`;
+      return otherCandidate.toLowerCase().startsWith(candidate.toLowerCase());
+    });
+    if (!conflict) return candidate;
+  }
+
+  return name;
+}
+
 function getPatchedAllocations(
   allocations: Record<string, AllocationBlock>,
 ): Record<string, AllocationBlock> {
@@ -1682,7 +1710,7 @@ function POSTerminalInner() {
   }, [guests, guestSearchQuery]);
 
   const selectedGuestCount = guests.length;
-  const selectedGuestLabel = selectedPerson.split(" ")[0] || selectedPerson;
+  const selectedGuestLabel = getUniqueGuestLabel(selectedPerson, guests);
 
   const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
     setAllocConfigItem((prev) => (prev === item ? null : item));
