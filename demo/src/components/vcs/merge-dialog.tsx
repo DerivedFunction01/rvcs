@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useVCSStore } from "@/store/vcs-store";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ import {
   User,
   DollarSign,
   Package,
+  Lock,
 } from "lucide-react";
 import type {
   BranchMap,
@@ -224,29 +226,75 @@ function findItemForConflict(
   conflict: MergeConflict,
   state: ProjectedState | undefined,
 ): { name: string; sku: string; price: number } | null {
-  if (!state) return null;
   let lineId = conflict.lineId;
 
   if (!lineId && conflict.allocationId) {
-    // Scan items to see which one has this allocation ID
-    const matchingItem = Object.values(state.items).find((item) =>
-      item.allocations.includes(conflict.allocationId!),
-    );
-    if (matchingItem) {
-      lineId = matchingItem.lineId;
+    // Try to find the item in autoMergedState allocations
+    if (state) {
+      const matchingItem = Object.values(state.items).find((item) =>
+        item.allocations.includes(conflict.allocationId!),
+      );
+      if (matchingItem) {
+        lineId = matchingItem.lineId;
+      }
+    }
+    // Try current store projectedState
+    if (!lineId) {
+      const activeState = useVCSStore.getState().projectedState;
+      const matchingItem = Object.values(activeState.items).find((item) =>
+        item.allocations.includes(conflict.allocationId!),
+      );
+      if (matchingItem) {
+        lineId = matchingItem.lineId;
+      }
     }
   }
 
-  if (lineId) {
+  if (!lineId) return null;
+
+  // 1. Check autoMergedState
+  if (state && state.items[lineId]) {
     const item = state.items[lineId];
-    if (item) {
-      return {
-        name: item.name,
-        sku: item.sku,
-        price: item.totalPrice,
-      };
-    }
+    return {
+      name: item.name,
+      sku: item.sku,
+      price: item.totalPrice,
+    };
   }
+
+  // 2. Check current active state in store
+  const activeState = useVCSStore.getState().projectedState;
+  if (activeState && activeState.items[lineId]) {
+    const item = activeState.items[lineId];
+    return {
+      name: item.name,
+      sku: item.sku,
+      price: item.totalPrice,
+    };
+  }
+
+  // 3. Fallback: scan repository commit log to find the SKU of this lineId
+  try {
+    const log = useVCSStore.getState().engine.getRepo().log;
+    for (const commit of log) {
+      for (const delta of commit.deltas) {
+        if (delta.action === "add_item" && delta.lineId === lineId) {
+          const sku = delta.sku;
+          const catalogEntry = useVCSStore.getState().catalog[sku];
+          if (catalogEntry) {
+            return {
+              name: catalogEntry.name,
+              sku: sku,
+              price: catalogEntry.basePrice,
+            };
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Error searching log for conflict item:", e);
+  }
+
   return null;
 }
 
@@ -593,6 +641,7 @@ function StepSelectBranches({
   onNext: () => void;
 }) {
   const branchNames = Object.keys(branches);
+  const mainBranchName = useVCSStore.getState().mainActiveBranch();
   const availableSources = branchNames.filter((b) => b !== targetBranch);
   const mergeableSources = availableSources.filter(
     (b) => !isAlreadyMerged(b, targetBranch),
@@ -624,18 +673,26 @@ function StepSelectBranches({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {branchNames.map((b) => (
-              <SelectItem key={b} value={b}>
-                <div className="flex items-center gap-2">
-                  <BranchBadge name={b} pointer={branches[b]} />
-                  {b === activeBranch && (
-                    <span className="text-[10px] text-muted-foreground">
-                      (active)
-                    </span>
-                  )}
-                </div>
-              </SelectItem>
-            ))}
+            {branchNames.map((b) => {
+              const isLocked = b !== mainBranchName && isAlreadyMerged(b, mainBranchName);
+              return (
+                <SelectItem key={b} value={b} disabled={isLocked}>
+                  <div className="flex items-center gap-2 w-full">
+                    <BranchBadge name={b} pointer={branches[b]} />
+                    {b === activeBranch && (
+                      <span className="text-[10px] text-muted-foreground">
+                        (active)
+                      </span>
+                    )}
+                    {isLocked && (
+                      <span className="text-[9px] text-muted-foreground/60 flex items-center gap-1 font-sans ml-auto">
+                        <Lock className="w-2.5 h-2.5" /> merged to main
+                      </span>
+                    )}
+                  </div>
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -1017,14 +1074,18 @@ export function MergeBranchDialog({
 
   useEffect(() => {
     if (open) {
+      const mainBranchName = useVCSStore.getState().mainActiveBranch();
+      const isTargetLocked =
+        activeBranch !== mainBranchName &&
+        isAlreadyMerged(activeBranch, mainBranchName);
       setStep("select");
-      setTargetBranch(activeBranch);
+      setTargetBranch(isTargetLocked ? mainBranchName : activeBranch);
       setSelectedSources(new Set());
       setPreview(null);
       setConflicts([]);
       setMergeCommitHash("");
     }
-  }, [open, activeBranch]);
+  }, [open, activeBranch, isAlreadyMerged]);
 
   const sourceBranches = useMemo(
     () => Array.from(selectedSources),
