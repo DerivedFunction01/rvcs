@@ -64,6 +64,7 @@ import {
   Search,
   PanelRightClose,
   PanelRightOpen,
+  Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1111,6 +1112,16 @@ function POSTerminalInner() {
   const log = commitLog();
   const branches = useVCSStore.getState().engine.getRepo().branches;
 
+  const mainBranchName = mainActiveBranch();
+  const isMergedToMain = React.useMemo(() => {
+    if (currentBranchName === mainBranchName) return false;
+    const currentHead = branches[currentBranchName]?.headHash;
+    const mainHead = branches[mainBranchName]?.headHash;
+    if (!currentHead || !mainHead) return false;
+    if (currentHead === mainHead) return false;
+    return useVCSStore.getState().engine.isAncestorOf(currentHead, mainHead);
+  }, [currentBranchName, mainBranchName, branches]);
+
   const graphData = React.useMemo(() => {
     return buildCommitGraph(
       log,
@@ -1414,19 +1425,26 @@ function POSTerminalInner() {
               const isHypothetical = pointer?.type === "hypothetical";
               const displayName = pointer?.label || active;
               const branchCount = Object.keys(branches).length;
+              const isMain = active === main;
+              const isMerged = !isMain && pointer?.headHash && branches[main]?.headHash && pointer.headHash !== branches[main].headHash && useVCSStore.getState().engine.isAncestorOf(pointer.headHash, branches[main].headHash);
 
               return (
                 <Button
                   variant="outline"
                   size="sm"
                   className={`h-7 gap-1.5 pr-2 ${
-                    isHypothetical
-                      ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10"
-                      : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"
+                    isMain ? "border-primary/50 bg-primary/5 hover:bg-primary/10" :
+                    isMerged ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground" :
+                    isHypothetical ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10" :
+                    "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"
                   }`}
                   onClick={() => setIsBranchManagerOpen(true)}
                 >
-                  {isHypothetical ? (
+                  {isMain ? (
+                    <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />
+                  ) : isMerged ? (
+                    <Lock className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                  ) : isHypothetical ? (
                     <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   ) : (
                     <GitBranch className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -1763,13 +1781,17 @@ function POSTerminalInner() {
               </div>
             </div>
 
-            {/* Main Branch Read-Only Warning */}
-            {currentBranchName === "main" && !isViewingHistory && (
+          {/* Read-Only Warning */}
+          {(currentBranchName === mainBranchName || isMergedToMain) && !isViewingHistory && (
               <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-900/50 px-6 py-2.5 flex items-start gap-2.5 shrink-0">
                 <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                  <strong className="font-semibold uppercase tracking-wider text-[10px] mr-1.5">Read-Only Trunk:</strong>
-                  Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger.
+                <strong className="font-semibold uppercase tracking-wider text-[10px] mr-1.5">
+                  {currentBranchName === mainBranchName ? "Read-Only Trunk:" : "Merged Branch:"}
+                </strong>
+                {currentBranchName === mainBranchName 
+                  ? "Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger."
+                  : "This branch has already been merged into main and is read-only. Any modifications made here will automatically create a new draft branch."}
                 </p>
               </div>
             )}

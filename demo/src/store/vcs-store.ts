@@ -858,8 +858,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     commitDeltas: (deltas, authorId = "pos-ui") => {
       const store = get();
+      const activeBranch = store.engine.getActiveBranch();
+      const mainBranch = store.engine.getMainActiveBranch();
 
-      if (store.engine.getActiveBranch() === "main") {
+      const activeHead = store.engine.getHeadHash(activeBranch);
+      const mainHead = store.engine.getHeadHash(mainBranch);
+
+      const isMain = activeBranch === mainBranch;
+      const isMergedToMain = !isMain && activeHead && mainHead && activeHead !== mainHead && store.engine.isAncestorOf(activeHead, mainHead);
+
+      if (isMain || isMergedToMain) {
         const serverName = store.orderContext?.serverName || "Tom";
         let draftBranchName = generateDraftBranchName(serverName);
         let suffix = 2;
@@ -867,10 +875,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           draftBranchName = `${generateDraftBranchName(serverName)}-${suffix}`;
           suffix += 1;
         }
-        const fromHash = store.viewingHash || "main";
+        const fromHash = store.viewingHash || activeBranch;
         store.engine.createBranch(draftBranchName, fromHash);
         store.engine.checkout(draftBranchName);
-        toast.info(`Automatically moved to new draft branch "${draftBranchName}" to protect main.`);
+        if (isMain) {
+          toast.info(`Automatically moved to new draft branch "${draftBranchName}" to protect main.`);
+        } else {
+          toast.info(`Automatically moved to new draft branch "${draftBranchName}" because "${activeBranch}" is already merged.`);
+        }
       }
 
       const commit = store.engine.commit(deltas, authorId);
