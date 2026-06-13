@@ -100,6 +100,57 @@ const SEED_DATA = [
     allergens: ["dairy"],
     brand: "",
   },
+  // ─── Chinese ─────────────────────────────────────────────────────────────
+  {
+    sku: "SKU-FRIED-RICE",
+    name: "Fried Rice",
+    basePrice: 8.99,
+    category: "chinese",
+    type: "item",
+    dietaryFlags: ["vegetarian"],
+    allergens: ["soy", "wheat"],
+    brand: "GreatWall",
+  },
+  {
+    sku: "SKU-FRIED-RICE-PORK",
+    name: "Pork Fried Rice",
+    basePrice: 10.99,
+    category: "chinese",
+    type: "item",
+    dietaryFlags: [],
+    allergens: ["soy", "wheat", "pork"],
+    brand: "GreatWall",
+  },
+  {
+    sku: "SKU-FRIED-RICE-CHICKEN",
+    name: "Chicken Fried Rice",
+    basePrice: 10.99,
+    category: "chinese",
+    type: "item",
+    dietaryFlags: [],
+    allergens: ["soy", "wheat"],
+    brand: "GreatWall",
+  },
+  {
+    sku: "SKU-FRIED-RICE-SHRIMP",
+    name: "Shrimp Fried Rice",
+    basePrice: 12.99,
+    category: "chinese",
+    type: "item",
+    dietaryFlags: [],
+    allergens: ["soy", "wheat", "shellfish"],
+    brand: "GreatWall",
+  },
+  {
+    sku: "SKU-CHINESE-GEN-TSO",
+    name: "General Tso's Chicken",
+    basePrice: 8.99,
+    category: "chinese",
+    type: "item",
+    dietaryFlags: [],
+    allergens: ["wheat", "soy"],
+    brand: "GreatWall",
+  },
   {
     sku: "SKU-DRINK-WATER",
     name: "Water",
@@ -130,6 +181,37 @@ const SEED_DATA = [
     dietaryFlags: ["vegetarian"],
     allergens: ["dairy", "wheat", "egg", "soy", "peanuts"],
     brand: "GourmetCo",
+  },
+  // ─── Chinese Modifiers ───────────────────────────────────────────────────
+  {
+    sku: "sku-rice-onion-mod",
+    name: "Onions",
+    basePrice: 0.0,
+    category: "modifier",
+    type: "modifier",
+    dietaryFlags: ["vegan", "gluten_free"],
+    allergens: [],
+    brand: "",
+  },
+  {
+    sku: "sku-peas-mod",
+    name: "Peas",
+    basePrice: 0.0,
+    category: "modifier",
+    type: "modifier",
+    dietaryFlags: ["vegan", "gluten_free"],
+    allergens: [],
+    brand: "",
+  },
+  {
+    sku: "sku-egg-mod",
+    name: "Egg",
+    basePrice: 1.0,
+    category: "modifier",
+    type: "modifier",
+    dietaryFlags: ["vegetarian", "gluten_free"],
+    allergens: ["egg"],
+    brand: "",
   },
   // ─── Modifiers ───────────────────────────────────────────────────────────
   {
@@ -309,32 +391,6 @@ async function main() {
     });
   }
 
-  // Seed Chinese General Tso
-  await prisma.catalogItem.upsert({
-    where: { sku: "SKU-CHINESE-GEN-TSO" },
-    update: {
-      name: "General Tso's Chicken",
-      basePrice: 8.99,
-      category: "chinese",
-      type: "item",
-      dietaryFlags: "[]",
-      allergens: '["wheat", "soy"]',
-      brand: "GreatWall",
-      active: true,
-    },
-    create: {
-      sku: "SKU-CHINESE-GEN-TSO",
-      name: "General Tso's Chicken",
-      basePrice: 8.99,
-      category: "chinese",
-      type: "item",
-      dietaryFlags: "[]",
-      allergens: '["wheat", "soy"]',
-      brand: "GreatWall",
-      active: true,
-    },
-  });
-
   // Create Size Groups and options
   // 1. Size Group for Fries
   await prisma.sizeGroup.create({
@@ -447,19 +503,39 @@ async function main() {
     },
   });
 
-  // Clean up legacy modifiers explicitly
-  await prisma.catalogItem.deleteMany({
-    where: {
-      sku: {
-        in: [
-          "MOD-ONION",
-          "MOD-CHEESE",
-          "MOD-AVOCADO",
-          "MOD-BACON",
-          "MOD-NO-ONION",
-          "MOD-XTRA-CHEESE",
-          "MOD-SIZE-LARGE",
+  // 4. Size Group for Fried Rice
+  await prisma.sizeGroup.create({
+    data: {
+      id: "group-friedrice-size",
+      name: "Size",
+      defaultSku: "MOD-FRIEDRICE-SML",
+      options: {
+        create: [
+          {
+            sku: "MOD-FRIEDRICE-SML",
+            name: "Small",
+            basePrice: 0.0,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-FRIEDRICE-MED",
+            name: "Medium",
+            basePrice: 2.0,
+            category: "size",
+            type: "modifier",
+          },
+          {
+            sku: "MOD-FRIEDRICE-LRG",
+            name: "Large",
+            basePrice: 4.0,
+            category: "size",
+            type: "modifier",
+          },
         ],
+      },
+      items: {
+        connect: [{ sku: "SKU-FRIED-RICE" }, { sku: "SKU-FRIED-RICE-PORK" }, { sku: "SKU-FRIED-RICE-CHICKEN" }, { sku: "SKU-FRIED-RICE-SHRIMP" }],
       },
     },
   });
@@ -609,6 +685,34 @@ async function main() {
     ],
   });
 
+  // 5. Rice Onion States
+  await prisma.modifierStateOption.createMany({
+    data: [
+      { modifierSku: "sku-rice-onion-mod", state: "NO", label: "No Onions", priceOverride: 0.0 },
+      { modifierSku: "sku-rice-onion-mod", state: "LESS", label: "Less Onions", priceOverride: 0.0 },
+      { modifierSku: "sku-rice-onion-mod", state: "ADD", label: "Add Onions", priceOverride: 0.0 },
+      { modifierSku: "sku-rice-onion-mod", state: "EXTRA", label: "Extra Onions", priceOverride: 0.0 },
+    ],
+  });
+
+  // 6. Peas States
+  await prisma.modifierStateOption.createMany({
+    data: [
+      { modifierSku: "sku-peas-mod", state: "NO", label: "No Peas", priceOverride: 0.0 },
+      { modifierSku: "sku-peas-mod", state: "LESS", label: "Less Peas", priceOverride: 0.0 },
+      { modifierSku: "sku-peas-mod", state: "ADD", label: "Add Peas", priceOverride: 0.0 },
+      { modifierSku: "sku-peas-mod", state: "EXTRA", label: "Extra Peas", priceOverride: 0.0 },
+    ],
+  });
+
+  // 7. Egg States
+  await prisma.modifierStateOption.createMany({
+    data: [
+      { modifierSku: "sku-egg-mod", state: "NO", label: "No Egg", priceOverride: 0.0 },
+      { modifierSku: "sku-egg-mod", state: "ADD", label: "Add Egg", priceOverride: 1.0 },
+    ],
+  });
+
   // Link modifiers to burgers
   const burgerSkus = ["SKU-BURGER-REG", "SKU-BURGER-DLX", "SKU-BURGER-VEG"];
   const burgerModifiers = [
@@ -627,6 +731,26 @@ async function main() {
       await prisma.itemModifier.create({
         data: {
           itemSku: burgerSku,
+          modifierSku: modSku,
+        },
+      });
+    }
+  }
+
+  // Link modifiers to Fried Rice items
+  const riceSkus = [
+    "SKU-FRIED-RICE",
+    "SKU-FRIED-RICE-PORK",
+    "SKU-FRIED-RICE-CHICKEN",
+    "SKU-FRIED-RICE-SHRIMP",
+  ];
+  const riceModifiers = ["sku-rice-onion-mod", "sku-peas-mod", "sku-egg-mod"];
+
+  for (const riceSku of riceSkus) {
+    for (const modSku of riceModifiers) {
+      await prisma.itemModifier.create({
+        data: {
+          itemSku: riceSku,
           modifierSku: modSku,
         },
       });
@@ -895,6 +1019,10 @@ async function main() {
       { skuId: "SKU-DESSRT-COOKIE", tCode: "PREPARED_FOOD" },
       { skuId: "SKU-BURGER-COMBO", tCode: "PREPARED_FOOD" },
       { skuId: "SKU-CHINESE-GEN-TSO", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-FRIED-RICE", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-FRIED-RICE-PORK", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-FRIED-RICE-CHICKEN", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-FRIED-RICE-SHRIMP", tCode: "PREPARED_FOOD" },
       { skuId: "SKU-DRINK-WATER", tCode: "WATER" },
       // Modifiers are not tagged — they fall back to GENERAL (6%) unless overridden
       // Combo slots are $0 base price; tagging PREPARED_FOOD so they align if priced
