@@ -762,6 +762,7 @@ function OrderContextBanner({
 
 function POSTerminalInner() {
   const {
+    engine,
     projectedState,
     viewingHash,
     catalog,
@@ -1347,6 +1348,7 @@ function POSTerminalInner() {
     orderContext?.initiatedAt,
   ]);
   const log = commitLog();
+  const confirmedHash = engine.getConfirmedHash();
   const branches = useVCSStore.getState().engine.getRepo().branches;
 
   const mainBranchName = mainActiveBranch();
@@ -2452,17 +2454,11 @@ function POSTerminalInner() {
                           // A commit is confirmed if it has merge parents or is system-init,
                           // or is an ancestor of such a commit.
                           const isHead = commit.commitHash === headHash();
-                          const isConfirmed =
-                            isSystem ||
-                            commit.mergeParentHashes.length > 0 ||
-                            // If any later commit is confirmed, this is too
-                            log
-                              .slice(0, idx)
-                              .some(
-                                (c) =>
-                                  c.authorId === "system-init" ||
-                                  c.mergeParentHashes.length > 0,
-                              );
+                          const isConfirmed = !!(
+                            confirmedHash &&
+                            (commit.commitHash === confirmedHash ||
+                              engine.isAncestorOf(commit.commitHash, confirmedHash))
+                          );
 
                           return (
                             <div
@@ -2580,7 +2576,7 @@ function POSTerminalInner() {
                                 </div>
 
                                 {/* Per-commit hover actions for non-confirmed, non-HEAD commits */}
-                                {!isConfirmed && !isHead && (
+                                {!isConfirmed && !isHead && !commit.authorId.startsWith("system-") && (
                                   <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover/commit:opacity-100 transition-opacity pointer-events-none group-hover/commit:pointer-events-auto">
                                     <TooltipProvider>
                                       <Tooltip>
@@ -2588,17 +2584,12 @@ function POSTerminalInner() {
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              const count = log.findIndex(
-                                                (c) =>
-                                                  c.commitHash ===
-                                                  commit.commitHash,
-                                              );
                                               // squash = collapse this commit up to HEAD
                                               setHistoryOpDialog({
                                                 type: "squash",
                                                 targetHash: commit.commitHash,
                                                 label: "Squash to HEAD",
-                                                description: `Collapse the ${count} commit(s) from ${commit.commitHash.substring(0, 7)} up to HEAD into a single commit. Confirmed history is preserved.`,
+                                                description: `Collapse the pending commits from ${commit.commitHash.substring(0, 7)} up to HEAD into a single commit. Confirmed history is preserved.`,
                                               });
                                             }}
                                             className="h-5 w-5 rounded flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 border border-sky-500/20"

@@ -884,6 +884,11 @@ export class VCSEngine {
           "Cannot squash confirmed commits. Only pending commits can be squashed.",
         );
       }
+      if (commit.authorId.startsWith("system-")) {
+        throw new Error(
+          "Cannot squash system-generated initialization commits.",
+        );
+      }
       rangeCommits.unshift(commit);
       current = commit.parentHash;
     }
@@ -962,6 +967,11 @@ export class VCSEngine {
       if (this.isConfirmedCommit(commit.commitHash)) {
         throw new Error(
           "Cannot reset past a confirmed commit. Only pending commits can be removed.",
+        );
+      }
+      if (commit.authorId.startsWith("system-")) {
+        throw new Error(
+          "Cannot remove system-generated initialization commits.",
         );
       }
       toDrop.add(current);

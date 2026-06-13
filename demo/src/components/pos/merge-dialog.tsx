@@ -1860,6 +1860,7 @@ export function MergeBranchDialog({
       // Squash each source branch's pending commits into one before merging
       if (squashBeforeMerge) {
         const engine = useVCSStore.getState().engine;
+        const confirmedHash = engine.getConfirmedHash();
         for (const srcBranch of sourceBranches) {
           const branchHead = engine.getRepo().branches[srcBranch]?.headHash;
           if (!branchHead) continue;
@@ -1871,8 +1872,17 @@ export function MergeBranchDialog({
           while (cur) {
             const c = commitByHash.get(cur);
             if (!c) break;
-            if (c.mergeParentHashes.length > 0 || c.authorId === "system-init")
+            
+            // Stop walking back if we hit a confirmed commit (e.g. branch point from main)
+            if (confirmedHash && (c.commitHash === confirmedHash || engine.isAncestorOf(c.commitHash, confirmedHash))) {
               break;
+            }
+
+            // Also stop if we hit any system initialization commits
+            if (c.mergeParentHashes.length > 0 || c.authorId.startsWith("system-")) {
+              break;
+            }
+
             firstPendingHash = c.commitHash;
             cur = c.parentHash;
           }
