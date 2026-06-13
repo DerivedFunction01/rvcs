@@ -12,9 +12,19 @@ import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
 import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
+import { NumberPadDialog } from "@/components/vcs/number-pad-dialog";
+import { ChoiceDialog } from "@/components/vcs/choice-dialog";
 import { BranchConfigDialog } from "@/components/vcs/branch-config-dialog";
 import { BranchManagerDialog } from "@/components/vcs/branch-manager-dialog";
 import { MergeBranchDialog } from "@/components/vcs/merge-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -51,6 +61,9 @@ import {
   ChevronRight,
   GitBranch,
   Lightbulb,
+  Search,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,6 +84,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -117,24 +131,16 @@ function AllocationBadges({
   allocations,
   defaultPaymentAllocId,
   guests,
-  onItemClick,
 }: {
   allocationIds: string[];
   allocations: Record<string, AllocationBlock>;
   defaultPaymentAllocId: string | null;
   guests: string[];
-  onItemClick?: () => void;
 }) {
   if (allocationIds.length === 0) return null;
 
   return (
-    <div
-      className="flex flex-wrap gap-1 mt-1.5"
-      onClick={(e) => {
-        e.stopPropagation();
-        onItemClick?.();
-      }}
-    >
+    <div className="flex flex-wrap gap-1 mt-1.5">
       {allocationIds.map((id) => {
         const alloc = allocations[id];
         if (!alloc) return null;
@@ -145,7 +151,7 @@ function AllocationBadges({
             <Badge
               key={id}
               variant="secondary"
-              className="text-[10px] px-1.5 py-0 h-4 font-medium cursor-pointer hover:bg-secondary/80"
+              className="text-[10px] px-1.5 py-0 h-4 font-medium"
             >
               <User className="w-2.5 h-2.5 mr-0.5" />
               {entity}
@@ -161,7 +167,7 @@ function AllocationBadges({
             <Badge
               key={id}
               variant={isDefault ? "default" : "outline"}
-              className={`text-[10px] px-1.5 py-0 h-4 font-medium cursor-pointer hover:opacity-80 ${isSplit ? "border-primary/50" : ""}`}
+              className={`text-[10px] px-1.5 py-0 h-4 font-medium ${isSplit ? "border-primary/50" : ""}`}
             >
               {isSplit && <Split className="w-2.5 h-2.5 mr-0.5" />}
               {!isSplit && <CreditCard className="w-2.5 h-2.5 mr-0.5" />}
@@ -347,7 +353,6 @@ function LineItemNode({
                   allocations={allocations}
                   defaultPaymentAllocId={defaultPaymentAllocId}
                   guests={guests}
-                  onItemClick={() => onAllocConfig(item)}
                 />
               )}
               {isRoot &&
@@ -677,16 +682,19 @@ function POSTerminalInner() {
   const bulkActionsBarRef = React.useRef<HTMLDivElement | null>(null);
 
   // Dropdown key states to reset Select menus after an option is selected
-  const [qtySelectKey, setQtySelectKey] = React.useState(0);
-  const [guestSelectKey, setGuestSelectKey] = React.useState(0);
-  const [paySelectKey, setPaySelectKey] = React.useState(0);
   const [removeModSelectKey, setRemoveModSelectKey] = React.useState(0);
-  const [dupMoveSelectKey, setDupMoveSelectKey] = React.useState(0);
   const [selectedPerson, setSelectedPerson] = React.useState(customerName);
-  const [newGuestName, setNewGuestName] = React.useState("");
-  const [showAddGuest, setShowAddGuest] = React.useState(false);
+  const [addGuestOpen, setAddGuestOpen] = React.useState(false);
+  const [addGuestName, setAddGuestName] = React.useState("");
+  const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
+  const [guestSearchQuery, setGuestSearchQuery] = React.useState("");
   const [catalogFilter, setCatalogFilter] = React.useState("");
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+  const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
+  const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
+  const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
+  const [assignGuestDialogOpen, setAssignGuestDialogOpen] = React.useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false);
 
   // Active check view filter state
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
@@ -801,12 +809,27 @@ function POSTerminalInner() {
         return;
       }
       setGuests((prev) => [...prev, trimmed]);
-      setNewGuestName("");
-      setShowAddGuest(false);
+      setAddGuestName("");
+      setAddGuestOpen(false);
       toast.success(`${trimmed} added to the order`);
     },
     [guests],
   );
+
+  const nextDefaultGuestName = React.useMemo(() => {
+    const taken = new Set(guests.map((g) => g.toLowerCase()));
+    const pattern = /^guest\s+(\d+)$/i;
+    let max = 0;
+    for (const guest of guests) {
+      const match = guest.match(pattern);
+      if (!match) continue;
+      max = Math.max(max, Number.parseInt(match[1], 10));
+    }
+
+    let candidate = max + 1;
+    while (taken.has(`guest ${candidate}`)) candidate += 1;
+    return `Guest ${candidate}`;
+  }, [guests]);
 
   const removeGuest = useCallback(
     (name: string) => {
@@ -1223,6 +1246,67 @@ function POSTerminalInner() {
     [guests],
   );
 
+  const handleOpenAddGuestDialog = useCallback(() => {
+    setAddGuestName("");
+    setAddGuestOpen(true);
+  }, []);
+
+  const handleSubmitAddGuest = useCallback(() => {
+    addGuest(addGuestName.trim() || nextDefaultGuestName);
+  }, [addGuest, addGuestName, nextDefaultGuestName]);
+
+  const handleSetBulkQty = useCallback(
+    (qty: number) => {
+      if (selectedLineIds.size === 0) return;
+      setItemsQty(Array.from(selectedLineIds), qty);
+      toast.success(`Set quantity to ${qty}`);
+    },
+    [selectedLineIds, setItemsQty],
+  );
+
+  const guestChoiceOptions = React.useMemo(
+    () =>
+      guests.map((guest) => ({
+        id: guest,
+        label: guest,
+        description: guest === guests[0] ? "Primary guest" : "Guest",
+      })),
+    [guests],
+  );
+
+  const paymentChoiceOptions = React.useMemo(
+    () => [
+      ...PAYMENT_METHODS.map((method) => ({
+        id: `group-default-${method}`,
+        label: `Guest (${method.toUpperCase()})`,
+        description: "Built-in default payment config",
+        badge: method.toUpperCase(),
+      })),
+      ...paymentConfigs.map((cfg) => ({
+        id: cfg.id,
+        label: cfg.name,
+        description: cfg.isSplit
+          ? "Split payment config"
+          : "Single payment config",
+        badge: cfg.isSplit ? "Split" : "Saved",
+      })),
+    ],
+    [paymentConfigs],
+  );
+
+  const paymentDialogTitle = "Allocate Payment";
+  const paymentDialogDescription =
+    "Choose a built-in payment method or one of the saved payment configs.";
+
+  const filteredGuests = React.useMemo(() => {
+    const query = guestSearchQuery.trim().toLowerCase();
+    if (!query) return guests;
+    return guests.filter((guest) => guest.toLowerCase().includes(query));
+  }, [guests, guestSearchQuery]);
+
+  const selectedGuestCount = guests.length;
+  const selectedGuestLabel = selectedPerson.split(" ")[0] || selectedPerson;
+
   const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
     setAllocConfigItem((prev) => (prev === item ? null : item));
   }, []);
@@ -1247,8 +1331,8 @@ function POSTerminalInner() {
   const handleResetOrder = useCallback(() => {
     resetOrder();
     setShowResetConfirm(false);
-    setNewGuestName("");
-    setShowAddGuest(false);
+    setAddGuestName("");
+    setAddGuestOpen(false);
     setCatalogFilter("");
     toast.success("Order reset — ready for a new order");
   }, [resetOrder]);
@@ -1257,7 +1341,7 @@ function POSTerminalInner() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="h-screen flex flex-col bg-background">
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
         {/* ─── Header ────────────────────────────────────────────────────── */}
         <header className="border-b bg-card px-4 py-2.5 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-3">
@@ -1323,87 +1407,23 @@ function POSTerminalInner() {
           {/* Guest Selector + Payment + New Order */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Guest:</span>
-            <div className="flex items-center gap-1">
-              {guests.map((guest, idx) => {
-                const color = GUEST_PALETTE[idx % GUEST_PALETTE.length];
-                const isPrimary = idx === 0;
-                const isActive = selectedPerson === guest;
-                return (
-                  <div
-                    key={guest}
-                    className={`group relative flex items-center ${isActive ? "" : "opacity-70 hover:opacity-100"} transition-opacity`}
-                  >
-                    <Button
-                      variant={isActive ? "default" : "outline"}
-                      size="sm"
-                      className={`text-xs h-7 px-2.5 gap-1.5 ${isActive ? `${color} text-white border-transparent hover:${color} hover:text-white` : ""}`}
-                      onClick={() => setSelectedPerson(guest)}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${color}`} />
-                      <span className="max-w-[60px] truncate">
-                        {guest.split(" ")[0]}
-                      </span>
-                    </Button>
-                    {!isPrimary && (
-                      <button
-                        className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/90"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeGuest(guest);
-                        }}
-                        title={`Remove ${guest}`}
-                      >
-                        <span className="text-[8px] leading-none">&times;</span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-              {showAddGuest ? (
-                <div className="flex items-center gap-0.5">
-                  <Input
-                    autoFocus
-                    value={newGuestName}
-                    onChange={(e) => setNewGuestName(e.target.value)}
-                    placeholder="Name..."
-                    className="w-20 h-7 text-xs"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && newGuestName.trim()) {
-                        addGuest(newGuestName);
-                      }
-                      if (e.key === "Escape") {
-                        setShowAddGuest(false);
-                        setNewGuestName("");
-                      }
-                    }}
-                    onBlur={() => {
-                      if (!newGuestName.trim()) {
-                        setShowAddGuest(false);
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    disabled={!newGuestName.trim()}
-                    onClick={() => addGuest(newGuestName)}
-                  >
-                    <span className="text-xs">✓</span>
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowAddGuest(true)}
-                  title="Add guest"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                </Button>
-              )}
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 max-w-[210px]"
+              onClick={() => {
+                setGuestSearchQuery("");
+                setGuestPickerOpen(true);
+              }}
+              title="Select guest"
+            >
+              <User className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate text-xs">{selectedGuestLabel}</span>
+              <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">
+                {selectedGuestCount}
+              </Badge>
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            </Button>
             <Select
               value={`config-${activePaymentConfigId}`}
               onValueChange={handleConfigChange}
@@ -1497,7 +1517,7 @@ function POSTerminalInner() {
         {orderContext && <OrderContextBanner context={orderContext} />}
 
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
-        <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* ─── LEFT PANEL: Catalog ─────────────────────────────────── */}
           <aside className="w-64 border-r bg-card flex flex-col shrink-0">
             <div className="p-3 border-b">
@@ -1779,34 +1799,14 @@ function POSTerminalInner() {
                   </Button>
 
                   {/* Quantity bulk set */}
-                  <Select
-                    key={`qty-select-${qtySelectKey}`}
-                    onValueChange={(val) => {
-                      const qty = parseInt(val, 10);
-                      if (!isNaN(qty)) {
-                        setItemsQty(Array.from(selectedLineIds), qty);
-                        toast.success(`Set quantity to ${qty}`);
-                      }
-                      setQtySelectKey((k) => k + 1);
-                    }}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
+                    onClick={() => setQtyPadOpen(true)}
                   >
-                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[90px]">
-                      <SelectValue placeholder="Set Qty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map(
-                        (num) => (
-                          <SelectItem
-                            key={num}
-                            value={String(num)}
-                            className="text-[11px]"
-                          >
-                            {num}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
+                    Set Qty
+                  </Button>
 
                   <Button
                     variant="outline"
@@ -1822,31 +1822,14 @@ function POSTerminalInner() {
                   </Button>
 
                   {/* Duplicate and Move */}
-                  <Select
-                    key={`dup-move-select-${dupMoveSelectKey}`}
-                    onValueChange={(val) => {
-                      duplicateAndReassignItems(
-                        Array.from(selectedLineIds),
-                        val,
-                      );
-                      setSelectedLineIds(new Set());
-                      toast.success(
-                        `Selected items duplicated and moved to ${val}`,
-                      );
-                      setDupMoveSelectKey((k) => k + 1);
-                    }}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
+                    onClick={() => setDupMoveDialogOpen(true)}
                   >
-                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[110px]">
-                      <SelectValue placeholder="Dup & Move" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {guests.map((g) => (
-                        <SelectItem key={g} value={g} className="text-[11px]">
-                          {g}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    Dup & Move
+                  </Button>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -1861,55 +1844,23 @@ function POSTerminalInner() {
                     Remove
                   </Button>
 
-                  <Select
-                    key={`guest-select-${guestSelectKey}`}
-                    onValueChange={(val) => {
-                      reassignItems(Array.from(selectedLineIds), val);
-                      toast.success(`Selected items assigned to ${val}`);
-                      setGuestSelectKey((k) => k + 1);
-                    }}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
+                    onClick={() => setAssignGuestDialogOpen(true)}
                   >
-                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[110px]">
-                      <SelectValue placeholder="Assign Guest" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {guests.map((g) => (
-                        <SelectItem key={g} value={g} className="text-[11px]">
-                          {g}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    Assign Guest
+                  </Button>
 
-                  <Select
-                    key={`pay-select-${paySelectKey}`}
-                    onValueChange={(val) => {
-                      groupItemsPaymentConfig(Array.from(selectedLineIds), val);
-                      toast.success("Selected payment reallocated");
-                      setPaySelectKey((k) => k + 1);
-                    }}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-[125px]"
+                    onClick={() => setPaymentDialogOpen(true)}
                   >
-                    <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border hover:bg-accent w-[125px]">
-                      <SelectValue placeholder="Allocate Payment" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        value={defaultPaymentAllocId || ""}
-                        className="text-[11px]"
-                      >
-                        Default ({defaultPaymentMethod.toUpperCase()})
-                      </SelectItem>
-                      {paymentConfigs.map((cfg) => (
-                        <SelectItem
-                          key={cfg.id}
-                          value={cfg.id}
-                          className="text-[11px]"
-                        >
-                          {cfg.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    Allocate Payment
+                  </Button>
 
                   {compatibleModifiers.length > 0 && (
                     <Button
@@ -1970,264 +1921,291 @@ function POSTerminalInner() {
           </main>
 
           {/* ─── RIGHT PANEL: Commit Ledger (DAG) ─────────────────────── */}
-          <aside className="w-72 border-l bg-card flex flex-col shrink-0">
-            <div className="p-3 border-b flex items-center justify-between">
-              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <GitCommitHorizontal className="w-3.5 h-3.5" />
-                Ledger
-              </h2>
-              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                {log.length}
-              </Badge>
-            </div>
-
-            {isViewingHistory && (
-              <div className="px-3 py-2 border-b bg-amber-50 dark:bg-amber-950/20 flex items-center justify-between gap-2">
-                <span className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1 font-medium">
-                  <AlertCircle className="w-3 h-3" />
-                  Time-traveling
-                </span>
+          <aside
+            className={`border-l bg-card flex flex-col shrink-0 transition-all duration-200 ${
+              isLedgerCollapsed ? "w-12" : "w-72"
+            }`}
+          >
+            <div className="p-3 border-b flex items-center justify-between gap-2">
+              {!isLedgerCollapsed && (
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <GitCommitHorizontal className="w-3.5 h-3.5" />
+                  Ledger
+                </h2>
+              )}
+              <div className="flex items-center gap-1">
+                {!isLedgerCollapsed && (
+                  <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                    {log.length}
+                  </Badge>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-[10px] px-2 text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 shrink-0"
-                  onClick={() => viewRevision(null)}
+                  className="h-6 w-6 p-0"
+                  onClick={() => setIsLedgerCollapsed((prev) => !prev)}
+                  title={isLedgerCollapsed ? "Expand ledger" : "Minimize ledger"}
                 >
-                  <RotateCcw className="w-2.5 h-2.5 mr-0.5" />
-                  Back to HEAD
+                  {isLedgerCollapsed ? (
+                    <PanelRightOpen className="w-3.5 h-3.5" />
+                  ) : (
+                    <PanelRightClose className="w-3.5 h-3.5" />
+                  )}
                 </Button>
               </div>
-            )}
+            </div>
 
-            <ScrollArea className="flex-1">
-              {log.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground/50">
-                  <GitCommitHorizontal className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-xs">No commits yet</p>
-                </div>
-              ) : (
-                <div className="relative flex min-h-full">
-                  {/* Left panel: SVG Commit Graph */}
-                  <div
-                    style={{ width: graphData.width }}
-                    className="relative shrink-0 select-none overflow-hidden"
-                  >
-                    <svg
-                      width={graphData.width}
-                      height={graphData.height}
-                      className="absolute top-0 left-0"
+            {!isLedgerCollapsed && (
+              <>
+                {isViewingHistory && (
+                  <div className="px-3 py-2 border-b bg-amber-50 dark:bg-amber-950/20 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3 h-3" />
+                      Time-traveling
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 text-[10px] px-2 text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 shrink-0"
+                      onClick={() => viewRevision(null)}
                     >
-                      {/* Render Connecting Lines */}
-                      {graphData.lines.map((line) => (
-                        <line
-                          key={line.id}
-                          x1={line.startX}
-                          y1={line.startY}
-                          x2={line.endX}
-                          y2={line.endY}
-                          stroke={line.color}
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeDasharray={line.dashed ? "4,4" : undefined}
-                        />
-                      ))}
-                      {/* Render Node Dots */}
-                      {graphData.nodes.map((node) => {
-                        const isActive =
-                          viewingHash === node.commitHash ||
-                          (viewingHash === null &&
-                            node.commitHash === headHash());
-                        return (
-                          <g key={node.commitHash}>
-                            {isActive && (
-                              <circle
-                                cx={node.x}
-                                cy={node.y}
-                                r={7}
-                                fill="none"
-                                stroke={node.color}
-                                strokeWidth={1.5}
-                                className="animate-pulse"
-                              />
-                            )}
-                            <circle
-                              cx={node.x}
-                              cy={node.y}
-                              r={isActive ? 4.5 : 3.5}
-                              fill={node.color}
-                              className="transition-all duration-200"
-                            />
-                          </g>
-                        );
-                      })}
-                    </svg>
+                      <RotateCcw className="w-2.5 h-2.5 mr-0.5" />
+                      Back to HEAD
+                    </Button>
                   </div>
+                )}
 
-                  {/* Right panel: Commit List */}
-                  <div className="flex-1 min-w-0 pr-2">
-                    {log.map((commit, idx) => {
-                      const isActive =
-                        viewingHash === commit.commitHash ||
-                        (viewingHash === null &&
-                          commit.commitHash === headHash());
-                      const isAI = commit.authorId === "ai-agent";
-                      const isSystem = commit.authorId === "system-init";
-                      const isExpanded = expandedCommits.has(commit.commitHash);
-                      const node = graphData.nodes[idx];
-
-                      return (
-                        <div
-                          key={commit.commitHash}
-                          style={{ height: node.rowHeight }}
-                          className="flex flex-col justify-start py-[3px]"
+                <ScrollArea className="flex-1 min-h-0">
+                  {log.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground/50">
+                      <GitCommitHorizontal className="w-8 h-8 mx-auto mb-2" />
+                      <p className="text-xs">No commits yet</p>
+                    </div>
+                  ) : (
+                    <div className="relative flex min-h-full">
+                      {/* Left panel: SVG Commit Graph */}
+                      <div
+                        style={{ width: graphData.width }}
+                        className="relative shrink-0 select-none overflow-hidden"
+                      >
+                        <svg
+                          width={graphData.width}
+                          height={graphData.height}
+                          className="absolute top-0 left-0"
                         >
-                          <div
-                            onClick={() => viewRevision(commit.commitHash)}
-                            className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-[50px] ${
-                              isActive
-                                ? "border-primary bg-primary/5 shadow-xs"
-                                : "border-transparent hover:border-border hover:bg-accent/40"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-1">
-                              <span className="font-mono text-[9px] font-semibold text-muted-foreground truncate max-w-[50px]">
-                                {commit.commitHash.substring(0, 7)}
-                              </span>
-                              <Badge
-                                variant={
-                                  isAI
-                                    ? "default"
-                                    : isSystem
-                                      ? "secondary"
-                                      : "secondary"
-                                }
-                                className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${isAI ? "bg-amber-500 text-white hover:bg-amber-500" : isSystem ? "bg-muted text-muted-foreground" : ""}`}
-                              >
-                                {commit.authorId.split("-")[0]}
-                              </Badge>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleCommitExpanded(commit.commitHash);
-                                }}
-                                className="p-0.5 rounded hover:bg-muted shrink-0 ml-auto"
-                                title="Toggle details"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                                ) : (
-                                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                                )}
-                              </button>
-                            </div>
-                            <div className="flex items-center justify-between text-[8px] text-muted-foreground/75 mt-0.5 font-mono">
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Badge
-                                      variant="outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (activeBranch() !== commit.branch) {
-                                          checkoutBranch(commit.branch);
-                                          toast.success(
-                                            `Switched active branch to "${commit.branch}"`,
-                                          );
-                                        }
-                                      }}
-                                      className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${
-                                        activeBranch() === commit.branch
-                                          ? "border-primary text-primary bg-primary/5 ring-[0.5px] ring-primary/20"
-                                          : branches[commit.branch]?.type ===
-                                              "hypothetical"
-                                            ? "border-amber-400/40 text-amber-600 bg-amber-500/[0.04] hover:bg-amber-500/10 hover:border-amber-500"
-                                            : "border-emerald-400/40 text-emerald-600 bg-emerald-500/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500"
-                                      }`}
-                                    >
-                                      {branches[commit.branch]?.type ===
-                                      "hypothetical" ? (
-                                        <Lightbulb className="w-2.5 h-2.5" />
-                                      ) : (
-                                        <GitBranch className="w-2.5 h-2.5" />
-                                      )}
-                                      <span className="truncate max-w-[60px]">
-                                        {branches[commit.branch]?.label ||
-                                          commit.branch}
-                                      </span>
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="text-[10px]"
-                                  >
-                                    {activeBranch() === commit.branch
-                                      ? `Current active branch: ${commit.branch}`
-                                      : `Click to switch active branch to "${commit.branch}"`}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-
-                              <span>
-                                {new Date(commit.timestamp).toLocaleTimeString(
-                                  [],
-                                  {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    second: "2-digit",
-                                  },
-                                )}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Expanded Deltas details list */}
-                          {isExpanded && (
-                            <div className="mt-1 pl-2 pr-1 space-y-1 overflow-y-auto max-h-[180px] border-l-2 border-primary/20 ml-2 animate-in fade-in duration-100">
-                              {commit.deltas.map((d, i) => (
-                                <div
-                                  key={i}
-                                  className="text-[9px] text-muted-foreground flex items-center gap-1.5"
-                                >
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                      d.action === "declare_allocation"
-                                        ? "bg-violet-500"
-                                        : d.action === "add_item"
-                                          ? "bg-emerald-500"
-                                          : d.action === "remove_item"
-                                            ? "bg-red-500"
-                                            : d.action.startsWith("modify")
-                                              ? "bg-amber-500"
-                                              : "bg-sky-500"
-                                    }`}
+                          {/* Render Connecting Lines */}
+                          {graphData.lines.map((line) => (
+                            <line
+                              key={line.id}
+                              x1={line.startX}
+                              y1={line.startY}
+                              x2={line.endX}
+                              y2={line.endY}
+                              stroke={line.color}
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeDasharray={line.dashed ? "4,4" : undefined}
+                            />
+                          ))}
+                          {/* Render Node Dots */}
+                          {graphData.nodes.map((node) => {
+                            const isActive =
+                              viewingHash === node.commitHash ||
+                              (viewingHash === null &&
+                                node.commitHash === headHash());
+                            return (
+                              <g key={node.commitHash}>
+                                {isActive && (
+                                  <circle
+                                    cx={node.x}
+                                    cy={node.y}
+                                    r={7}
+                                    fill="none"
+                                    stroke={node.color}
+                                    strokeWidth={1.5}
+                                    className="animate-pulse"
                                   />
-                                  <span className="font-mono font-medium truncate shrink-0">
-                                    {d.action}
+                                )}
+                                <circle
+                                  cx={node.x}
+                                  cy={node.y}
+                                  r={isActive ? 4.5 : 3.5}
+                                  fill={node.color}
+                                  className="transition-all duration-200"
+                                />
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+
+                      {/* Right panel: Commit List */}
+                      <div className="flex-1 min-w-0 pr-2">
+                        {log.map((commit, idx) => {
+                          const isActive =
+                            viewingHash === commit.commitHash ||
+                            (viewingHash === null &&
+                              commit.commitHash === headHash());
+                          const isAI = commit.authorId === "ai-agent";
+                          const isSystem = commit.authorId === "system-init";
+                          const isExpanded = expandedCommits.has(commit.commitHash);
+                          const node = graphData.nodes[idx];
+
+                          return (
+                            <div
+                              key={commit.commitHash}
+                              style={{ height: node.rowHeight }}
+                              className="flex flex-col justify-start py-[3px]"
+                            >
+                              <div
+                                onClick={() => viewRevision(commit.commitHash)}
+                                className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-[50px] ${
+                                  isActive
+                                    ? "border-primary bg-primary/5 shadow-xs"
+                                    : "border-transparent hover:border-border hover:bg-accent/40"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-mono text-[9px] font-semibold text-muted-foreground truncate max-w-[50px]">
+                                    {commit.commitHash.substring(0, 7)}
                                   </span>
-                                  {"sku" in d && d.sku && (
-                                    <span className="truncate text-muted-foreground/60 font-mono">
-                                      {String(d.sku)}
-                                    </span>
-                                  )}
-                                  {d.action === "modify_item_allocations" &&
-                                    "lineId" in d && (
-                                      <span className="truncate text-muted-foreground/60 font-mono">
-                                        {(
-                                          d as { lineId: string }
-                                        ).lineId.substring(0, 8)}
-                                      </span>
+                                  <Badge
+                                    variant={
+                                      isAI
+                                        ? "default"
+                                        : isSystem
+                                          ? "secondary"
+                                          : "secondary"
+                                    }
+                                    className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${isAI ? "bg-amber-500 text-white hover:bg-amber-500" : isSystem ? "bg-muted text-muted-foreground" : ""}`}
+                                  >
+                                    {commit.authorId.split("-")[0]}
+                                  </Badge>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleCommitExpanded(commit.commitHash);
+                                    }}
+                                    className="p-0.5 rounded hover:bg-muted shrink-0 ml-auto"
+                                    title="Toggle details"
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
                                     )}
+                                  </button>
                                 </div>
-                              ))}
+                                <div className="flex items-center justify-between text-[8px] text-muted-foreground/75 mt-0.5 font-mono">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge
+                                          variant="outline"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (activeBranch() !== commit.branch) {
+                                              checkoutBranch(commit.branch);
+                                              toast.success(
+                                                `Switched active branch to "${commit.branch}"`,
+                                              );
+                                            }
+                                          }}
+                                          className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${
+                                            activeBranch() === commit.branch
+                                              ? "border-primary text-primary bg-primary/5 ring-[0.5px] ring-primary/20"
+                                              : branches[commit.branch]?.type ===
+                                                  "hypothetical"
+                                                ? "border-amber-400/40 text-amber-600 bg-amber-500/[0.04] hover:bg-amber-500/10 hover:border-amber-500"
+                                                : "border-emerald-400/40 text-emerald-600 bg-emerald-500/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500"
+                                          }`}
+                                        >
+                                          {branches[commit.branch]?.type ===
+                                          "hypothetical" ? (
+                                            <Lightbulb className="w-2.5 h-2.5" />
+                                          ) : (
+                                            <GitBranch className="w-2.5 h-2.5" />
+                                          )}
+                                          <span className="truncate max-w-[60px]">
+                                            {branches[commit.branch]?.label ||
+                                              commit.branch}
+                                          </span>
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="top"
+                                        className="text-[10px]"
+                                      >
+                                        {activeBranch() === commit.branch
+                                          ? `Current active branch: ${commit.branch}`
+                                          : `Click to switch active branch to "${commit.branch}"`}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+
+                                  <span>
+                                    {new Date(commit.timestamp).toLocaleTimeString(
+                                      [],
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        second: "2-digit",
+                                      },
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Expanded Deltas details list */}
+                              {isExpanded && (
+                                <div className="mt-1 pl-2 pr-1 space-y-1 overflow-y-auto max-h-[180px] border-l-2 border-primary/20 ml-2 animate-in fade-in duration-100">
+                                  {commit.deltas.map((d, i) => (
+                                    <div
+                                      key={i}
+                                      className="text-[9px] text-muted-foreground flex items-center gap-1.5"
+                                    >
+                                      <span
+                                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                          d.action === "declare_allocation"
+                                            ? "bg-violet-500"
+                                            : d.action === "add_item"
+                                              ? "bg-emerald-500"
+                                              : d.action === "remove_item"
+                                                ? "bg-red-500"
+                                                : d.action.startsWith("modify")
+                                                  ? "bg-amber-500"
+                                                  : "bg-sky-500"
+                                        }`}
+                                      />
+                                      <span className="font-mono font-medium truncate shrink-0">
+                                        {d.action}
+                                      </span>
+                                      {"sku" in d && d.sku && (
+                                        <span className="truncate text-muted-foreground/60 font-mono">
+                                          {String(d.sku)}
+                                        </span>
+                                      )}
+                                      {d.action === "modify_item_allocations" &&
+                                        "lineId" in d && (
+                                          <span className="truncate text-muted-foreground/60 font-mono">
+                                            {(
+                                              d as { lineId: string }
+                                            ).lineId.substring(0, 8)}
+                                          </span>
+                                        )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </ScrollArea>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </ScrollArea>
+              </>
+            )}
 
             {/* Sync Status */}
             <div className="p-3 border-t">
@@ -2291,6 +2269,156 @@ function POSTerminalInner() {
         onAddGuest={handleAddGuestFromDialog}
       />
 
+      <Dialog
+        open={addGuestOpen}
+        onOpenChange={(open) => {
+          setAddGuestOpen(open);
+          if (!open) setAddGuestName("");
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              Add Guest
+            </DialogTitle>
+            <DialogDescription>
+              Add a new guest to the order. Leave the name blank and we’ll use{" "}
+              <span className="font-semibold text-foreground">
+                {nextDefaultGuestName}
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Textarea
+              autoFocus
+              value={addGuestName}
+              onChange={(e) => setAddGuestName(e.target.value)}
+              placeholder={nextDefaultGuestName}
+              className="min-h-24 resize-none text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setAddGuestOpen(false);
+                  setAddGuestName("");
+                }
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleSubmitAddGuest();
+                }
+              }}
+            />
+            <div className="text-[10px] text-muted-foreground">
+              Tip: press <span className="font-medium text-foreground">Ctrl+Enter</span>{" "}
+              or <span className="font-medium text-foreground">Cmd+Enter</span> to add.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddGuestOpen(false);
+                setAddGuestName("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitAddGuest}>Add Guest</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={guestPickerOpen}
+        onOpenChange={(open) => {
+          setGuestPickerOpen(open);
+          if (!open) setGuestSearchQuery("");
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-primary" />
+              Select Guest
+            </DialogTitle>
+            <DialogDescription>
+              Choose a guest from the grid or add a new one if they are not listed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              autoFocus
+              value={guestSearchQuery}
+              onChange={(e) => setGuestSearchQuery(e.target.value)}
+              placeholder="Search guests..."
+              className="pl-9"
+            />
+          </div>
+
+          <ScrollArea className="max-h-[52vh] pr-2">
+            {filteredGuests.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                No guests match "{guestSearchQuery.trim()}".
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {filteredGuests.map((guest) => {
+                  const idx = guests.indexOf(guest);
+                  const color = GUEST_PALETTE[idx % GUEST_PALETTE.length];
+                  const isActive = selectedPerson === guest;
+                  return (
+                    <button
+                      key={guest}
+                      onClick={() => {
+                        setSelectedPerson(guest);
+                        setGuestPickerOpen(false);
+                      }}
+                      className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 ${
+                        isActive ? "border-primary bg-primary/5" : "bg-card"
+                      }`}
+                    >
+                      <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+                      <span className="w-full truncate text-sm font-semibold">
+                        {guest}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {guest === guests[0] ? "Primary guest" : "Guest"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setGuestPickerOpen(false);
+                setGuestSearchQuery("");
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setGuestPickerOpen(false);
+                setGuestSearchQuery("");
+                handleOpenAddGuestDialog();
+              }}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Add Guest
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ModifierAddDialog
         open={modifierAddOpen}
         onOpenChange={setModifierAddOpen}
@@ -2308,6 +2436,61 @@ function POSTerminalInner() {
           } else {
             addGroupModifier(Array.from(selectedLineIds), sku, defaultState);
           }
+        }}
+      />
+
+      <NumberPadDialog
+        open={qtyPadOpen}
+        onOpenChange={setQtyPadOpen}
+        title="Set Quantity"
+        description="Enter the quantity to apply to all selected items."
+        confirmLabel="Set Qty"
+        initialValue={null}
+        min={1}
+        onConfirm={handleSetBulkQty}
+      />
+
+      <ChoiceDialog
+        open={dupMoveDialogOpen}
+        onOpenChange={setDupMoveDialogOpen}
+        title="Duplicate and Move"
+        description="Choose a guest to duplicate the selected items to."
+        searchPlaceholder="Search guests..."
+        options={guestChoiceOptions}
+        onChoose={(option) => {
+          duplicateAndReassignItems(Array.from(selectedLineIds), option.id);
+          setSelectedLineIds(new Set());
+          setDupMoveDialogOpen(false);
+          toast.success(`Selected items duplicated and moved to ${option.label}`);
+        }}
+      />
+
+      <ChoiceDialog
+        open={assignGuestDialogOpen}
+        onOpenChange={setAssignGuestDialogOpen}
+        title="Assign Guest"
+        description="Choose a guest for the selected items."
+        searchPlaceholder="Search guests..."
+        options={guestChoiceOptions}
+        onChoose={(option) => {
+          reassignItems(Array.from(selectedLineIds), option.id);
+          setAssignGuestDialogOpen(false);
+          toast.success(`Selected items assigned to ${option.label}`);
+        }}
+      />
+
+      <ChoiceDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        title={paymentDialogTitle}
+        description={paymentDialogDescription}
+        searchPlaceholder="Search payment configs..."
+        options={paymentChoiceOptions}
+        onChoose={(option) => {
+          if (!option.id) return;
+          groupItemsPaymentConfig(Array.from(selectedLineIds), option.id);
+          setPaymentDialogOpen(false);
+          toast.success(`Selected payment reallocated to ${option.label}`);
         }}
       />
 
