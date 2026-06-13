@@ -282,6 +282,7 @@ function LineItemNode({
   const assignee = getAssigneeFromItem(item, allocations, guests);
   const isCanceled = item.status === "canceled";
   const isPending = item.status === "pending";
+  const isChanged = item.status === "changed";
   const hasSplitPayment =
     item.allocations.filter((id) => allocations[id]?.type === "payment")
       .length > 1;
@@ -416,6 +417,14 @@ function LineItemNode({
                     className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
                   >
                     *new*
+                  </Badge>
+                )}
+                {isChanged && !isCanceled && (
+                  <Badge
+                    variant="secondary"
+                    className="text-[9px] h-3.5 px-1 bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                  >
+                    *changed*
                   </Badge>
                 )}
                 {item.qty > 0 && item.canceledQty > 0 && (

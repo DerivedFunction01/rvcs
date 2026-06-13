@@ -148,6 +148,7 @@ interface InternalLineItem {
   resolvedName: string;
   resolvedPrice: number;
   isConfirmed: boolean;
+  hasPendingChanges?: boolean;
 }
 
 // ─── The Core Reducer ──────────────────────────────────────────────────────────
@@ -220,6 +221,8 @@ function applyDelta(
   commitHash: string,
   confirmedAncestors: Set<string>
 ): void {
+  const isConfirmedDelta = confirmedAncestors.has(commitHash);
+
   switch (delta.action) {
     case "declare_allocation":
       allocations[delta.allocation.allocationId] = delta.allocation;
@@ -236,7 +239,8 @@ function applyDelta(
         selectedModifierState: delta.selectedModifierState,
         resolvedName: "",
         resolvedPrice: 0,
-        isConfirmed: confirmedAncestors.has(commitHash),
+        isConfirmed: isConfirmedDelta,
+        hasPendingChanges: false,
       };
       break;
 
@@ -247,6 +251,7 @@ function applyDelta(
           const removeAmount = Math.min(item.qty, delta.qty);
           item.qty -= removeAmount;
           item.canceledQty += removeAmount;
+          if (!isConfirmedDelta) item.hasPendingChanges = true;
         } else {
           item.qty -= delta.qty;
         }
@@ -263,6 +268,7 @@ function applyDelta(
           JSON.stringify([...delta.beforeAllocations].sort());
         if (beforeMatch) {
           item.allocations = [...delta.afterAllocations];
+          if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
         }
       }
       break;
@@ -272,6 +278,7 @@ function applyDelta(
       const item = items[delta.lineId];
       if (item && item.sku === delta.beforeSku) {
         item.sku = delta.afterSku;
+        if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
       }
       break;
     }
@@ -280,6 +287,7 @@ function applyDelta(
       const item = items[delta.lineId];
       if (item && item.selectedModifierState === delta.beforeState) {
         item.selectedModifierState = delta.afterState;
+        if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
       }
       break;
     }
@@ -291,12 +299,13 @@ function applyDelta(
           item.canceledQty += (item.qty - delta.afterQty);
         }
         item.qty = delta.afterQty;
+        if (!isConfirmedDelta && item.isConfirmed) item.hasPendingChanges = true;
       }
       break;
     }
 
     case "batch_by_filter":
-      applyBatchByFilter(items, allocations, delta, fullLog, catalog);
+      applyBatchByFilter(items, allocations, delta, fullLog, catalog, isConfirmedDelta);
       break;
   }
 }
@@ -308,7 +317,8 @@ function applyBatchByFilter(
   allocations: Record<string, AllocationBlock>,
   delta: Extract<Delta, { action: "batch_by_filter" }>,
   fullLog: VCSCommit[],
-  catalog: Record<string, CatalogItemEntry>
+  catalog: Record<string, CatalogItemEntry>,
+  isConfirmedDelta: boolean
 ): void {
   // Project state at the base_revision_id for deterministic filtering
   const baseState = projectState(fullLog, delta.baseRevisionId, catalog, null);
@@ -343,16 +353,17 @@ function applyBatchByFilter(
         items,
         allocations,
         matchingItems,
-        delta.templateMutation
+        delta.templateMutation,
+        isConfirmedDelta
       );
       break;
 
     case "batch_remove_items":
-      applyBatchRemoveItems(items, matchingItems);
+      applyBatchRemoveItems(items, matchingItems, isConfirmedDelta);
       break;
 
     case "batch_modify_sku":
-      applyBatchModifySku(items, matchingItems, delta.templateMutation);
+      applyBatchModifySku(items, matchingItems, delta.templateMutation, isConfirmedDelta);
       break;
   }
 }
@@ -417,7 +428,8 @@ function applyBatchModifyAllocations(
   items: Record<string, InternalLineItem>,
   allocations: Record<string, AllocationBlock>,
   matchingItems: ProjectedLineItem[],
-  template: BatchModifyAllocations
+  template: BatchModifyAllocations,
+  isConfirmedDelta: boolean
 ): void {
   // Register the patch allocation
   allocations[template.patchAllocation.allocationId] = template.patchAllocation;
@@ -429,6 +441,9 @@ function applyBatchModifyAllocations(
       internal.allocations = internal.allocations.map((allocId) => {
         const alloc = allocations[allocId];
         if (alloc && alloc.type === template.targetAllocationType) {
+          if (!isConfirmedDelta && internal.isConfirmed) {
+            internal.hasPendingChanges = true;
+          }
           return template.patchAllocation.allocationId;
         }
         return allocId;
@@ -439,7 +454,8 @@ function applyBatchModifyAllocations(
 
 function applyBatchRemoveItems(
   items: Record<string, InternalLineItem>,
-  matchingItems: ProjectedLineItem[]
+  matchingItems: ProjectedLineItem[],
+  isConfirmedDelta: boolean
 ): void {
   for (const item of matchingItems) {
     const internal = items[item.lineId];
@@ -447,6 +463,7 @@ function applyBatchRemoveItems(
       if (internal.isConfirmed) {
         internal.canceledQty += internal.qty;
         internal.qty = 0;
+        if (!isConfirmedDelta) internal.hasPendingChanges = true;
       } else {
         internal.qty = 0;
       }
@@ -457,12 +474,16 @@ function applyBatchRemoveItems(
 function applyBatchModifySku(
   items: Record<string, InternalLineItem>,
   matchingItems: ProjectedLineItem[],
-  template: BatchModifySku
+  template: BatchModifySku,
+  isConfirmedDelta: boolean
 ): void {
   for (const item of matchingItems) {
     const internal = items[item.lineId];
     if (internal) {
       internal.sku = template.afterSku;
+      if (!isConfirmedDelta && internal.isConfirmed) {
+        internal.hasPendingChanges = true;
+      }
     }
   }
 }
@@ -571,10 +592,14 @@ function buildProjectedState(
   const roots: ProjectedLineItem[] = [];
 
   for (const item of Object.values(items)) {
-    let status: "pending" | "confirmed" | "canceled" = "pending";
+    let status: "pending" | "confirmed" | "canceled" | "changed" = "pending";
     if (item.qty === 0 && item.canceledQty > 0) {
       status = "canceled";
-    } else if (item.isConfirmed) {
+    } else if (!item.isConfirmed) {
+      status = "pending";
+    } else if (item.hasPendingChanges) {
+      status = "changed";
+    } else {
       status = "confirmed";
     }
 

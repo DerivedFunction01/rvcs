@@ -211,7 +211,7 @@ export interface ProjectedLineItem {
   allocations: string[]; // Referenced allocation IDs
   children: ProjectedLineItem[];
   selectedModifierState?: string;
-  status: "pending" | "confirmed" | "canceled";
+  status: "pending" | "confirmed" | "canceled" | "changed";
 }
 
 export interface PersonBreakdown {

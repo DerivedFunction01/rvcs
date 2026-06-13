@@ -898,9 +898,65 @@ export class VCSEngine {
     }
 
     // Collect all deltas from the range in chronological order
-    const allDeltas: Delta[] = [];
+    let allDeltas: Delta[] = [];
     for (const c of rangeCommits) {
       allDeltas.push(...c.deltas);
+    }
+
+    const hasBatchDelta = allDeltas.some((d) => d.action === "batch_by_filter");
+
+    // We bypass optimization if there's a batch mutation, as it relies on
+    // deterministic state evaluation at a specific historical point.
+    if (!hasBatchDelta) {
+      // Optimize deltas: remove items that were both created and fully removed within this range
+      const createdLineIds = new Set<string>();
+      const parentMap = new Map<string, string | null>();
+      const finalQty = new Map<string, number>();
+
+      for (const d of allDeltas) {
+        if (d.action === "add_item") {
+          createdLineIds.add(d.lineId);
+          parentMap.set(d.lineId, d.parentLineId);
+          finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) + d.qty);
+        } else if (d.action === "remove_item") {
+          if (createdLineIds.has(d.lineId)) {
+            finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) - d.qty);
+          }
+        } else if (d.action === "modify_qty") {
+          if (createdLineIds.has(d.lineId)) {
+            finalQty.set(d.lineId, d.afterQty);
+          }
+        }
+      }
+
+      let stable = false;
+      const deadLineIds = new Set<string>();
+      for (const lineId of createdLineIds) {
+        if ((finalQty.get(lineId) || 0) <= 0) {
+          deadLineIds.add(lineId);
+        }
+      }
+
+      // Cascade deletions to children
+      while (!stable) {
+        stable = true;
+        for (const lineId of createdLineIds) {
+          if (!deadLineIds.has(lineId)) {
+            const parentId = parentMap.get(lineId);
+            if (parentId && deadLineIds.has(parentId)) {
+              deadLineIds.add(lineId);
+              stable = false;
+            }
+          }
+        }
+      }
+
+      if (deadLineIds.size > 0) {
+        allDeltas = allDeltas.filter((d) => {
+          if ("lineId" in d && deadLineIds.has(d.lineId as string)) return false;
+          return true;
+        });
+      }
     }
 
     // Build replacement commit at the same parent as the first commit in range
