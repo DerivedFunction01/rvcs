@@ -18,6 +18,7 @@ export interface GraphLine {
   endY: number;
   color: string;
   dashed?: boolean;
+  isMain?: boolean;
 }
 
 const LANE_WIDTH = 16;
@@ -128,6 +129,7 @@ export function buildCommitGraph(
       endY: parentNode.y,
       color: getColor(colorBranch),
       dashed: branches[colorBranch]?.type === "hypothetical",
+      isMain: colorBranch === "main",
     });
   };
 

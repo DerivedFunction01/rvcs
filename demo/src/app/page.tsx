@@ -2005,17 +2005,30 @@ function POSTerminalInner() {
                         >
                           {/* Render Connecting Lines */}
                           {graphData.lines.map((line) => (
-                            <line
-                              key={line.id}
-                              x1={line.startX}
-                              y1={line.startY}
-                              x2={line.endX}
-                              y2={line.endY}
-                              stroke={line.color}
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeDasharray={line.dashed ? "4,4" : undefined}
-                            />
+                            <g key={line.id}>
+                              {line.isMain && (
+                                <line
+                                  x1={line.startX}
+                                  y1={line.startY}
+                                  x2={line.endX}
+                                  y2={line.endY}
+                                  stroke={line.color}
+                                  strokeWidth={6}
+                                  strokeOpacity={0.2}
+                                  strokeLinecap="round"
+                                />
+                              )}
+                              <line
+                                x1={line.startX}
+                                y1={line.startY}
+                                x2={line.endX}
+                                y2={line.endY}
+                                stroke={line.color}
+                                strokeWidth={line.isMain ? 3 : 2}
+                                strokeLinecap="round"
+                                strokeDasharray={line.dashed ? "4,4" : undefined}
+                              />
+                            </g>
                           ))}
                           {/* Render Node Dots */}
                           {graphData.nodes.map((node) => {

@@ -67,6 +67,8 @@ export function BranchConfigDialog({
     onOpenChange(false);
   };
 
+  const isMain = branchName === "main";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
@@ -87,6 +89,7 @@ export function BranchConfigDialog({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={isMain}
               placeholder="e.g. guest-2-checkout"
               className={`h-9 text-sm ${error ? "border-destructive focus-visible:ring-destructive" : ""}`}
             />
@@ -119,49 +122,61 @@ export function BranchConfigDialog({
           {/* Branch Type Selector */}
           <div className="space-y-2">
             <label className="text-xs font-semibold text-muted-foreground">Branch Classification Type</label>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Parallel Input */}
-              <button
-                type="button"
-                onClick={() => setType("parallel")}
-                className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
-                  type === "parallel"
-                    ? "border-emerald-500 bg-emerald-500/[0.04] shadow-xs"
-                    : "border-border hover:border-muted-foreground/30 bg-background"
-                }`}
-              >
-                <div className={`p-1.5 rounded-lg mb-2 ${
-                  type === "parallel" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"
-                }`}>
+            {isMain ? (
+              <div className="p-3 rounded-xl border-2 border-primary/20 bg-primary/5 flex flex-col items-start text-left">
+                <div className="p-1.5 rounded-lg mb-2 bg-primary/10 text-primary w-fit">
                   <GitBranch className="w-4 h-4" />
                 </div>
-                <div className="font-semibold text-xs text-foreground">Parallel Branch</div>
+                <div className="font-semibold text-xs text-foreground">Main Trunk</div>
                 <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
-                  Co-existing active flow representing multiple inputs (e.g., parallel customer bills).
+                  The primary ledger history. This branch serves as the authoritative source of truth and cannot be reclassified.
                 </div>
-              </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Parallel Input */}
+                <button
+                  type="button"
+                  onClick={() => setType("parallel")}
+                  className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                    type === "parallel"
+                      ? "border-emerald-500 bg-emerald-500/[0.04] shadow-xs"
+                      : "border-border hover:border-muted-foreground/30 bg-background"
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-lg mb-2 ${
+                    type === "parallel" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"
+                  }`}>
+                    <GitBranch className="w-4 h-4" />
+                  </div>
+                  <div className="font-semibold text-xs text-foreground">Parallel Branch</div>
+                  <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
+                    Co-existing active flow representing multiple inputs (e.g., parallel customer bills).
+                  </div>
+                </button>
 
-              {/* Hypothetical */}
-              <button
-                type="button"
-                onClick={() => setType("hypothetical")}
-                className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
-                  type === "hypothetical"
-                    ? "border-amber-500 bg-amber-500/[0.04] shadow-xs"
-                    : "border-border hover:border-muted-foreground/30 bg-background"
-                }`}
-              >
-                <div className={`p-1.5 rounded-lg mb-2 ${
-                  type === "hypothetical" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"
-                }`}>
-                  <Lightbulb className="w-4 h-4" />
-                </div>
-                <div className="font-semibold text-xs text-foreground">Hypothetical Branch</div>
-                <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
-                  Speculative "what if" draft changes (sandbox scenarios, mock discount runs).
-                </div>
-              </button>
-            </div>
+                {/* Hypothetical */}
+                <button
+                  type="button"
+                  onClick={() => setType("hypothetical")}
+                  className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
+                    type === "hypothetical"
+                      ? "border-amber-500 bg-amber-500/[0.04] shadow-xs"
+                      : "border-border hover:border-muted-foreground/30 bg-background"
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-lg mb-2 ${
+                    type === "hypothetical" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"
+                  }`}>
+                    <Lightbulb className="w-4 h-4" />
+                  </div>
+                  <div className="font-semibold text-xs text-foreground">Hypothetical Branch</div>
+                  <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
+                    Speculative "what if" draft changes (sandbox scenarios, mock discount runs).
+                  </div>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
