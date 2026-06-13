@@ -44,6 +44,12 @@ import {
   DollarSign,
   Package,
   Lock,
+  ChevronDown,
+  Clock,
+  CreditCard,
+  ArrowRight,
+  Tag,
+  Sparkles,
 } from "lucide-react";
 import type {
   BranchMap,
@@ -52,7 +58,15 @@ import type {
   Delta,
   ProjectedState,
   ProjectedLineItem,
+  AllocationBlock,
+  CatalogItemEntry,
+  PaymentAllocation,
+  FulfillmentAllocation,
 } from "@/lib/vcs/types";
+import {
+  formatFulfillmentTime,
+  getPaymentAllocDisplayName,
+} from "@/lib/pos/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -298,6 +312,590 @@ function findItemForConflict(
   return null;
 }
 
+function getAllocationBlock(
+  id: string,
+  state?: ProjectedState,
+): AllocationBlock | null {
+  if (state?.allocations[id]) {
+    return state.allocations[id];
+  }
+  const storeState = useVCSStore.getState().projectedState;
+  if (storeState?.allocations[id]) {
+    return storeState.allocations[id];
+  }
+  return null;
+}
+
+function formatAllocationBlock(
+  alloc: AllocationBlock,
+  initiatedAt: string | undefined,
+  allAllocations?: Record<string, AllocationBlock>,
+): string {
+  if (alloc.type === "assignment") {
+    return `Assignee: ${alloc.entity}`;
+  }
+  if (alloc.type === "payment") {
+    const pay = alloc as PaymentAllocation;
+    if (allAllocations) {
+      return getPaymentAllocDisplayName(pay, allAllocations);
+    }
+    const methodPart = pay.method ? ` via ${pay.method}` : "";
+    const strategy = pay.paymentStrategy;
+    let strategyPart = "";
+    if (strategy) {
+      if (strategy.strategyType === "fixed") {
+        strategyPart = ` ($${(strategy.value ?? 0).toFixed(2)})`;
+      } else if (strategy.strategyType === "remaining") {
+        strategyPart = ` (remaining)`;
+      } else {
+        const pct = Math.round((strategy.value ?? 1) * 100);
+        strategyPart = ` (${pct}%)`;
+      }
+    }
+    return `Pay: ${pay.payer}${methodPart}${strategyPart}`;
+  }
+  if (alloc.type === "fulfillment") {
+    const ful = alloc as FulfillmentAllocation;
+    const methodPart = ful.method
+      ? `Fulfillment (${ful.method})`
+      : "Fulfillment";
+    const destPart = ful.fulfillmentMetadata?.destinationLabel
+      ? ` to ${ful.fulfillmentMetadata.destinationLabel}`
+      : "";
+    let timePart = "";
+    if (ful.time) {
+      if (ful.time.type === "immediate") {
+        timePart = " (On Confirmation)";
+      } else if (ful.time.type === "scheduled" && ful.time.calculatedAt) {
+        timePart = ` (Scheduled @ ${formatFulfillmentTime(ful.time.calculatedAt, initiatedAt)})`;
+      } else if (ful.time.type === "deferred" && ful.time.calculatedAt) {
+        timePart = ` (Deferred @ ${formatFulfillmentTime(ful.time.calculatedAt, initiatedAt)})`;
+      }
+    }
+    return `${methodPart}${destPart}${timePart}`;
+  }
+  return (alloc as any).type || "";
+}
+
+function formatDeltaDetails(
+  delta: Delta,
+  state: ProjectedState | undefined,
+  catalog: Record<string, CatalogItemEntry>,
+  initiatedAt: string | undefined,
+): React.ReactNode {
+  switch (delta.action) {
+    case "add_item": {
+      const name = catalog[delta.sku]?.name || delta.sku;
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+            Add Item
+          </div>
+          <div>
+            <span className="text-muted-foreground">Item:</span> {name}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Qty:</span> {delta.qty}
+          </div>
+          {delta.selectedModifierState && (
+            <div>
+              <span className="text-muted-foreground">Modifier:</span>{" "}
+              {delta.selectedModifierState}
+            </div>
+          )}
+          {delta.allocations && delta.allocations.length > 0 && (
+            <div>
+              <span className="text-muted-foreground">Allocations:</span>
+              <ul className="list-disc pl-4 mt-0.5 space-y-0.5 text-[10px]">
+                {delta.allocations.map((id) => {
+                  const block = getAllocationBlock(id, state);
+                  return (
+                    <li key={id}>
+                      {block
+                        ? formatAllocationBlock(
+                            block,
+                            initiatedAt,
+                            state?.allocations,
+                          )
+                        : `ID: ${id.slice(0, 8)}`}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "remove_item": {
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-rose-600 dark:text-rose-400">
+            Remove Item
+          </div>
+          <div>
+            <span className="text-muted-foreground">Qty:</span> {delta.qty}
+          </div>
+        </div>
+      );
+    }
+    case "modify_sku": {
+      const beforeName = catalog[delta.beforeSku]?.name || delta.beforeSku;
+      const afterName = catalog[delta.afterSku]?.name || delta.afterSku;
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-amber-600 dark:text-amber-400">
+            Modify SKU
+          </div>
+          <div>
+            <span className="text-muted-foreground">Before:</span> {beforeName}
+          </div>
+          <div>
+            <span className="text-muted-foreground">After:</span> {afterName}
+          </div>
+        </div>
+      );
+    }
+    case "modify_qty": {
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-amber-600 dark:text-amber-400">
+            Modify Qty
+          </div>
+          <div>
+            <span className="text-muted-foreground">Before:</span>{" "}
+            {delta.beforeQty}
+          </div>
+          <div>
+            <span className="text-muted-foreground">After:</span>{" "}
+            {delta.afterQty}
+          </div>
+        </div>
+      );
+    }
+    case "modify_modifier_state": {
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-amber-600 dark:text-amber-400">
+            Modify Modifier
+          </div>
+          <div>
+            <span className="text-muted-foreground">Before:</span>{" "}
+            {delta.beforeState || "None"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">After:</span>{" "}
+            {delta.afterState || "None"}
+          </div>
+        </div>
+      );
+    }
+    case "modify_item_allocations": {
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-amber-600 dark:text-amber-400">
+            Modify Allocations
+          </div>
+          {delta.beforeAllocations && delta.beforeAllocations.length > 0 && (
+            <div>
+              <span className="text-muted-foreground">Before:</span>
+              <ul className="list-disc pl-4 mt-0.5 space-y-0.5 text-[10px]">
+                {delta.beforeAllocations.map((id) => {
+                  const block = getAllocationBlock(id, state);
+                  return (
+                    <li key={id}>
+                      {block
+                        ? formatAllocationBlock(
+                            block,
+                            initiatedAt,
+                            state?.allocations,
+                          )
+                        : `ID: ${id.slice(0, 8)}`}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          {delta.afterAllocations && delta.afterAllocations.length > 0 && (
+            <div>
+              <span className="text-muted-foreground">After:</span>
+              <ul className="list-disc pl-4 mt-0.5 space-y-0.5 text-[10px]">
+                {delta.afterAllocations.map((id) => {
+                  const block = getAllocationBlock(id, state);
+                  return (
+                    <li key={id}>
+                      {block
+                        ? formatAllocationBlock(
+                            block,
+                            initiatedAt,
+                            state?.allocations,
+                          )
+                        : `ID: ${id.slice(0, 8)}`}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+    }
+    case "declare_allocation": {
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+            Declare Allocation
+          </div>
+          <div>
+            <span className="text-muted-foreground">Details:</span>{" "}
+            {formatAllocationBlock(
+              delta.allocation,
+              initiatedAt,
+              state?.allocations,
+            )}
+          </div>
+        </div>
+      );
+    }
+    case "batch_by_filter": {
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-purple-600 dark:text-purple-400 font-medium">
+            Batch Action
+          </div>
+          <div>
+            <span className="text-muted-foreground">Type:</span>{" "}
+            {delta.templateMutation.mutationType}
+          </div>
+        </div>
+      );
+    }
+    default:
+      return <div className="text-muted-foreground">Unknown action</div>;
+  }
+}
+
+function renderIncomingChangeBadges(
+  delta: Delta,
+  state: ProjectedState | undefined,
+  catalog: Record<string, CatalogItemEntry>,
+  initiatedAt: string | undefined,
+): React.ReactNode[] {
+  const badges: React.ReactNode[] = [];
+
+  switch (delta.action) {
+    case "add_item": {
+      const name = catalog[delta.sku]?.name || delta.sku;
+      badges.push(
+        <Badge
+          key="add-item"
+          variant="secondary"
+          className="flex items-center gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/40 text-[10px] py-0.5 px-2"
+        >
+          <Package className="w-3 h-3 shrink-0" />
+          Add: {name}
+        </Badge>,
+      );
+      badges.push(
+        <Badge
+          key="qty"
+          variant="secondary"
+          className="flex items-center gap-1 bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/40 text-[10px] py-0.5 px-2"
+        >
+          Qty: {delta.qty}
+        </Badge>,
+      );
+      if (delta.selectedModifierState) {
+        badges.push(
+          <Badge
+            key="mod"
+            variant="secondary"
+            className="flex items-center gap-1 bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/40 text-[10px] py-0.5 px-2"
+          >
+            <Sparkles className="w-3 h-3 shrink-0" />
+            Modifier: {delta.selectedModifierState}
+          </Badge>,
+        );
+      }
+      if (delta.allocations && delta.allocations.length > 0) {
+        delta.allocations.forEach((id, idx) => {
+          const block = getAllocationBlock(id, state);
+          if (block) {
+            if (block.type === "assignment") {
+              badges.push(
+                <Badge
+                  key={`alloc-assign-${idx}`}
+                  variant="secondary"
+                  className="flex items-center gap-1 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/40 text-[10px] py-0.5 px-2"
+                >
+                  <User className="w-3 h-3 shrink-0" />
+                  Assignee: {block.entity}
+                </Badge>,
+              );
+            } else if (block.type === "payment") {
+              const display = getPaymentAllocDisplayName(
+                block,
+                state?.allocations || {},
+              );
+              badges.push(
+                <Badge
+                  key={`alloc-pay-${idx}`}
+                  variant="secondary"
+                  className="flex items-center gap-1 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/40 text-[10px] py-0.5 px-2"
+                >
+                  <CreditCard className="w-3 h-3 shrink-0" />
+                  {display}
+                </Badge>,
+              );
+            } else if (block.type === "fulfillment") {
+              const display = formatAllocationBlock(
+                block,
+                initiatedAt,
+                state?.allocations,
+              );
+              badges.push(
+                <Badge
+                  key={`alloc-ful-${idx}`}
+                  variant="secondary"
+                  className="flex items-center gap-1 bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300 border-green-200/60 dark:border-green-800/40 text-[10px] py-0.5 px-2"
+                >
+                  <Clock className="w-3 h-3 shrink-0" />
+                  {display}
+                </Badge>,
+              );
+            }
+          }
+        });
+      }
+      break;
+    }
+    case "remove_item": {
+      badges.push(
+        <Badge
+          key="remove"
+          variant="secondary"
+          className="flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40 text-[10px] py-0.5 px-2"
+        >
+          <Package className="w-3 h-3 shrink-0" />
+          Remove Item
+        </Badge>,
+      );
+      badges.push(
+        <Badge
+          key="qty"
+          variant="secondary"
+          className="flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40 text-[10px] py-0.5 px-2"
+        >
+          Qty: {delta.qty}
+        </Badge>,
+      );
+      break;
+    }
+    case "modify_sku": {
+      const beforeEntry = catalog[delta.beforeSku];
+      const afterEntry = catalog[delta.afterSku];
+
+      const beforeName = beforeEntry?.name || delta.beforeSku;
+      const afterName = afterEntry?.name || delta.afterSku;
+
+      // Detect size change (inplace modifier like small, medium, large)
+      const isSizeChange = !!(
+        beforeEntry &&
+        afterEntry &&
+        beforeEntry.sizeGroupId &&
+        beforeEntry.sizeGroupId === afterEntry.sizeGroupId
+      );
+
+      badges.push(
+        <Badge
+          key="sku"
+          variant="secondary"
+          className="flex items-center gap-1 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/40 text-[10px] py-0.5 px-2"
+        >
+          <Tag className="w-3 h-3 shrink-0" />
+          {isSizeChange
+            ? `Size: ${beforeName} ➔ ${afterName}`
+            : `Item: ${beforeName} ➔ ${afterName}`}
+        </Badge>,
+      );
+      break;
+    }
+    case "modify_qty": {
+      badges.push(
+        <Badge
+          key="qty"
+          variant="secondary"
+          className="flex items-center gap-1 bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/40 text-[10px] py-0.5 px-2"
+        >
+          Qty: {delta.beforeQty} ➔ {delta.afterQty}
+        </Badge>,
+      );
+      break;
+    }
+    case "modify_modifier_state": {
+      badges.push(
+        <Badge
+          key="mod"
+          variant="secondary"
+          className="flex items-center gap-1 bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/40 text-[10px] py-0.5 px-2"
+        >
+          <Sparkles className="w-3 h-3 shrink-0" />
+          Modifier: {delta.beforeState || "None"} ➔ {delta.afterState || "None"}
+        </Badge>,
+      );
+      break;
+    }
+    case "modify_item_allocations": {
+      // Find what allocations were added in afterAllocations
+      const added = delta.afterAllocations.filter(
+        (id) => !delta.beforeAllocations.includes(id),
+      );
+      const removed = delta.beforeAllocations.filter(
+        (id) => !delta.afterAllocations.includes(id),
+      );
+
+      added.forEach((id, idx) => {
+        const block = getAllocationBlock(id, state);
+        if (block) {
+          if (block.type === "assignment") {
+            badges.push(
+              <Badge
+                key={`add-assign-${idx}`}
+                variant="secondary"
+                className="flex items-center gap-1 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/40 text-[10px] py-0.5 px-2"
+              >
+                <User className="w-3 h-3 shrink-0" />
+                Assign: {block.entity}
+              </Badge>,
+            );
+          } else if (block.type === "payment") {
+            const display = getPaymentAllocDisplayName(
+              block,
+              state?.allocations || {},
+            );
+            badges.push(
+              <Badge
+                key={`add-pay-${idx}`}
+                variant="secondary"
+                className="flex items-center gap-1 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/40 text-[10px] py-0.5 px-2"
+              >
+                <CreditCard className="w-3 h-3 shrink-0" />
+                Payment: {display}
+              </Badge>,
+            );
+          } else if (block.type === "fulfillment") {
+            const display = formatAllocationBlock(
+              block,
+              initiatedAt,
+              state?.allocations,
+            );
+            badges.push(
+              <Badge
+                key={`add-ful-${idx}`}
+                variant="secondary"
+                className="flex items-center gap-1 bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300 border-green-200/60 dark:border-green-800/40 text-[10px] py-0.5 px-2"
+              >
+                <Clock className="w-3 h-3 shrink-0" />
+                {display}
+              </Badge>,
+            );
+          }
+        }
+      });
+
+      removed.forEach((id, idx) => {
+        const block = getAllocationBlock(id, state);
+        if (block) {
+          badges.push(
+            <Badge
+              key={`rem-alloc-${idx}`}
+              variant="secondary"
+              className="flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40 text-[10px] py-0.5 px-2 line-through opacity-70"
+            >
+              Remove Alloc: {block.type}
+            </Badge>,
+          );
+        }
+      });
+
+      if (badges.length === 0) {
+        badges.push(
+          <Badge
+            key="alloc-change"
+            variant="secondary"
+            className="flex items-center gap-1 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/40 text-[10px] py-0.5 px-2"
+          >
+            Reallocated Allocations
+          </Badge>,
+        );
+      }
+      break;
+    }
+    case "declare_allocation": {
+      const block = delta.allocation;
+      if (block.type === "assignment") {
+        badges.push(
+          <Badge
+            key="decl-assign"
+            variant="secondary"
+            className="flex items-center gap-1 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/40 text-[10px] py-0.5 px-2"
+          >
+            <User className="w-3 h-3 shrink-0" />
+            Declare Assignee: {block.entity}
+          </Badge>,
+        );
+      } else if (block.type === "payment") {
+        const display = getPaymentAllocDisplayName(
+          block,
+          state?.allocations || {},
+        );
+        badges.push(
+          <Badge
+            key="decl-pay"
+            variant="secondary"
+            className="flex items-center gap-1 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/40 text-[10px] py-0.5 px-2"
+          >
+            <CreditCard className="w-3 h-3 shrink-0" />
+            Declare Payment: {display}
+          </Badge>,
+        );
+      } else if (block.type === "fulfillment") {
+        const display = formatAllocationBlock(
+          block,
+          initiatedAt,
+          state?.allocations,
+        );
+        badges.push(
+          <Badge
+            key="decl-ful"
+            variant="secondary"
+            className="flex items-center gap-1 bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300 border-green-200/60 dark:border-green-800/40 text-[10px] py-0.5 px-2"
+          >
+            <Clock className="w-3 h-3 shrink-0" />
+            {display}
+          </Badge>,
+        );
+      }
+      break;
+    }
+    case "batch_by_filter": {
+      badges.push(
+        <Badge
+          key="batch"
+          variant="secondary"
+          className="flex items-center gap-1 bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/40 text-[10px] py-0.5 px-2"
+        >
+          Batch: {delta.templateMutation.mutationType}
+        </Badge>,
+      );
+      break;
+    }
+  }
+
+  return badges;
+}
+
 function ConflictsDialog({
   open,
   onOpenChange,
@@ -312,13 +910,22 @@ function ConflictsDialog({
   autoMergedState?: ProjectedState;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
   const unresolvedCount = conflicts.filter((c) => !c.resolution).length;
+
+  const catalog = useVCSStore((s) => s.catalog);
+  const initiatedAt = useVCSStore((s) => s.orderContext?.initiatedAt);
 
   useEffect(() => {
     if (open) {
       setActiveIndex(0);
+      setShowDetails(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    setShowDetails(false);
+  }, [activeIndex]);
 
   const activeConflict = conflicts[activeIndex];
   const affectedItem = activeConflict
@@ -365,27 +972,81 @@ function ConflictsDialog({
                 />
               )}
 
-              {/* Affected Item Details */}
+              {/* Selected Option Visual Indicator Badges */}
+              {activeConflict && activeConflict.resolution && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/10 p-2.5 space-y-1.5 transition-all">
+                  <p className="text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-500" />
+                    Incoming changes (accepted)
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {renderIncomingChangeBadges(
+                      activeConflict.resolution === activeConflict.branchA ? activeConflict.deltaA : activeConflict.deltaB,
+                      autoMergedState,
+                      catalog,
+                      initiatedAt
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Affected Item Details & Clickable Comparison Toggler */}
               {affectedItem && (
-                <div className="rounded-xl border bg-muted/40 p-3 flex items-center justify-between gap-3 shadow-xs">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Package className="w-4 h-4 text-primary" />
+                <div className="space-y-2">
+                  <div
+                    onClick={() => setShowDetails(!showDetails)}
+                    className="rounded-xl border bg-muted/40 p-3 flex items-center justify-between gap-3 shadow-xs cursor-pointer hover:bg-muted/60 transition-all select-none"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Package className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">
+                          {affectedItem.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-mono">
+                          {affectedItem.sku}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">
-                        {affectedItem.name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground font-mono">
-                        {affectedItem.sku}
-                      </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-mono font-bold text-foreground">
+                        ${affectedItem.price.toFixed(2)}
+                      </span>
+                      {showDetails ? (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                      )}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-mono font-bold text-foreground">
-                      ${affectedItem.price.toFixed(2)}
-                    </span>
-                  </div>
+
+                  {showDetails && (
+                    <div className="p-3 rounded-xl border bg-background/50 space-y-3 transition-all animate-fadeIn">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                        Detailed Changes Comparison
+                      </p>
+                      <div className="grid grid-cols-2 gap-3.5 text-[11px] leading-relaxed">
+                        {/* Column A */}
+                        <div className="p-2.5 rounded-lg border bg-muted/20 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b text-foreground font-mono font-semibold truncate" title={activeConflict.branchA}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                            {activeConflict.branchA}
+                          </div>
+                          {formatDeltaDetails(activeConflict.deltaA, autoMergedState, catalog, initiatedAt)}
+                        </div>
+                        {/* Column B */}
+                        <div className="p-2.5 rounded-lg border bg-muted/20 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b text-foreground font-mono font-semibold truncate" title={activeConflict.branchB}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                            {activeConflict.branchB}
+                          </div>
+                          {formatDeltaDetails(activeConflict.deltaB, autoMergedState, catalog, initiatedAt)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -674,7 +1335,8 @@ function StepSelectBranches({
           </SelectTrigger>
           <SelectContent>
             {branchNames.map((b) => {
-              const isLocked = b !== mainBranchName && isAlreadyMerged(b, mainBranchName);
+              const isLocked =
+                b !== mainBranchName && isAlreadyMerged(b, mainBranchName);
               return (
                 <SelectItem key={b} value={b} disabled={isLocked}>
                   <div className="flex items-center gap-2 w-full">
