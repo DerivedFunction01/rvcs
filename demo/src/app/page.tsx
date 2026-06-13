@@ -2592,15 +2592,10 @@ function POSTerminalInner() {
         onOpenChange={setIsBranchManagerOpen}
         branches={branches}
         activeBranch={activeBranch()}
-        mainActiveBranch={mainActiveBranch()}
         viewingHash={viewingHash}
         onCheckout={(branch) => {
           checkoutBranch(branch);
           toast.success(`Switched to "${branch}"`);
-        }}
-        onSetMainActive={(branch) => {
-          setMainActiveBranch(branch);
-          toast.success(`"${branch}" set as main active branch`);
         }}
         onConfigure={(branch) => {
           setIsBranchManagerOpen(false);

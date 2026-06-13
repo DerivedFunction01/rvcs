@@ -28,10 +28,8 @@ interface BranchManagerDialogProps {
   onOpenChange: (open: boolean) => void;
   branches: BranchMap;
   activeBranch: string;
-  mainActiveBranch: string;
   viewingHash: string | null;
   onCheckout: (branch: string) => void;
-  onSetMainActive: (branch: string) => void;
   onConfigure: (branch: string) => void;
   onCreateBranch: (name: string) => void;
   onOpenMerge: () => void;
@@ -49,13 +47,12 @@ function BranchRow({
   branch: string;
   pointer: BranchMap[string];
   isActive: boolean;
-  isMainActive: boolean;
   onCheckout: () => void;
-  onSetMainActive: () => void;
   onConfigure: () => void;
 }) {
   const isHypothetical = pointer.type === "hypothetical";
   const displayName = pointer.label || branch;
+  const isMain = branch === "main";
 
   return (
     <div
@@ -103,7 +100,7 @@ function BranchRow({
               Active
             </Badge>
           )}
-          {isMainActive && (
+          {isMain && (
             <Badge
               variant="outline"
               className="text-[9px] h-4 px-1 shrink-0 border-amber-400/50 text-amber-600"
@@ -126,19 +123,21 @@ function BranchRow({
       >
         <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={onSetMainActive}
-        title={
-          isMainActive ? "Main active branch" : "Mark as main active branch"
-        }
-      >
-        <Star
-          className={`w-3.5 h-3.5 ${isMainActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
-        />
-      </Button>
+      {!isMain && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={onCheckout}
+          title={
+            isActive ? "Active draft" : "Set as active draft"
+          }
+        >
+          <Star
+            className={`w-3.5 h-3.5 ${isActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
+          />
+        </Button>
+      )}
     </div>
   );
 }
@@ -148,10 +147,8 @@ export function BranchManagerDialog({
   onOpenChange,
   branches,
   activeBranch,
-  mainActiveBranch,
   viewingHash,
   onCheckout,
-  onSetMainActive,
   onConfigure,
   onCreateBranch,
   onOpenMerge,
@@ -192,9 +189,7 @@ export function BranchManagerDialog({
                 branch={branch}
                 pointer={pointer}
                 isActive={activeBranch === branch}
-                isMainActive={mainActiveBranch === branch}
                 onCheckout={() => onCheckout(branch)}
-                onSetMainActive={() => onSetMainActive(branch)}
                 onConfigure={() => onConfigure(branch)}
               />
             ))}
