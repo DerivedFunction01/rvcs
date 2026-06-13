@@ -137,16 +137,22 @@ function getGuestColor(name: string, guests: string[]): string {
 }
 
 function getUniqueGuestLabel(name: string, allGuests: string[]): string {
-  if (name.toLowerCase().startsWith("guest")) return name;
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return name;
+  const aliasMatch = name.match(/^Guest\s+\d+\s+\((.+)\)$/i);
+  const baseName = aliasMatch ? aliasMatch[1] : name;
+
+  if (baseName.toLowerCase().startsWith("guest")) return baseName;
+  const parts = baseName.trim().split(/\s+/);
+  if (parts.length === 1) return baseName;
 
   const firstName = parts[0];
   const rest = parts.slice(1).join(" ");
   
   const sameFirst = allGuests.filter((g) => {
     if (g === name || g.toLowerCase().startsWith("guest")) return false;
-    return g.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
+    const gAliasMatch = g.match(/^Guest\s+\d+\s+\((.+)\)$/i);
+    const gBaseName = gAliasMatch ? gAliasMatch[1] : g;
+    if (gBaseName.toLowerCase().startsWith("guest")) return false;
+    return gBaseName.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
   });
 
   if (sameFirst.length === 0) return firstName;
@@ -154,14 +160,16 @@ function getUniqueGuestLabel(name: string, allGuests: string[]): string {
   for (let i = 1; i <= rest.length; i++) {
     const candidate = `${firstName} ${rest.substring(0, i)}`;
     const conflict = sameFirst.some((other) => {
-      const otherRest = other.trim().split(/\s+/).slice(1).join(" ");
+      const otherAliasMatch = other.match(/^Guest\s+\d+\s+\((.+)\)$/i);
+      const otherBaseName = otherAliasMatch ? otherAliasMatch[1] : other;
+      const otherRest = otherBaseName.trim().split(/\s+/).slice(1).join(" ");
       const otherCandidate = `${firstName} ${otherRest}`;
       return otherCandidate.toLowerCase().startsWith(candidate.toLowerCase());
     });
     if (!conflict) return candidate;
   }
 
-  return name;
+  return baseName;
 }
 
 function getPatchedAllocations(
@@ -916,9 +924,17 @@ function POSTerminalInner() {
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const customerName = orderContext?.customerFields.name || "Guest";
-  const initialGuests: string[] = (orderContext?.initialGuestNames?.length
-    ? orderContext.initialGuestNames
-    : [customerName]) ?? [customerName];
+  const initialGuests: string[] = React.useMemo(() => {
+    const raw = orderContext?.customerFields.name || "Guest";
+    const primary = raw.toLowerCase() === "guest" ? "Guest 1" : `Guest 1 (${raw})`;
+    if (orderContext?.initialGuestNames?.length) {
+       const list = [...orderContext.initialGuestNames];
+       if (list[0] === "Guest 1") list[0] = primary;
+       return list;
+    }
+    return [primary];
+  }, [orderContext]);
+
   const [guests, setGuests] = React.useState<string[]>(initialGuests);
 
   // Bulk actions selection state
@@ -944,10 +960,11 @@ function POSTerminalInner() {
 
   // Dropdown key states
   const [selectedPerson, setSelectedPerson] = React.useState(
-    initialGuests[0] || customerName,
+    initialGuests[0],
   );
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
-  const [addGuestName, setAddGuestName] = React.useState("");
+  const [addGuestCount, setAddGuestCount] = React.useState(1);
+  const [addGuestAlias, setAddGuestAlias] = React.useState("");
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [guestSearchQuery, setGuestSearchQuery] = React.useState("");
   const [catalogFilter, setCatalogFilter] = React.useState("");
@@ -1038,10 +1055,13 @@ function POSTerminalInner() {
       customerFields: editedCustomerFields,
     });
     // Sync guest display name if the primary customer name changed
-    const newName = editedCustomerFields.name?.trim();
-    if (newName && newName !== guests[0]) {
-      setGuests((prev) => [newName, ...prev.slice(1)]);
-      if (selectedPerson === guests[0]) setSelectedPerson(newName);
+    const newNameRaw = editedCustomerFields.name?.trim();
+    if (newNameRaw) {
+      const newName = newNameRaw.toLowerCase() === "guest" ? "Guest 1" : `Guest 1 (${newNameRaw})`;
+      if (newName !== guests[0]) {
+        setGuests((prev) => [newName, ...prev.slice(1)]);
+        if (selectedPerson === guests[0]) setSelectedPerson(newName);
+      }
     }
     setCustomerDialogOpen(false);
     toast.success("Customer info updated");
@@ -1190,37 +1210,32 @@ function POSTerminalInner() {
 
   // ─── Guest Management ──────────────────────────────────────────────────
 
-  const addGuest = useCallback(
-    (name: string) => {
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      if (guests.some((g) => g.toLowerCase() === trimmed.toLowerCase())) {
-        toast.error(`"${trimmed}" is already in the guest list`);
-        return;
+  const addGuests = useCallback(
+    (newGuests: string[]) => {
+      const valid = newGuests.filter(name => {
+        const trimmed = name.trim();
+        if (!trimmed) return false;
+        if (guests.some((g) => g.toLowerCase() === trimmed.toLowerCase())) {
+          return false;
+        }
+        return true;
+      });
+      
+      if (valid.length === 0) return;
+      
+      setGuests((prev) => [...prev, ...valid]);
+      for (const g of valid) {
+        addGuestPaymentAllocation(g);
       }
-      setGuests((prev) => [...prev, trimmed]);
-      addGuestPaymentAllocation(trimmed);
-      setAddGuestName("");
-      setAddGuestOpen(false);
-      toast.success(`${trimmed} added to the order`);
+      
+      if (valid.length === 1) {
+        toast.success(`${valid[0]} added to the order`);
+      } else {
+        toast.success(`${valid.length} guests added to the order`);
+      }
     },
     [guests, addGuestPaymentAllocation],
   );
-
-  const nextDefaultGuestName = React.useMemo(() => {
-    const taken = new Set(guests.map((g) => g.toLowerCase()));
-    const pattern = /^guest\s+(\d+)$/i;
-    let max = 0;
-    for (const guest of guests) {
-      const match = guest.match(pattern);
-      if (!match) continue;
-      max = Math.max(max, Number.parseInt(match[1], 10));
-    }
-
-    let candidate = max + 1;
-    while (taken.has(`guest ${candidate}`)) candidate += 1;
-    return `Guest ${candidate}`;
-  }, [guests]);
 
   const removeGuest = useCallback(
     (name: string) => {
@@ -1655,24 +1670,64 @@ function POSTerminalInner() {
     (name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      if (guests.some((g) => g.toLowerCase() === trimmed.toLowerCase())) {
+
+      let currentMax = 0;
+      const pattern = /^guest\s+(\d+)/i;
+      for (const g of guests) {
+        const match = g.match(pattern);
+        if (match) {
+          currentMax = Math.max(currentMax, parseInt(match[1], 10));
+        }
+      }
+      
+      const isGuestFormat = /^guest\s*\d*$/i.test(trimmed);
+      const formattedName = isGuestFormat 
+        ? `Guest ${currentMax + 1}`
+        : `Guest ${currentMax + 1} (${trimmed})`;
+
+      if (guests.some((g) => g.toLowerCase() === formattedName.toLowerCase())) {
         // Already exists — just silently accept
         return;
       }
-      setGuests((prev) => [...prev, trimmed]);
-      toast.success(`${trimmed} added to the order`);
+      setGuests((prev) => [...prev, formattedName]);
+      toast.success(`${formattedName} added to the order`);
     },
     [guests],
   );
 
   const handleOpenAddGuestDialog = useCallback(() => {
-    setAddGuestName("");
+    setAddGuestCount(1);
+    setAddGuestAlias("");
     setAddGuestOpen(true);
   }, []);
 
   const handleSubmitAddGuest = useCallback(() => {
-    addGuest(addGuestName.trim() || nextDefaultGuestName);
-  }, [addGuest, addGuestName, nextDefaultGuestName]);
+    let currentMax = 0;
+    const pattern = /^guest\s+(\d+)/i;
+    for (const g of guests) {
+      const match = g.match(pattern);
+      if (match) {
+        currentMax = Math.max(currentMax, parseInt(match[1], 10));
+      }
+    }
+
+    const newGuests: string[] = [];
+    if (addGuestCount === 1) {
+      const alias = addGuestAlias.trim();
+      const guestName = alias ? `Guest ${currentMax + 1} (${alias})` : `Guest ${currentMax + 1}`;
+      newGuests.push(guestName);
+    } else {
+      for (let i = 0; i < addGuestCount; i++) {
+        newGuests.push(`Guest ${currentMax + 1 + i}`);
+      }
+    }
+
+    addGuests(newGuests);
+
+    setAddGuestOpen(false);
+    setAddGuestCount(1);
+    setAddGuestAlias("");
+  }, [addGuests, addGuestCount, addGuestAlias, guests]);
 
   const handleSetBulkQty = useCallback(
     (qty: number) => {
@@ -1746,7 +1801,8 @@ function POSTerminalInner() {
   const handleResetOrder = useCallback(() => {
     resetOrder();
     setShowResetConfirm(false);
-    setAddGuestName("");
+    setAddGuestCount(1);
+    setAddGuestAlias("");
     setAddGuestOpen(false);
     setCatalogFilter("");
     toast.success("Order reset — ready for a new order");
@@ -3328,48 +3384,78 @@ function POSTerminalInner() {
         open={addGuestOpen}
         onOpenChange={(open) => {
           setAddGuestOpen(open);
-          if (!open) setAddGuestName("");
+          if (!open) {
+            setAddGuestCount(1);
+            setAddGuestAlias("");
+          }
         }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-primary" />
-              Add Guest
+              Add Guests
             </DialogTitle>
             <DialogDescription>
-              Add a new guest to the order. Leave the name blank and we’ll use{" "}
-              <span className="font-semibold text-foreground">
-                {nextDefaultGuestName}
-              </span>
-              .
+              Add one or more guests to the order. Guests are automatically numbered.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
-            <Textarea
-              autoFocus
-              value={addGuestName}
-              onChange={(e) => setAddGuestName(e.target.value)}
-              placeholder={nextDefaultGuestName}
-              className="min-h-24 resize-none text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setAddGuestOpen(false);
-                  setAddGuestName("");
-                }
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  handleSubmitAddGuest();
-                }
-              }}
-            />
-            <div className="text-[10px] text-muted-foreground">
-              Tip: press{" "}
-              <span className="font-medium text-foreground">Ctrl+Enter</span> or{" "}
-              <span className="font-medium text-foreground">Cmd+Enter</span> to
-              add.
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Number of guests to add
+              </label>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setAddGuestCount(Math.max(1, addGuestCount - 1))}
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </Button>
+                <Input
+                  type="number"
+                  value={addGuestCount}
+                  onChange={(e) => setAddGuestCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="h-8 w-20 text-center text-xs font-mono"
+                  min={1}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setAddGuestCount(addGuestCount + 1)}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
+
+            {addGuestCount === 1 && (
+              <div className="space-y-1.5 mt-4">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Alias / Name (Optional)
+                </label>
+                <Input
+                  autoFocus
+                  value={addGuestAlias}
+                  onChange={(e) => setAddGuestAlias(e.target.value)}
+                  placeholder="e.g. John"
+                  className="h-9 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setAddGuestOpen(false);
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSubmitAddGuest();
+                    }
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -3377,12 +3463,15 @@ function POSTerminalInner() {
               variant="outline"
               onClick={() => {
                 setAddGuestOpen(false);
-                setAddGuestName("");
+                setAddGuestCount(1);
+                setAddGuestAlias("");
               }}
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmitAddGuest}>Add Guest</Button>
+            <Button onClick={handleSubmitAddGuest}>
+              Add {addGuestCount} Guest{addGuestCount !== 1 ? "s" : ""}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

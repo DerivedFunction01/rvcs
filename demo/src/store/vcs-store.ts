@@ -377,7 +377,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         newEngine.setCatalog(Object.values(store.catalog));
       }
       // Auto-create the default allocations
-      const customerName = orderContext.customerFields.name || "Guest";
+      const customerNameRaw = orderContext.customerFields.name || "Guest";
+      let customerName = customerNameRaw.toLowerCase() === "guest" ? "Guest 1" : `Guest 1 (${customerNameRaw})`;
+      if (orderContext.initialGuestNames?.length && orderContext.initialGuestNames[0] !== "Guest 1") {
+         customerName = orderContext.initialGuestNames[0];
+      }
       const assignAllocId = generateAllocationId("default-assign");
 
       const assignmentAlloc: AssignmentAllocation = {
