@@ -581,7 +581,7 @@ function formatDeltaDetails(
     case "batch_by_filter": {
       return (
         <div className="space-y-1 text-foreground/90">
-          <div className="font-semibold text-purple-600 dark:text-purple-400 font-medium">
+          <div className="font-semibold text-purple-600 dark:text-purple-400">
             Batch Action
           </div>
           <div>
@@ -954,7 +954,7 @@ function ConflictsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] flex flex-col">
+      <DialogContent className="sm:max-w-120 flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TriangleAlert className="w-4 h-4 text-amber-500" />
@@ -1106,7 +1106,7 @@ function ConflictsDialog({
                     </Button>
 
                     {/* Dots row */}
-                    <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-[200px] sm:max-w-[240px]">
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-50 sm:max-w-60">
                       {conflicts.map((c, idx) => {
                         const isActive = idx === activeIndex;
                         const isResolved = !!c.resolution;
@@ -1219,7 +1219,7 @@ function MergedStateSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-[480px] flex flex-col p-0"
+        className="w-full sm:max-w-120 flex flex-col p-0"
       >
         <SheetHeader className="px-5 pt-5 pb-3 border-b">
           <SheetTitle className="flex items-center gap-2 text-sm">
@@ -1920,7 +1920,7 @@ export function MergeBranchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-120 max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitMerge className="w-5 h-5 text-primary" />

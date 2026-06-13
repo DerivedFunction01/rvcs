@@ -208,11 +208,11 @@ function AllocationBadges({
           const isDefault = id === defaultPaymentAllocId;
           const siblings = payAlloc.correlationId
             ? Object.values(patchedAllocs).filter(
-                (a) =>
-                  a.type === "payment" &&
-                  a.correlationId === payAlloc.correlationId &&
-                  a.allocationId !== payAlloc.allocationId,
-              )
+              (a) =>
+                a.type === "payment" &&
+                a.correlationId === payAlloc.correlationId &&
+                a.allocationId !== payAlloc.allocationId,
+            )
             : [];
           const isSplit = siblings.length > 0;
           return (
@@ -269,6 +269,7 @@ function LineItemNode({
   onToggleCollapse,
   collapsedItems,
   detailLevel = "balanced",
+  hideCanceled = false,
 }: {
   item: ProjectedLineItem;
   allocations: Record<string, AllocationBlock>;
@@ -285,6 +286,7 @@ function LineItemNode({
   onToggleCollapse?: (lineId: string) => void;
   collapsedItems?: Set<string>;
   detailLevel?: "simple" | "balanced" | "full";
+  hideCanceled: boolean;
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
@@ -324,25 +326,23 @@ function LineItemNode({
         className={`group relative ${depth > 0 ? "ml-4 border-l-2 border-muted pl-3" : ""}`}
       >
         <div
-          className={`rounded-lg border p-3 transition-all ${
-            isRoot
+          className={`rounded-lg border p-3 transition-all ${isRoot
               ? isSelected && !isCanceled
                 ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
-                : `border-border cursor-pointer ${
-                    isCanceled
-                      ? "bg-muted/20 hover:bg-muted/30"
-                      : isConfirmed
-                        ? "bg-muted/30 hover:bg-muted/50"
-                        : "bg-card hover:bg-accent/50"
-                  }`
+                : `border-border cursor-pointer ${isCanceled
+                  ? "bg-muted/20 hover:bg-muted/30"
+                  : isConfirmed
+                    ? "bg-muted/30 hover:bg-muted/50"
+                    : "bg-card hover:bg-accent/50"
+                }`
               : "border-transparent bg-muted/40"
-          }`}
+            }`}
           onClick={
             isRoot && !isCanceled
               ? (e) => {
-                  e.stopPropagation();
-                  onSelectToggle?.(item.lineId);
-                }
+                e.stopPropagation();
+                onSelectToggle?.(item.lineId);
+              }
               : undefined
           }
         >
@@ -397,7 +397,7 @@ function LineItemNode({
                     >
                       <Minus className="w-2.5 h-2.5" />
                     </Button>
-                    <span className="text-[10px] text-foreground font-mono font-semibold min-w-[10px] text-center select-none">
+                    <span className="text-[10px] text-foreground font-mono font-semibold min-w-2.5 text-center select-none">
                       {item.qty}
                     </span>
                     <Button
@@ -416,7 +416,7 @@ function LineItemNode({
                   </div>
                 ) : isRoot && isCanceled ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-destructive/10 border-destructive/20 shrink-0">
-                    <span className="text-[10px] text-destructive font-mono font-semibold min-w-[10px] px-2 text-center select-none">
+                    <span className="text-[10px] text-destructive font-mono font-semibold min-w-2.5 px-2 text-center select-none">
                       {item.canceledQty}
                     </span>
                   </div>
@@ -693,6 +693,7 @@ function LineItemNode({
             onToggleCollapse={onToggleCollapse}
             collapsedItems={collapsedItems}
             detailLevel={detailLevel}
+            hideCanceled={hideCanceled}
           />
         ))}
     </>
@@ -787,7 +788,7 @@ function OrderContextBanner({
         {context.customerFields.address && (
           <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
             <MapPin className="w-3 h-3" />
-            <span className="truncate max-w-[160px]">
+            <span className="truncate max-w-40">
               {context.customerFields.address}
             </span>
           </div>
@@ -1397,11 +1398,11 @@ function POSTerminalInner() {
       const patchedAllocs = getPatchedAllocations(allocations);
       const siblings = activeAlloc.correlationId
         ? Object.values(patchedAllocs).filter(
-            (a) =>
-              a.type === "payment" &&
-              a.correlationId === activeAlloc.correlationId &&
-              a.allocationId !== activeAlloc.allocationId,
-          )
+          (a) =>
+            a.type === "payment" &&
+            a.correlationId === activeAlloc.correlationId &&
+            a.allocationId !== activeAlloc.allocationId,
+        )
         : [];
       const typeLabel = siblings.length > 0 ? "Split" : "Single";
       return `${typeLabel}: ${getPaymentAllocDisplayName(patchedAllocs[activeAlloc.allocationId] as PaymentAllocation, patchedAllocs)}`;
@@ -1496,10 +1497,10 @@ function POSTerminalInner() {
       splits: Array<{
         entity: string;
         strategyType:
-          | "percentage"
-          | "fixed_item"
-          | "fixed_global"
-          | "remaining";
+        | "percentage"
+        | "fixed_item"
+        | "fixed_global"
+        | "remaining";
         value: number;
         method?: string | null;
       }>,
@@ -1699,15 +1700,14 @@ function POSTerminalInner() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-7 gap-1.5 pr-2 ${
-                    isMain
+                  className={`h-7 gap-1.5 pr-2 ${isMain
                       ? "border-primary/50 bg-primary/5 hover:bg-primary/10"
                       : isMerged
                         ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground"
                         : isHypothetical
                           ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10"
                           : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"
-                  }`}
+                    }`}
                   onClick={() => setIsBranchManagerOpen(true)}
                 >
                   {isMain ? (
@@ -1719,7 +1719,7 @@ function POSTerminalInner() {
                   ) : (
                     <GitBranch className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   )}
-                  <span className="text-xs font-semibold max-w-[120px] truncate">
+                  <span className="text-xs font-semibold max-w-30 truncate">
                     {displayName}
                   </span>
                   {main !== active && (
@@ -1747,7 +1747,7 @@ function POSTerminalInner() {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 gap-1.5 px-2.5 max-w-[210px]"
+              className="h-7 gap-1.5 px-2.5 max-w-52.5"
               onClick={() => {
                 setGuestSearchQuery("");
                 setGuestPickerOpen(true);
@@ -1764,7 +1764,7 @@ function POSTerminalInner() {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs gap-1.5 px-2.5 max-w-[210px]"
+              className="h-7 text-xs gap-1.5 px-2.5 max-w-52.5"
               onClick={() => {
                 setPaymentAllocationItems([]);
                 setPaymentAllocationContext("header");
@@ -1779,7 +1779,7 @@ function POSTerminalInner() {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs gap-1.5 px-2.5 max-w-[210px]"
+              className="h-7 text-xs gap-1.5 px-2.5 max-w-52.5"
               onClick={() => {
                 setFulfillmentAllocationItems([]);
                 setFulfillmentAllocationContext("global");
@@ -2109,11 +2109,10 @@ function POSTerminalInner() {
                                   return next;
                                 });
                               }}
-                              className={`flex items-center gap-2 px-2.5 py-1.5 border rounded-lg text-left text-xs transition-all ${
-                                isVisible
+                              className={`flex items-center gap-2 px-2.5 py-1.5 border rounded-lg text-left text-xs transition-all ${isVisible
                                   ? "border-primary bg-primary/5 font-medium"
                                   : "border-border bg-card opacity-60 hover:opacity-100"
-                              }`}
+                                }`}
                             >
                               <div
                                 className={`w-2 h-2 rounded-full shrink-0 ${color}`}
@@ -2160,9 +2159,8 @@ function POSTerminalInner() {
                         <button
                           key={level}
                           onClick={() => setDetailLevel(level)}
-                          className={`w-full flex flex-col px-2 py-1.5 rounded transition-colors text-left ${
-                            detailLevel === level ? "bg-primary/10 text-primary" : "hover:bg-accent text-foreground"
-                          }`}
+                          className={`w-full flex flex-col px-2 py-1.5 rounded transition-colors text-left ${detailLevel === level ? "bg-primary/10 text-primary" : "hover:bg-accent text-foreground"
+                            }`}
                         >
                           <span className="font-medium capitalize">{level}</span>
                           <span className="text-[9px] opacity-70">
@@ -2174,9 +2172,9 @@ function POSTerminalInner() {
                       ))}
                       <div className="my-1 border-t" />
                       <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors">
-                        <Checkbox 
-                          checked={hideCanceled} 
-                          onCheckedChange={(v) => setHideCanceled(!!v)} 
+                        <Checkbox
+                          checked={hideCanceled}
+                          onCheckedChange={(v) => setHideCanceled(!!v)}
                           className="w-3.5 h-3.5"
                         />
                         <span className="font-medium text-foreground">Hide voided items</span>
@@ -2376,7 +2374,7 @@ function POSTerminalInner() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-[125px]"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-31.25"
                     onClick={() => {
                       const selectedItems = Array.from(selectedLineIds)
                         .map((id) => projectedState.items[id])
@@ -2392,7 +2390,7 @@ function POSTerminalInner() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-[125px]"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-31.25"
                     onClick={() => {
                       const selectedItems = Array.from(selectedLineIds)
                         .map((id) => projectedState.items[id])
@@ -2450,9 +2448,8 @@ function POSTerminalInner() {
 
           {/* ─── RIGHT PANEL: Commit Ledger (DAG) ─────────────────────── */}
           <aside
-            className={`border-l bg-card flex flex-col shrink-0 transition-all duration-200 ${
-              isLedgerCollapsed ? "w-12" : "w-72"
-            }`}
+            className={`border-l bg-card flex flex-col shrink-0 transition-all duration-200 ${isLedgerCollapsed ? "w-12" : "w-72"
+              }`}
           >
             <div className="p-3 border-b flex items-center justify-between gap-2">
               {!isLedgerCollapsed && (
@@ -2611,18 +2608,17 @@ function POSTerminalInner() {
                             <div
                               key={commit.commitHash}
                               style={{ height: node.rowHeight }}
-                              className="flex flex-col justify-start py-[3px] group/commit"
+                              className="flex flex-col justify-start py-0.75 group/commit"
                             >
                               <div
                                 onClick={() => viewRevision(commit.commitHash)}
-                                className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-[50px] relative ${
-                                  isActive
+                                className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-12.5 relative ${isActive
                                     ? "border-primary bg-primary/5 shadow-xs"
                                     : "border-transparent hover:border-border hover:bg-accent/40"
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center justify-between gap-1">
-                                  <span className="font-mono text-[9px] font-semibold text-muted-foreground truncate max-w-[50px]">
+                                  <span className="font-mono text-[9px] font-semibold text-muted-foreground truncate max-w-12.5">
                                     {commit.commitHash.substring(0, 7)}
                                   </span>
                                   <Badge
@@ -2633,15 +2629,14 @@ function POSTerminalInner() {
                                           ? "secondary"
                                           : "secondary"
                                     }
-                                    className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${
-                                      isAI
+                                    className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${isAI
                                         ? "bg-amber-500 text-white hover:bg-amber-500"
                                         : isSystem
                                           ? "bg-muted text-muted-foreground"
                                           : isSquash
                                             ? "bg-sky-500 text-white hover:bg-sky-500"
                                             : ""
-                                    }`}
+                                      }`}
                                   >
                                     {isSquash
                                       ? "squash"
@@ -2679,22 +2674,21 @@ function POSTerminalInner() {
                                               );
                                             }
                                           }}
-                                          className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${
-                                            activeBranch() === commit.branch
+                                          className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${activeBranch() === commit.branch
                                               ? "border-primary text-primary bg-primary/5 ring-[0.5px] ring-primary/20"
                                               : branches[commit.branch]
-                                                    ?.type === "hypothetical"
-                                                ? "border-amber-400/40 text-amber-600 bg-amber-500/[0.04] hover:bg-amber-500/10 hover:border-amber-500"
-                                                : "border-emerald-400/40 text-emerald-600 bg-emerald-500/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500"
-                                          }`}
+                                                ?.type === "hypothetical"
+                                                ? "border-amber-400/40 text-amber-600 bg-amber-500/4 hover:bg-amber-500/10 hover:border-amber-500"
+                                                : "border-emerald-400/40 text-emerald-600 bg-emerald-500/4 hover:bg-emerald-500/10 hover:border-emerald-500"
+                                            }`}
                                         >
                                           {branches[commit.branch]?.type ===
-                                          "hypothetical" ? (
+                                            "hypothetical" ? (
                                             <Lightbulb className="w-2.5 h-2.5" />
                                           ) : (
                                             <GitBranch className="w-2.5 h-2.5" />
                                           )}
-                                          <span className="truncate max-w-[60px]">
+                                          <span className="truncate max-w-15">
                                             {branches[commit.branch]?.label ||
                                               commit.branch}
                                           </span>
@@ -2786,15 +2780,14 @@ function POSTerminalInner() {
 
                               {/* Expanded Deltas details list */}
                               {isExpanded && (
-                                <div className="mt-1 pl-2 pr-1 space-y-1 overflow-y-auto max-h-[180px] border-l-2 border-primary/20 ml-2 animate-in fade-in duration-100">
+                                <div className="mt-1 pl-2 pr-1 space-y-1 overflow-y-auto max-h-45 border-l-2 border-primary/20 ml-2 animate-in fade-in duration-100">
                                   {commit.deltas.map((d, i) => (
                                     <div
                                       key={i}
                                       className="text-[9px] text-muted-foreground flex items-center gap-1.5"
                                     >
                                       <span
-                                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                          d.action === "declare_allocation"
+                                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.action === "declare_allocation"
                                             ? "bg-violet-500"
                                             : d.action === "add_item"
                                               ? "bg-emerald-500"
@@ -2803,7 +2796,7 @@ function POSTerminalInner() {
                                                 : d.action.startsWith("modify")
                                                   ? "bg-amber-500"
                                                   : "bg-sky-500"
-                                        }`}
+                                          }`}
                                       />
                                       <span className="font-mono font-medium truncate shrink-0">
                                         {d.action}
@@ -2990,7 +2983,7 @@ function POSTerminalInner() {
                   a.type === "payment" &&
                   ((a as PaymentAllocation).allocationId === configIdOrMethod ||
                     (a as PaymentAllocation).correlationId ===
-                      configIdOrMethod),
+                    configIdOrMethod),
               ) as PaymentAllocation | undefined;
               if (representativeAlloc) {
                 const methodLabel = (
@@ -3267,9 +3260,8 @@ function POSTerminalInner() {
                         setSelectedPerson(guest);
                         setGuestPickerOpen(false);
                       }}
-                      className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 ${
-                        isActive ? "border-primary bg-primary/5" : "bg-card"
-                      }`}
+                      className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 ${isActive ? "border-primary bg-primary/5" : "bg-card"
+                        }`}
                     >
                       <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
                       <span className="w-full truncate text-sm font-semibold">
@@ -3493,7 +3485,7 @@ export default function POSTerminal() {
           setDefaultPaymentFromConfig(data.defaultPaymentMethod);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // ─── Handle Order Init (stable callback) ───────────────────────────────
