@@ -44,6 +44,7 @@ interface PaymentAllocationDialogProps {
   defaultPaymentMethod: string;
   paymentConfigs: Array<{ id: string; name: string; isSplit: boolean }>;
   activePaymentConfigId: string | null;
+  selectedGuestName?: string | null;
 
   onApplyConfig: (
     configIdOrMethod: string,
@@ -74,6 +75,7 @@ export function PaymentAllocationDialog({
   defaultPaymentMethod,
   paymentConfigs,
   activePaymentConfigId,
+  selectedGuestName,
   onApplyConfig,
   onApplyCustomSplit,
   onAddGuest,
@@ -196,21 +198,11 @@ export function PaymentAllocationDialog({
 
   // Find if there is an active guest selected (other than the primary guest)
   const activeGuestName = useMemo(() => {
-    if (!resolvedActiveId) return null;
-    const activeAlloc = Object.values(allocations).find(
-      (a) =>
-        a.type === "payment" &&
-        (a.allocationId === resolvedActiveId ||
-          a.correlationId === resolvedActiveId),
-    );
-    if (activeAlloc && activeAlloc.type === "payment") {
-      const pay = activeAlloc as PaymentAllocation;
-      if (pay.payer && pay.payer !== primaryGuest) {
-        return pay.payer;
-      }
+    if (selectedGuestName && selectedGuestName !== primaryGuest) {
+      return selectedGuestName;
     }
     return null;
-  }, [resolvedActiveId, allocations, primaryGuest]);
+  }, [selectedGuestName, primaryGuest]);
 
   // Methods for the active guest (if not primary guest) to show as another row on top
   const activeGuestMethods = useMemo(() => {

@@ -119,6 +119,15 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     [splits, onChange]
   );
 
+  const handleEntityChange = useCallback(
+    (index: number, newEntity: string) => {
+      const updated = [...splits];
+      updated[index] = { ...updated[index], entity: newEntity };
+      onChange(updated);
+    },
+    [splits, onChange]
+  );
+
   const handleSplitTypeChange = (index: number, type: "percentage" | "fixed_item" | "fixed_global" | "remaining") => {
     const updated = [...splits];
     updated[index] = {
@@ -184,10 +193,27 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
 
       <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
         {splits.map((split, idx) => (
-          <div key={split.entity} className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b pb-2 last:border-b-0 last:pb-0">
-            <span className="text-xs font-semibold text-foreground truncate flex-1 min-w-[60px]" title={split.entity}>
-              {split.entity}
-            </span>
+          <div key={`split-row-${idx}`} className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b pb-2 last:border-b-0 last:pb-0">
+            <Select
+              value={split.entity}
+              onValueChange={(val) => handleEntityChange(idx, val)}
+            >
+              <SelectTrigger className="h-7 text-xs font-semibold text-foreground border-none shadow-none bg-transparent hover:bg-accent/40 p-1 flex-1 min-w-[80px] justify-between gap-1 focus:ring-0">
+                <SelectValue placeholder={split.entity} />
+              </SelectTrigger>
+              <SelectContent>
+                {guests.map((g) => {
+                  const isAlreadyUsed = splits.some((s) => s.entity.toLowerCase() === g.toLowerCase());
+                  const isCurrent = g === split.entity;
+                  if (isAlreadyUsed && !isCurrent) return null;
+                  return (
+                    <SelectItem key={g} value={g} className="text-xs">
+                      {g}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
 
             <Select
               value={split.strategyType}
