@@ -5,11 +5,13 @@ import { useVCSStore } from "@/store/vcs-store";
 import {
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
+  formatFulfillmentTime,
 } from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { OrderInitScreen } from "@/components/vcs/order-init-screen";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
 import { PaymentAllocationDialog } from "@/components/vcs/payment-allocation-dialog";
+import { FulfillmentAllocationDialog } from "@/components/vcs/fulfillment-allocation-dialog";
 import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
 import { NumberPadDialog } from "@/components/vcs/number-pad-dialog";
 import { ChoiceDialog } from "@/components/vcs/choice-dialog";
@@ -29,11 +31,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { generateAllocationId } from "@/lib/vcs/id";
 import type {
   ProjectedLineItem,
   AllocationBlock,
   PaymentAllocation,
+  FulfillmentAllocation,
   CatalogItemEntry,
+  Delta,
 } from "@/lib/vcs/types";
 import {
   ShoppingCart,
@@ -158,6 +163,8 @@ function AllocationBadges({
   defaultPaymentAllocId: string | null;
   guests: string[];
 }) {
+  const initiatedAt = useVCSStore((state) => state.orderContext?.initiatedAt);
+
   if (allocationIds.length === 0) return null;
 
   const seenPaymentGroups = new Set<string>();
@@ -211,6 +218,24 @@ function AllocationBadges({
               {isSplit && <Split className="w-2.5 h-2.5 mr-0.5" />}
               {!isSplit && <CreditCard className="w-2.5 h-2.5 mr-0.5" />}
               {displayName}
+            </Badge>
+          );
+        }
+        if (alloc.type === "fulfillment") {
+          const fulAlloc = alloc as FulfillmentAllocation;
+          const isImmediate =
+            fulAlloc.time.type === "immediate" || !fulAlloc.time.calculatedAt;
+          const displayLabel = isImmediate
+            ? `${fulAlloc.method} (On Confirmation)`
+            : `${fulAlloc.method} @ ${formatFulfillmentTime(fulAlloc.time.calculatedAt!, initiatedAt)}`;
+          return (
+            <Badge
+              key={id}
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4 font-medium border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20"
+            >
+              <Clock className="w-2.5 h-2.5 mr-0.5" />
+              {displayLabel}
             </Badge>
           );
         }
@@ -717,10 +742,13 @@ function POSTerminalInner() {
     changeDefaultPayment,
     splitItemPayment,
     reassignItem,
+    updateFulfillmentAllocation,
     resetItemPaymentToDefault,
     switchItemPayment,
     activePaymentConfigId,
+    activeFulfillmentConfigId,
     selectPaymentConfig,
+    selectFulfillmentConfig,
     createTableSplitConfig,
     duplicateItems,
     duplicateAndReassignItems,
@@ -729,6 +757,7 @@ function POSTerminalInner() {
     setItemsQty,
     reassignItems,
     groupItemsPaymentConfig,
+    groupItemsFulfillmentConfig,
     addGroupModifier,
     removeGroupModifier,
     previewMerge,
@@ -873,6 +902,14 @@ function POSTerminalInner() {
   const [paymentAllocationItems, setPaymentAllocationItems] = React.useState<
     ProjectedLineItem[]
   >([]);
+
+  // Unified Fulfillment Allocation State
+  const [fulfillmentAllocationOpen, setFulfillmentAllocationOpen] =
+    React.useState(false);
+  const [fulfillmentAllocationContext, setFulfillmentAllocationContext] =
+    React.useState<"item" | "group" | "global">("item");
+  const [fulfillmentAllocationItems, setFulfillmentAllocationItems] =
+    React.useState<ProjectedLineItem[]>([]);
 
   // Modifier Add Dialog State
   const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
@@ -1192,7 +1229,19 @@ function POSTerminalInner() {
     projectedState.allocations,
     customerName,
   ]);
-
+  const currentFulfillmentConfigName = React.useMemo(() => {
+    const activeId = activeFulfillmentConfigId;
+    if (!activeId) return "On Confirmation";
+    const alloc = projectedState.allocations[activeId];
+    if (alloc?.type === "fulfillment") {
+      const f = alloc as FulfillmentAllocation;
+      if (f.time.type === "immediate" || !f.time.calculatedAt) {
+        return `${f.method} (On Confirmation)`;
+      }
+      return `${f.method} @ ${formatFulfillmentTime(f.time.calculatedAt, orderContext?.initiatedAt)}`;
+    }
+    return "On Confirmation";
+  }, [activeFulfillmentConfigId, projectedState.allocations, orderContext?.initiatedAt]);
   const log = commitLog();
   const branches = useVCSStore.getState().engine.getRepo().branches;
 
@@ -1233,6 +1282,22 @@ function POSTerminalInner() {
       toast.success(`Reassigned to ${newAssignee}`);
     },
     [reassignItem],
+  );
+
+  const handleUpdateFulfillment = useCallback(
+    (
+      lineId: string,
+      timeType: "immediate" | "scheduled" | "deferred",
+      calculatedAt: string | null,
+    ) => {
+      updateFulfillmentAllocation(lineId, timeType, calculatedAt);
+      toast.success(
+        timeType === "immediate"
+          ? "Fulfillment scheduled: on confirmation"
+          : `Fulfillment scheduled for ${formatFulfillmentTime(calculatedAt!, orderContext?.initiatedAt)}`,
+      );
+    },
+    [updateFulfillmentAllocation, orderContext?.initiatedAt],
   );
 
   const handleSplitPayment = useCallback(
@@ -1519,6 +1584,21 @@ function POSTerminalInner() {
             >
               <CreditCard className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{currentConfigName}</span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 px-2.5 max-w-[210px]"
+              onClick={() => {
+                setFulfillmentAllocationItems([]);
+                setFulfillmentAllocationContext("global");
+                setFulfillmentAllocationOpen(true);
+              }}
+              title="Configure order default fulfillment"
+            >
+              <Clock className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+              <span className="truncate">{currentFulfillmentConfigName}</span>
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             </Button>
             <SeparatorUI orientation="vertical" className="h-6" />
@@ -1932,6 +2012,22 @@ function POSTerminalInner() {
                     Allocate Payment
                   </Button>
 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-[125px]"
+                    onClick={() => {
+                      const selectedItems = Array.from(selectedLineIds)
+                        .map((id) => projectedState.items[id])
+                        .filter(Boolean);
+                      setFulfillmentAllocationItems(selectedItems);
+                      setFulfillmentAllocationContext("group");
+                      setFulfillmentAllocationOpen(true);
+                    }}
+                  >
+                    Set Fulfillment
+                  </Button>
+
                   {compatibleModifiers.length > 0 && (
                     <Button
                       variant="outline"
@@ -2324,6 +2420,12 @@ function POSTerminalInner() {
           setPaymentAllocationContext("item");
           setPaymentAllocationOpen(true);
         }}
+        onTriggerFulfillmentAllocation={(item) => {
+          setFulfillmentAllocationItems([item]);
+          setFulfillmentAllocationContext("item");
+          setFulfillmentAllocationOpen(true);
+        }}
+        initiatedAt={orderContext?.initiatedAt}
       />
 
       {/* ─── Unified Payment Allocation Dialog ──────────────────────────── */}
@@ -2427,6 +2529,123 @@ function POSTerminalInner() {
           }
         }}
         onAddGuest={handleAddGuestFromDialog}
+      />
+
+      <FulfillmentAllocationDialog
+        open={fulfillmentAllocationOpen}
+        onOpenChange={setFulfillmentAllocationOpen}
+        context={fulfillmentAllocationContext}
+        items={fulfillmentAllocationItems}
+        allocations={projectedState.allocations}
+        activeFulfillmentConfigId={activeFulfillmentConfigId}
+        allItems={Object.values(projectedState.items)}
+        onApplyConfig={(config, mode) => {
+          if (fulfillmentAllocationContext === "item") {
+            updateFulfillmentAllocation(
+              fulfillmentAllocationItems[0].lineId,
+              config.timeType,
+              config.calculatedAt,
+            );
+            toast.success("Fulfillment timing updated for item");
+          } else if (fulfillmentAllocationContext === "group") {
+            const newFulId = generateAllocationId("fulfillment");
+            const method = orderContext?.orderType || "dine_in";
+            const destinationLabel = orderContext?.tableConfigId
+              ? `Table ${orderContext.tableConfigId}`
+              : "Guest";
+            const destinationId = orderContext?.tableConfigId || null;
+
+            const newFulAlloc: FulfillmentAllocation = {
+              allocationId: newFulId,
+              type: "fulfillment",
+              method,
+              time: {
+                type: config.timeType,
+                calculatedAt: config.calculatedAt,
+              },
+              fulfillmentMetadata: {
+                destinationLabel,
+                destinationId,
+              },
+            };
+
+            const targetItemIds = fulfillmentAllocationItems.map(
+              (i) => i.lineId,
+            );
+            const deltas: Delta[] = [
+              { action: "declare_allocation", allocation: newFulAlloc },
+            ];
+
+            for (const lineId of targetItemIds) {
+              const item = projectedState.items[lineId];
+              if (item) {
+                const nonFulAllocs = item.allocations.filter(
+                  (id) =>
+                    projectedState.allocations[id]?.type !== "fulfillment",
+                );
+                deltas.push({
+                  action: "modify_item_allocations",
+                  lineId,
+                  beforeAllocations: item.allocations,
+                  afterAllocations: [...nonFulAllocs, newFulId],
+                });
+              }
+            }
+
+            useVCSStore.getState().commitDeltas(deltas, "pos-ui");
+            toast.success(
+              `Fulfillment updated for ${fulfillmentAllocationItems.length} items`,
+            );
+            setSelectedLineIds(new Set());
+          } else {
+            // global context
+            const newFulId = generateAllocationId("default-fulfillment");
+            const method = orderContext?.orderType || "dine_in";
+            const destinationLabel = orderContext?.tableConfigId
+              ? `Table ${orderContext.tableConfigId}`
+              : "Guest";
+            const destinationId = orderContext?.tableConfigId || null;
+
+            const newFulAlloc: FulfillmentAllocation = {
+              allocationId: newFulId,
+              type: "fulfillment",
+              method,
+              time: {
+                type: config.timeType,
+                calculatedAt: config.calculatedAt,
+              },
+              fulfillmentMetadata: {
+                destinationLabel,
+                destinationId,
+              },
+            };
+
+            const deltas: Delta[] = [
+              { action: "declare_allocation", allocation: newFulAlloc },
+            ];
+            useVCSStore.getState().commitDeltas(deltas, "pos-ui");
+
+            selectFulfillmentConfig(
+              newFulId,
+              mode as "change-existing" | "new-only",
+            );
+
+            const timeLabel =
+              config.timeType === "immediate"
+                ? "On Confirmation"
+                : `Scheduled @ ${formatFulfillmentTime(config.calculatedAt!, orderContext?.initiatedAt)}`;
+
+            if (mode === "change-existing") {
+              toast.success(
+                `Default fulfillment switched to ${timeLabel} for all items`,
+              );
+            } else {
+              toast.success(
+                `Default fulfillment set to ${timeLabel} for new items`,
+              );
+            }
+          }
+        }}
       />
 
       <Dialog

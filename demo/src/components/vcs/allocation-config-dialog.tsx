@@ -28,15 +28,19 @@ import {
   Plus,
   Link2,
   X,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import type {
   AllocationBlock,
   PaymentAllocation,
+  FulfillmentAllocation,
   ProjectedLineItem,
 } from "@/lib/vcs/types";
 import {
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
+  formatFulfillmentTime,
 } from "@/lib/pos/utils";
 
 interface AllocationConfigDialogProps {
@@ -51,6 +55,8 @@ interface AllocationConfigDialogProps {
   onResetToDefault: (lineId: string) => void;
   onAddGuest: (name: string) => void;
   onTriggerPaymentAllocation: (item: ProjectedLineItem) => void;
+  onTriggerFulfillmentAllocation: (item: ProjectedLineItem) => void;
+  initiatedAt?: string;
 }
 
 function getPatchedAllocations(
@@ -86,6 +92,8 @@ export function AllocationConfigDialog({
   onResetToDefault,
   onAddGuest,
   onTriggerPaymentAllocation,
+  onTriggerFulfillmentAllocation,
+  initiatedAt,
 }: AllocationConfigDialogProps) {
   const [showAddGuestInput, setShowAddGuestInput] = useState(false);
   const [newGuestInputName, setNewGuestInputName] = useState("");
@@ -109,6 +117,15 @@ export function AllocationConfigDialog({
     return item.allocations
       .map((id) => allocations[id])
       .filter((a): a is PaymentAllocation => a?.type === "payment");
+  }, [item, allocations]);
+
+  const currentFulfillment = useMemo(() => {
+    if (!item) return null;
+    for (const id of item.allocations) {
+      const a = allocations[id];
+      if (a?.type === "fulfillment") return a as FulfillmentAllocation;
+    }
+    return null;
   }, [item, allocations]);
 
   const hasNonDefaultPayment = currentPayments.some(
@@ -240,6 +257,52 @@ export function AllocationConfigDialog({
               </Select>
             </div>
           )}
+        </div>
+
+        {/* Fulfillment Configuration (When) */}
+        <div className="space-y-3 rounded-lg border p-3.5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+            <span>Fulfillment (When)</span>
+            <Badge
+              variant="secondary"
+              className="text-[10px] h-4 px-1.5 font-medium bg-emerald-50 text-emerald-600 border-none dark:bg-emerald-950/20 dark:text-emerald-400"
+            >
+              {currentFulfillment?.time.type === "immediate" ||
+              !currentFulfillment
+                ? "Immediate"
+                : currentFulfillment.time.type.toUpperCase()}
+            </Badge>
+          </div>
+
+          {currentFulfillment &&
+            currentFulfillment.time.type !== "immediate" &&
+            currentFulfillment.time.calculatedAt && (
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium px-1">
+                <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>
+                  Scheduled:{" "}
+                  {formatFulfillmentTime(
+                    currentFulfillment.time.calculatedAt,
+                    initiatedAt,
+                  )}
+                </span>
+              </div>
+            )}
+
+          <div className="pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8 gap-1.5 font-medium"
+              onClick={() => {
+                onTriggerFulfillmentAllocation(item);
+                onOpenChange(false);
+              }}
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+              Change Fulfillment Timing...
+            </Button>
+          </div>
         </div>
 
         {/* Payment Configuration */}

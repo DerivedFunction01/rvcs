@@ -59,3 +59,41 @@ export function generateSplitCorrelationId(
     .map((s) => `${s.entity}-${s.percentage}`);
   return `split-${parts.join("-")}`;
 }
+
+export function formatFulfillmentTime(
+  calculatedAtStr: string,
+  initiatedAtStr: string | undefined
+): string {
+  const calcDate = new Date(calculatedAtStr);
+  const timeStr = calcDate.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (!initiatedAtStr) {
+    return timeStr;
+  }
+
+  const initDate = new Date(initiatedAtStr);
+
+  const isSameDay =
+    calcDate.getDate() === initDate.getDate() &&
+    calcDate.getMonth() === initDate.getMonth() &&
+    calcDate.getFullYear() === initDate.getFullYear();
+
+  if (isSameDay) {
+    return timeStr;
+  }
+
+  const isSameYear = calcDate.getFullYear() === initDate.getFullYear();
+
+  const month = calcDate.toLocaleDateString([], { month: "short" });
+  const day = calcDate.getDate();
+
+  if (isSameYear) {
+    return `${month} ${day}, ${timeStr}`;
+  } else {
+    const year = calcDate.getFullYear();
+    return `${month} ${day}, ${year}, ${timeStr}`;
+  }
+}
