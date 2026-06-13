@@ -1186,6 +1186,24 @@ function POSTerminalInner() {
     });
   }, [rootItems, visibleGuests, projectedState.allocations, guests, hideCanceled]);
 
+  const canceledCount = React.useMemo(() => {
+    let count = 0;
+    const countCanceled = (item: ProjectedLineItem) => {
+      if (item.status === "canceled") {
+        count++;
+      } else {
+        item.children.forEach(countCanceled);
+      }
+    };
+    for (const item of rootItems) {
+      const assignee = getAssigneeFromItem(item, projectedState.allocations, guests);
+      if (visibleGuests.has(assignee)) {
+        countCanceled(item);
+      }
+    }
+    return count;
+  }, [rootItems, projectedState.allocations, guests, visibleGuests]);
+
   // Sync selection with current filteredRootItems (prune deleted ones)
   React.useEffect(() => {
     setSelectedLineIds((prev) => {
@@ -2147,9 +2165,17 @@ function POSTerminalInner() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 ml-1 text-muted-foreground hover:bg-accent"
+                      className="h-7 w-7 p-0 ml-1 text-muted-foreground hover:bg-accent relative"
                     >
                       <LayoutList className="w-4 h-4" />
+                      {hideCanceled && canceledCount > 0 && (
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-1.5 -right-1.5 h-4 min-w-4 flex items-center justify-center px-1 text-[8px] border-background"
+                        >
+                          {canceledCount}
+                        </Badge>
+                      )}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-48 p-2" align="start">
@@ -2178,6 +2204,11 @@ function POSTerminalInner() {
                           className="w-3.5 h-3.5"
                         />
                         <span className="font-medium text-foreground">Hide voided items</span>
+                        {canceledCount > 0 && (
+                          <span className="ml-auto text-[10px] font-mono font-medium text-destructive">
+                            ({canceledCount})
+                          </span>
+                        )}
                       </label>
                     </div>
                   </PopoverContent>
