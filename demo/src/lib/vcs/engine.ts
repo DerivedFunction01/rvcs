@@ -909,6 +909,8 @@ export class VCSEngine {
 
     const hasBatchDelta = allDeltas.some((d) => d.action === "batch_by_filter");
     const deadLineIds = new Set<string>();
+    const createdWithinRange = new Set<string>();
+    const finalQtyMap = new Map<string, number>();
 
     // We bypass optimization if there's a batch mutation, as it relies on
     // deterministic state evaluation at a specific historical point.
@@ -921,16 +923,20 @@ export class VCSEngine {
       for (const d of allDeltas) {
         if (d.action === "add_item") {
           createdLineIds.add(d.lineId);
+          createdWithinRange.add(d.lineId);
           parentMap.set(d.lineId, d.parentLineId);
           finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) + d.qty);
+          finalQtyMap.set(d.lineId, (finalQtyMap.get(d.lineId) || 0) + d.qty);
         } else if (d.action === "remove_item") {
           if (createdLineIds.has(d.lineId)) {
             finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) - d.qty);
           }
+          finalQtyMap.set(d.lineId, (finalQtyMap.get(d.lineId) || 0) - d.qty);
         } else if (d.action === "modify_qty") {
           if (createdLineIds.has(d.lineId)) {
             finalQty.set(d.lineId, d.afterQty);
           }
+          finalQtyMap.set(d.lineId, d.afterQty);
         }
       }
 
@@ -957,13 +963,33 @@ export class VCSEngine {
     }
 
     if (type === "full") {
-      let filteredDeltas = allDeltas;
-      if (deadLineIds.size > 0) {
-        filteredDeltas = allDeltas.filter((d) => {
-          if ("lineId" in d && deadLineIds.has(d.lineId as string))
-            return false;
-          return true;
-        });
+      const optimizedDeltas: Delta[] = [];
+      const lastModifyQtyDeltaMap = new Map<string, Delta>();
+      for (const d of allDeltas) {
+        if (d.action === "modify_qty") {
+          lastModifyQtyDeltaMap.set(d.lineId, d);
+        }
+      }
+
+      for (const d of allDeltas) {
+        if ("lineId" in d && deadLineIds.has(d.lineId as string)) {
+          continue;
+        }
+        if (d.action === "add_item") {
+          const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
+          optimizedDeltas.push({ ...d, qty: finalQty });
+          continue;
+        }
+        if (d.action === "modify_qty") {
+          if (createdWithinRange.has(d.lineId)) {
+            continue;
+          }
+          if (lastModifyQtyDeltaMap.get(d.lineId) === d) {
+            optimizedDeltas.push(d);
+          }
+          continue;
+        }
+        optimizedDeltas.push(d);
       }
 
       // Build replacement commit at the same parent as the first commit in range
@@ -975,7 +1001,7 @@ export class VCSEngine {
         timestamp: new Date().toISOString(),
         authorId: "pos-squash",
         metadata: { squashedCount: rangeCommits.length, squashType: "full" },
-        deltas: filteredDeltas,
+        deltas: optimizedDeltas,
       };
 
       // Remove all commits in the squash range from the log
@@ -995,16 +1021,50 @@ export class VCSEngine {
 
       return [replacementCommit];
     } else {
-      // Light squash: rewrite commits in place, removing dead items, keeping original commit history structure
+      // Find the last commit containing a modify_qty delta for each lineId
+      const lastModifyQtyCommitMap = new Map<string, VCSCommit>();
+      for (const c of rangeCommits) {
+        for (const d of c.deltas) {
+          if (d.action === "modify_qty") {
+            lastModifyQtyCommitMap.set(d.lineId, c);
+          }
+        }
+      }
+
+      // Light squash: rewrite commits in place, removing dead items and pruning intermediate quantities
       const rewrittenRange: VCSCommit[] = [];
       let lastParentHash = fromCommit.parentHash;
 
       for (const c of rangeCommits) {
-        const filteredDeltas = c.deltas.filter((d) => {
-          if ("lineId" in d && deadLineIds.has(d.lineId as string))
-            return false;
-          return true;
-        });
+        const filteredDeltas: Delta[] = [];
+        for (const d of c.deltas) {
+          if ("lineId" in d && deadLineIds.has(d.lineId as string)) {
+            continue;
+          }
+
+          if (d.action === "add_item") {
+            const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
+            filteredDeltas.push({
+              ...d,
+              qty: finalQty,
+            });
+            continue;
+          }
+
+          if (d.action === "modify_qty") {
+            if (createdWithinRange.has(d.lineId)) {
+              continue;
+            }
+            if (lastModifyQtyCommitMap.get(d.lineId) === c) {
+              filteredDeltas.push(d);
+            } else {
+              continue;
+            }
+            continue;
+          }
+
+          filteredDeltas.push(d);
+        }
 
         if (filteredDeltas.length > 0) {
           const newCommit: VCSCommit = {
