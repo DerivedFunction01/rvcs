@@ -1390,6 +1390,36 @@ async function main() {
   console.log(
     "✅ Charge system seeded: jurisdictions, tags, rules, and SKU tag assignments.",
   );
+
+  // 5. Icon Configs (Dietary Flags & Allergens)
+  const iconConfigs = [
+    { id: "spicy", type: "dietary_flag", label: "Spicy", icon: "Flame", color: "text-rose-500" },
+    { id: "vegetarian", type: "dietary_flag", label: "Vegetarian", icon: "Leaf", color: "text-emerald-500" },
+    { id: "vegan", type: "dietary_flag", label: "Vegan", icon: "Leaf", color: "text-emerald-600" },
+    { id: "gluten_free", type: "dietary_flag", label: "Gluten Free", icon: "WheatOff", color: "text-amber-500" },
+    { id: "dairy", type: "allergen", label: "Dairy", icon: "Milk", color: "text-sky-500" },
+    { id: "wheat", type: "allergen", label: "Wheat", icon: "Wheat", color: "text-amber-600" },
+    { id: "egg", type: "allergen", label: "Egg", icon: "Egg", color: "text-yellow-600" },
+    { id: "shellfish", type: "allergen", label: "Shellfish", icon: "Shrimp", color: "text-blue-500" },
+    { id: "fish", type: "allergen", label: "Shellfish", icon: "Fish", color: "text-blue-500" },
+    { id: "peanuts", type: "allergen", label: "Peanuts", icon: "Nut", color: "text-amber-700" },
+    { id: "tree_nuts", type: "allergen", label: "Tree Nuts", icon: "Nut", color: "text-amber-700" },
+    { id: "soy", type: "allergen", label: "Soy", icon: "Bean", color: "text-lime-600" },
+    { id: "pork", type: "allergen", label: "Pork", icon: "Ham", color: "text-rose-400" },
+    { id: "mustard", type: "allergen", label: "Mustard", icon: "FlaskConical", color: "text-yellow-500" },
+    { id: "alcohol", type: "dietary_flag", label: "Alcohol", icon: "Wine", color: "text-purple-600" }
+  ];
+
+  await (prisma as any).iconConfig.deleteMany({});
+  for (const ic of iconConfigs) {
+    await (prisma as any).iconConfig.upsert({
+      where: { id: ic.id },
+      update: ic,
+      create: ic,
+    });
+  }
+  
+  console.log("✅ Icon configs seeded.");
 }
 
 main()

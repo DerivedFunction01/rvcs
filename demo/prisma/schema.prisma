@@ -52,6 +52,15 @@ model CatalogItem {
   chargeTags       SkuChargeTag[]
 }
 
+model IconConfig {
+  id      String @id
+  type    String
+  label   String
+  icon    String
+  color   String
+}
+
+
 // ─── Charge / Tax System ────────────────────────────────────────────────────────
 // Jurisdiction-aware, tag-based charge engine.
 // Covers: sales tax, excise, import duties, operator surcharges.

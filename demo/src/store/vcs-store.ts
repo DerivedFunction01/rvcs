@@ -42,6 +42,14 @@ function generateContextId(): string {
 
 // POS helpers are now located in the dedicated POS library.
 
+export interface IconConfig {
+  id: string;
+  type: string;
+  label: string;
+  icon: string;
+  color: string;
+}
+
 // ─── Create Default Repo ──────────────────────────────────────────────────────
 
 function createFreshRepo(orderContext?: OrderContext): VCSRepo {
@@ -65,6 +73,7 @@ interface VCSStore {
   viewingHash: string | null; // null = follow HEAD
   catalog: Record<string, CatalogItemEntry>;
   catalogLoaded: boolean;
+  iconConfigs: Record<string, IconConfig>;
 
   // Order Init State
   isInitialized: boolean;
@@ -85,6 +94,7 @@ interface VCSStore {
   // Actions — Catalog
   loadCatalog: (items: CatalogItemEntry[]) => void;
   setChargeRules: (rules: ResolvedChargeRule[]) => void;
+  loadIconConfigs: (configs: IconConfig[]) => void;
 
   // Actions — Order Init/Reset
   initRepo: (orderContext: OrderContext, defaultPaymentMethod: string) => void;
@@ -331,6 +341,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     viewingHash: null,
     catalog: {},
     catalogLoaded: false,
+    iconConfigs: {},
 
     // ─── Order Init State ────────────────────────────────────────────────────
     isInitialized: false,
@@ -384,6 +395,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         chargeRules: rules,
         projectedState: evaluateBusinessRules(store.engine.projectCurrent(), rules, store.catalog),
       });
+    },
+    
+    loadIconConfigs: (configs) => {
+      const map: Record<string, IconConfig> = {};
+      for (const c of configs) {
+        map[c.id] = c;
+      }
+      set({ iconConfigs: map });
     },
 
     // ─── Order Init/Reset ───────────────────────────────────────────────────

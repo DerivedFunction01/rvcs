@@ -90,6 +90,7 @@ import {
   Nut,
   Info,
 } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -127,25 +128,6 @@ const ORDER_TYPE_ICONS: Record<string, React.ElementType> = {
   "walk-in": Store,
   pickup: PackageCheck,
   delivery: Truck,
-};
-
-const FLAG_ICONS: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  spicy: { icon: Flame, color: "text-rose-500", label: "Spicy" },
-  vegetarian: { icon: Leaf, color: "text-emerald-500", label: "Vegetarian" },
-  vegan: { icon: Leaf, color: "text-emerald-600", label: "Vegan" },
-  gluten_free: { icon: WheatOff, color: "text-amber-500", label: "Gluten Free" },
-};
-
-const ALLERGEN_ICONS: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  dairy: { icon: Milk, color: "text-sky-500", label: "Dairy" },
-  wheat: { icon: Wheat, color: "text-amber-600", label: "Wheat" },
-  egg: { icon: Egg, color: "text-yellow-600", label: "Egg" },
-  shellfish: { icon: Fish, color: "text-blue-500", label: "Shellfish" },
-  peanuts: { icon: Nut, color: "text-amber-700", label: "Peanuts" },
-  tree_nuts: { icon: Nut, color: "text-amber-700", label: "Tree Nuts" },
-  soy: { icon: Info, color: "text-muted-foreground", label: "Soy" },
-  pork: { icon: Info, color: "text-rose-400", label: "Pork" },
-  mustard: { icon: Info, color: "text-yellow-500", label: "Mustard" },
 };
 
 function formatLabel(str: string) {
@@ -1008,6 +990,7 @@ function POSTerminalInner() {
     squashPendingCommits,
     resetToCommit,
   } = useVCSStore();
+  const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const customerName = orderContext?.customerFields.name || "Guest";
@@ -2535,8 +2518,8 @@ function POSTerminalInner() {
                         </div>
                         <div className="max-h-48 overflow-y-auto pt-1 space-y-1">
                           {availableDietaryFlags.map((flag) => {
-                            const config = FLAG_ICONS[flag];
-                            const Icon = config?.icon || Info;
+                            const config = iconConfigs[flag];
+                            const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
                             const isChecked = requireDietaryFlags.has(flag);
                             return (
                               <label
@@ -2555,9 +2538,9 @@ function POSTerminalInner() {
                                   }}
                                   className="w-3.5 h-3.5"
                                 />
-                                <Icon className={`w-3.5 h-3.5 ${config?.color || "text-muted-foreground"}`} />
+                                <Icon className={`w-3.5 h-3.5 ${config ? config.color : "text-muted-foreground"}`} />
                                 <span className="text-xs font-medium capitalize">
-                                  {config?.label || formatLabel(flag)}
+                                  {config ? config.label : formatLabel(flag)}
                                 </span>
                               </label>
                             );
@@ -2590,8 +2573,8 @@ function POSTerminalInner() {
                         </div>
                         <div className="max-h-48 overflow-y-auto pt-1 space-y-1">
                           {availableAllergens.map((allergen) => {
-                            const config = ALLERGEN_ICONS[allergen];
-                            const Icon = config?.icon || Info;
+                            const config = iconConfigs[allergen];
+                            const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
                             const isChecked = avoidAllergens.has(allergen);
                             return (
                               <label
@@ -2610,9 +2593,9 @@ function POSTerminalInner() {
                                   }}
                                   className="w-3.5 h-3.5"
                                 />
-                                <Icon className={`w-3.5 h-3.5 ${config?.color || "text-muted-foreground"}`} />
+                                <Icon className={`w-3.5 h-3.5 ${config ? config.color : "text-muted-foreground"}`} />
                                 <span className="text-xs font-medium capitalize">
-                                  {config?.label || formatLabel(allergen)}
+                                  {config ? config.label : formatLabel(allergen)}
                                 </span>
                               </label>
                             );
@@ -2683,15 +2666,16 @@ function POSTerminalInner() {
                                   {(item.dietaryFlags.length > 0 || item.allergens.length > 0) && (
                                     <div className="flex items-center gap-0.5 shrink-0">
                                       {item.dietaryFlags.map((flag) => {
-                                        const config = FLAG_ICONS[flag];
+                                        const config = iconConfigs[flag];
                                         if (!config) return null;
-                                        const Icon = config.icon;
+                                        const Icon = (LucideIcons as any)[config.icon] || LucideIcons.Info;
                                         return <Icon key={flag} className={`w-3.5 h-3.5 ${config.color}`} />;
                                       })}
                                       {item.allergens.map((allergen) => {
-                                        const config = ALLERGEN_ICONS[allergen] || { icon: Info, color: "text-muted-foreground", label: formatLabel(allergen) };
-                                        const Icon = config.icon;
-                                        return <Icon key={allergen} className={`w-3.5 h-3.5 ${config.color}`} />;
+                                        const config = iconConfigs[allergen];
+                                        const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
+                                        const color = config ? config.color : "text-muted-foreground";
+                                        return <Icon key={allergen} className={`w-3.5 h-3.5 ${color}`} />;
                                       })}
                                     </div>
                                   )}
@@ -2712,12 +2696,12 @@ function POSTerminalInner() {
                             </div>
                             {item.dietaryFlags.length > 0 && (
                               <div className="text-emerald-500 mt-1">
-                                {item.dietaryFlags.map(f => FLAG_ICONS[f]?.label || formatLabel(f)).join(", ")}
+                                {item.dietaryFlags.map(f => iconConfigs[f]?.label || formatLabel(f)).join(", ")}
                               </div>
                             )}
                             {item.allergens.length > 0 && (
                               <div className="text-amber-500 mt-0.5">
-                                Contains: {item.allergens.map(a => ALLERGEN_ICONS[a]?.label || formatLabel(a)).join(", ")}
+                                Contains: {item.allergens.map(a => iconConfigs[a]?.label || formatLabel(a)).join(", ")}
                               </div>
                             )}
                           </TooltipContent>
@@ -4644,6 +4628,17 @@ export default function POSTerminal() {
         if (data.label) setStoreLabel(data.label);
         if (data.defaultPaymentMethod) {
           setDefaultPaymentFromConfig(data.defaultPaymentMethod);
+        }
+      })
+      .catch(() => {});
+  }, []);
+  
+  React.useEffect(() => {
+    fetch("/api/icon-config")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.configs) {
+          useVCSStore.getState().loadIconConfigs(data.configs);
         }
       })
       .catch(() => {});
