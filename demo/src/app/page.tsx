@@ -279,7 +279,7 @@ function LineItemNode({
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
-  const assignee = getAssigneeFromItem(item, allocations);
+  const assignee = getAssigneeFromItem(item, allocations, guests);
   const isCanceled = item.status === "canceled";
   const isPending = item.status === "pending";
   const hasSplitPayment =
@@ -655,14 +655,20 @@ function LineItemNode({
 function getAssigneeFromItem(
   item: ProjectedLineItem,
   allocations: Record<string, AllocationBlock>,
+  guests?: string[],
 ): string {
+  let assignee = "";
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
     if (alloc?.type === "assignment") {
-      return (alloc as { entity: string }).entity;
+      assignee = (alloc as { entity: string }).entity;
+      break;
     }
   }
-  return "";
+  if (guests && guests.length > 0 && (!assignee || !guests.includes(assignee))) {
+    return guests[0];
+  }
+  return assignee;
 }
 
 // ─── Order Context Banner ───────────────────────────────────────────────────
@@ -1089,10 +1095,10 @@ function POSTerminalInner() {
 
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
-      const assignee = getAssigneeFromItem(item, projectedState.allocations);
+      const assignee = getAssigneeFromItem(item, projectedState.allocations, guests);
       return visibleGuests.has(assignee);
     });
-  }, [rootItems, visibleGuests, projectedState.allocations]);
+  }, [rootItems, visibleGuests, projectedState.allocations, guests]);
 
   // Sync selection with current filteredRootItems (prune deleted ones)
   React.useEffect(() => {
