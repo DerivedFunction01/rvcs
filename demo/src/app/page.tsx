@@ -105,6 +105,7 @@ export interface Guest {
   id: string; // Stable identifier (e.g. "__vcs_guest_1__", "__vcs_guest_2__")
   number: number; // Stable sequential number
   alias?: string; // Optional custom name/alias
+  description?: string; // Optional custom description/details
 }
 
 const PAYMENT_METHODS = ["cash", "visa", "mastercard", "amex"];
@@ -143,7 +144,7 @@ function getGuestColor(name: string, guests: Guest[]): string {
 }
 
 function getUniqueGuestLabel(name: string, allGuests: string[]): string {
-  if (name.toLowerCase().startsWith("guest")) return name;
+  if (/^(guest|table|chair|seat|__vcs_guest_)\b/i.test(name)) return name;
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return name;
 
@@ -151,7 +152,8 @@ function getUniqueGuestLabel(name: string, allGuests: string[]): string {
   const rest = parts.slice(1).join(" ");
 
   const sameFirst = allGuests.filter((g) => {
-    if (g === name || g.toLowerCase().startsWith("guest")) return false;
+    if (g === name || /^(guest|table|chair|seat|__vcs_guest_)\b/i.test(g))
+      return false;
     return g.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
   });
 
@@ -940,7 +942,8 @@ function POSTerminalInner() {
       alias: primaryAlias,
     };
     if (orderContext?.initialGuestNames?.length) {
-      return orderContext.initialGuestNames.map((name) => {
+      return orderContext.initialGuestNames.map((name, idx) => {
+        const nextNum = idx + 1;
         const match = name.match(/^Guest\s+(\d+)(?:\s+\((.+)\))?$/i);
         if (match) {
           return {
@@ -957,7 +960,12 @@ function POSTerminalInner() {
             alias: undefined,
           };
         }
-        return { id: "__vcs_guest_1__", number: 1, alias: undefined };
+        // If it does not match standard Guest format, it is a custom floor/chair alias!
+        return {
+          id: `__vcs_guest_${nextNum}__`,
+          number: nextNum,
+          alias: name,
+        };
       });
     }
     return [primary];
@@ -1046,9 +1054,11 @@ function POSTerminalInner() {
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
   const [addGuestCount, setAddGuestCount] = React.useState(1);
   const [addGuestAlias, setAddGuestAlias] = React.useState("");
+  const [addGuestDescription, setAddGuestDescription] = React.useState("");
   const [editGuestOpen, setEditGuestOpen] = React.useState(false);
   const [guestToEdit, setGuestToEdit] = React.useState<Guest | null>(null);
   const [editGuestAlias, setEditGuestAlias] = React.useState("");
+  const [editGuestDescription, setEditGuestDescription] = React.useState("");
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [guestSearchQuery, setGuestSearchQuery] = React.useState("");
   const [catalogFilter, setCatalogFilter] = React.useState("");
@@ -1358,19 +1368,38 @@ function POSTerminalInner() {
 
   const handleSaveRenameGuest = useCallback(() => {
     if (!guestToEdit) return;
-    const trimmed = editGuestAlias.trim();
+    const trimmedAlias = editGuestAlias.trim();
+    const trimmedDesc = editGuestDescription.trim();
+
+    // If we're editing the primary customer, sync it to orderContext
+    if (guestToEdit.id === guests[0]?.id) {
+      const currentFields =
+        useVCSStore.getState().orderContext?.customerFields || {};
+      useVCSStore.getState().updateOrderContext({
+        customerFields: {
+          ...currentFields,
+          name: trimmedAlias || "Guest",
+        },
+      });
+    }
+
     setGuests((prev) =>
       prev.map((g) =>
-        g.id === guestToEdit.id ? { ...g, alias: trimmed || undefined } : g,
+        g.id === guestToEdit.id
+          ? {
+              ...g,
+              alias: trimmedAlias || undefined,
+              description: trimmedDesc || undefined,
+            }
+          : g,
       ),
     );
-    toast.success(
-      `Guest renamed to ${trimmed || `Guest ${guestToEdit.number}`}`,
-    );
+    toast.success(`Guest updated`);
     setEditGuestOpen(false);
     setGuestToEdit(null);
     setEditGuestAlias("");
-  }, [guestToEdit, editGuestAlias]);
+    setEditGuestDescription("");
+  }, [guestToEdit, editGuestAlias, editGuestDescription, guests]);
 
   // ─── Derived State ──────────────────────────────────────────────────────
 
@@ -1853,11 +1882,13 @@ function POSTerminalInner() {
     const newGuests: Guest[] = [];
     if (addGuestCount === 1) {
       const alias = addGuestAlias.trim() || undefined;
+      const description = addGuestDescription.trim() || undefined;
       const nextNum = currentMax + 1;
       newGuests.push({
         id: `__vcs_guest_${nextNum}__`,
         number: nextNum,
         alias,
+        description,
       });
     } else {
       for (let i = 0; i < addGuestCount; i++) {
@@ -1866,6 +1897,7 @@ function POSTerminalInner() {
           id: `__vcs_guest_${nextNum}__`,
           number: nextNum,
           alias: undefined,
+          description: undefined,
         });
       }
     }
@@ -1875,7 +1907,8 @@ function POSTerminalInner() {
     setAddGuestOpen(false);
     setAddGuestCount(1);
     setAddGuestAlias("");
-  }, [addGuests, addGuestCount, addGuestAlias, guests]);
+    setAddGuestDescription("");
+  }, [addGuests, addGuestCount, addGuestAlias, addGuestDescription, guests]);
 
   const handleSetBulkQty = useCallback(
     (qty: number) => {
@@ -1891,7 +1924,9 @@ function POSTerminalInner() {
       guests.map((guest) => ({
         id: guest.id,
         label: guest.alias || `Guest ${guest.number}`,
-        description: guest.id === guests[0]?.id ? "Primary guest" : "Guest",
+        description:
+          guest.description ||
+          (guest.id === guests[0]?.id ? "Primary guest" : "Guest"),
       })),
     [guests],
   );
@@ -1911,7 +1946,11 @@ function POSTerminalInner() {
     if (!query) return guests;
     return guests.filter((guest) => {
       const label = guest.alias || `Guest ${guest.number}`;
-      return label.toLowerCase().includes(query);
+      const desc = guest.description || "";
+      return (
+        label.toLowerCase().includes(query) ||
+        desc.toLowerCase().includes(query)
+      );
     });
   }, [guests, guestSearchQuery]);
 
@@ -1920,6 +1959,11 @@ function POSTerminalInner() {
     resolveGuestName(selectedPerson),
     guestStrings,
   );
+
+  const selectedGuestDescription = React.useMemo(() => {
+    const g = guests.find((g) => g.id === selectedPerson);
+    return g?.description;
+  }, [guests, selectedPerson]);
 
   const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
     setAllocConfigItem((prev) => (prev === item ? null : item));
@@ -2055,16 +2099,32 @@ function POSTerminalInner() {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 gap-1.5 px-2.5 max-w-52.5"
+              className="h-auto py-1 gap-1.5 px-2.5 max-w-52.5"
               onClick={() => {
                 setGuestSearchQuery("");
                 setGuestPickerOpen(true);
               }}
-              title="Select guest"
+              title={
+                selectedGuestDescription
+                  ? `Select guest (${selectedGuestDescription})`
+                  : "Select guest"
+              }
             >
-              <User className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate text-xs">{selectedGuestLabel}</span>
-              <Badge variant="secondary" className="h-4 px-1.5 text-[9px]">
+              <User className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <div className="flex flex-col items-start min-w-0 text-left">
+                <span className="truncate text-xs leading-tight font-medium">
+                  {selectedGuestLabel}
+                </span>
+                {selectedGuestDescription && (
+                  <span className="text-[8px] text-muted-foreground/75 truncate max-w-[120px] leading-tight font-normal italic">
+                    {selectedGuestDescription}
+                  </span>
+                )}
+              </div>
+              <Badge
+                variant="secondary"
+                className="h-4 px-1 px-1.5 text-[9px] shrink-0"
+              >
                 {selectedGuestCount}
               </Badge>
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -3575,6 +3635,7 @@ function POSTerminalInner() {
           if (!open) {
             setAddGuestCount(1);
             setAddGuestAlias("");
+            setAddGuestDescription("");
           }
         }}
       >
@@ -3627,27 +3688,49 @@ function POSTerminalInner() {
             </div>
 
             {addGuestCount === 1 && (
-              <div className="space-y-1.5 mt-4">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Alias / Name (Optional)
-                </label>
-                <Input
-                  autoFocus
-                  value={addGuestAlias}
-                  onChange={(e) => setAddGuestAlias(e.target.value)}
-                  placeholder="e.g. John"
-                  className="h-9 text-xs"
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setAddGuestOpen(false);
-                    }
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSubmitAddGuest();
-                    }
-                  }}
-                />
-              </div>
+              <>
+                <div className="space-y-1.5 mt-4">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Alias / Name (Optional)
+                  </label>
+                  <Input
+                    autoFocus
+                    value={addGuestAlias}
+                    onChange={(e) => setAddGuestAlias(e.target.value)}
+                    placeholder="e.g. John"
+                    className="h-9 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setAddGuestOpen(false);
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSubmitAddGuest();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5 mt-2">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Description / Details (Optional)
+                  </label>
+                  <Input
+                    value={addGuestDescription}
+                    onChange={(e) => setAddGuestDescription(e.target.value)}
+                    placeholder="e.g. Allergy: Peanut, or Host"
+                    className="h-9 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setAddGuestOpen(false);
+                      }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSubmitAddGuest();
+                      }
+                    }}
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -3658,6 +3741,7 @@ function POSTerminalInner() {
                 setAddGuestOpen(false);
                 setAddGuestCount(1);
                 setAddGuestAlias("");
+                setAddGuestDescription("");
               }}
             >
               Cancel
@@ -3732,6 +3816,7 @@ function POSTerminalInner() {
                             e.stopPropagation();
                             setGuestToEdit(guest);
                             setEditGuestAlias(guest.alias || "");
+                            setEditGuestDescription(guest.description || "");
                             setEditGuestOpen(true);
                           }}
                         >
@@ -3741,7 +3826,12 @@ function POSTerminalInner() {
                       <span className="w-full truncate text-sm font-semibold">
                         {displayName}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
+                      {guest.description && (
+                        <span className="text-[10px] text-muted-foreground/85 italic mt-0.5 truncate w-full">
+                          {guest.description}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground mt-0.5">
                         {guest.id === guests[0]?.id
                           ? "Primary guest"
                           : `Guest ${guest.number}`}
@@ -3777,7 +3867,7 @@ function POSTerminalInner() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── Rename Guest Dialog ────────────────────────────────────────── */}
+      {/* ─── Edit Guest Dialog ────────────────────────────────────────── */}
       <Dialog
         open={editGuestOpen}
         onOpenChange={(open) => {
@@ -3785,6 +3875,7 @@ function POSTerminalInner() {
           if (!open) {
             setGuestToEdit(null);
             setEditGuestAlias("");
+            setEditGuestDescription("");
           }
         }}
       >
@@ -3792,10 +3883,11 @@ function POSTerminalInner() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="w-5 h-5 text-primary" />
-              Rename Guest
+              Edit Guest
             </DialogTitle>
             <DialogDescription>
-              Change the display name / alias for Guest {guestToEdit?.number}.
+              Update the name alias and description details for Guest{" "}
+              {guestToEdit?.number}.
             </DialogDescription>
           </DialogHeader>
 
@@ -3803,9 +3895,9 @@ function POSTerminalInner() {
             <div className="space-y-2">
               <label
                 htmlFor="rename-guest-input"
-                className="text-xs font-medium text-muted-foreground uppercase"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
               >
-                Guest Name
+                Guest Name (Alias)
               </label>
               <Input
                 id="rename-guest-input"
@@ -3813,6 +3905,25 @@ function POSTerminalInner() {
                 value={editGuestAlias}
                 onChange={(e) => setEditGuestAlias(e.target.value)}
                 placeholder={`Guest ${guestToEdit?.number}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSaveRenameGuest();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="edit-guest-description-input"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+              >
+                Description / Details (Optional)
+              </label>
+              <Input
+                id="edit-guest-description-input"
+                value={editGuestDescription}
+                onChange={(e) => setEditGuestDescription(e.target.value)}
+                placeholder="e.g. Allergy: Peanut, or Host"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleSaveRenameGuest();
@@ -3829,6 +3940,7 @@ function POSTerminalInner() {
                 setEditGuestOpen(false);
                 setGuestToEdit(null);
                 setEditGuestAlias("");
+                setEditGuestDescription("");
               }}
             >
               Cancel
@@ -4051,6 +4163,8 @@ export default function POSTerminal() {
     loadCatalog,
     catalogLoaded,
     hydrate,
+    viewingHash,
+    activeBranch,
   } = useVCSStore();
 
   const [storeLabel, setStoreLabel] = React.useState("Main Location");
@@ -4111,5 +4225,8 @@ export default function POSTerminal() {
     );
   }
 
-  return <POSTerminalInner />;
+  const currentBranchName = activeBranch();
+  return (
+    <POSTerminalInner key={`${currentBranchName}-${viewingHash || "head"}`} />
+  );
 }
