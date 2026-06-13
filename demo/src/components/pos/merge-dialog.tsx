@@ -1506,8 +1506,8 @@ function StepPreview({
   onConfirm: () => void;
   onBack: () => void;
   isCommitting: boolean;
-  squashBeforeMerge: boolean;
-  onSquashBeforeMergeChange: (val: boolean) => void;
+  squashBeforeMerge: "none" | "light" | "full";
+  onSquashBeforeMergeChange: (val: "none" | "light" | "full") => void;
   resolveGuestName?: (idOrName: string) => string;
 }) {
   const [conflictsOpen, setConflictsOpen] = useState(false);
@@ -1590,31 +1590,39 @@ function StepPreview({
           </div>
         </div>
 
-        {/* Squash before merge toggle */}
-        <div
-          className="flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer hover:bg-accent/40 transition-colors"
-          onClick={() => onSquashBeforeMergeChange(!squashBeforeMerge)}
-        >
-          <Checkbox
-            id="squash-before-merge"
-            checked={squashBeforeMerge}
-            onCheckedChange={(v) => onSquashBeforeMergeChange(!!v)}
-            className="mt-0.5 shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div>
-            <label
-              htmlFor="squash-before-merge"
-              className="text-xs font-medium cursor-pointer select-none flex items-center gap-1.5"
-            >
-              <ChevronsUpDown className="w-3 h-3 text-sky-500" />
-              Squash source commits before merging
-            </label>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Collapses all pending commits on each source branch into one
-              before the merge. Keeps the target history clean.
-            </p>
+        {/* Squash before merge configuration */}
+        <div className="rounded-xl border p-3 space-y-2.5 bg-card/50">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <ChevronsUpDown className="w-3.5 h-3.5 text-sky-500" />
+            Squash source commits before merging
           </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(["none", "light", "full"] as const).map((type) => {
+              const label = type === "none" ? "No Squash" : type === "light" ? "Light Squash" : "Full Squash";
+              const desc = type === "none" ? "Merge as-is" : type === "light" ? "Prune net-zero" : "Compress range";
+              const isSelected = squashBeforeMerge === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => onSquashBeforeMergeChange(type)}
+                  className={`p-2 rounded-lg border text-center transition-all ${
+                    isSelected
+                      ? "border-sky-500 bg-sky-500/5 font-semibold text-sky-600 shadow-sm"
+                      : "border-border bg-background opacity-70 hover:opacity-100 text-muted-foreground"
+                  }`}
+                >
+                  <div className="text-[10px] font-bold">{label}</div>
+                  <div className="text-[8px] opacity-75 mt-0.5 leading-normal">{desc}</div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground leading-normal mt-1">
+            {squashBeforeMerge === "none" && "Source branch commits will be merged directly, retaining the complete commit history graph."}
+            {squashBeforeMerge === "light" && "Net-zero items (added and then removed) are pruned from each source branch's commits, keeping their individual commit boundaries."}
+            {squashBeforeMerge === "full" && "All pending commits on each source branch are collapsed into a single commit containing optimized deltas before merging."}
+          </p>
         </div>
 
         {/* Two action buttons — each opens its own popup */}
@@ -1816,7 +1824,7 @@ export function MergeBranchDialog({
   const [conflicts, setConflicts] = useState<MergeConflict[]>([]);
   const [mergeCommitHash, setMergeCommitHash] = useState<string>("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const [squashBeforeMerge, setSquashBeforeMerge] = useState(false);
+  const [squashBeforeMerge, setSquashBeforeMerge] = useState<"none" | "light" | "full">("none");
 
   useEffect(() => {
     if (open) {
@@ -1830,6 +1838,7 @@ export function MergeBranchDialog({
       setPreview(null);
       setConflicts([]);
       setMergeCommitHash("");
+      setSquashBeforeMerge("none");
     }
   }, [open, activeBranch, isAlreadyMerged]);
 
@@ -1887,8 +1896,8 @@ export function MergeBranchDialog({
       .filter((c) => c.resolution !== null)
       .map((c) => (c.resolution === c.branchA ? c.deltaA : c.deltaB));
     try {
-      // Squash each source branch's pending commits into one before merging
-      if (squashBeforeMerge) {
+      // Squash each source branch's pending commits before merging
+      if (squashBeforeMerge !== "none") {
         const engine = useVCSStore.getState().engine;
         const confirmedHash = engine.getConfirmedHash();
         for (const srcBranch of sourceBranches) {
@@ -1925,7 +1934,7 @@ export function MergeBranchDialog({
           }
           if (firstPendingHash && firstPendingHash !== branchHead) {
             try {
-              engine.squashPendingCommits(firstPendingHash, srcBranch);
+              engine.squashPendingCommits(firstPendingHash, squashBeforeMerge, srcBranch);
             } catch {
               // Non-fatal: squash may fail for single-commit branches or if already squashed
             }

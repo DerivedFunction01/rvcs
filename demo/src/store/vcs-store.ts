@@ -324,7 +324,7 @@ interface VCSStore {
    * Squash all pending commits from `fromHash` (inclusive) up to HEAD into
    * a single replacement commit. Confirmed commits are untouchable.
    */
-  squashPendingCommits: (fromHash: string) => void;
+  squashPendingCommits: (fromHash: string, type: "light" | "full") => void;
   /**
    * Reset the active branch HEAD to `targetHash`, discarding all pending
    * commits after it. Confirmed commits cannot be discarded.
@@ -2390,10 +2390,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     // ─── History Management ─────────────────────────────────────────────────
 
-    squashPendingCommits: (fromHash: string) => {
+    squashPendingCommits: (fromHash: string, type: "light" | "full") => {
       const store = get();
       try {
-        store.engine.squashPendingCommits(fromHash);
+        store.engine.squashPendingCommits(fromHash, type);
         const newProjected = evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog);
         set({ projectedState: newProjected, viewingHash: null });
         store.persist();

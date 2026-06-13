@@ -308,12 +308,16 @@ function POSTerminalInner({
   } | null>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
 
-  const handleConfirmHistoryOp = React.useCallback(() => {
+  const handleConfirmHistoryOp = React.useCallback((squashType?: "light" | "full") => {
     if (!historyOpDialog) return;
     try {
       if (historyOpDialog.type === "squash") {
-        squashPendingCommits(historyOpDialog.targetHash);
-        toast.success("Commits squashed successfully");
+        squashPendingCommits(historyOpDialog.targetHash, squashType || "light");
+        toast.success(
+          squashType === "full"
+            ? "Commits squashed to a single commit"
+            : "Net-zero items removed from pending history"
+        );
       } else if (historyOpDialog.type === "reset") {
         resetToCommit(historyOpDialog.targetHash);
         toast.success("Branch reset to selected commit");

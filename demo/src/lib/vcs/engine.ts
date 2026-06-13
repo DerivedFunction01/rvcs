@@ -843,7 +843,11 @@ export class VCSEngine {
    * - No merge commits may exist in the squash range.
    * - The squashed commit sits on the same parentHash as `squashFromHash`.
    */
-  squashPendingCommits(squashFromHash: string, branch?: string): VCSCommit {
+  squashPendingCommits(
+    squashFromHash: string,
+    type: "light" | "full",
+    branch?: string,
+  ): VCSCommit[] {
     const targetBranch = branch || this.repo.activeBranch;
     const headHash = this.repo.branches[targetBranch]?.headHash ?? null;
 
@@ -904,6 +908,7 @@ export class VCSEngine {
     }
 
     const hasBatchDelta = allDeltas.some((d) => d.action === "batch_by_filter");
+    const deadLineIds = new Set<string>();
 
     // We bypass optimization if there's a batch mutation, as it relies on
     // deterministic state evaluation at a specific historical point.
@@ -930,7 +935,6 @@ export class VCSEngine {
       }
 
       let stable = false;
-      const deadLineIds = new Set<string>();
       for (const lineId of createdLineIds) {
         if ((finalQty.get(lineId) || 0) <= 0) {
           deadLineIds.add(lineId);
@@ -950,42 +954,91 @@ export class VCSEngine {
           }
         }
       }
+    }
 
+    if (type === "full") {
+      let filteredDeltas = allDeltas;
       if (deadLineIds.size > 0) {
-        allDeltas = allDeltas.filter((d) => {
+        filteredDeltas = allDeltas.filter((d) => {
           if ("lineId" in d && deadLineIds.has(d.lineId as string))
             return false;
           return true;
         });
       }
+
+      // Build replacement commit at the same parent as the first commit in range
+      const replacementCommit: VCSCommit = {
+        commitHash: generateCommitHash(),
+        parentHash: fromCommit.parentHash,
+        mergeParentHashes: [],
+        branch: targetBranch,
+        timestamp: new Date().toISOString(),
+        authorId: "pos-squash",
+        metadata: { squashedCount: rangeCommits.length, squashType: "full" },
+        deltas: filteredDeltas,
+      };
+
+      // Remove all commits in the squash range from the log
+      const rangeHashes = new Set(rangeCommits.map((c) => c.commitHash));
+      this.repo.log = this.repo.log.filter(
+        (c) => !rangeHashes.has(c.commitHash),
+      );
+
+      // Append the replacement commit
+      this.repo.log.push(replacementCommit);
+
+      // Update branch pointer
+      this.repo.branches[targetBranch] = {
+        ...this.repo.branches[targetBranch],
+        headHash: replacementCommit.commitHash,
+      };
+
+      return [replacementCommit];
+    } else {
+      // Light squash: rewrite commits in place, removing dead items, keeping original commit history structure
+      const rewrittenRange: VCSCommit[] = [];
+      let lastParentHash = fromCommit.parentHash;
+
+      for (const c of rangeCommits) {
+        const filteredDeltas = c.deltas.filter((d) => {
+          if ("lineId" in d && deadLineIds.has(d.lineId as string))
+            return false;
+          return true;
+        });
+
+        if (filteredDeltas.length > 0) {
+          const newCommit: VCSCommit = {
+            ...c,
+            parentHash: lastParentHash,
+            deltas: filteredDeltas,
+          };
+          rewrittenRange.push(newCommit);
+          lastParentHash = newCommit.commitHash;
+        }
+      }
+
+      // Remove all commits in the squash range from the log
+      const rangeHashes = new Set(rangeCommits.map((c) => c.commitHash));
+      this.repo.log = this.repo.log.filter(
+        (c) => !rangeHashes.has(c.commitHash),
+      );
+
+      // Insert the rewritten commits into log
+      this.repo.log.push(...rewrittenRange);
+
+      // Update branch pointer
+      const newHeadHash =
+        rewrittenRange.length > 0
+          ? rewrittenRange[rewrittenRange.length - 1].commitHash
+          : fromCommit.parentHash;
+
+      this.repo.branches[targetBranch] = {
+        ...this.repo.branches[targetBranch],
+        headHash: newHeadHash,
+      };
+
+      return rewrittenRange;
     }
-
-    // Build replacement commit at the same parent as the first commit in range
-    const replacementCommit: VCSCommit = {
-      commitHash: generateCommitHash(),
-      parentHash: fromCommit.parentHash,
-      mergeParentHashes: [],
-      branch: targetBranch,
-      timestamp: new Date().toISOString(),
-      authorId: "pos-squash",
-      metadata: { squashedCount: rangeCommits.length },
-      deltas: allDeltas,
-    };
-
-    // Remove all commits in the squash range from the log
-    const rangeHashes = new Set(rangeCommits.map((c) => c.commitHash));
-    this.repo.log = this.repo.log.filter((c) => !rangeHashes.has(c.commitHash));
-
-    // Append the replacement commit
-    this.repo.log.push(replacementCommit);
-
-    // Update branch pointer
-    this.repo.branches[targetBranch] = {
-      ...this.repo.branches[targetBranch],
-      headHash: replacementCommit.commitHash,
-    };
-
-    return replacementCommit;
   }
 
   /**
