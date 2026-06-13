@@ -290,6 +290,18 @@ interface VCSStore {
     resolutionDeltas: Delta[],
   ) => void;
 
+  // Actions — History Management
+  /**
+   * Squash all pending commits from `fromHash` (inclusive) up to HEAD into
+   * a single replacement commit. Confirmed commits are untouchable.
+   */
+  squashPendingCommits: (fromHash: string) => void;
+  /**
+   * Reset the active branch HEAD to `targetHash`, discarding all pending
+   * commits after it. Confirmed commits cannot be discarded.
+   */
+  resetToCommit: (targetHash: string) => void;
+
   // Actions — Persistence
   persist: () => void;
   hydrate: () => void;
@@ -1937,6 +1949,34 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
       store.persist();
     },
+
+    // ─── History Management ─────────────────────────────────────────────────
+
+    squashPendingCommits: (fromHash: string) => {
+      const store = get();
+      try {
+        store.engine.squashPendingCommits(fromHash);
+        const newProjected = store.engine.projectCurrent();
+        set({ projectedState: newProjected, viewingHash: null });
+        store.persist();
+      } catch (e) {
+        throw e;
+      }
+    },
+
+    resetToCommit: (targetHash: string) => {
+      const store = get();
+      try {
+        store.engine.resetToCommit(targetHash);
+        const newProjected = store.engine.projectCurrent();
+        set({ projectedState: newProjected, viewingHash: null });
+        store.persist();
+      } catch (e) {
+        throw e;
+      }
+    },
+
+    snapshotCurrentState: () => { void 0; }, // removed: use squash-before-merge instead
 
     // ─── Persistence ───────────────────────────────────────────────────────
 

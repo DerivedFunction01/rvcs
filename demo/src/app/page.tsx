@@ -72,6 +72,8 @@ import {
   Store,
   PackageCheck,
   Truck,
+  ChevronsUpDown,
+  Eraser,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -801,6 +803,8 @@ function POSTerminalInner() {
     previewMerge,
     commitMerge,
     addGuestPaymentAllocation,
+    squashPendingCommits,
+    resetToCommit,
   } = useVCSStore();
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
@@ -847,6 +851,31 @@ function POSTerminalInner() {
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
     React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
+
+  // ─── History Operation Confirm Dialog State ───────────────────────────────
+  const [historyOpDialog, setHistoryOpDialog] = React.useState<{
+    type: "squash" | "reset";
+    targetHash: string;
+    label: string;
+    description: string;
+  } | null>(null);
+
+  const handleConfirmHistoryOp = React.useCallback(() => {
+    if (!historyOpDialog) return;
+    try {
+      if (historyOpDialog.type === "squash") {
+        squashPendingCommits(historyOpDialog.targetHash);
+        toast.success("Commits squashed successfully");
+      } else if (historyOpDialog.type === "reset") {
+        resetToCommit(historyOpDialog.targetHash);
+        toast.success("Branch reset to selected commit");
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setHistoryOpDialog(null);
+    }
+  }, [historyOpDialog, squashPendingCommits, resetToCommit]);
 
   // ─── Customer Edit Dialog State ────────────────────────────────────────
   const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
@@ -2409,20 +2438,35 @@ function POSTerminalInner() {
                               commit.commitHash === headHash());
                           const isAI = commit.authorId === "ai-agent";
                           const isSystem = commit.authorId === "system-init";
+                          const isSquash = commit.authorId === "pos-squash";
                           const isExpanded = expandedCommits.has(
                             commit.commitHash,
                           );
                           const node = graphData.nodes[idx];
+                          // A commit is confirmed if it has merge parents or is system-init,
+                          // or is an ancestor of such a commit.
+                          const isHead = commit.commitHash === headHash();
+                          const isConfirmed =
+                            isSystem ||
+                            commit.mergeParentHashes.length > 0 ||
+                            // If any later commit is confirmed, this is too
+                            log
+                              .slice(0, idx)
+                              .some(
+                                (c) =>
+                                  c.authorId === "system-init" ||
+                                  c.mergeParentHashes.length > 0,
+                              );
 
                           return (
                             <div
                               key={commit.commitHash}
                               style={{ height: node.rowHeight }}
-                              className="flex flex-col justify-start py-[3px]"
+                              className="flex flex-col justify-start py-[3px] group/commit"
                             >
                               <div
                                 onClick={() => viewRevision(commit.commitHash)}
-                                className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-[50px] ${
+                                className={`w-full text-left rounded-lg border p-1.5 transition-all text-xs cursor-pointer select-none flex flex-col justify-center h-[50px] relative ${
                                   isActive
                                     ? "border-primary bg-primary/5 shadow-xs"
                                     : "border-transparent hover:border-border hover:bg-accent/40"
@@ -2440,9 +2484,19 @@ function POSTerminalInner() {
                                           ? "secondary"
                                           : "secondary"
                                     }
-                                    className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${isAI ? "bg-amber-500 text-white hover:bg-amber-500" : isSystem ? "bg-muted text-muted-foreground" : ""}`}
+                                    className={`text-[8px] h-3.5 px-1 shrink-0 scale-90 ${
+                                      isAI
+                                        ? "bg-amber-500 text-white hover:bg-amber-500"
+                                        : isSystem
+                                          ? "bg-muted text-muted-foreground"
+                                          : isSquash
+                                            ? "bg-sky-500 text-white hover:bg-sky-500"
+                                            : ""
+                                    }`}
                                   >
-                                    {commit.authorId.split("-")[0]}
+                                    {isSquash
+                                      ? "squash"
+                                      : commit.authorId.split("-")[0]}
                                   </Badge>
                                   <button
                                     onClick={(e) => {
@@ -2518,6 +2572,72 @@ function POSTerminalInner() {
                                     })}
                                   </span>
                                 </div>
+
+                                {/* Per-commit hover actions for non-confirmed, non-HEAD commits */}
+                                {!isConfirmed && !isHead && (
+                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover/commit:opacity-100 transition-opacity pointer-events-none group-hover/commit:pointer-events-auto">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const count = log.findIndex(
+                                                (c) =>
+                                                  c.commitHash ===
+                                                  commit.commitHash,
+                                              );
+                                              // squash = collapse this commit up to HEAD
+                                              setHistoryOpDialog({
+                                                type: "squash",
+                                                targetHash: commit.commitHash,
+                                                label: "Squash to HEAD",
+                                                description: `Collapse the ${count} commit(s) from ${commit.commitHash.substring(0, 7)} up to HEAD into a single commit. Confirmed history is preserved.`,
+                                              });
+                                            }}
+                                            className="h-5 w-5 rounded flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 border border-sky-500/20"
+                                            title="Squash to HEAD"
+                                          >
+                                            <ChevronsUpDown className="w-3 h-3" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent
+                                          side="left"
+                                          className="text-[10px]"
+                                        >
+                                          Squash from here to HEAD
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setHistoryOpDialog({
+                                                type: "reset",
+                                                targetHash: commit.commitHash,
+                                                label: "Reset to here",
+                                                description: `Reset the branch HEAD to ${commit.commitHash.substring(0, 7)}, discarding all pending commits after it. Confirmed history is preserved.`,
+                                              });
+                                            }}
+                                            className="h-5 w-5 rounded flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20"
+                                            title="Reset to here"
+                                          >
+                                            <Eraser className="w-3 h-3" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent
+                                          side="left"
+                                          className="text-[10px]"
+                                        >
+                                          Reset branch to here
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Expanded Deltas details list */}
@@ -2584,7 +2704,7 @@ function POSTerminalInner() {
           </aside>
         </div>
 
-        {/* ─── Footer ────────────────────────────────────────────────────── */}
+        {/* ─── Footer ──────────────────────────────────────────────────── */}
         <footer className="border-t bg-card px-4 py-2 flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
           <span>VCS-Retail v2.0.0-PRO MVP</span>
           <span>
@@ -2593,6 +2713,57 @@ function POSTerminalInner() {
           </span>
         </footer>
       </div>
+
+      {/* ─── History Op Confirm Dialog ───────────────────────────────────── */}
+      <Dialog
+        open={!!historyOpDialog}
+        onOpenChange={(open) => {
+          if (!open) setHistoryOpDialog(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {historyOpDialog?.type === "squash" ? (
+                <ChevronsUpDown className="w-4 h-4 text-sky-500" />
+              ) : (
+                <Eraser className="w-4 h-4 text-rose-500" />
+              )}
+              {historyOpDialog?.label}
+            </DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed">
+              {historyOpDialog?.description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-1">
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2 flex items-start gap-2">
+              <Lock className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" />
+              Confirmed orders are never modified. Only pending (unconfirmed)
+              commits are affected.
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setHistoryOpDialog(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant={
+                historyOpDialog?.type === "reset" ? "destructive" : "default"
+              }
+              onClick={handleConfirmHistoryOp}
+            >
+              {historyOpDialog?.type === "squash"
+                ? "Squash Commits"
+                : "Reset Branch"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── Allocation Config Dialog ───────────────────────────────────── */}
       <AllocationConfigDialog

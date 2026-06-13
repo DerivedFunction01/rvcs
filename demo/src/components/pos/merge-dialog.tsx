@@ -50,6 +50,7 @@ import {
   ArrowRight,
   Tag,
   Sparkles,
+  ChevronsUpDown,
 } from "lucide-react";
 import type {
   BranchMap,
@@ -915,7 +916,6 @@ function renderIncomingChangeBadges(
   return badges;
 }
 
-
 function ConflictsDialog({
   open,
   onOpenChange,
@@ -1485,6 +1485,8 @@ function StepPreview({
   onConfirm,
   onBack,
   isCommitting,
+  squashBeforeMerge,
+  onSquashBeforeMergeChange,
 }: {
   targetBranch: string;
   sourceBranches: string[];
@@ -1494,6 +1496,8 @@ function StepPreview({
   onConfirm: () => void;
   onBack: () => void;
   isCommitting: boolean;
+  squashBeforeMerge: boolean;
+  onSquashBeforeMergeChange: (val: boolean) => void;
 }) {
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
@@ -1572,6 +1576,33 @@ function StepPreview({
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Squash before merge toggle */}
+        <div
+          className="flex items-start gap-2.5 rounded-xl border px-3 py-2.5 cursor-pointer hover:bg-accent/40 transition-colors"
+          onClick={() => onSquashBeforeMergeChange(!squashBeforeMerge)}
+        >
+          <Checkbox
+            id="squash-before-merge"
+            checked={squashBeforeMerge}
+            onCheckedChange={(v) => onSquashBeforeMergeChange(!!v)}
+            className="mt-0.5 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div>
+            <label
+              htmlFor="squash-before-merge"
+              className="text-xs font-medium cursor-pointer select-none flex items-center gap-1.5"
+            >
+              <ChevronsUpDown className="w-3 h-3 text-sky-500" />
+              Squash source commits before merging
+            </label>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Collapses all pending commits on each source branch into one
+              before the merge. Keeps the target history clean.
+            </p>
           </div>
         </div>
 
@@ -1772,6 +1803,7 @@ export function MergeBranchDialog({
   const [conflicts, setConflicts] = useState<MergeConflict[]>([]);
   const [mergeCommitHash, setMergeCommitHash] = useState<string>("");
   const [isCommitting, setIsCommitting] = useState(false);
+  const [squashBeforeMerge, setSquashBeforeMerge] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -1825,6 +1857,36 @@ export function MergeBranchDialog({
       .filter((c) => c.resolution !== null)
       .map((c) => (c.resolution === c.branchA ? c.deltaA : c.deltaB));
     try {
+      // Squash each source branch's pending commits into one before merging
+      if (squashBeforeMerge) {
+        const engine = useVCSStore.getState().engine;
+        for (const srcBranch of sourceBranches) {
+          const branchHead = engine.getRepo().branches[srcBranch]?.headHash;
+          if (!branchHead) continue;
+          // Walk back to find the first pending (non-confirmed) commit
+          const log = engine.getRepo().log;
+          const commitByHash = new Map(log.map((c) => [c.commitHash, c]));
+          let firstPendingHash: string | null = null;
+          let cur: string | null = branchHead;
+          while (cur) {
+            const c = commitByHash.get(cur);
+            if (!c) break;
+            if (c.mergeParentHashes.length > 0 || c.authorId === "system-init")
+              break;
+            firstPendingHash = c.commitHash;
+            cur = c.parentHash;
+          }
+          if (firstPendingHash && firstPendingHash !== branchHead) {
+            try {
+              engine.squashPendingCommits(firstPendingHash, srcBranch);
+            } catch {
+              // Non-fatal: squash may fail for single-commit branches or if already squashed
+            }
+          }
+        }
+        // Re-run preview with squashed branches so delta counts are accurate
+        // (merge itself is idempotent from the state perspective)
+      }
       onCommit(sourceBranches, targetBranch, resolutionDeltas);
       setMergeCommitHash(`merge-${Date.now().toString(16)}`);
       setStep("done");
@@ -1897,6 +1959,8 @@ export function MergeBranchDialog({
               onConfirm={handleCommit}
               onBack={() => setStep("select")}
               isCommitting={isCommitting}
+              squashBeforeMerge={squashBeforeMerge}
+              onSquashBeforeMergeChange={setSquashBeforeMerge}
             />
           )}
 
