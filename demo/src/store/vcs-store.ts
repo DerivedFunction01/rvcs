@@ -92,13 +92,22 @@ interface VCSStore {
   initDefaultAllocations: (customerName: string, paymentMethod: string) => void;
 
   /**
+   * Create a guest-specific set of payment allocations using the current global default
+   * payment method as the payer. Does NOT change the global default payer or config.
+   *
+   * The allocation IDs are prefixed with the sanitized guest name so they are identifiable.
+   * Returns the correlationId (group-{sanitizedName}-{method}) for the active method's group.
+   */
+  addGuestPaymentAllocation: (guestName: string) => string;
+
+  /**
    * Add an item using the default shared allocations.
    * No new allocations are declared — the item references the default IDs.
    */
   addItemWithDefaults: (
     sku: string,
     qty: number,
-    assigneeName?: string
+    assigneeName?: string,
   ) => void;
 
   /**
@@ -106,7 +115,10 @@ interface VCSStore {
    * @param mode "change-existing" — batch-swaps all items using the current default payment alloc
    *             "new-only" — creates a new default payment alloc, future items use it
    */
-  changeDefaultPayment: (newMethod: string, mode: "change-existing" | "new-only") => void;
+  changeDefaultPayment: (
+    newMethod: string,
+    mode: "change-existing" | "new-only",
+  ) => void;
 
   /**
    * Switch the default payment configuration.
@@ -114,7 +126,10 @@ interface VCSStore {
    * @param mode "change-existing" — batch-swaps all items using the old configuration to the new one.
    *             "new-only" — updates the pointer so future items use the new config.
    */
-  selectPaymentConfig: (newConfigId: string, mode: "change-existing" | "new-only") => void;
+  selectPaymentConfig: (
+    newConfigId: string,
+    mode: "change-existing" | "new-only",
+  ) => void;
 
   /**
    * Create a table-wide split payment configuration.
@@ -127,7 +142,7 @@ interface VCSStore {
       value: number;
       method?: string | null;
     }>,
-    method?: string | null
+    method?: string | null,
   ) => string;
 
   /**
@@ -144,7 +159,7 @@ interface VCSStore {
       value: number; // decimal for percentage (e.g. 0.6), absolute value for fixed, 0 for remaining
       method?: string | null;
     }>,
-    mode?: "group" | "item"
+    mode?: "group" | "item",
   ) => void;
 
   /**
@@ -156,7 +171,12 @@ interface VCSStore {
    * Switch an individual item's payment method (creates a new payment alloc just for this item).
    * Removes any existing split/custom payment and replaces with a single new payment.
    */
-  switchItemPayment: (lineId: string, newMethod: string, payer: string, mode?: "group" | "item") => void;
+  switchItemPayment: (
+    lineId: string,
+    newMethod: string,
+    payer: string,
+    mode?: "group" | "item",
+  ) => void;
 
   /**
    * Reset an item's payment back to the current default payment allocation.
@@ -168,12 +188,19 @@ interface VCSStore {
    * Update an allocation's configuration directly.
    * Commits a declare_allocation delta with updated values.
    */
-  updateAllocation: (allocId: string, updatedFields: Partial<AllocationBlock>) => void;
+  updateAllocation: (
+    allocId: string,
+    updatedFields: Partial<AllocationBlock>,
+  ) => void;
 
   /**
    * Group an item's assignment allocation with an existing target assignment allocation ID.
    */
-  groupItemAllocation: (lineId: string, targetAllocId: string, allocType: "assignment") => void;
+  groupItemAllocation: (
+    lineId: string,
+    targetAllocId: string,
+    allocType: "assignment",
+  ) => void;
 
   /**
    * Group an item's payment allocations with an existing payment configuration (reusing single allocation ID or correlation ID).
@@ -182,13 +209,26 @@ interface VCSStore {
 
   // Actions — Core VCS (legacy, still used for mimic)
   commitDeltas: (deltas: Delta[], authorId?: string) => VCSCommit;
-  addModifier: (parentLineId: string, modifierSku: string, selectedModifierState?: string) => void;
+  addModifier: (
+    parentLineId: string,
+    modifierSku: string,
+    selectedModifierState?: string,
+  ) => void;
   removeItem: (lineId: string) => void;
   modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
   duplicateItem: (lineId: string) => void;
   modifyItemSku: (lineId: string, beforeSku: string, afterSku: string) => void;
-  modifyModifierState: (lineId: string, beforeState?: string, afterState?: string) => void;
-  mimicOrder: (sourceAssignee: string, targetAssignee: string, targetPayer: string, paymentMethod: string) => void;
+  modifyModifierState: (
+    lineId: string,
+    beforeState?: string,
+    afterState?: string,
+  ) => void;
+  mimicOrder: (
+    sourceAssignee: string,
+    targetAssignee: string,
+    targetPayer: string,
+    paymentMethod: string,
+  ) => void;
 
   // Actions — Bulk Operations
   duplicateItems: (lineIds: string[]) => void;
@@ -198,7 +238,11 @@ interface VCSStore {
   setItemsQty: (lineIds: string[], targetQty: number) => void;
   reassignItems: (lineIds: string[], newAssignee: string) => void;
   groupItemsPaymentConfig: (lineIds: string[], targetId: string) => void;
-  addGroupModifier: (parentLineIds: string[], modifierSku: string, selectedModifierState?: string) => void;
+  addGroupModifier: (
+    parentLineIds: string[],
+    modifierSku: string,
+    selectedModifierState?: string,
+  ) => void;
   removeGroupModifier: (parentLineIds: string[], modifierSku: string) => void;
 
   // Actions — Branching
@@ -207,12 +251,22 @@ interface VCSStore {
   viewRevision: (hash: string | null) => void; // null = HEAD
   setMainActiveBranch: (name: string) => void;
   mainActiveBranch: () => string;
-  updateBranchConfig: (name: string, config: { type?: "parallel" | "hypothetical"; label?: string }) => void;
+  updateBranchConfig: (
+    name: string,
+    config: { type?: "parallel" | "hypothetical"; label?: string },
+  ) => void;
   renameBranch: (oldName: string, newName: string) => void;
 
   // Actions — Merge
-  previewMerge: (sourceBranches: string[], targetBranch: string) => MergePreview;
-  commitMerge: (sourceBranches: string[], targetBranch: string, resolutionDeltas: Delta[]) => void;
+  previewMerge: (
+    sourceBranches: string[],
+    targetBranch: string,
+  ) => MergePreview;
+  commitMerge: (
+    sourceBranches: string[],
+    targetBranch: string,
+    resolutionDeltas: Delta[],
+  ) => void;
 
   // Actions — Persistence
   persist: () => void;
@@ -319,7 +373,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           payer: customerName,
           method: m,
           paymentStrategy: { strategyType: "percentage", value: 1.0 },
-          timeOfPayment: { type: "immediate", calculatedAt: new Date().toISOString() },
+          timeOfPayment: {
+            type: "immediate",
+            calculatedAt: new Date().toISOString(),
+          },
         };
 
         deltas.push({ action: "declare_allocation", allocation: paymentAlloc });
@@ -387,6 +444,41 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       void paymentMethod;
     },
 
+    addGuestPaymentAllocation: (guestName: string) => {
+      const store = get();
+      // Sanitize guest name to a safe prefix (lowercase, alphanumeric + dash)
+      const sanitized = guestName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "guest";
+
+      const paymentMethods = ["cash", "visa", "mastercard", "amex"];
+      const activeMethod = store.defaultPaymentMethod;
+      let activeCorrelationId = "";
+
+      const deltas: Delta[] = [];
+      for (const m of paymentMethods) {
+        const correlationId = `group-${sanitized}-${m}`;
+        if (m === activeMethod) {
+          activeCorrelationId = correlationId;
+        }
+        const payAllocId = generateAllocationId(`${sanitized}-pay-${m}`);
+        const paymentAlloc: PaymentAllocation = {
+          allocationId: payAllocId,
+          correlationId,
+          type: "payment",
+          payer: guestName,
+          method: m,
+          paymentStrategy: { strategyType: "percentage", value: 1.0 },
+          timeOfPayment: { type: "immediate", calculatedAt: new Date().toISOString() },
+        };
+        deltas.push({ action: "declare_allocation", allocation: paymentAlloc });
+      }
+
+      store.commitDeltas(deltas, "system-guest");
+      return activeCorrelationId;
+    },
+
     addItemWithDefaults: (sku, qty, assigneeName) => {
       const store = get();
       const defaultAssignId = store.defaultAssignmentAllocId;
@@ -405,7 +497,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (assigneeName && assigneeName !== customerName) {
         // Find existing assignment allocation for this guest name
         const existingAssign = Object.values(state.allocations).find(
-          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === assigneeName
+          (a) =>
+            a.type === "assignment" &&
+            (a as AssignmentAllocation).entity === assigneeName,
         );
         if (existingAssign) {
           assignId = existingAssign.allocationId;
@@ -416,7 +510,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             type: "assignment",
             entity: assigneeName,
           };
-          deltas.push({ action: "declare_allocation", allocation: newAssignAlloc });
+          deltas.push({
+            action: "declare_allocation",
+            allocation: newAssignAlloc,
+          });
           assignId = newAssignId;
         }
       }
@@ -425,7 +522,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const payAllocs = Object.values(state.allocations).filter(
         (a): a is PaymentAllocation =>
           a.type === "payment" &&
-          (a.allocationId === configId || (a.correlationId !== null && a.correlationId === configId))
+          (a.allocationId === configId ||
+            (a.correlationId !== null && a.correlationId === configId)),
       );
       const payIds = payAllocs.map((a) => a.allocationId);
 
@@ -458,11 +556,17 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.commitDeltas(deltas, "pos-ui");
     },
 
-    changeDefaultPayment: (newMethod: string, mode: "change-existing" | "new-only") => {
+    changeDefaultPayment: (
+      newMethod: string,
+      mode: "change-existing" | "new-only",
+    ) => {
       get().selectPaymentConfig(`group-default-${newMethod}`, mode);
     },
 
-    selectPaymentConfig: (newConfigId: string, mode: "change-existing" | "new-only") => {
+    selectPaymentConfig: (
+      newConfigId: string,
+      mode: "change-existing" | "new-only",
+    ) => {
       const store = get();
       const currentConfigId = store.activePaymentConfigId;
       if (!currentConfigId) return;
@@ -473,7 +577,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const oldPayAllocs = Object.values(state.allocations).filter(
         (a): a is PaymentAllocation =>
           a.type === "payment" &&
-          (a.allocationId === currentConfigId || (a.correlationId !== null && a.correlationId === currentConfigId))
+          (a.allocationId === currentConfigId ||
+            (a.correlationId !== null && a.correlationId === currentConfigId)),
       );
       const oldPayIds = oldPayAllocs.map((a) => a.allocationId);
 
@@ -481,18 +586,21 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const newPayAllocs = Object.values(state.allocations).filter(
         (a): a is PaymentAllocation =>
           a.type === "payment" &&
-          (a.allocationId === newConfigId || (a.correlationId !== null && a.correlationId === newConfigId))
+          (a.allocationId === newConfigId ||
+            (a.correlationId !== null && a.correlationId === newConfigId)),
       );
       const newPayIds = newPayAllocs.map((a) => a.allocationId);
 
       if (mode === "change-existing") {
         const itemsToSwap = Object.values(state.items).filter((item) =>
-          item.allocations.some((id) => oldPayIds.includes(id))
+          item.allocations.some((id) => oldPayIds.includes(id)),
         );
 
         const deltas: Delta[] = [];
         for (const item of itemsToSwap) {
-          const nonOldAllocations = item.allocations.filter((id) => !oldPayIds.includes(id));
+          const nonOldAllocations = item.allocations.filter(
+            (id) => !oldPayIds.includes(id),
+          );
           const afterAllocations = [...nonOldAllocations, ...newPayIds];
 
           deltas.push({
@@ -523,25 +631,34 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     createTableSplitConfig: (
       splits: Array<{
         entity: string;
-        strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
+        strategyType:
+          | "percentage"
+          | "fixed_item"
+          | "fixed_global"
+          | "remaining";
         value: number;
         method?: string | null;
       }>,
-      method: string | null = null
+      method: string | null = null,
     ) => {
       const store = get();
       const customerName = store.orderContext?.customerFields.name || "Guest";
 
       // Check if we need to auto-add a remaining allocator
       const hasRemaining = splits.some((s) => s.strategyType === "remaining");
-      const totalPct = splits.filter((s) => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0);
-      const hasFixed = splits.some((s) => s.strategyType === "fixed_item" || s.strategyType === "fixed_global");
+      const totalPct = splits
+        .filter((s) => s.strategyType === "percentage")
+        .reduce((sum, s) => sum + s.value, 0);
+      const hasFixed = splits.some(
+        (s) =>
+          s.strategyType === "fixed_item" || s.strategyType === "fixed_global",
+      );
 
       const finalSplits = [...splits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
         let remEntity = customerName;
         let suffix = 2;
-        while (finalSplits.some(s => s.entity === remEntity)) {
+        while (finalSplits.some((s) => s.entity === remEntity)) {
           remEntity = `${customerName} ${suffix}`;
           suffix++;
         }
@@ -552,12 +669,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         });
       }
 
-      const correlationId = generateSplitCorrelationId(
-        finalSplits.map((s) => ({
-          entity: s.entity,
-          percentage: s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
-        }))
-      ) + `-${Date.now().toString().slice(-4)}`;
+      const correlationId =
+        generateSplitCorrelationId(
+          finalSplits.map((s) => ({
+            entity: s.entity,
+            percentage:
+              s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
+          })),
+        ) + `-${Date.now().toString().slice(-4)}`;
 
       const newPayAllocs: PaymentAllocation[] = finalSplits.map((split) => ({
         allocationId: generateAllocationId("split-pay"),
@@ -568,7 +687,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           strategyType: split.strategyType as any,
           value: split.strategyType === "remaining" ? null : split.value,
         },
-        timeOfPayment: { type: "immediate" as const, calculatedAt: new Date().toISOString() },
+        timeOfPayment: {
+          type: "immediate" as const,
+          calculatedAt: new Date().toISOString(),
+        },
         correlationId,
       }));
 
@@ -585,11 +707,15 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       lineId: string,
       splits: Array<{
         entity: string;
-        strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
+        strategyType:
+          | "percentage"
+          | "fixed_item"
+          | "fixed_global"
+          | "remaining";
         value: number;
         method?: string | null;
       }>,
-      mode: "group" | "item" = "group"
+      mode: "group" | "item" = "group",
     ) => {
       const store = get();
       const state = store.projectedState;
@@ -600,14 +726,19 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Check if we need to auto-add a remaining allocator
       const hasRemaining = splits.some((s) => s.strategyType === "remaining");
-      const totalPct = splits.filter((s) => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0);
-      const hasFixed = splits.some((s) => s.strategyType === "fixed_item" || s.strategyType === "fixed_global");
+      const totalPct = splits
+        .filter((s) => s.strategyType === "percentage")
+        .reduce((sum, s) => sum + s.value, 0);
+      const hasFixed = splits.some(
+        (s) =>
+          s.strategyType === "fixed_item" || s.strategyType === "fixed_global",
+      );
 
       const finalSplits = [...splits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
         let remEntity = customerName;
         let suffix = 2;
-        while (finalSplits.some(s => s.entity === remEntity)) {
+        while (finalSplits.some((s) => s.entity === remEntity)) {
           remEntity = `${customerName} ${suffix}`;
           suffix++;
         }
@@ -624,15 +755,17 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         .filter((a) => a?.type === "payment") as PaymentAllocation[];
 
       const existingCorrelationId = currentPayAllocs.find(
-        (a) => a.correlationId && !a.correlationId.startsWith("group-default-")
+        (a) => a.correlationId && !a.correlationId.startsWith("group-default-"),
       )?.correlationId;
 
-      const correlationId = generateSplitCorrelationId(
-        finalSplits.map((s) => ({
-          entity: s.entity,
-          percentage: s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
-        }))
-      ) + `-${Date.now().toString().slice(-4)}`;
+      const correlationId =
+        generateSplitCorrelationId(
+          finalSplits.map((s) => ({
+            entity: s.entity,
+            percentage:
+              s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
+          })),
+        ) + `-${Date.now().toString().slice(-4)}`;
 
       // Create new payment allocations
       const newPayAllocs: PaymentAllocation[] = finalSplits.map((split) => ({
@@ -644,23 +777,31 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           strategyType: split.strategyType as any,
           value: split.strategyType === "remaining" ? null : split.value,
         },
-        timeOfPayment: { type: "immediate" as const, calculatedAt: new Date().toISOString() },
+        timeOfPayment: {
+          type: "immediate" as const,
+          calculatedAt: new Date().toISOString(),
+        },
         correlationId,
       }));
 
       // Find all payment allocation IDs in the old group
       const oldPayIds = existingCorrelationId
         ? Object.values(state.allocations)
-            .filter((a): a is PaymentAllocation => a.type === "payment" && a.correlationId === existingCorrelationId)
+            .filter(
+              (a): a is PaymentAllocation =>
+                a.type === "payment" &&
+                a.correlationId === existingCorrelationId,
+            )
             .map((a) => a.allocationId)
         : currentPayAllocs.map((a) => a.allocationId);
 
       // Find items to update based on the mode
-      const itemsToUpdate = mode === "group"
-        ? Object.values(state.items).filter((i) =>
-            i.allocations.some((id) => oldPayIds.includes(id))
-          )
-        : [item];
+      const itemsToUpdate =
+        mode === "group"
+          ? Object.values(state.items).filter((i) =>
+              i.allocations.some((id) => oldPayIds.includes(id)),
+            )
+          : [item];
 
       const deltas: Delta[] = [
         ...newPayAllocs.map((a) => ({
@@ -670,8 +811,13 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       ];
 
       for (const i of itemsToUpdate) {
-        const nonOldAllocations = i.allocations.filter((id) => !oldPayIds.includes(id));
-        const afterAllocations = [...nonOldAllocations, ...newPayAllocs.map((a) => a.allocationId)];
+        const nonOldAllocations = i.allocations.filter(
+          (id) => !oldPayIds.includes(id),
+        );
+        const afterAllocations = [
+          ...nonOldAllocations,
+          ...newPayAllocs.map((a) => a.allocationId),
+        ];
 
         deltas.push({
           action: "modify_item_allocations",
@@ -683,7 +829,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       store.commitDeltas(deltas, "pos-ui");
 
-      if (existingCorrelationId && store.activePaymentConfigId === existingCorrelationId) {
+      if (
+        existingCorrelationId &&
+        store.activePaymentConfigId === existingCorrelationId
+      ) {
         set({ activePaymentConfigId: correlationId });
         store.persist();
       }
@@ -705,11 +854,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Find current assignment alloc
       const currentAssignAllocId = item.allocations.find(
-        (id) => state.allocations[id]?.type === "assignment"
+        (id) => state.allocations[id]?.type === "assignment",
       );
 
       const newAllocations = item.allocations.map((id) =>
-        id === currentAssignAllocId ? newAssignAllocId : id
+        id === currentAssignAllocId ? newAssignAllocId : id,
       );
 
       store.commitDeltas(
@@ -722,11 +871,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             afterAllocations: newAllocations,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
-    switchItemPayment: (lineId: string, newMethod: string, payer: string, mode: "group" | "item" = "item") => {
+    switchItemPayment: (
+      lineId: string,
+      newMethod: string,
+      payer: string,
+      mode: "group" | "item" = "item",
+    ) => {
       const store = get();
       const state = store.projectedState;
       const item = state.items[lineId];
@@ -740,33 +894,45 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         payer,
         method: newMethod,
         paymentStrategy: { strategyType: "percentage", value: 1.0 },
-        timeOfPayment: { type: "immediate", calculatedAt: new Date().toISOString() },
+        timeOfPayment: {
+          type: "immediate",
+          calculatedAt: new Date().toISOString(),
+        },
       };
 
       // Find old payment group
       const currentPayAllocs = item.allocations
         .map((id) => state.allocations[id])
         .filter((a) => a?.type === "payment") as PaymentAllocation[];
-        
-      const existingCorrelationId = currentPayAllocs.find((a) => a.correlationId)?.correlationId;
+
+      const existingCorrelationId = currentPayAllocs.find(
+        (a) => a.correlationId,
+      )?.correlationId;
       const oldPayIds = existingCorrelationId
         ? Object.values(state.allocations)
-            .filter((a): a is PaymentAllocation => a.type === "payment" && a.correlationId === existingCorrelationId)
+            .filter(
+              (a): a is PaymentAllocation =>
+                a.type === "payment" &&
+                a.correlationId === existingCorrelationId,
+            )
             .map((a) => a.allocationId)
         : currentPayAllocs.map((a) => a.allocationId);
 
-      const itemsToUpdate = mode === "group"
-        ? Object.values(state.items).filter((i) =>
-            i.allocations.some((id) => oldPayIds.includes(id))
-          )
-        : [item];
+      const itemsToUpdate =
+        mode === "group"
+          ? Object.values(state.items).filter((i) =>
+              i.allocations.some((id) => oldPayIds.includes(id)),
+            )
+          : [item];
 
       const deltas: Delta[] = [
-        { action: "declare_allocation", allocation: newPaymentAlloc }
+        { action: "declare_allocation", allocation: newPaymentAlloc },
       ];
 
       for (const i of itemsToUpdate) {
-        const nonPaymentAllocs = i.allocations.filter((id) => !oldPayIds.includes(id));
+        const nonPaymentAllocs = i.allocations.filter(
+          (id) => !oldPayIds.includes(id),
+        );
         const newAllocations = [...nonPaymentAllocs, newPayAllocId];
         deltas.push({
           action: "modify_item_allocations",
@@ -788,7 +954,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Remove all payment allocations and replace with default
       const nonPaymentAllocs = item.allocations.filter(
-        (id) => state.allocations[id]?.type !== "payment"
+        (id) => state.allocations[id]?.type !== "payment",
       );
 
       const newAllocations = [...nonPaymentAllocs, defaultPayId];
@@ -802,11 +968,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             afterAllocations: newAllocations,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
-    updateAllocation: (allocId: string, updatedFields: Partial<AllocationBlock>) => {
+    updateAllocation: (
+      allocId: string,
+      updatedFields: Partial<AllocationBlock>,
+    ) => {
       const store = get();
       const currentAlloc = store.projectedState.allocations[allocId];
       if (!currentAlloc) return;
@@ -819,11 +988,15 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       store.commitDeltas(
         [{ action: "declare_allocation", allocation: updatedAlloc }],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
-    groupItemAllocation: (lineId: string, targetAllocId: string, allocType: "assignment") => {
+    groupItemAllocation: (
+      lineId: string,
+      targetAllocId: string,
+      allocType: "assignment",
+    ) => {
       const store = get();
       const state = store.projectedState;
       const item = state.items[lineId];
@@ -831,11 +1004,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Find current allocation ID of the target type on this item
       const currentAllocId = item.allocations.find(
-        (id) => state.allocations[id]?.type === allocType
+        (id) => state.allocations[id]?.type === allocType,
       );
 
       const newAllocations = item.allocations.map((id) =>
-        id === currentAllocId ? targetAllocId : id
+        id === currentAllocId ? targetAllocId : id,
       );
 
       store.commitDeltas(
@@ -847,7 +1020,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             afterAllocations: newAllocations,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
@@ -859,11 +1032,13 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Find all payment allocations in the projected state
       const allPayAllocs = Object.values(state.allocations).filter(
-        (a): a is PaymentAllocation => a.type === "payment"
+        (a): a is PaymentAllocation => a.type === "payment",
       );
 
       // Check if targetId matches any correlationId
-      const splitAllocs = allPayAllocs.filter((a) => a.correlationId === targetId);
+      const splitAllocs = allPayAllocs.filter(
+        (a) => a.correlationId === targetId,
+      );
 
       let targetAllocIds: string[] = [];
       if (splitAllocs.length > 0) {
@@ -874,7 +1049,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Filter out current payment allocations from this item
       const nonPaymentAllocs = item.allocations.filter(
-        (id) => state.allocations[id]?.type !== "payment"
+        (id) => state.allocations[id]?.type !== "payment",
       );
 
       // Append target payment allocation IDs
@@ -889,7 +1064,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             afterAllocations: newAllocations,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
@@ -904,7 +1079,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const mainHead = store.engine.getHeadHash(mainBranch);
 
       const isMain = activeBranch === mainBranch;
-      const isMergedToMain = !isMain && activeHead && mainHead && activeHead !== mainHead && store.engine.isAncestorOf(activeHead, mainHead);
+      const isMergedToMain =
+        !isMain &&
+        activeHead &&
+        mainHead &&
+        activeHead !== mainHead &&
+        store.engine.isAncestorOf(activeHead, mainHead);
 
       if (isMain || isMergedToMain) {
         const serverName = store.orderContext?.serverName || "Tom";
@@ -918,9 +1098,13 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         store.engine.createBranch(draftBranchName, fromHash);
         store.engine.checkout(draftBranchName);
         if (isMain) {
-          toast.info(`Automatically moved to new draft branch "${draftBranchName}" to protect main.`);
+          toast.info(
+            `Automatically moved to new draft branch "${draftBranchName}" to protect main.`,
+          );
         } else {
-          toast.info(`Automatically moved to new draft branch "${draftBranchName}" because "${activeBranch}" is already merged.`);
+          toast.info(
+            `Automatically moved to new draft branch "${draftBranchName}" because "${activeBranch}" is already merged.`,
+          );
         }
       }
 
@@ -946,7 +1130,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             selectedModifierState,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
@@ -954,10 +1138,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = get().projectedState;
       const item = state.items[lineId];
       const qty = item?.qty ?? 1;
-      get().commitDeltas(
-        [{ action: "remove_item", lineId, qty }],
-        "pos-ui"
-      );
+      get().commitDeltas([{ action: "remove_item", lineId, qty }], "pos-ui");
     },
 
     modifyItemQty: (lineId, beforeQty, afterQty) => {
@@ -970,7 +1151,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             afterQty,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
@@ -982,7 +1163,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       const deltas: Delta[] = [];
 
-      const cloneItem = (projItem: ProjectedLineItem, newParentId: string | null) => {
+      const cloneItem = (
+        projItem: ProjectedLineItem,
+        newParentId: string | null,
+      ) => {
         const newLineId = generateLineId();
         deltas.push({
           action: "add_item",
@@ -1008,7 +1192,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const deltas: Delta[] = [];
 
-      const cloneItem = (projItem: ProjectedLineItem, newParentId: string | null) => {
+      const cloneItem = (
+        projItem: ProjectedLineItem,
+        newParentId: string | null,
+      ) => {
         const newLineId = generateLineId();
         deltas.push({
           action: "add_item",
@@ -1049,18 +1236,21 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       deltas.push({ action: "declare_allocation", allocation: newAssignAlloc });
 
-      const cloneItem = (projItem: ProjectedLineItem, newParentId: string | null) => {
+      const cloneItem = (
+        projItem: ProjectedLineItem,
+        newParentId: string | null,
+      ) => {
         const newLineId = generateLineId();
-        
+
         let targetAllocations: string[] = [];
         if (!newParentId) {
           // For root clones, replace the assignment allocation with the new guest allocation
           const currentAssignAllocId = projItem.allocations.find(
-            (id) => state.allocations[id]?.type === "assignment"
+            (id) => state.allocations[id]?.type === "assignment",
           );
           if (currentAssignAllocId) {
             targetAllocations = projItem.allocations.map((id) =>
-              id === currentAssignAllocId ? newAssignAllocId : id
+              id === currentAssignAllocId ? newAssignAllocId : id,
             );
           } else {
             targetAllocations = [...projItem.allocations, newAssignAllocId];
@@ -1190,11 +1380,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           const currentAssignAllocId = item.allocations.find(
-            (id) => state.allocations[id]?.type === "assignment"
+            (id) => state.allocations[id]?.type === "assignment",
           );
 
           const newAllocations = item.allocations.map((id) =>
-            id === currentAssignAllocId ? newAssignAllocId : id
+            id === currentAssignAllocId ? newAssignAllocId : id,
           );
 
           deltas.push({
@@ -1215,10 +1405,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const deltas: Delta[] = [];
 
       const allPayAllocs = Object.values(state.allocations).filter(
-        (a): a is PaymentAllocation => a.type === "payment"
+        (a): a is PaymentAllocation => a.type === "payment",
       );
 
-      const splitAllocs = allPayAllocs.filter((a) => a.correlationId === targetId);
+      const splitAllocs = allPayAllocs.filter(
+        (a) => a.correlationId === targetId,
+      );
 
       let targetAllocIds: string[] = [];
       if (splitAllocs.length > 0) {
@@ -1231,7 +1423,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           const nonPaymentAllocs = item.allocations.filter(
-            (id) => state.allocations[id]?.type !== "payment"
+            (id) => state.allocations[id]?.type !== "payment",
           );
           const newAllocations = [...nonPaymentAllocs, ...targetAllocIds];
 
@@ -1283,7 +1475,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       for (const parentLineId of parentLineIds) {
         const parent = state.items[parentLineId];
         if (parent) {
-          const childWithSku = parent.children.find((c) => c.sku === modifierSku);
+          const childWithSku = parent.children.find(
+            (c) => c.sku === modifierSku,
+          );
           if (childWithSku) {
             deltas.push({
               action: "remove_item",
@@ -1309,7 +1503,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             afterSku,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
@@ -1323,11 +1517,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             afterState,
           },
         ],
-        "pos-ui"
+        "pos-ui",
       );
     },
 
-    mimicOrder: (sourceAssignee, targetAssignee, targetPayer, paymentMethod) => {
+    mimicOrder: (
+      sourceAssignee,
+      targetAssignee,
+      targetPayer,
+      paymentMethod,
+    ) => {
       const store = get();
       const headHash = store.engine.getHeadHash();
       if (!headHash) return;
@@ -1347,7 +1546,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         payer: targetPayer,
         method: paymentMethod,
         paymentStrategy: { strategyType: "percentage", value: 1.0 },
-        timeOfPayment: { type: "immediate", calculatedAt: new Date().toISOString() },
+        timeOfPayment: {
+          type: "immediate",
+          calculatedAt: new Date().toISOString(),
+        },
       };
 
       store.commitDeltas(
@@ -1358,7 +1560,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             action: "batch_by_filter",
             baseRevisionId: headHash,
             filters: [
-              { property: "assignee", operator: "equals", value: sourceAssignee },
+              {
+                property: "assignee",
+                operator: "equals",
+                value: sourceAssignee,
+              },
             ],
             templateMutation: {
               mutationType: "batch_duplicate_and_reallocate",
@@ -1366,7 +1572,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             },
           },
         ],
-        "ai-agent"
+        "ai-agent",
       );
     },
 
@@ -1497,13 +1703,23 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           }
 
           // If no system-init commit (legacy), scan the first commit's declare_allocation deltas
-          if (!defaultAssignmentAllocId && !defaultPaymentAllocId && repo.log.length > 0) {
+          if (
+            !defaultAssignmentAllocId &&
+            !defaultPaymentAllocId &&
+            repo.log.length > 0
+          ) {
             const firstCommit = repo.log[0];
             for (const delta of firstCommit.deltas) {
               if (delta.action === "declare_allocation") {
-                if (delta.allocation.type === "assignment" && !defaultAssignmentAllocId) {
+                if (
+                  delta.allocation.type === "assignment" &&
+                  !defaultAssignmentAllocId
+                ) {
                   defaultAssignmentAllocId = delta.allocation.allocationId;
-                } else if (delta.allocation.type === "payment" && !defaultPaymentAllocId) {
+                } else if (
+                  delta.allocation.type === "payment" &&
+                  !defaultPaymentAllocId
+                ) {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
@@ -1513,7 +1729,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           }
 
           // Try to recover activePaymentConfigId from the last item's allocations
-          let activePaymentConfigId: string | null = `group-default-${defaultPaymentMethod}`;
+          let activePaymentConfigId: string | null =
+            `group-default-${defaultPaymentMethod}`;
           const currentProj = newEngine.projectCurrent();
           const items = Object.values(currentProj.items);
           if (items.length > 0) {
@@ -1522,7 +1739,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               .map((id) => currentProj.allocations[id])
               .filter((a) => a?.type === "payment") as PaymentAllocation[];
             if (itemPayAllocs.length > 0) {
-              activePaymentConfigId = itemPayAllocs[0].correlationId || itemPayAllocs[0].allocationId;
+              activePaymentConfigId =
+                itemPayAllocs[0].correlationId || itemPayAllocs[0].allocationId;
             }
           }
 
@@ -1530,7 +1748,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             engine: newEngine,
             projectedState: currentProj,
             isInitialized: hasOrderContext,
-            orderContext: repo.orderContext ?? null,
+            orderContext: (repo.orderContext as OrderContext) ?? null,
             defaultAssignmentAllocId,
             defaultPaymentAllocId,
             activePaymentConfigId,

@@ -708,6 +708,7 @@ function POSTerminalInner() {
     removeGroupModifier,
     previewMerge,
     commitMerge,
+    addGuestPaymentAllocation,
   } = useVCSStore();
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
@@ -869,11 +870,12 @@ function POSTerminalInner() {
         return;
       }
       setGuests((prev) => [...prev, trimmed]);
+      addGuestPaymentAllocation(trimmed);
       setAddGuestName("");
       setAddGuestOpen(false);
       toast.success(`${trimmed} added to the order`);
     },
-    [guests],
+    [guests, addGuestPaymentAllocation],
   );
 
   const nextDefaultGuestName = React.useMemo(() => {
