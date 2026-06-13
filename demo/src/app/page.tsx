@@ -8,9 +8,8 @@ import {
 } from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { OrderInitScreen } from "@/components/vcs/order-init-screen";
-import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";
 import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
-import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
+import { PaymentAllocationDialog } from "@/components/vcs/payment-allocation-dialog";
 import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
 import { NumberPadDialog } from "@/components/vcs/number-pad-dialog";
 import { ChoiceDialog } from "@/components/vcs/choice-dialog";
@@ -130,7 +129,8 @@ function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Re
   for (const [id, alloc] of Object.entries(allocations)) {
     if (alloc.type === "payment") {
       const p = alloc as PaymentAllocation;
-      if (p.paymentStrategy.strategyType === "fixed_item" || p.paymentStrategy.strategyType === "fixed_global") {
+      const stratType = p.paymentStrategy.strategyType as string;
+      if (stratType === "fixed_item" || stratType === "fixed_global") {
         patched[id] = {
           ...p,
           paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" }
@@ -752,7 +752,6 @@ function POSTerminalInner() {
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
   const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] = React.useState(false);
-  const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
 
   // Active check view filter state
@@ -836,13 +835,15 @@ function POSTerminalInner() {
   }, []);
 
   // ─── Dialog State ────────────────────────────────────────────────────
-  const [paymentSwitchOpen, setPaymentSwitchOpen] = React.useState(false);
-  const [pendingConfigId, setPendingConfigId] = React.useState("");
-  const [pendingConfigName, setPendingConfigName] = React.useState("");
-  const [pendingMethod, setPendingMethod] = React.useState("");
-  const [tableSplitOpen, setTableSplitOpen] = React.useState(false);
   const [allocConfigItem, setAllocConfigItem] =
     React.useState<ProjectedLineItem | null>(null);
+
+  // Unified Payment Allocation State
+  const [paymentAllocationOpen, setPaymentAllocationOpen] = React.useState(false);
+  const [paymentAllocationContext, setPaymentAllocationContext] =
+    React.useState<"item" | "group" | "header">("item");
+  const [paymentAllocationItems, setPaymentAllocationItems] =
+    React.useState<ProjectedLineItem[]>([]);
 
   // Modifier Add Dialog State
   const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
@@ -1178,82 +1179,7 @@ function POSTerminalInner() {
     [addItemWithDefaults, selectedPerson],
   );
 
-  const handleConfigChange = useCallback(
-    (value: string) => {
-      if (value === "action-create-split") {
-        setTableSplitOpen(true);
-        return;
-      }
 
-      if (value.startsWith("config-")) {
-        const configId = value.replace("config-", "");
-        if (configId === activePaymentConfigId) return;
-        const targetConfig = paymentConfigs.find((c) => c.id === configId);
-        setPendingMethod("");
-        setPendingConfigId(configId);
-        setPendingConfigName(
-          configId.startsWith("group-default-")
-            ? `Guest (${configId.replace("group-default-", "").toUpperCase()})`
-            : targetConfig?.name || "Selected Config",
-        );
-        setPaymentSwitchOpen(true);
-      }
-    },
-    [activePaymentConfigId, paymentConfigs],
-  );
-
-  const handlePaymentSwitchExisting = useCallback(() => {
-    if (pendingConfigId) {
-      selectPaymentConfig(pendingConfigId, "change-existing");
-      toast.success(`All items switched to ${pendingConfigName}`);
-    }
-    setPendingMethod("");
-    setPendingConfigId("");
-    setPendingConfigName("");
-  }, [pendingConfigId, pendingConfigName, selectPaymentConfig]);
-
-  const handlePaymentSwitchNewOnly = useCallback(() => {
-    if (pendingConfigId) {
-      selectPaymentConfig(pendingConfigId, "new-only");
-      toast.success(`Default set to ${pendingConfigName} for new items`);
-    }
-    setPendingMethod("");
-    setPendingConfigId("");
-    setPendingConfigName("");
-  }, [
-    pendingMethod,
-    pendingConfigId,
-    pendingConfigName,
-    changeDefaultPayment,
-    selectPaymentConfig,
-  ]);
-
-  const handleCreateSplitConfig = useCallback(
-    (
-      splits: Array<{
-        entity: string;
-        strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
-        value: number;
-        method?: string | null;
-      }>,
-    ) => {
-      const configId = createTableSplitConfig(splits, defaultPaymentMethod);
-
-      const targetConfigName = `Split: ${splits
-        .sort((a, b) => b.value - a.value)
-        .map(
-          (s) =>
-            `${s.entity} ${s.strategyType === "percentage" ? Math.round(s.value * 100) : s.value}${s.strategyType === "percentage" ? "%" : ""}`,
-        )
-        .join(" / ")}`;
-
-      setPendingMethod("");
-      setPendingConfigId(configId);
-      setPendingConfigName(targetConfigName);
-      setPaymentSwitchOpen(true);
-    },
-    [createTableSplitConfig, defaultPaymentMethod],
-  );
 
   const handleReassign = useCallback(
     (lineId: string, newAssignee: string) => {
@@ -1362,29 +1288,6 @@ function POSTerminalInner() {
     [guests],
   );
 
-  const paymentChoiceOptions = React.useMemo(
-    () => [
-      ...PAYMENT_METHODS.map((method) => ({
-        id: `group-default-${method}`,
-        label: `Guest (${method.toUpperCase()})`,
-        description: "Built-in default payment config",
-        badge: method.toUpperCase(),
-      })),
-      ...paymentConfigs.map((cfg) => ({
-        id: cfg.id,
-        label: cfg.name,
-        description: cfg.isSplit
-          ? "Split payment config"
-          : "Single payment config",
-        badge: cfg.isSplit ? "Split" : "Saved",
-      })),
-    ],
-    [paymentConfigs],
-  );
-
-  const paymentDialogTitle = "Allocate Payment";
-  const paymentDialogDescription =
-    "Choose a built-in payment method or one of the saved payment configs.";
 
   const removeModChoiceOptions = React.useMemo(
     () =>
@@ -1537,58 +1440,21 @@ function POSTerminalInner() {
               </Badge>
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             </Button>
-            <Select
-              value={`config-${activePaymentConfigId}`}
-              onValueChange={handleConfigChange}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 px-2.5 max-w-[210px]"
+              onClick={() => {
+                setPaymentAllocationItems([]);
+                setPaymentAllocationContext("header");
+                setPaymentAllocationOpen(true);
+              }}
+              title="Configure order default payment"
             >
-              <SelectTrigger className="w-44 h-7 text-xs">
-                <CreditCard className="w-3 h-3 mr-1 shrink-0" />
-                <SelectValue placeholder="Select Payment Config..." />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1 select-none">
-                  Guest Payment (100%)
-                </div>
-                {PAYMENT_METHODS.map((m) => (
-                  <SelectItem
-                    key={`config-group-default-${m}`}
-                    value={`config-group-default-${m}`}
-                    className="text-xs capitalize"
-                  >
-                    {m}
-                  </SelectItem>
-                ))}
-
-                {paymentConfigs.length > 0 && (
-                  <>
-                    <SeparatorUI className="my-1" />
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1 select-none">
-                      Active / Custom Configs
-                    </div>
-                    {paymentConfigs.map((config) => (
-                      <SelectItem
-                        key={`config-${config.id}`}
-                        value={`config-${config.id}`}
-                        className="text-xs"
-                      >
-                        {config.name}
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
-
-                <SeparatorUI className="my-1" />
-                <SelectItem
-                  value="action-create-split"
-                  className="text-xs text-primary font-semibold"
-                >
-                  <span className="flex items-center gap-1">
-                    <Split className="w-3 h-3 text-primary shrink-0" />+ Create
-                    Table Split...
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              <CreditCard className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{currentConfigName}</span>
+              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+            </Button>
             <SeparatorUI orientation="vertical" className="h-6" />
             {showResetConfirm ? (
               <div className="flex items-center gap-1">
@@ -1985,7 +1851,14 @@ function POSTerminalInner() {
                     variant="outline"
                     size="sm"
                     className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-[125px]"
-                    onClick={() => setPaymentDialogOpen(true)}
+                    onClick={() => {
+                      const selectedItems = Array.from(selectedLineIds)
+                        .map((id) => projectedState.items[id])
+                        .filter(Boolean);
+                      setPaymentAllocationItems(selectedItems);
+                      setPaymentAllocationContext("group");
+                      setPaymentAllocationOpen(true);
+                    }}
                   >
                     Allocate Payment
                   </Button>
@@ -2356,26 +2229,6 @@ function POSTerminalInner() {
         </footer>
       </div>
 
-      {/* ─── Payment Switch Dialog ──────────────────────────────────────── */}
-      <PaymentSwitchDialog
-        open={paymentSwitchOpen}
-        onOpenChange={setPaymentSwitchOpen}
-        currentConfigName={currentConfigName}
-        newConfigName={pendingConfigName}
-        affectedItemCount={itemsOnActiveConfig}
-        onChooseExisting={handlePaymentSwitchExisting}
-        onChooseNewOnly={handlePaymentSwitchNewOnly}
-      />
-
-      {/* ─── Table Split Dialog ─────────────────────────────────────────── */}
-      <TableSplitDialog
-        open={tableSplitOpen}
-        onOpenChange={setTableSplitOpen}
-        guests={guests}
-        onAddGuest={handleAddGuestFromDialog}
-        onCreateSplit={handleCreateSplitConfig}
-      />
-
       {/* ─── Allocation Config Dialog ───────────────────────────────────── */}
       <AllocationConfigDialog
         open={!!allocConfigItem}
@@ -2387,11 +2240,72 @@ function POSTerminalInner() {
         guests={guests}
         defaultPaymentAllocId={defaultPaymentAllocId}
         defaultPaymentMethod={defaultPaymentMethod}
-        totalItemsOnDefault={itemsOnActiveConfig}
         onReassign={handleReassign}
-        onSplitPayment={handleSplitPayment}
-        onSwitchItemPayment={handleSwitchItemPayment}
         onResetToDefault={handleResetToDefault}
+        onAddGuest={handleAddGuestFromDialog}
+        onTriggerPaymentAllocation={(item) => {
+          setPaymentAllocationItems([item]);
+          setPaymentAllocationContext("item");
+          setPaymentAllocationOpen(true);
+        }}
+      />
+
+      {/* ─── Unified Payment Allocation Dialog ──────────────────────────── */}
+      <PaymentAllocationDialog
+        open={paymentAllocationOpen}
+        onOpenChange={setPaymentAllocationOpen}
+        context={paymentAllocationContext}
+        items={paymentAllocationItems}
+        allocations={projectedState.allocations}
+        guests={guests}
+        defaultPaymentAllocId={defaultPaymentAllocId}
+        defaultPaymentMethod={defaultPaymentMethod}
+        paymentConfigs={paymentConfigs}
+        onApplyConfig={(configIdOrMethod, mode) => {
+          if (paymentAllocationContext === "item") {
+            groupItemsPaymentConfig([paymentAllocationItems[0].lineId], configIdOrMethod);
+            toast.success("Payment config updated for item");
+          } else if (paymentAllocationContext === "group") {
+            groupItemsPaymentConfig(paymentAllocationItems.map((i) => i.lineId), configIdOrMethod);
+            toast.success(`Payment config updated for ${paymentAllocationItems.length} selected items`);
+            setSelectedLineIds(new Set());
+          } else {
+            // header context
+            if (configIdOrMethod.startsWith("group-default-")) {
+              const m = configIdOrMethod.replace("group-default-", "");
+              changeDefaultPayment(m, mode as "change-existing" | "new-only");
+            } else {
+              selectPaymentConfig(configIdOrMethod, mode as "change-existing" | "new-only");
+            }
+            const targetName = configIdOrMethod.startsWith("group-default-")
+              ? `Guest (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
+              : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name || "Selected Config";
+            if (mode === "change-existing") {
+              toast.success(`All items switched to ${targetName}`);
+            } else {
+              toast.success(`Default set to ${targetName} for new items`);
+            }
+          }
+        }}
+        onApplyCustomSplit={(splits, mode) => {
+          if (paymentAllocationContext === "item") {
+            handleSplitPayment(paymentAllocationItems[0].lineId, splits, mode as "group" | "item");
+          } else if (paymentAllocationContext === "group") {
+            const corrId = createTableSplitConfig(splits);
+            groupItemsPaymentConfig(paymentAllocationItems.map((i) => i.lineId), corrId);
+            toast.success(`Custom split applied to ${paymentAllocationItems.length} selected items`);
+            setSelectedLineIds(new Set());
+          } else {
+            // header context
+            const corrId = createTableSplitConfig(splits);
+            selectPaymentConfig(corrId, mode as "change-existing" | "new-only");
+            if (mode === "change-existing") {
+              toast.success("Custom split applied to all existing items");
+            } else {
+              toast.success("Custom split set as default for new items");
+            }
+          }
+        }}
         onAddGuest={handleAddGuestFromDialog}
       />
 
@@ -2605,20 +2519,7 @@ function POSTerminalInner() {
         }}
       />
 
-      <ChoiceDialog
-        open={paymentDialogOpen}
-        onOpenChange={setPaymentDialogOpen}
-        title={paymentDialogTitle}
-        description={paymentDialogDescription}
-        searchPlaceholder="Search payment configs..."
-        options={paymentChoiceOptions}
-        onChoose={(option) => {
-          if (!option.id) return;
-          groupItemsPaymentConfig(Array.from(selectedLineIds), option.id);
-          setPaymentDialogOpen(false);
-          toast.success(`Selected payment reallocated to ${option.label}`);
-        }}
-      />
+
 
       <ChoiceDialog
         open={removeModDialogOpen}

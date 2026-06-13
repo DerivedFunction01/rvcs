@@ -26,7 +26,6 @@ import {
   Split,
   RotateCcw,
   Plus,
-  Trash2,
   Link2,
   X,
 } from "lucide-react";
@@ -35,8 +34,6 @@ import {
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
 } from "@/lib/pos/utils";
-import { useVCSStore } from "@/store/vcs-store";
-import { SplitEditor, PaymentSplitEntry, validateSplit } from "./split-editor";
 
 interface AllocationConfigDialogProps {
   open: boolean;
@@ -46,21 +43,10 @@ interface AllocationConfigDialogProps {
   guests: string[];
   defaultPaymentAllocId: string | null;
   defaultPaymentMethod: string;
-  totalItemsOnDefault: number;
   onReassign: (lineId: string, newAssignee: string) => void;
-  onSplitPayment: (
-    lineId: string,
-    splits: Array<{
-      entity: string;
-      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
-      value: number;
-      method?: string | null;
-    }>,
-    mode: "group" | "item"
-  ) => void;
   onResetToDefault: (lineId: string) => void;
-  onSwitchItemPayment: (lineId: string, newMethod: string) => void;
   onAddGuest: (name: string) => void;
+  onTriggerPaymentAllocation: (item: ProjectedLineItem) => void;
 }
 
 function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Record<string, AllocationBlock> {
@@ -68,7 +54,8 @@ function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Re
   for (const [id, alloc] of Object.entries(allocations)) {
     if (alloc.type === "payment") {
       const p = alloc as PaymentAllocation;
-      if (p.paymentStrategy.strategyType === "fixed_item" || p.paymentStrategy.strategyType === "fixed_global") {
+      const stratType = p.paymentStrategy.strategyType as string;
+      if (stratType === "fixed_item" || stratType === "fixed_global") {
         patched[id] = {
           ...p,
           paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" }
@@ -90,14 +77,10 @@ export function AllocationConfigDialog({
   defaultPaymentAllocId,
   defaultPaymentMethod,
   onReassign,
-  onSplitPayment,
   onResetToDefault,
   onAddGuest,
+  onTriggerPaymentAllocation,
 }: AllocationConfigDialogProps) {
-  const { groupItemPaymentConfig } = useVCSStore();
-
-  const [splits, setSplits] = useState<PaymentSplitEntry[]>([]);
-  const [isSplitting, setIsSplitting] = useState(false);
   const [showAddGuestInput, setShowAddGuestInput] = useState(false);
   const [newGuestInputName, setNewGuestInputName] = useState("");
 
@@ -122,43 +105,14 @@ export function AllocationConfigDialog({
       .filter((a): a is PaymentAllocation => a?.type === "payment");
   }, [item, allocations]);
 
-  const hasSplitPayment = currentPayments.length > 1;
   const hasNonDefaultPayment = currentPayments.some(
     (p) => p.allocationId !== defaultPaymentAllocId
   );
   const correlationId = currentPayments[0]?.correlationId;
 
-  // Group consolidation options
-  const existingPayments = useMemo(() => {
-    const map = new Map<string, string>(); // display name -> ID (either allocationId or correlationId)
-    const processedCorrelations = new Set<string>();
-    const patchedAllocs = getPatchedAllocations(allocations);
-
-    for (const a of Object.values(allocations)) {
-      if (a.type === "payment" && a.allocationId !== defaultPaymentAllocId) {
-        const pay = a as PaymentAllocation;
-        if (pay.correlationId) {
-          if (!processedCorrelations.has(pay.correlationId)) {
-            processedCorrelations.add(pay.correlationId);
-            const name = getPaymentAllocDisplayName(patchedAllocs[pay.allocationId] as PaymentAllocation, patchedAllocs);
-            if (name) map.set(name, pay.correlationId);
-          }
-        } else {
-          const name = getPaymentAllocDisplayName(patchedAllocs[pay.allocationId] as PaymentAllocation, patchedAllocs);
-          if (name) map.set(name, pay.allocationId);
-        }
-      }
-    }
-    return Array.from(map.entries()).map(([display, id]) => ({ display, id }));
-  }, [allocations, defaultPaymentAllocId]);
-
-  const isValidSplit = validateSplit(splits, item?.totalPrice);
-
   // Reset state when dialog opens
   React.useEffect(() => {
     if (open && item) {
-      setIsSplitting(false);
-      setSplits([]);
       setShowAddGuestInput(false);
       setNewGuestInputName("");
     }
@@ -183,46 +137,10 @@ export function AllocationConfigDialog({
     setShowAddGuestInput(false);
   }, [newGuestInputName, onAddGuest, item, onReassign]);
 
-  const handleStartSplit = useCallback(() => {
-    if (!item) return;
-    
-    if (currentPayments.length > 0) {
-      const initialSplits = currentPayments.map((p) => {
-        const strat = p.paymentStrategy;
-        const val = strat?.strategyType === "percentage" ? Math.round((strat.value ?? 1) * 100) : (strat?.value ?? 0);
-        return {
-          entity: p.payer || currentAssignee,
-          strategyType: strat?.strategyType === "fixed" ? "fixed_item" : (strat?.strategyType || "percentage"),
-          value: val,
-          method: p.method || null,
-        };
-      });
-      setSplits(initialSplits);
-    } else {
-      setSplits([{ entity: currentAssignee, strategyType: "percentage", value: 100, method: null }]);
-    }
-    setIsSplitting(true);
-  }, [item, currentAssignee, currentPayments]);
-
-  const handleApplySplit = useCallback((mode: "group" | "item") => {
-    if (!item || !isValidSplit) return;
-    const mappedSplits = splits.map((s) => ({
-      entity: s.entity,
-      strategyType: s.strategyType,
-      value: s.strategyType === "percentage" ? s.value / 100 : s.value,
-      method: s.method,
-    }));
-    onSplitPayment(item.lineId, mappedSplits, mode);
-    setIsSplitting(false);
-    setSplits([]);
-    onOpenChange(false);
-  }, [item, isValidSplit, splits, onSplitPayment, onOpenChange]);
-
   const handleResetToDefault = useCallback(() => {
     if (!item) return;
     onResetToDefault(item.lineId);
-    onOpenChange(false);
-  }, [item, onResetToDefault, onOpenChange]);
+  }, [item, onResetToDefault]);
 
   if (!item) return null;
 
@@ -235,7 +153,7 @@ export function AllocationConfigDialog({
             Allocation Config
           </DialogTitle>
           <DialogDescription>
-            Manage assignment and payment splits for this item.
+            Manage assignment and payment allocation for this item.
           </DialogDescription>
         </DialogHeader>
 
@@ -249,217 +167,139 @@ export function AllocationConfigDialog({
         </div>
 
         {/* Assignment (Who Consumes) */}
-        {!isSplitting && (
-          <div className="space-y-2.5 rounded-lg border p-3.5">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Assigned Guest
-              </div>
-              {!showAddGuestInput && (
-                <Button
-                  variant="link"
-                  className="h-auto p-0 text-xs text-primary font-semibold flex items-center gap-1 hover:no-underline"
-                  onClick={() => setShowAddGuestInput(true)}
-                >
-                  <Plus className="w-3 h-3" /> Add Guest
-                </Button>
-              )}
+        <div className="space-y-2.5 rounded-lg border p-3.5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Assigned Guest
             </div>
-
-            {showAddGuestInput ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="New guest name..."
-                  value={newGuestInputName}
-                  onChange={(e) => setNewGuestInputName(e.target.value)}
-                  className="h-8 text-xs flex-1"
-                  onKeyDown={(e) => e.key === "Enter" && handleAddNewGuestForAssignment()}
-                />
-                <Button size="sm" className="h-8 text-xs" onClick={handleAddNewGuestForAssignment}>
-                  Add & Assign
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setShowAddGuestInput(false)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Select value={currentAssignee} onValueChange={handleAssigneeChange}>
-                  <SelectTrigger className="h-8 text-xs flex-1 bg-background">
-                    <User className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {guests.map((g) => (
-                      <SelectItem key={g} value={g} className="text-xs">
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {!showAddGuestInput && (
+              <Button
+                variant="link"
+                className="h-auto p-0 text-xs text-primary font-semibold flex items-center gap-1 hover:no-underline"
+                onClick={() => setShowAddGuestInput(true)}
+              >
+                <Plus className="w-3 h-3" /> Add Guest
+              </Button>
             )}
           </div>
-        )}
 
-        {/* Payment Configuration */}
-        <div className="space-y-3">
-          {!isSplitting && (
-            <div className="space-y-3 rounded-lg border p-3.5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Payment Breakdown
-              </div>
-
-              <div className="space-y-1.5">
-                {currentPayments.map((payAlloc) => (
-                  <div
-                    key={payAlloc.allocationId}
-                    className="flex items-center justify-between rounded-lg border p-2.5 bg-muted/10"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-xs font-medium truncate">
-                        {getPaymentAllocDisplayName(getPatchedAllocations(allocations)[payAlloc.allocationId] as PaymentAllocation, getPatchedAllocations(allocations))}
-                      </span>
-                      {payAlloc.correlationId && (
-                        <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">
-                          <Split className="w-2.5 h-2.5 mr-0.5" />
-                          split
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0">
-                      {payAlloc.paymentStrategy.strategyType === "percentage"
-                        ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
-                        : payAlloc.paymentStrategy.strategyType === "fixed_item" || payAlloc.paymentStrategy.strategyType === "fixed"
-                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
-                        : payAlloc.paymentStrategy.strategyType === "fixed_global"
-                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)} total`
-                        : "remaining"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {correlationId && (
-                <div className="text-[9px] font-mono text-muted-foreground/60 px-1 truncate">
-                  correlation: {correlationId}
-                </div>
-              )}
-
-              <Separator className="my-1" />
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-8 gap-1.5"
-                  onClick={handleStartSplit}
-                >
-                  <Split className="w-3.5 h-3.5 text-primary" />
-                  Customize splits / custom payer
-                </Button>
-
-                <Select
-                  onValueChange={(val) => {
-                    groupItemPaymentConfig(item.lineId, val);
-                    onOpenChange(false);
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs w-48 bg-background">
-                    <Link2 className="w-3.5 h-3.5 mr-1 shrink-0 text-muted-foreground" />
-                    <SelectValue placeholder="Link to group config..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {existingPayments.map((p) => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">
-                        {p.display}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {hasNonDefaultPayment && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs h-8 text-muted-foreground hover:text-foreground"
-                    onClick={handleResetToDefault}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                    Revert to default ({defaultPaymentMethod})
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Unified Split Editor */}
-          {isSplitting && (
-            <div className="rounded-lg border p-3.5 space-y-3 bg-muted/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Split className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-semibold">Customize Splits & Payers</span>
-                </div>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" onClick={() => setIsSplitting(false)}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-
-              <SplitEditor
-                splits={splits}
-                onChange={setSplits}
-                guests={guests}
-                onAddGuest={onAddGuest}
-                itemTotalPrice={item?.totalPrice}
+          {showAddGuestInput ? (
+            <div className="flex items-center gap-2">
+              <Input
+                placeholder="New guest name..."
+                value={newGuestInputName}
+                onChange={(e) => setNewGuestInputName(e.target.value)}
+                className="h-8 text-xs flex-1"
+                onKeyDown={(e) => e.key === "Enter" && handleAddNewGuestForAssignment()}
               />
+              <Button size="sm" className="h-8 text-xs" onClick={handleAddNewGuestForAssignment}>
+                Add & Assign
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setShowAddGuestInput(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Select value={currentAssignee} onValueChange={handleAssigneeChange}>
+                <SelectTrigger className="h-8 text-xs flex-1 bg-background">
+                  <User className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {guests.map((g) => (
+                    <SelectItem key={g} value={g} className="text-xs">
+                      {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
 
-        <DialogFooter className={isSplitting ? "sm:justify-between w-full" : ""}>
-          {isSplitting && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsSplitting(false);
-                  setSplits([]);
-                }}
+        {/* Payment Configuration */}
+        <div className="space-y-3 rounded-lg border p-3.5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Payment Breakdown
+          </div>
+
+          <div className="space-y-1.5">
+            {currentPayments.map((payAlloc) => (
+              <div
+                key={payAlloc.allocationId}
+                className="flex items-center justify-between rounded-lg border p-2.5 bg-muted/10"
               >
-                Cancel
-              </Button>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={!isValidSplit}
-                  onClick={() => handleApplySplit("item")}
-                >
-                  Apply to Item Only
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={!isValidSplit}
-                  onClick={() => handleApplySplit("group")}
-                >
-                  Update Entire Group
-                </Button>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-xs font-medium truncate">
+                    {getPaymentAllocDisplayName(getPatchedAllocations(allocations)[payAlloc.allocationId] as PaymentAllocation, getPatchedAllocations(allocations))}
+                  </span>
+                  {payAlloc.correlationId && (
+                    <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">
+                      <Split className="w-2.5 h-2.5 mr-0.5" />
+                      split
+                    </Badge>
+                  )}
+                </div>
+                <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0">
+                  {(payAlloc.paymentStrategy.strategyType as string) === "percentage"
+                    ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
+                    : (payAlloc.paymentStrategy.strategyType as string) === "fixed_item" || (payAlloc.paymentStrategy.strategyType as string) === "fixed"
+                    ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
+                    : (payAlloc.paymentStrategy.strategyType as string) === "fixed_global"
+                    ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)} total`
+                    : "remaining"}
+                </span>
               </div>
-            </>
+            ))}
+          </div>
+
+          {correlationId && (
+            <div className="text-[9px] font-mono text-muted-foreground/60 px-1 truncate">
+              correlation: {correlationId}
+            </div>
           )}
-          {!isSplitting && (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
+
+          <Separator className="my-1" />
+
+          <div className="flex flex-wrap gap-2 pt-1 justify-between items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8 gap-1.5 font-medium"
+              onClick={() => {
+                onTriggerPaymentAllocation(item);
+                onOpenChange(false);
+              }}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              Change Payment / Split...
             </Button>
-          )}
+
+            {hasNonDefaultPayment && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-8 text-muted-foreground hover:text-foreground"
+                onClick={handleResetToDefault}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                Revert to default ({defaultPaymentMethod})
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
