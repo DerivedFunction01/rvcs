@@ -217,6 +217,18 @@ export class VCSEngine {
     }
   }
 
+  private ensureBranchExists(name: string): void {
+    if (!this.repo.branches[name]) {
+      throw new Error(`Branch "${name}" does not exist`);
+    }
+  }
+
+  private ensureBranchDoesNotExist(name: string): void {
+    if (this.repo.branches[name]) {
+      throw new Error(`Branch "${name}" already exists`);
+    }
+  }
+
   // ─── Catalog ──────────────────────────────────────────────────────────────
 
   setCatalog(items: CatalogItemEntry[]): void {
@@ -350,9 +362,7 @@ export class VCSEngine {
 
   createBranch(name: string, fromCommitOrBranch?: string | null): void {
     this.ensureNotSystemBranch(name, "manually create");
-    if (this.repo.branches[name]) {
-      throw new Error(`Branch "${name}" already exists`);
-    }
+    this.ensureBranchDoesNotExist(name);
     let headHash: string | null = null;
     if (fromCommitOrBranch) {
       if (this.repo.branches[fromCommitOrBranch]) {
@@ -370,9 +380,7 @@ export class VCSEngine {
     name: string,
     config: { type?: "parallel" | "hypothetical"; label?: string },
   ): void {
-    if (!this.repo.branches[name]) {
-      throw new Error(`Branch "${name}" does not exist`);
-    }
+    this.ensureBranchExists(name);
     this.repo.branches[name] = {
       ...this.repo.branches[name],
       ...config,
@@ -385,12 +393,8 @@ export class VCSEngine {
       throw new Error("Branch name cannot be empty");
     }
     this.ensureNotSystemBranch([oldName, newName], "rename or target");
-    if (!this.repo.branches[oldName]) {
-      throw new Error(`Branch "${oldName}" does not exist`);
-    }
-    if (this.repo.branches[newName]) {
-      throw new Error(`Branch "${newName}" already exists`);
-    }
+    this.ensureBranchExists(oldName);
+    this.ensureBranchDoesNotExist(newName);
 
     this.repo.branches[newName] = this.repo.branches[oldName];
     delete this.repo.branches[oldName];
@@ -411,9 +415,7 @@ export class VCSEngine {
   }
 
   setMainActiveBranch(name: string): void {
-    if (!this.repo.branches[name]) {
-      throw new Error(`Branch "${name}" does not exist`);
-    }
+    this.ensureBranchExists(name);
     this.repo.mainActiveBranch = name;
   }
 
@@ -422,9 +424,7 @@ export class VCSEngine {
   }
 
   checkout(branch: string): void {
-    if (!this.repo.branches[branch]) {
-      throw new Error(`Branch "${branch}" does not exist`);
-    }
+    this.ensureBranchExists(branch);
     this.ensureNotSystemBranch(branch, "checkout");
     this.repo.activeBranch = branch;
   }
