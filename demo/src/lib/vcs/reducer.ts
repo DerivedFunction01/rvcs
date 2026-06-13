@@ -165,6 +165,7 @@ interface InternalLineItem {
  *
  * @param log        - The append-only commit log
  * @param targetHash - The commit hash to project (null = empty state)
+ * @param systemHash - The commit hash of the system branch (null if not available)
  * @param catalog    - The trusted product catalog for late-bound resolution
  * @param confirmedHash - Optional confirmed (locked) head hash
  * @param chargeRules   - Optional resolved charge rules for the active jurisdiction
@@ -172,13 +173,14 @@ interface InternalLineItem {
 export function projectState(
   log: VCSCommit[],
   targetHash: string | null,
+  systemHash: string | null,
   catalog: Record<string, CatalogItemEntry>,
   confirmedHash?: string | null,
 ): ProjectedState {
   const items: Record<string, InternalLineItem> = {};
   const allocations: Record<string, AllocationBlock> = {};
 
-  if (!targetHash || log.length === 0) {
+  if ((!targetHash && !systemHash) || log.length === 0) {
     return {
       items: {},
       allocations: {},
@@ -189,28 +191,51 @@ export function projectState(
     };
   }
 
-  const confirmedAncestors = new Set<string>();
-  if (confirmedHash) {
-    const confirmedPath = getCommitPath(log, confirmedHash);
-    for (const c of confirmedPath) {
-      confirmedAncestors.add(c.commitHash);
+  // Phase 1: Project System Branch (Config/Actors)
+  if (systemHash) {
+    const systemPath = getCommitPath(log, systemHash);
+    for (const commit of systemPath) {
+      for (const delta of commit.deltas) {
+        if (delta.action === "declare_allocation" || delta.action === "undeclare_allocation") {
+          applyDelta(
+            items,
+            allocations,
+            delta,
+            log,
+            catalog,
+            commit.commitHash,
+            new Set(), // system commits don't use confirmation logic
+            systemHash
+          );
+        }
+      }
     }
   }
 
-  const path = getCommitPath(log, targetHash);
+  // Phase 2: Project Target Branch
+  if (targetHash) {
+    const confirmedAncestors = new Set<string>();
+    if (confirmedHash) {
+      const confirmedPath = getCommitPath(log, confirmedHash);
+      for (const c of confirmedPath) {
+        confirmedAncestors.add(c.commitHash);
+      }
+    }
 
-  // Phase 1: Apply all deltas sequentially
-  for (const commit of path) {
-    for (const delta of commit.deltas) {
-      applyDelta(
-        items,
-        allocations,
-        delta,
-        log,
-        catalog,
-        commit.commitHash,
-        confirmedAncestors,
-      );
+    const path = getCommitPath(log, targetHash);
+    for (const commit of path) {
+      for (const delta of commit.deltas) {
+        applyDelta(
+          items,
+          allocations,
+          delta,
+          log,
+          catalog,
+          commit.commitHash,
+          confirmedAncestors,
+          systemHash
+        );
+      }
     }
   }
 
@@ -242,6 +267,7 @@ function applyDelta(
   catalog: Record<string, CatalogItemEntry>,
   commitHash: string,
   confirmedAncestors: Set<string>,
+  systemHash: string | null,
 ): void {
   const isConfirmedDelta = confirmedAncestors.has(commitHash);
 
@@ -342,6 +368,7 @@ function applyDelta(
         fullLog,
         catalog,
         isConfirmedDelta,
+        systemHash,
       );
       break;
   }
@@ -356,9 +383,10 @@ function applyBatchByFilter(
   fullLog: VCSCommit[],
   catalog: Record<string, CatalogItemEntry>,
   isConfirmedDelta: boolean,
+  systemHash: string | null,
 ): void {
   // Project state at the base_revision_id for deterministic filtering
-  const baseState = projectState(fullLog, delta.baseRevisionId, catalog, null);
+  const baseState = projectState(fullLog, delta.baseRevisionId, systemHash, catalog, null);
   const baseItems = Object.values(baseState.items);
 
   // Find matching items

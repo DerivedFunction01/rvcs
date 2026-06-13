@@ -32,6 +32,7 @@ export interface AssignmentAllocation {
   correlationId?: string | null;
   type: "assignment";
   entity: string;
+  hidden?: boolean;
 }
 
 export interface PaymentAllocation {
@@ -42,6 +43,7 @@ export interface PaymentAllocation {
   method: string | null;
   paymentStrategy: PaymentStrategy;
   timeOfPayment: TimeBlock;
+  hidden?: boolean;
 }
 
 export interface FulfillmentAllocation {
@@ -51,6 +53,7 @@ export interface FulfillmentAllocation {
   method: string;
   time: TimeBlock;
   fulfillmentMetadata: FulfillmentMetadata;
+  hidden?: boolean;
 }
 
 export interface NoteAllocation {
@@ -59,6 +62,7 @@ export interface NoteAllocation {
   type: "note";
   text: string;
   attachedTo?: "order" | null;
+  hidden?: boolean;
 }
 
 export type AllocationBlock =

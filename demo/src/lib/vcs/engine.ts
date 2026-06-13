@@ -171,12 +171,13 @@ function detectConflict(
 function projectMergedDeltas(
   log: VCSCommit[],
   lcaHash: string | null,
+  systemHash: string | null,
   allDeltas: Delta[],
   catalog: Record<string, import("./types").CatalogItemEntry>,
   confirmedHash: string | null,
 ): import("./types").ProjectedState {
   if (allDeltas.length === 0) {
-    return projectState(log, lcaHash, catalog, confirmedHash);
+    return projectState(log, lcaHash, systemHash, catalog, confirmedHash);
   }
   // Create a virtual commit on top of lcaHash
   const virtualCommit: VCSCommit = {
@@ -191,6 +192,7 @@ function projectMergedDeltas(
   return projectState(
     [...log, virtualCommit],
     "__merge_preview__",
+    systemHash,
     catalog,
     confirmedHash,
   );
@@ -231,6 +233,10 @@ export class VCSEngine {
     );
   }
 
+  getSystemHash(): string | null {
+    return this.repo.branches["system"]?.headHash ?? null;
+  }
+
   getConfirmedHash(): string | null {
     const mainHead =
       this.repo.branches[this.getMainActiveBranch()]?.headHash ?? null;
@@ -257,6 +263,7 @@ export class VCSEngine {
     return projectState(
       this.repo.log,
       hash,
+      this.getSystemHash(),
       this.catalog,
       this.getConfirmedHash(),
     );
@@ -269,6 +276,17 @@ export class VCSEngine {
   }
 
   // ─── Core Operations ──────────────────────────────────────────────────────
+
+  /**
+   * Commit new deltas to the system branch.
+   * Returns the new commit.
+   */
+  commitSystem(deltas: Delta[], authorId: string = "system"): VCSCommit {
+    if (!this.repo.branches["system"]) {
+      this.repo.branches["system"] = { headHash: null, type: "parallel" };
+    }
+    return this.commit(deltas, authorId, "system");
+  }
 
   /**
    * Commit new deltas to the active branch.
@@ -716,6 +734,7 @@ export class VCSEngine {
     const autoMergedState = projectMergedDeltas(
       this.repo.log,
       lcaHash,
+      this.getSystemHash(),
       allDeltasInOrder,
       this.catalog,
       this.getConfirmedHash(),
