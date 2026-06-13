@@ -21,6 +21,29 @@ interface OrderType {
   estimatedTimeLabel?: string; // e.g. "Ready in ~15 min"
 }
 
+interface FloorObject {
+  id: string;
+  kind: "table" | "chair" | "wall" | "deadspace";
+  shape?: "circle" | "ellipse" | "rectangle" | "triangle" | "polygon";
+  label?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  guestNames?: string[];
+  linkedChairIds?: string[];
+  chairLabels?: string[];
+  tableId?: string | null;
+}
+
+interface FloorConfig {
+  id: string;
+  name: string;
+  gridWidth: number;
+  gridHeight: number;
+  objects: FloorObject[];
+}
+
 // ─── Default Configuration (seeded on first fetch) ─────────────────────────
 
 const DEFAULT_CONFIG = {
@@ -118,6 +141,116 @@ const DEFAULT_CONFIG = {
       ],
     },
   ] as OrderType[],
+  floorConfigs: [
+    {
+      id: "floor-main",
+      name: "Main Floor",
+      gridWidth: 8,
+      gridHeight: 5,
+      objects: [
+        {
+          id: "wall-north",
+          kind: "wall",
+          x: 0,
+          y: 0,
+          w: 8,
+          h: 1,
+        },
+        {
+          id: "deadspace-entry",
+          kind: "deadspace",
+          x: 0,
+          y: 1,
+          w: 1,
+          h: 1,
+        },
+        {
+          id: "table-a",
+          kind: "table",
+          shape: "rectangle",
+          label: "Table A",
+          x: 2,
+          y: 1,
+          w: 2,
+          h: 1,
+          guestNames: ["Guest 1", "Guest 2"],
+          linkedChairIds: ["chair-a1", "chair-a2"],
+          chairLabels: ["A1", "A2"],
+        },
+        {
+          id: "chair-a1",
+          kind: "chair",
+          label: "A1",
+          x: 2,
+          y: 2,
+          w: 1,
+          h: 1,
+          tableId: "table-a",
+        },
+        {
+          id: "chair-a2",
+          kind: "chair",
+          label: "A2",
+          x: 3,
+          y: 2,
+          w: 1,
+          h: 1,
+          tableId: "table-a",
+        },
+        {
+          id: "table-b",
+          kind: "table",
+          shape: "circle",
+          label: "Table B",
+          x: 5,
+          y: 1,
+          w: 2,
+          h: 2,
+          guestNames: ["Guest 1", "Guest 2", "Guest 3"],
+          linkedChairIds: ["chair-b1", "chair-b2", "chair-b3"],
+          chairLabels: ["B1", "B2", "B3"],
+        },
+        {
+          id: "chair-b1",
+          kind: "chair",
+          label: "B1",
+          x: 5,
+          y: 3,
+          w: 1,
+          h: 1,
+          tableId: "table-b",
+        },
+        {
+          id: "chair-b2",
+          kind: "chair",
+          label: "B2",
+          x: 6,
+          y: 3,
+          w: 1,
+          h: 1,
+          tableId: "table-b",
+        },
+        {
+          id: "chair-b3",
+          kind: "chair",
+          label: "B3",
+          x: 6,
+          y: 2,
+          w: 1,
+          h: 1,
+          tableId: "table-b",
+        },
+        {
+          id: "wall-south",
+          kind: "wall",
+          x: 0,
+          y: 4,
+          w: 8,
+          h: 1,
+        },
+      ],
+    },
+  ] as FloorConfig[],
 };
 
 // ─── GET /api/pos-config ───────────────────────────────────────────────────
@@ -154,6 +287,7 @@ export async function GET() {
       label: config.label,
       defaultPaymentMethod,
       orderTypes,
+      floorConfigs: parsed.floorConfigs ?? [],
     });
   } catch (error) {
     console.error("POS config fetch error:", error);
@@ -206,6 +340,7 @@ export async function POST(request: Request) {
       label: config.label,
       defaultPaymentMethod: parsed.defaultPaymentMethod ?? "cash",
       orderTypes: parsed.orderTypes ?? parsed,
+      floorConfigs: parsed.floorConfigs ?? [],
     });
   } catch (error) {
     console.error("POS config upsert error:", error);

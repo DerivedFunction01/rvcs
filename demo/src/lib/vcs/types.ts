@@ -279,6 +279,10 @@ export interface CatalogItemEntry {
 export interface OrderContext {
   orderType: string;         // "walk-in" | "pickup" | "delivery"
   orderTypeLabel: string;    // "Walk In" | "Pickup" | "Delivery"
+  serverName: string;       // server / account login for the terminal
+  tableConfigId?: string | null;
+  floorConfigId?: string | null;
+  initialGuestNames?: string[];
   customerFields: Record<string, string>;  // { name: "Bob", phone: "555-1234", ... }
   estimatedTimeLabel?: string | null;      // "Ready in ~15 min"
   initiatedAt: string;       // ISO timestamp
@@ -310,6 +314,51 @@ export interface PosConfigResponse {
   label: string;
   defaultPaymentMethod: string;
   orderTypes: OrderTypeConfig[];
+  floorConfigs?: FloorConfig[];
+}
+
+export type FloorObjectKind = "table" | "chair" | "wall" | "deadspace";
+export type FloorShape = "circle" | "ellipse" | "rectangle" | "triangle" | "polygon";
+
+export interface FloorObjectBase {
+  id: string;
+  kind: FloorObjectKind;
+  shape?: FloorShape;
+  label?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface FloorTableObject extends FloorObjectBase {
+  kind: "table";
+  guestNames: string[];
+  linkedChairIds?: string[];
+  chairLabels?: string[];
+  seatCount?: number;
+}
+
+export interface FloorChairObject extends FloorObjectBase {
+  kind: "chair";
+  tableId?: string | null;
+}
+
+export interface FloorWallObject extends FloorObjectBase {
+  kind: "wall" | "deadspace";
+}
+
+export type FloorObject =
+  | FloorTableObject
+  | FloorChairObject
+  | FloorWallObject;
+
+export interface FloorConfig {
+  id: string;
+  name: string;
+  gridWidth: number;
+  gridHeight: number;
+  objects: FloorObject[];
 }
 
 // ─── VCS Repository (The "Repo") ──────────────────────────────────────────────

@@ -663,7 +663,12 @@ function POSTerminalInner() {
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const customerName = orderContext?.customerFields.name || "Guest";
-  const [guests, setGuests] = React.useState<string[]>([customerName]);
+  const initialGuests: string[] = (
+    orderContext?.initialGuestNames?.length
+      ? orderContext.initialGuestNames
+      : [customerName]
+  ) ?? [customerName];
+  const [guests, setGuests] = React.useState<string[]>(initialGuests);
 
   // Bulk actions selection state
   const [selectedLineIds, setSelectedLineIds] = React.useState<Set<string>>(
@@ -688,7 +693,7 @@ function POSTerminalInner() {
 
   // Dropdown key states to reset Select menus after an option is selected
   const [removeModSelectKey, setRemoveModSelectKey] = React.useState(0);
-  const [selectedPerson, setSelectedPerson] = React.useState(customerName);
+  const [selectedPerson, setSelectedPerson] = React.useState(initialGuests[0] || customerName);
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
   const [addGuestName, setAddGuestName] = React.useState("");
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
@@ -703,7 +708,7 @@ function POSTerminalInner() {
 
   // Active check view filter state
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
-    new Set([customerName]),
+    new Set(initialGuests),
   );
 
   // Synchronize visibleGuests with guests on add/remove/reset
@@ -2558,6 +2563,10 @@ function POSTerminalInner() {
         onPreview={previewMerge}
         onCommit={(sourceBranches, targetBranch, resolutionDeltas) => {
           commitMerge(sourceBranches, targetBranch, resolutionDeltas);
+          if (targetBranch === "main") {
+            checkoutBranch("main");
+            toast.success("Order confirmed on main and ready for checkout");
+          }
         }}
       />
     </TooltipProvider>
@@ -2617,7 +2626,7 @@ export default function POSTerminal() {
     (context: Parameters<typeof initRepo>[0]) => {
       initRepo(context, defaultPaymentFromConfig);
       toast.success(
-        `${context.orderTypeLabel} order started for ${context.customerFields.name || "customer"}`,
+        `${context.orderTypeLabel} order started for ${context.customerFields.name || "customer"} on ${context.serverName}`,
       );
     },
     [initRepo, defaultPaymentFromConfig],

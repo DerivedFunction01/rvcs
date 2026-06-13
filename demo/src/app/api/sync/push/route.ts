@@ -9,9 +9,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const { contextId, contextType, commits } = body as {
+    const { contextId, contextType, serverName, commits } = body as {
       contextId: string;
       contextType: string;
+      serverName?: string;
       commits: Array<{
         commitHash: string;
         parentHash: string | null;
@@ -28,12 +29,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "contextId and commits array required" }, { status: 400 });
     }
 
+    const normalizedServerName = serverName?.trim() || contextId;
+
+    const server = await (db as typeof db & { server: {
+      upsert: (args: unknown) => Promise<{ id: string; name: string }>;
+    } }).server.upsert({
+      where: { name: normalizedServerName },
+      update: {},
+      create: {
+        name: normalizedServerName,
+      },
+    });
+
     // Find or create repo
     const repo = await db.transactionRepo.upsert({
       where: { id: contextId },
-      update: {},
+      update: {
+        serverId: server.id,
+        serverName: server.name,
+      },
       create: {
         id: contextId,
+        serverId: server.id,
+        serverName: server.name,
         contextType: contextType || "cart",
         contextId,
       },

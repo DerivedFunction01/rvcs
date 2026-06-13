@@ -18,7 +18,7 @@ import type {
   ProjectedLineItem,
   MergePreview,
 } from "@/lib/vcs/types";
-import { generateAllocationId, generateLineId, generateCommitHash } from "@/lib/vcs/id";
+import { generateAllocationId, generateLineId, generateDraftBranchName } from "@/lib/vcs/id";
 import { projectState } from "@/lib/vcs/reducer";
 
 // ─── Storage Key ──────────────────────────────────────────────────────────────
@@ -352,18 +352,6 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (store.catalogLoaded) {
         newEngine.setCatalog(Object.values(store.catalog));
       }
-      set({
-        engine: newEngine,
-        projectedState: newEngine.projectCurrent(),
-        viewingHash: null,
-        isInitialized: true,
-        orderContext,
-        defaultPaymentMethod,
-        defaultAssignmentAllocId: null,
-        defaultPaymentAllocId: null,
-        activePaymentConfigId: null,
-      });
-
       // Auto-create the default allocations
       const customerName = orderContext.customerFields.name || "Guest";
       const assignAllocId = generateAllocationId("default-assign");
@@ -404,11 +392,27 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       newEngine.commit(deltas, "system-init");
 
+      // POS work happens on a draft branch created from confirmed main state.
+      const serverName = orderContext.serverName || "Tom";
+      let draftBranchName = generateDraftBranchName(serverName);
+      let suffix = 2;
+      while (newEngine.getRepo().branches[draftBranchName]) {
+        draftBranchName = `${generateDraftBranchName(serverName)}-${suffix}`;
+        suffix += 1;
+      }
+      newEngine.createBranch(draftBranchName, "main");
+      newEngine.checkout(draftBranchName);
+
       set({
+        engine: newEngine,
+        projectedState: newEngine.projectCurrent(),
+        viewingHash: null,
+        isInitialized: true,
+        orderContext,
+        defaultPaymentMethod,
         defaultAssignmentAllocId: assignAllocId,
         defaultPaymentAllocId: mainPayAllocId,
         activePaymentConfigId: activePayGroupId,
-        projectedState: newEngine.projectCurrent(),
       });
       get().persist();
     },
@@ -1405,6 +1409,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         viewingHash: null,
         projectedState: store.engine.projectCurrent(),
       });
+      store.persist();
     },
 
     viewRevision: (hash) => {
