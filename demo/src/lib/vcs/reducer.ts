@@ -141,11 +141,13 @@ interface InternalLineItem {
   parentLineId: string | null;
   sku: string;
   qty: number;
+  canceledQty: number;
   allocations: string[];
   selectedOptions?: string[];
   selectedModifierState?: string;
   resolvedName: string;
   resolvedPrice: number;
+  isConfirmed: boolean;
 }
 
 // ─── The Core Reducer ──────────────────────────────────────────────────────────
@@ -162,7 +164,8 @@ interface InternalLineItem {
 export function projectState(
   log: VCSCommit[],
   targetHash: string | null,
-  catalog: Record<string, CatalogItemEntry>
+  catalog: Record<string, CatalogItemEntry>,
+  confirmedHash?: string | null
 ): ProjectedState {
   const items: Record<string, InternalLineItem> = {};
   const allocations: Record<string, AllocationBlock> = {};
@@ -171,12 +174,28 @@ export function projectState(
     return { items: {}, allocations: {}, financials: { subtotal: 0, personBreakdown: [] } };
   }
 
+  const confirmedAncestors = new Set<string>();
+  if (confirmedHash) {
+    const confirmedPath = getCommitPath(log, confirmedHash);
+    for (const c of confirmedPath) {
+      confirmedAncestors.add(c.commitHash);
+    }
+  }
+
   const path = getCommitPath(log, targetHash);
 
   // Phase 1: Apply all deltas sequentially
   for (const commit of path) {
     for (const delta of commit.deltas) {
-      applyDelta(items, allocations, delta, log, catalog);
+      applyDelta(items, allocations, delta, log, catalog, commit.commitHash, confirmedAncestors);
+    }
+  }
+
+  // Phase 1.5: Sweep empty pending items
+  for (const lineId of Object.keys(items)) {
+    const item = items[lineId];
+    if (item.qty <= 0 && item.canceledQty <= 0) {
+      delete items[lineId];
     }
   }
 
@@ -197,7 +216,9 @@ function applyDelta(
   allocations: Record<string, AllocationBlock>,
   delta: Delta,
   fullLog: VCSCommit[],
-  catalog: Record<string, CatalogItemEntry>
+  catalog: Record<string, CatalogItemEntry>,
+  commitHash: string,
+  confirmedAncestors: Set<string>
 ): void {
   switch (delta.action) {
     case "declare_allocation":
@@ -210,19 +231,24 @@ function applyDelta(
         parentLineId: delta.parentLineId,
         sku: delta.sku,
         qty: delta.qty,
+        canceledQty: 0,
         allocations: [...delta.allocations],
         selectedModifierState: delta.selectedModifierState,
         resolvedName: "",
         resolvedPrice: 0,
+        isConfirmed: confirmedAncestors.has(commitHash),
       };
       break;
 
     case "remove_item": {
       const item = items[delta.lineId];
       if (item) {
-        item.qty -= delta.qty;
-        if (item.qty <= 0) {
-          delete items[delta.lineId];
+        if (item.isConfirmed) {
+          const removeAmount = Math.min(item.qty, delta.qty);
+          item.qty -= removeAmount;
+          item.canceledQty += removeAmount;
+        } else {
+          item.qty -= delta.qty;
         }
       }
       break;
@@ -261,6 +287,9 @@ function applyDelta(
     case "modify_qty": {
       const item = items[delta.lineId];
       if (item && item.qty === delta.beforeQty) {
+        if (delta.afterQty < item.qty && item.isConfirmed) {
+          item.canceledQty += (item.qty - delta.afterQty);
+        }
         item.qty = delta.afterQty;
       }
       break;
@@ -282,7 +311,7 @@ function applyBatchByFilter(
   catalog: Record<string, CatalogItemEntry>
 ): void {
   // Project state at the base_revision_id for deterministic filtering
-  const baseState = projectState(fullLog, delta.baseRevisionId, catalog);
+  const baseState = projectState(fullLog, delta.baseRevisionId, catalog, null);
   const baseItems = Object.values(baseState.items);
 
   // Find matching items
@@ -348,9 +377,11 @@ function applyBatchDuplicate(
       parentLineId: item.parentLineId,
       sku: item.sku,
       qty: item.qty,
+      canceledQty: 0,
       allocations: template.patchAllocations.map((a) => a.allocationId),
       resolvedName: "",
       resolvedPrice: 0,
+      isConfirmed: false,
     };
 
     // Also clone children (modifiers, sides)
@@ -371,9 +402,11 @@ function cloneChildren(
       parentLineId: newParentLineId,
       sku: child.sku,
       qty: child.qty,
+      canceledQty: 0,
       allocations: newAllocations.map((a) => a.allocationId),
       resolvedName: "",
       resolvedPrice: 0,
+      isConfirmed: false,
     };
     // Recurse for nested children
     cloneChildren(items, child, newChildId, newAllocations);
@@ -409,7 +442,15 @@ function applyBatchRemoveItems(
   matchingItems: ProjectedLineItem[]
 ): void {
   for (const item of matchingItems) {
-    delete items[item.lineId];
+    const internal = items[item.lineId];
+    if (internal) {
+      if (internal.isConfirmed) {
+        internal.canceledQty += internal.qty;
+        internal.qty = 0;
+      } else {
+        internal.qty = 0;
+      }
+    }
   }
 }
 
@@ -530,6 +571,13 @@ function buildProjectedState(
   const roots: ProjectedLineItem[] = [];
 
   for (const item of Object.values(items)) {
+    let status: "pending" | "confirmed" | "canceled" = "pending";
+    if (item.qty === 0 && item.canceledQty > 0) {
+      status = "canceled";
+    } else if (item.isConfirmed) {
+      status = "confirmed";
+    }
+
     itemMap[item.lineId] = {
       lineId: item.lineId,
       parentLineId: item.parentLineId,
@@ -537,9 +585,11 @@ function buildProjectedState(
       name: item.resolvedName,
       basePrice: item.resolvedPrice,
       qty: item.qty,
+      canceledQty: item.canceledQty,
       totalPrice: item.resolvedPrice * item.qty,
       allocations: item.allocations,
       selectedModifierState: item.selectedModifierState,
+      status,
       children: [],
     };
   }
@@ -554,7 +604,7 @@ function buildProjectedState(
 
   // Scale children quantities recursively based on root parent quantity
   for (const root of roots) {
-    scaleTreeQuantities(root, root.qty);
+    scaleTreeQuantities(root);
   }
 
   const flatItems: Record<string, ProjectedLineItem> = {};
@@ -685,11 +735,24 @@ function sumTree(item: ProjectedLineItem): number {
   return total;
 }
 
-function scaleTreeQuantities(item: ProjectedLineItem, parentQty: number): void {
+function scaleTreeQuantities(item: ProjectedLineItem): void {
   for (const child of item.children) {
-    child.qty = child.qty * parentQty;
+    const childRawQty = child.qty;
+    const childRawCanceled = child.canceledQty;
+    
+    const totalRaw = childRawQty + childRawCanceled;
+    const totalParent = item.qty + item.canceledQty;
+    const totalActive = childRawQty * item.qty;
+    
+    child.qty = totalActive;
+    child.canceledQty = (totalRaw * totalParent) - totalActive;
     child.totalPrice = child.basePrice * child.qty;
-    scaleTreeQuantities(child, parentQty);
+    
+    if (child.qty === 0 && child.canceledQty > 0) {
+      child.status = "canceled";
+    }
+    
+    scaleTreeQuantities(child);
   }
 }
 

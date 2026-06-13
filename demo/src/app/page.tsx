@@ -216,6 +216,8 @@ function LineItemNode({
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
   const assignee = getAssigneeFromItem(item, allocations);
+  const isCanceled = item.status === "canceled";
+  const isPending = item.status === "pending";
   const hasSplitPayment =
     item.allocations.filter((id) => allocations[id]?.type === "payment")
       .length > 1;
@@ -246,13 +248,13 @@ function LineItemNode({
         <div
           className={`rounded-lg border p-3 transition-all ${
             isRoot
-              ? isSelected
+              ? isSelected && !isCanceled
                 ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
-                : "border-border bg-card cursor-pointer hover:bg-accent/50"
+                : `border-border cursor-pointer ${isCanceled ? "bg-muted/20 hover:bg-muted/30" : "bg-card hover:bg-accent/50"}`
               : "border-transparent bg-muted/40"
           }`}
           onClick={
-            isRoot
+            isRoot && !isCanceled
               ? (e) => {
                   e.stopPropagation();
                   onSelectToggle?.(item.lineId);
@@ -263,7 +265,7 @@ function LineItemNode({
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                {isRoot && (
+                {isRoot && !isCanceled && (
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onSelectToggle?.(item.lineId)}
@@ -271,7 +273,7 @@ function LineItemNode({
                     className="mr-1 h-3.5 w-3.5 border-muted-foreground/30 data-[state=checked]:border-primary"
                   />
                 )}
-                {!isModifier && (
+                {!isModifier && !isCanceled && (
                   <div
                     className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(
                       assignee,
@@ -279,7 +281,7 @@ function LineItemNode({
                     )}`}
                   />
                 )}
-                {isRoot ? (
+                {isRoot && !isCanceled ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
                     <Button
                       variant="ghost"
@@ -315,19 +317,40 @@ function LineItemNode({
                       <Plus className="w-2.5 h-2.5" />
                     </Button>
                   </div>
+                ) : isRoot && isCanceled ? (
+                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-destructive/10 border-destructive/20 shrink-0">
+                    <span className="text-[10px] text-destructive font-mono font-semibold min-w-[10px] px-2 text-center select-none">
+                      {item.canceledQty}
+                    </span>
+                  </div>
                 ) : (
                   <span className="text-xs text-muted-foreground font-mono shrink-0">
-                    x{item.qty}
+                    x{isCanceled ? item.canceledQty : item.qty}
                   </span>
                 )}
                 <span
-                  className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"}`}
+                  className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"} ${isCanceled ? "line-through opacity-50" : ""}`}
                 >
                   {item.name}
                 </span>
                 {item.basePrice === 0 && (
                   <Badge variant="secondary" className="text-[9px] h-3.5 px-1">
                     mod
+                  </Badge>
+                )}
+                {isCanceled && (
+                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">
+                    Void
+                  </Badge>
+                )}
+                {isPending && !isCanceled && (
+                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                    *new*
+                  </Badge>
+                )}
+                {item.qty > 0 && item.canceledQty > 0 && (
+                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">
+                    -{item.canceledQty} Void
                   </Badge>
                 )}
                 {hasSplitPayment && (
@@ -361,7 +384,7 @@ function LineItemNode({
                 />
               )}
               {isRoot &&
-                sizeGroup &&
+                sizeGroup && !isCanceled &&
                 sizeOptions.length > 0 &&
                 activeSizeChild && (
                   <div className="flex items-center gap-1 mt-2">
@@ -400,7 +423,7 @@ function LineItemNode({
                   </div>
                 )}
               {!isRoot &&
-                catalogEntry &&
+                catalogEntry && !isCanceled &&
                 catalogEntry.allowedStates &&
                 catalogEntry.allowedStates.length > 0 && (
                   <div className="flex items-center gap-1 mt-2">
@@ -447,12 +470,17 @@ function LineItemNode({
             </div>
 
             <div className="flex flex-col items-end shrink-0 gap-1.5">
-              {item.totalPrice > 0 && (
+              {isCanceled && item.basePrice > 0 ? (
+                <span className="font-mono font-semibold tabular-nums text-muted-foreground line-through opacity-70">
+                  ${(item.basePrice * item.canceledQty).toFixed(2)}
+                </span>
+              ) : item.totalPrice > 0 ? (
                 <span className="font-mono font-semibold text-foreground tabular-nums">
                   ${item.totalPrice.toFixed(2)}
                 </span>
-              )}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              ) : null}
+              {!isCanceled && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {isRoot && filteredModifiers.length > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -524,6 +552,7 @@ function LineItemNode({
                   <Trash2 className="w-3 h-3" />
                 </Button>
               </div>
+              )}
             </div>
           </div>
         </div>

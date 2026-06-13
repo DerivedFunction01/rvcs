@@ -206,10 +206,12 @@ export interface ProjectedLineItem {
   name: string;       // Late-bound from catalog
   basePrice: number;  // Late-bound from catalog
   qty: number;
+  canceledQty: number;
   totalPrice: number; // Computed: basePrice * qty
   allocations: string[]; // Referenced allocation IDs
   children: ProjectedLineItem[];
   selectedModifierState?: string;
+  status: "pending" | "confirmed" | "canceled";
 }
 
 export interface PersonBreakdown {

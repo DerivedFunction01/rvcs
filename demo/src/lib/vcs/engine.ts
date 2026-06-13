@@ -101,10 +101,11 @@ function projectMergedDeltas(
   log: VCSCommit[],
   lcaHash: string | null,
   allDeltas: Delta[],
-  catalog: Record<string, import('./types').CatalogItemEntry>
+  catalog: Record<string, import('./types').CatalogItemEntry>,
+  confirmedHash: string | null
 ): import('./types').ProjectedState {
   if (allDeltas.length === 0) {
-    return projectState(log, lcaHash, catalog);
+    return projectState(log, lcaHash, catalog, confirmedHash);
   }
   // Create a virtual commit on top of lcaHash
   const virtualCommit: VCSCommit = {
@@ -116,7 +117,7 @@ function projectMergedDeltas(
     authorId: "preview",
     deltas: allDeltas,
   };
-  return projectState([...log, virtualCommit], "__merge_preview__", catalog);
+  return projectState([...log, virtualCommit], "__merge_preview__", catalog, confirmedHash);
 }
 
 // ─── Engine Class ──────────────────────────────────────────────────────────────
@@ -150,10 +151,26 @@ export class VCSEngine {
     return Object.values(this.catalog).filter((i) => i.active && i.type === "modifier");
   }
 
+  getConfirmedHash(): string | null {
+    const mainHead = this.repo.branches[this.getMainActiveBranch()]?.headHash ?? null;
+    if (!mainHead) return null;
+    
+    let current: string | null = mainHead;
+    while (current) {
+      const commit = this.repo.log.find(c => c.commitHash === current);
+      if (!commit) break;
+      if (commit.mergeParentHashes.length > 0 || commit.authorId === "system-init") {
+        return current;
+      }
+      current = commit.parentHash;
+    }
+    return null;
+  }
+
   // ─── Projection ───────────────────────────────────────────────────────────
 
   projectAt(hash: string | null): ProjectedState {
-    return projectState(this.repo.log, hash, this.catalog);
+    return projectState(this.repo.log, hash, this.catalog, this.getConfirmedHash());
   }
 
   projectCurrent(): ProjectedState {
@@ -589,7 +606,8 @@ export class VCSEngine {
       this.repo.log,
       lcaHash,
       allDeltasInOrder,
-      this.catalog
+      this.catalog,
+      this.getConfirmedHash()
     );
 
     // Fast-forward: LCA is the target head (target is strictly behind all sources)
