@@ -69,6 +69,9 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Lock,
+  Store,
+  PackageCheck,
+  Truck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,9 +100,9 @@ import { toast } from "sonner";
 const PAYMENT_METHODS = ["cash", "visa", "mastercard", "amex"];
 
 const ORDER_TYPE_ICONS: Record<string, React.ElementType> = {
-  "walk-in": ShoppingCart,
-  pickup: Sparkles,
-  delivery: ArrowLeftRight,
+  "walk-in": Store,
+  pickup: PackageCheck,
+  delivery: Truck,
 };
 
 // Guest color palette — cycled by index. Deterministic: same name at same index = same color.
@@ -664,6 +667,7 @@ function getAssigneeFromItem(
 
 function OrderContextBanner({
   context,
+  onEditClick,
 }: {
   context: {
     orderType: string;
@@ -671,37 +675,71 @@ function OrderContextBanner({
     customerFields: Record<string, string>;
     estimatedTimeLabel?: string | null;
   };
+  onEditClick?: () => void;
 }) {
   const TypeIcon = ORDER_TYPE_ICONS[context.orderType] ?? ShoppingCart;
 
   return (
     <div className="px-6 py-2 bg-primary/5 border-b flex items-center gap-4 text-xs shrink-0">
       <div className="flex items-center gap-1.5">
-        <TypeIcon className="w-3.5 h-3.5 text-primary" />
-        <span className="font-semibold text-primary">
-          {context.orderTypeLabel}
-        </span>
+        <Select
+          value={context.orderType}
+          onValueChange={(val) => {
+            const labels: Record<string, string> = {
+              "walk-in": "Walk In",
+              pickup: "Pickup",
+              delivery: "Delivery",
+            };
+            useVCSStore.getState().updateOrderType(val, labels[val] || val);
+            toast.success(`Order type changed to ${labels[val] || val}`);
+          }}
+        >
+          <SelectTrigger className="h-6 px-1.5 border-primary/20 bg-background/50 hover:bg-background text-primary font-semibold text-[11px] gap-1.5 rounded-md focus:ring-0">
+            <div className="flex items-center gap-1.5">
+              {React.createElement(
+                ORDER_TYPE_ICONS[context.orderType] ?? ShoppingCart,
+                { className: "w-3 h-3 text-primary shrink-0" },
+              )}
+              <SelectValue placeholder="Select type..." />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="walk-in">Walk In</SelectItem>
+            <SelectItem value="pickup">Pickup</SelectItem>
+            <SelectItem value="delivery">Delivery</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      {context.customerFields.name && (
-        <div className="flex items-center gap-1 text-muted-foreground">
+
+      {/* ── Clickable customer detail group ── */}
+      <button
+        type="button"
+        onClick={onEditClick}
+        className="flex items-center gap-3 rounded-md px-2 py-1 -my-0.5 transition-colors hover:bg-primary/10 cursor-pointer group"
+      >
+        <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
           <User className="w-3 h-3" />
-          <span>{context.customerFields.name}</span>
-        </div>
-      )}
-      {context.customerFields.phone && (
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Phone className="w-3 h-3" />
-          <span>{context.customerFields.phone}</span>
-        </div>
-      )}
-      {context.customerFields.address && (
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <MapPin className="w-3 h-3" />
-          <span className="truncate max-w-[200px]">
-            {context.customerFields.address}
+          <span className="font-medium">
+            {context.customerFields.name || "Guest"}
           </span>
         </div>
-      )}
+        {context.customerFields.phone && (
+          <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
+            <Phone className="w-3 h-3" />
+            <span>{context.customerFields.phone}</span>
+          </div>
+        )}
+        {context.customerFields.address && (
+          <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
+            <MapPin className="w-3 h-3" />
+            <span className="truncate max-w-[160px]">
+              {context.customerFields.address}
+            </span>
+          </div>
+        )}
+        <UserPlus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+      </button>
+
       {context.estimatedTimeLabel && (
         <div className="ml-auto flex items-center gap-1 text-muted-foreground">
           <Clock className="w-3 h-3" />
@@ -809,6 +847,33 @@ function POSTerminalInner() {
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
     React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
+
+  // ─── Customer Edit Dialog State ────────────────────────────────────────
+  const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
+  const [editedCustomerFields, setEditedCustomerFields] = React.useState<
+    Record<string, string>
+  >({});
+
+  const handleOpenCustomerDialog = React.useCallback(() => {
+    setEditedCustomerFields(
+      orderContext?.customerFields ? { ...orderContext.customerFields } : {},
+    );
+    setCustomerDialogOpen(true);
+  }, [orderContext]);
+
+  const handleSaveCustomerFields = React.useCallback(() => {
+    useVCSStore.getState().updateOrderContext({
+      customerFields: editedCustomerFields,
+    });
+    // Sync guest display name if the primary customer name changed
+    const newName = editedCustomerFields.name?.trim();
+    if (newName && newName !== guests[0]) {
+      setGuests((prev) => [newName, ...prev.slice(1)]);
+      if (selectedPerson === guests[0]) setSelectedPerson(newName);
+    }
+    setCustomerDialogOpen(false);
+    toast.success("Customer info updated");
+  }, [editedCustomerFields, guests, selectedPerson]);
 
   // Active check view filter state
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
@@ -1643,7 +1708,131 @@ function POSTerminalInner() {
         </header>
 
         {/* ─── Order Context Banner ────────────────────────────────────── */}
-        {orderContext && <OrderContextBanner context={orderContext} />}
+        {orderContext && (
+          <OrderContextBanner
+            context={orderContext}
+            onEditClick={handleOpenCustomerDialog}
+          />
+        )}
+
+        {/* ─── Customer Info Edit Dialog ──────────────────────────────── */}
+        <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                Edit Customer Info
+              </DialogTitle>
+              <DialogDescription>
+                Update the customer details for this order. Changes apply
+                immediately.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <User className="w-3 h-3" />
+                  Name
+                </label>
+                <Input
+                  id="customer-name"
+                  placeholder="e.g. John Smith"
+                  value={editedCustomerFields.name ?? ""}
+                  onChange={(e) =>
+                    setEditedCustomerFields((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className="h-9 text-sm"
+                  autoComplete="name"
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Phone className="w-3 h-3" />
+                  Phone
+                </label>
+                <Input
+                  id="customer-phone"
+                  type="tel"
+                  placeholder="e.g. (555) 123-4567"
+                  value={editedCustomerFields.phone ?? ""}
+                  onChange={(e) =>
+                    setEditedCustomerFields((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
+                  className="h-9 text-sm"
+                  autoComplete="tel"
+                />
+              </div>
+
+              {/* Address — shown for delivery */}
+              {orderContext?.orderType === "delivery" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <MapPin className="w-3 h-3" />
+                    Delivery Address
+                  </label>
+                  <Input
+                    id="customer-address"
+                    placeholder="e.g. 123 Main St, City, State"
+                    value={editedCustomerFields.address ?? ""}
+                    onChange={(e) =>
+                      setEditedCustomerFields((prev) => ({
+                        ...prev,
+                        address: e.target.value,
+                      }))
+                    }
+                    className="h-9 text-sm"
+                    autoComplete="street-address"
+                  />
+                </div>
+              )}
+
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Settings2 className="w-3 h-3" />
+                  Order Notes
+                </label>
+                <Textarea
+                  id="customer-notes"
+                  placeholder="Allergies, special requests, etc."
+                  value={editedCustomerFields.notes ?? ""}
+                  onChange={(e) =>
+                    setEditedCustomerFields((prev) => ({
+                      ...prev,
+                      notes: e.target.value,
+                    }))
+                  }
+                  className="text-sm resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCustomerDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleSaveCustomerFields}>
+                <User className="w-3.5 h-3.5 mr-1.5" />
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">

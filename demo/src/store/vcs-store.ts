@@ -85,6 +85,8 @@ interface VCSStore {
   // Actions — Order Init/Reset
   initRepo: (orderContext: OrderContext, defaultPaymentMethod: string) => void;
   resetOrder: () => void;
+  updateOrderType: (newType: string, newTypeLabel: string) => void;
+  updateOrderContext: (context: Partial<OrderContext>) => void;
 
   // Actions — Default Allocations
   /**
@@ -483,6 +485,41 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       });
     },
 
+    updateOrderType: (newType: string, newTypeLabel: string) => {
+      const store = get();
+      if (!store.orderContext) return;
+      const updatedContext = {
+        ...store.orderContext,
+        orderType: newType,
+        orderTypeLabel: newTypeLabel,
+      };
+
+      const repo = store.engine.getRepo();
+      repo.orderContext = updatedContext;
+
+      set({
+        orderContext: updatedContext,
+      });
+      store.persist();
+    },
+
+    updateOrderContext: (context: Partial<OrderContext>) => {
+      const store = get();
+      if (!store.orderContext) return;
+      const updatedContext = {
+        ...store.orderContext,
+        ...context,
+      };
+
+      const repo = store.engine.getRepo();
+      repo.orderContext = updatedContext;
+
+      set({
+        orderContext: updatedContext,
+      });
+      store.persist();
+    },
+
     // ─── Default Allocations ────────────────────────────────────────────────
 
     initDefaultAllocations: (customerName: string, paymentMethod: string) => {
@@ -725,7 +762,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           (a): a is FulfillmentAllocation =>
             a.type === "fulfillment" &&
             (a.allocationId === currentConfigId ||
-              (a.correlationId !== null && a.correlationId === currentConfigId)),
+              (a.correlationId !== null &&
+                a.correlationId === currentConfigId)),
         );
         const oldFulIds = oldFulAllocs.map((a) => a.allocationId);
 
@@ -1998,7 +2036,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
             const itemFulAllocs = lastItem.allocations
               .map((id) => currentProj.allocations[id])
-              .filter((a) => a?.type === "fulfillment") as FulfillmentAllocation[];
+              .filter(
+                (a) => a?.type === "fulfillment",
+              ) as FulfillmentAllocation[];
             if (itemFulAllocs.length > 0) {
               activeFulfillmentConfigId =
                 itemFulAllocs[0].correlationId || itemFulAllocs[0].allocationId;
