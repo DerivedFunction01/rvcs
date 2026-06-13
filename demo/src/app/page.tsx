@@ -2,11 +2,7 @@
 
 import React, { useCallback } from "react";
 import { useVCSStore } from "@/store/vcs-store";
-import {
-  getPaymentAllocDisplayName,
-  getAssignmentAllocDisplayName,
-  formatFulfillmentTime,
-} from "@/lib/pos/utils";
+import { formatFulfillmentTime, getPaymentAllocDisplayName } from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { OrderInitScreen } from "@/components/pos/order-init-screen";
 import { AllocationConfigDialog } from "@/components/pos/allocation-config-dialog";
@@ -30,6 +26,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  type Guest,
+  formatLabel,
+  GUEST_PALETTE,
+  getGuestColor,
+  getUniqueGuestLabel,
+  getPatchedAllocations,
+  getAssigneeFromItem,
+} from "@/lib/pos/ui-utils";
+import { LineItemNode } from "@/components/pos/line-item-node";
+import { OrderContextBanner } from "@/components/pos/order-context-banner";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -37,11 +44,10 @@ import {
 import { generateAllocationId } from "@/lib/vcs/id";
 import type {
   ProjectedLineItem,
+  Delta,
   AllocationBlock,
   PaymentAllocation,
   FulfillmentAllocation,
-  CatalogItemEntry,
-  Delta,
 } from "@/lib/vcs/types";
 import {
   ShoppingCart,
@@ -53,17 +59,14 @@ import {
   Clock,
   User,
   CreditCard,
-  Sparkles,
   AlertCircle,
   Layers,
   RotateCcw,
-  ArrowLeftRight,
   XCircle,
   Phone,
   MapPin,
   UserPlus,
   Settings2,
-  Split,
   ChevronDown,
   ChevronRight,
   GitBranch,
@@ -73,22 +76,10 @@ import {
   PanelRightOpen,
   Filter,
   Lock,
-  Store,
-  PackageCheck,
-  Truck,
   ChevronsUpDown,
   Eraser,
   LayoutList,
   Pencil,
-  Flame,
-  Leaf,
-  WheatOff,
-  Wheat,
-  Milk,
-  Egg,
-  Fish,
-  Nut,
-  Info,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -103,836 +94,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-
-// ─── Constants & Types ──────────────────────────────────────────────────────
-
-export interface Guest {
-  id: string; // Stable identifier (e.g. "__vcs_guest_1__", "__vcs_guest_2__")
-  number: number; // Stable sequential number
-  alias?: string; // Optional custom name/alias
-  description?: string; // Optional custom description/details
-}
-
-const PAYMENT_METHODS = ["cash", "visa", "mastercard", "amex"];
-
-const ORDER_TYPE_ICONS: Record<string, React.ElementType> = {
-  "walk-in": Store,
-  pickup: PackageCheck,
-  delivery: Truck,
-};
-
-function formatLabel(str: string) {
-  return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-// Guest color palette — cycled by index. Deterministic: same name at same index = same color.
-const GUEST_PALETTE = [
-  "bg-emerald-500",
-  "bg-violet-500",
-  "bg-amber-500",
-  "bg-sky-500",
-  "bg-rose-500",
-  "bg-teal-500",
-  "bg-orange-500",
-  "bg-indigo-500",
-];
-
-/**
- * Resolve a guest name to a color.
- * `guests` is the ordered guest list; the index determines the color.
- * Falls back to zinc if the name isn't in the list (e.g. from time-travel).
- */
-function getGuestColor(name: string, guests: Guest[]): string {
-  const idx = guests.findIndex((g) => g.id === name);
-  if (idx >= 0) return GUEST_PALETTE[idx % GUEST_PALETTE.length];
-  // Fallback: hash the name to a stable index for historical commits
-  let hash = 0;
-  for (let i = 0; i < name.length; i++)
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return GUEST_PALETTE[Math.abs(hash) % GUEST_PALETTE.length];
-}
-
-function getUniqueGuestLabel(name: string, allGuests: string[]): string {
-  if (/^(guest|table|chair|seat|__vcs_guest_)\b/i.test(name)) return name;
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return name;
-
-  const firstName = parts[0];
-  const rest = parts.slice(1).join(" ");
-
-  const sameFirst = allGuests.filter((g) => {
-    if (g === name || /^(guest|table|chair|seat|__vcs_guest_)\b/i.test(g))
-      return false;
-    return g.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
-  });
-
-  if (sameFirst.length === 0) return firstName;
-
-  for (let i = 1; i <= rest.length; i++) {
-    const candidate = `${firstName} ${rest.substring(0, i)}`;
-    const conflict = sameFirst.some((other) => {
-      return other.toLowerCase().startsWith(candidate.toLowerCase());
-    });
-    if (!conflict) return candidate;
-  }
-
-  return name;
-}
-
-function getPatchedAllocations(
-  allocations: Record<string, AllocationBlock>,
-): Record<string, AllocationBlock> {
-  const patched: Record<string, AllocationBlock> = {};
-  for (const [id, alloc] of Object.entries(allocations)) {
-    if (alloc.type === "payment") {
-      const p = alloc as PaymentAllocation;
-      const stratType = p.paymentStrategy.strategyType as string;
-      if (stratType === "fixed_item" || stratType === "fixed_global") {
-        patched[id] = {
-          ...p,
-          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" },
-        } as any;
-        continue;
-      }
-    }
-    patched[id] = alloc;
-  }
-  return patched;
-}
-
-// ─── Allocation Badge ──────────────────────────────────────────────────────
-
-function AllocationBadges({
-  allocationIds,
-  allocations,
-  defaultPaymentAllocId,
-  guests,
-}: {
-  allocationIds: string[];
-  allocations: Record<string, AllocationBlock>;
-  defaultPaymentAllocId: string | null;
-  guests: Guest[];
-}) {
-  const initiatedAt = useVCSStore((state) => state.orderContext?.initiatedAt);
-
-  if (allocationIds.length === 0) return null;
-
-  const seenPaymentGroups = new Set<string>();
-  const patchedAllocs = getPatchedAllocations(allocations);
-
-  return (
-    <div className="flex flex-wrap gap-1 mt-1.5">
-      {allocationIds.map((id) => {
-        const alloc = allocations[id];
-        if (!alloc) return null;
-
-        if (alloc.type === "assignment") {
-          const entity = getAssignmentAllocDisplayName(alloc);
-          return (
-            <Badge
-              key={id}
-              variant="secondary"
-              className="text-[10px] px-1.5 py-0 h-4 font-medium"
-            >
-              <User className="w-2.5 h-2.5 mr-0.5" />
-              {entity}
-            </Badge>
-          );
-        }
-        if (alloc.type === "payment") {
-          const payAlloc = alloc as PaymentAllocation;
-          const paymentGroupId =
-            payAlloc.correlationId || payAlloc.allocationId;
-          if (seenPaymentGroups.has(paymentGroupId)) return null;
-          seenPaymentGroups.add(paymentGroupId);
-          const displayName = getPaymentAllocDisplayName(
-            patchedAllocs[payAlloc.allocationId] as PaymentAllocation,
-            patchedAllocs,
-          );
-          const isDefault = id === defaultPaymentAllocId;
-          const siblings = payAlloc.correlationId
-            ? Object.values(patchedAllocs).filter(
-                (a) =>
-                  a.type === "payment" &&
-                  a.correlationId === payAlloc.correlationId &&
-                  a.allocationId !== payAlloc.allocationId,
-              )
-            : [];
-          const isSplit = siblings.length > 0;
-          return (
-            <Badge
-              key={id}
-              variant={isDefault ? "default" : "outline"}
-              className={`text-[10px] px-1.5 py-0 h-4 font-medium ${isSplit ? "border-primary/50" : ""}`}
-            >
-              {isSplit && <Split className="w-2.5 h-2.5 mr-0.5" />}
-              {!isSplit && <CreditCard className="w-2.5 h-2.5 mr-0.5" />}
-              {displayName}
-            </Badge>
-          );
-        }
-        if (alloc.type === "fulfillment") {
-          const fulAlloc = alloc as FulfillmentAllocation;
-          const isImmediate =
-            fulAlloc.time.type === "immediate" || !fulAlloc.time.calculatedAt;
-          const displayLabel = isImmediate
-            ? `${fulAlloc.method} (On Confirmation)`
-            : `${fulAlloc.method} @ ${formatFulfillmentTime(fulAlloc.time.calculatedAt!, initiatedAt)}`;
-          return (
-            <Badge
-              key={id}
-              variant="outline"
-              className="text-[10px] px-1.5 py-0 h-4 font-medium border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20"
-            >
-              <Clock className="w-2.5 h-2.5 mr-0.5" />
-              {displayLabel}
-            </Badge>
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
-}
-
-// ─── Line Item Node (Recursive Tree) ──────────────────────────────────────
-
-function LineItemNode({
-  item,
-  allocations,
-  defaultPaymentAllocId,
-  onRemove,
-  onAddModifier,
-  onAddNote,
-  onAllocConfig,
-  onSwapComboChoice,
-  depth,
-  modifiers,
-  guests,
-  isSelected = false,
-  onSelectToggle,
-  isCollapsed,
-  onToggleCollapse,
-  collapsedItems,
-  detailLevel = "balanced",
-  hideCanceled = false,
-}: {
-  item: ProjectedLineItem;
-  allocations: Record<string, AllocationBlock>;
-  defaultPaymentAllocId: string | null;
-  onRemove: (lineId: string) => void;
-  onAddModifier: (item: ProjectedLineItem) => void;
-  onAddNote: (item: ProjectedLineItem) => void;
-  onAllocConfig: (item: ProjectedLineItem) => void;
-  onSwapComboChoice?: (
-    lineId: string,
-    parentLineId: string,
-    slotSku: string,
-  ) => void;
-  depth: number;
-  modifiers: CatalogItemEntry[];
-  guests: Guest[];
-  isSelected?: boolean;
-  onSelectToggle?: (lineId: string) => void;
-  isCollapsed?: boolean;
-  onToggleCollapse?: (lineId: string) => void;
-  collapsedItems?: Set<string>;
-  detailLevel?: "simple" | "balanced" | "full";
-  hideCanceled: boolean;
-}) {
-  const isRoot = !item.parentLineId;
-  const isModifier = item.basePrice === 0 || item.parentLineId;
-  const assignee = getAssigneeFromItem(item, allocations, guests);
-  const isCanceled = item.status === "canceled";
-  const isPending = item.status === "pending";
-  const isChanged = item.status === "changed";
-  const isConfirmed = item.status === "confirmed";
-  const hasSplitPayment =
-    item.allocations.filter((id) => allocations[id]?.type === "payment")
-      .length > 1;
-  const hasNonDefaultPayment = item.allocations.some(
-    (id) => allocations[id]?.type === "payment" && id !== defaultPaymentAllocId,
-  );
-
-  const catalogEntry = useVCSStore.getState().catalog[item.sku];
-  const sizeGroup = catalogEntry?.appliedSizeGroup;
-  const sizeOptions = sizeGroup?.options || [];
-
-  const allowedModifierSkus = catalogEntry?.allowedModifiers || [];
-  const filteredModifiers = modifiers.filter((mod) =>
-    allowedModifierSkus.includes(mod.sku),
-  );
-
-  const activeSizeChild = item.children.find((child) => {
-    const childEntry = useVCSStore.getState().catalog[child.sku];
-    return childEntry && childEntry.sizeGroupId === sizeGroup?.id;
-  });
-  const activeSku = activeSizeChild?.sku;
-
-  const showSku = detailLevel === "full";
-  const showAllocations = detailLevel !== "simple";
-
-  const parentItem = item.parentLineId
-    ? useVCSStore.getState().projectedState.items[item.parentLineId]
-    : null;
-  const parentCatalogEntry = parentItem
-    ? useVCSStore.getState().catalog[parentItem.sku]
-    : null;
-  const comboChoiceEntry = parentCatalogEntry?.comboChoices?.find(
-    (choice) => choice.optionSku === item.sku,
-  );
-  const isComboChoice = !!comboChoiceEntry;
-  const slotSku = comboChoiceEntry?.slotSku;
-
-  return (
-    <>
-      <div
-        className={`group relative ${depth > 0 ? "ml-4 border-l-2 border-muted pl-3" : ""}`}
-      >
-        <div
-          className={`rounded-lg border p-3 transition-all ${
-            isRoot
-              ? isSelected && !isCanceled
-                ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
-                : `border-border cursor-pointer ${
-                    isCanceled
-                      ? "bg-muted/20 hover:bg-muted/30"
-                      : isConfirmed
-                        ? "bg-muted/30 hover:bg-muted/50"
-                        : "bg-card hover:bg-accent/50"
-                  }`
-              : "border-transparent bg-muted/40"
-          }`}
-          onClick={
-            isRoot && !isCanceled
-              ? (e) => {
-                  e.stopPropagation();
-                  onSelectToggle?.(item.lineId);
-                }
-              : undefined
-          }
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                {isRoot && !isCanceled && (
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => onSelectToggle?.(item.lineId)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mr-1 h-3.5 w-3.5 border-muted-foreground/30 data-[state=checked]:border-primary"
-                  />
-                )}
-                {!isModifier && !isCanceled && (
-                  <div
-                    className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(
-                      assignee,
-                      guests,
-                    )}`}
-                  />
-                )}
-                {item.children.some((child) => child.name !== "") ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleCollapse?.(item.lineId);
-                    }}
-                    className="w-4 h-4 -ml-0.5 -mr-1 flex items-center justify-center rounded hover:bg-muted shrink-0 text-muted-foreground transition-colors"
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                ) : (
-                  <div className="w-4 h-4 -ml-0.5 -mr-1 shrink-0" />
-                )}
-                {isRoot && !isCanceled ? (
-                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-background"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (item.qty > 1) {
-                          useVCSStore
-                            .getState()
-                            .modifyItemQty(item.lineId, item.qty, item.qty - 1);
-                        } else {
-                          useVCSStore.getState().removeItem(item.lineId);
-                        }
-                      }}
-                    >
-                      <Minus className="w-2.5 h-2.5" />
-                    </Button>
-                    <span className="text-[10px] text-foreground font-mono font-semibold min-w-2.5 text-center select-none">
-                      {item.qty}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-background"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        useVCSStore
-                          .getState()
-                          .modifyItemQty(item.lineId, item.qty, item.qty + 1);
-                      }}
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                    </Button>
-                  </div>
-                ) : isRoot && isCanceled ? (
-                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-destructive/10 border-destructive/20 shrink-0">
-                    <span className="text-[10px] text-destructive font-mono font-semibold min-w-2.5 px-2 text-center select-none">
-                      {item.canceledQty}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground font-mono shrink-0">
-                    x{isCanceled ? item.canceledQty : item.qty}
-                  </span>
-                )}
-                <span
-                  className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"} ${isCanceled ? "line-through opacity-50" : ""}`}
-                >
-                  {item.name}
-                </span>
-                {isComboChoice && !isCanceled && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 p-0 ml-1.5 inline-flex text-primary hover:text-primary hover:bg-primary/10 shrink-0 align-middle"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (slotSku) {
-                        onSwapComboChoice?.(
-                          item.lineId,
-                          item.parentLineId!,
-                          slotSku,
-                        );
-                      }
-                    }}
-                  >
-                    <ArrowLeftRight className="w-3 h-3" />
-                  </Button>
-                )}
-                {item.basePrice === 0 && (
-                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1">
-                    mod
-                  </Badge>
-                )}
-                {isCanceled && (
-                  <Badge
-                    variant="destructive"
-                    className="text-[9px] h-3.5 px-1"
-                  >
-                    Void
-                  </Badge>
-                )}
-                {isPending && !isCanceled && (
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                  >
-                    *new*
-                  </Badge>
-                )}
-                {isChanged && !isCanceled && (
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] h-3.5 px-1 bg-amber-500/10 text-amber-600 border border-amber-500/20"
-                  >
-                    *changed*
-                  </Badge>
-                )}
-                {item.qty > 0 && item.canceledQty > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="text-[9px] h-3.5 px-1"
-                  >
-                    -{item.canceledQty} Void
-                  </Badge>
-                )}
-                {hasSplitPayment && (
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] h-3.5 px-1 border-primary/40 text-primary"
-                  >
-                    <Split className="w-2.5 h-2.5 mr-0.5" />
-                    split
-                  </Badge>
-                )}
-                {hasNonDefaultPayment && !hasSplitPayment && (
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] h-3.5 px-1 border-amber-300 text-amber-600"
-                  >
-                    <CreditCard className="w-2.5 h-2.5 mr-0.5" />
-                    custom
-                  </Badge>
-                )}
-              </div>
-              {showSku && (
-                <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 truncate">
-                  {item.sku}
-                </div>
-              )}
-              {showAllocations && (isRoot || item.allocations.length > 0) && (
-                <AllocationBadges
-                  allocationIds={item.allocations}
-                  allocations={allocations}
-                  defaultPaymentAllocId={defaultPaymentAllocId}
-                  guests={guests}
-                />
-              )}
-              {isRoot &&
-                sizeGroup &&
-                !isCanceled &&
-                sizeOptions.length > 0 &&
-                activeSizeChild && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <span className="text-[10px] text-muted-foreground mr-1">
-                      Size:
-                    </span>
-                    <div className="flex items-center rounded border p-0.5 bg-muted/20">
-                      {sizeOptions.map((opt) => {
-                        const isActive = activeSku === opt.sku;
-                        return (
-                          <Button
-                            key={opt.sku}
-                            variant={isActive ? "secondary" : "ghost"}
-                            size="sm"
-                            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (activeSizeChild && !isActive) {
-                                useVCSStore
-                                  .getState()
-                                  .modifyItemSku(
-                                    activeSizeChild.lineId,
-                                    activeSizeChild.sku,
-                                    opt.sku,
-                                  );
-                              }
-                            }}
-                          >
-                            {opt.name}
-                            {opt.basePrice > 0 &&
-                              ` (+$${opt.basePrice.toFixed(2)})`}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              {!isRoot &&
-                catalogEntry &&
-                !isCanceled &&
-                catalogEntry.allowedStates &&
-                catalogEntry.allowedStates.length > 0 && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <div className="flex items-center rounded border p-0.5 bg-muted/20">
-                      {catalogEntry.allowedStates.map((stateOpt) => {
-                        const isActive =
-                          item.selectedModifierState === stateOpt.state;
-                        const priceDiff =
-                          stateOpt.priceOverride !== null
-                            ? stateOpt.priceOverride - catalogEntry.basePrice
-                            : 0;
-                        return (
-                          <Button
-                            key={stateOpt.state}
-                            variant={isActive ? "secondary" : "ghost"}
-                            size="sm"
-                            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isActive) {
-                                useVCSStore
-                                  .getState()
-                                  .modifyModifierState(
-                                    item.lineId,
-                                    item.selectedModifierState,
-                                    stateOpt.state,
-                                  );
-                              }
-                            }}
-                          >
-                            {stateOpt.state}
-                            {priceDiff !== 0 && (
-                              <span className="opacity-70 font-mono ml-0.5 text-[8px]">
-                                ({priceDiff > 0 ? "+" : ""}$
-                                {priceDiff.toFixed(2)})
-                              </span>
-                            )}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-            </div>
-
-            <div className="flex flex-col items-end shrink-0 gap-1.5">
-              {isCanceled && item.basePrice > 0 ? (
-                <span className="font-mono font-semibold tabular-nums text-muted-foreground line-through opacity-70">
-                  ${(item.basePrice * item.canceledQty).toFixed(2)}
-                </span>
-              ) : item.totalPrice > 0 ? (
-                <span className="font-mono font-semibold text-foreground tabular-nums">
-                  ${item.totalPrice.toFixed(2)}
-                </span>
-              ) : null}
-              {!isCanceled && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {(isRoot || catalogEntry?.type === "item") &&
-                    filteredModifiers.length > 0 && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onAddModifier(item);
-                            }}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="text-xs">
-                          Add modifiers
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  {(isRoot ||
-                    catalogEntry?.type === "item" ||
-                    item.sku === "custom_note") && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddNote(item);
-                          }}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="text-xs">
-                        {item.sku === "custom_note" ? "Edit note" : "Add note"}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {isRoot && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            useVCSStore.getState().duplicateItem(item.lineId);
-                            toast.success("Item duplicated");
-                          }}
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="text-xs">
-                        Duplicate item
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAllocConfig(item);
-                        }}
-                      >
-                        <Settings2 className="w-3 h-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="text-xs">
-                      Allocation config
-                    </TooltipContent>
-                  </Tooltip>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove(item.lineId);
-                    }}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      {!isCollapsed &&
-        item.children
-          .filter((child) => child.name !== "")
-          .map((child) => (
-            <LineItemNode
-              key={child.lineId}
-              item={child}
-              allocations={allocations}
-              defaultPaymentAllocId={defaultPaymentAllocId}
-              onRemove={onRemove}
-              onAddModifier={onAddModifier}
-              onAddNote={onAddNote}
-              onAllocConfig={onAllocConfig}
-              onSwapComboChoice={onSwapComboChoice}
-              depth={depth + 1}
-              modifiers={modifiers}
-              guests={guests}
-              isCollapsed={collapsedItems?.has(child.lineId)}
-              onToggleCollapse={onToggleCollapse}
-              collapsedItems={collapsedItems}
-              detailLevel={detailLevel}
-              hideCanceled={hideCanceled}
-            />
-          ))}
-    </>
-  );
-}
-
-function getAssigneeFromItem(
-  item: ProjectedLineItem,
-  allocations: Record<string, AllocationBlock>,
-  guests?: Guest[],
-): string {
-  let assignee = "";
-  for (const allocId of item.allocations) {
-    const alloc = allocations[allocId];
-    if (alloc?.type === "assignment") {
-      assignee = (alloc as { entity: string }).entity;
-      break;
-    }
-  }
-  if (
-    guests &&
-    guests.length > 0 &&
-    (!assignee || !guests.some((g) => g.id === assignee))
-  ) {
-    return guests[0].id;
-  }
-  return assignee;
-}
-
-// ─── Order Context Banner ───────────────────────────────────────────────────
-
-function OrderContextBanner({
-  context,
-  onEditClick,
-}: {
-  context: {
-    orderType: string;
-    orderTypeLabel: string;
-    customerFields: Record<string, string>;
-    estimatedTimeLabel?: string | null;
-  };
-  onEditClick?: () => void;
-}) {
-  const TypeIcon = ORDER_TYPE_ICONS[context.orderType] ?? ShoppingCart;
-
-  return (
-    <div className="px-6 py-2 bg-primary/5 border-b flex items-center gap-4 text-xs shrink-0">
-      <div className="flex items-center gap-1.5">
-        <Select
-          value={context.orderType}
-          onValueChange={(val) => {
-            const labels: Record<string, string> = {
-              "walk-in": "Walk In",
-              pickup: "Pickup",
-              delivery: "Delivery",
-            };
-            useVCSStore.getState().updateOrderType(val, labels[val] || val);
-            toast.success(`Order type changed to ${labels[val] || val}`);
-          }}
-        >
-          <SelectTrigger className="h-6 px-1.5 border-primary/20 bg-background/50 hover:bg-background text-primary font-semibold text-[11px] gap-1.5 rounded-md focus:ring-0">
-            <div className="flex items-center gap-1.5">
-              {React.createElement(
-                ORDER_TYPE_ICONS[context.orderType] ?? ShoppingCart,
-                { className: "w-3 h-3 text-primary shrink-0" },
-              )}
-              <SelectValue placeholder="Select type..." />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="walk-in">Walk In</SelectItem>
-            <SelectItem value="pickup">Pickup</SelectItem>
-            <SelectItem value="delivery">Delivery</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* ── Clickable customer detail group ── */}
-      <button
-        type="button"
-        onClick={onEditClick}
-        className="flex items-center gap-3 rounded-md px-2 py-1 -my-0.5 transition-colors hover:bg-primary/10 cursor-pointer group"
-      >
-        <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
-          <User className="w-3 h-3" />
-          <span className="font-medium">
-            {context.customerFields.name || "Guest"}
-          </span>
-        </div>
-        {context.customerFields.phone && (
-          <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
-            <Phone className="w-3 h-3" />
-            <span>{context.customerFields.phone}</span>
-          </div>
-        )}
-        {context.customerFields.address && (
-          <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground transition-colors">
-            <MapPin className="w-3 h-3" />
-            <span className="truncate max-w-40">
-              {context.customerFields.address}
-            </span>
-          </div>
-        )}
-        <UserPlus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-      </button>
-
-      {context.estimatedTimeLabel && (
-        <div className="ml-auto flex items-center gap-1 text-muted-foreground">
-          <Clock className="w-3 h-3" />
-          <span>{context.estimatedTimeLabel}</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────
 
@@ -2273,14 +1436,14 @@ function POSTerminalInner() {
                   {selectedGuestLabel}
                 </span>
                 {selectedGuestDescription && (
-                  <span className="text-[8px] text-muted-foreground/75 truncate max-w-[120px] leading-tight font-normal italic">
+                  <span className="text-[8px] text-muted-foreground/75 truncate max-w-30 leading-tight font-normal italic">
                     {selectedGuestDescription}
                   </span>
                 )}
               </div>
               <Badge
                 variant="secondary"
-                className="h-4 px-1 px-1.5 text-[9px] shrink-0"
+                className="h-4 px-1 text-[9px] shrink-0"
               >
                 {selectedGuestCount}
               </Badge>
@@ -2881,7 +2044,7 @@ function POSTerminalInner() {
                             <div
                               className={`w-1.5 h-1.5 rounded-full ${getGuestColor(pb.person, guests)}`}
                             />
-                            <span className="truncate max-w-[70px]">
+                            <span className="truncate max-w-17.5">
                               {resolveGuestName(pb.person)}
                             </span>
                           </div>
@@ -2921,7 +2084,7 @@ function POSTerminalInner() {
                                       <div
                                         className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(pb.person, guests)}`}
                                       />
-                                      <span className="truncate max-w-[120px] text-xs font-medium">
+                                      <span className="truncate max-w-30 text-xs font-medium">
                                         {resolveGuestName(pb.person)}
                                       </span>
                                     </div>
