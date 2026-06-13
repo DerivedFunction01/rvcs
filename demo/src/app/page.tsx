@@ -124,7 +124,9 @@ function getGuestColor(name: string, guests: string[]): string {
   return GUEST_PALETTE[Math.abs(hash) % GUEST_PALETTE.length];
 }
 
-function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Record<string, AllocationBlock> {
+function getPatchedAllocations(
+  allocations: Record<string, AllocationBlock>,
+): Record<string, AllocationBlock> {
   const patched: Record<string, AllocationBlock> = {};
   for (const [id, alloc] of Object.entries(allocations)) {
     if (alloc.type === "payment") {
@@ -133,7 +135,7 @@ function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Re
       if (stratType === "fixed_item" || stratType === "fixed_global") {
         patched[id] = {
           ...p,
-          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" }
+          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" },
         } as any;
         continue;
       }
@@ -182,10 +184,14 @@ function AllocationBadges({
         }
         if (alloc.type === "payment") {
           const payAlloc = alloc as PaymentAllocation;
-          const paymentGroupId = payAlloc.correlationId || payAlloc.allocationId;
+          const paymentGroupId =
+            payAlloc.correlationId || payAlloc.allocationId;
           if (seenPaymentGroups.has(paymentGroupId)) return null;
           seenPaymentGroups.add(paymentGroupId);
-          const displayName = getPaymentAllocDisplayName(patchedAllocs[payAlloc.allocationId] as PaymentAllocation, patchedAllocs);
+          const displayName = getPaymentAllocDisplayName(
+            patchedAllocs[payAlloc.allocationId] as PaymentAllocation,
+            patchedAllocs,
+          );
           const isDefault = id === defaultPaymentAllocId;
           const isSplit = !!payAlloc.correlationId;
           return (
@@ -359,17 +365,26 @@ function LineItemNode({
                   </Badge>
                 )}
                 {isCanceled && (
-                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">
+                  <Badge
+                    variant="destructive"
+                    className="text-[9px] h-3.5 px-1"
+                  >
                     Void
                   </Badge>
                 )}
                 {isPending && !isCanceled && (
-                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  <Badge
+                    variant="secondary"
+                    className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                  >
                     *new*
                   </Badge>
                 )}
                 {item.qty > 0 && item.canceledQty > 0 && (
-                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">
+                  <Badge
+                    variant="destructive"
+                    className="text-[9px] h-3.5 px-1"
+                  >
                     -{item.canceledQty} Void
                   </Badge>
                 )}
@@ -404,7 +419,8 @@ function LineItemNode({
                 />
               )}
               {isRoot &&
-                sizeGroup && !isCanceled &&
+                sizeGroup &&
+                !isCanceled &&
                 sizeOptions.length > 0 &&
                 activeSizeChild && (
                   <div className="flex items-center gap-1 mt-2">
@@ -443,7 +459,8 @@ function LineItemNode({
                   </div>
                 )}
               {!isRoot &&
-                catalogEntry && !isCanceled &&
+                catalogEntry &&
+                !isCanceled &&
                 catalogEntry.allowedStates &&
                 catalogEntry.allowedStates.length > 0 && (
                   <div className="flex items-center gap-1 mt-2">
@@ -501,7 +518,47 @@ function LineItemNode({
               ) : null}
               {!isCanceled && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {isRoot && filteredModifiers.length > 0 && (
+                  {isRoot && filteredModifiers.length > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddModifier(item);
+                          }}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="text-xs">
+                        Add modifiers
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {isRoot && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            useVCSStore.getState().duplicateItem(item.lineId);
+                            toast.success("Item duplicated");
+                          }}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="text-xs">
+                        Duplicate item
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -510,68 +567,28 @@ function LineItemNode({
                         className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onAddModifier(item);
+                          onAllocConfig(item);
                         }}
                       >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Settings2 className="w-3 h-3" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="left" className="text-xs">
-                      Add modifiers
+                      Allocation config
                     </TooltipContent>
                   </Tooltip>
-                )}
-                {isRoot && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          useVCSStore.getState().duplicateItem(item.lineId);
-                          toast.success("Item duplicated");
-                        }}
-                      >
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="text-xs">
-                      Duplicate item
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAllocConfig(item);
-                      }}
-                    >
-                      <Settings2 className="w-3 h-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="text-xs">
-                    Allocation config
-                  </TooltipContent>
-                </Tooltip>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove(item.lineId);
-                  }}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(item.lineId);
+                    }}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -713,11 +730,9 @@ function POSTerminalInner() {
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const customerName = orderContext?.customerFields.name || "Guest";
-  const initialGuests: string[] = (
-    orderContext?.initialGuestNames?.length
-      ? orderContext.initialGuestNames
-      : [customerName]
-  ) ?? [customerName];
+  const initialGuests: string[] = (orderContext?.initialGuestNames?.length
+    ? orderContext.initialGuestNames
+    : [customerName]) ?? [customerName];
   const [guests, setGuests] = React.useState<string[]>(initialGuests);
 
   // Bulk actions selection state
@@ -742,7 +757,9 @@ function POSTerminalInner() {
   const bulkActionsBarRef = React.useRef<HTMLDivElement | null>(null);
 
   // Dropdown key states
-  const [selectedPerson, setSelectedPerson] = React.useState(initialGuests[0] || customerName);
+  const [selectedPerson, setSelectedPerson] = React.useState(
+    initialGuests[0] || customerName,
+  );
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
   const [addGuestName, setAddGuestName] = React.useState("");
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
@@ -752,7 +769,8 @@ function POSTerminalInner() {
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
   const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
-  const [assignGuestDialogOpen, setAssignGuestDialogOpen] = React.useState(false);
+  const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
+    React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
 
   // Active check view filter state
@@ -840,11 +858,13 @@ function POSTerminalInner() {
     React.useState<ProjectedLineItem | null>(null);
 
   // Unified Payment Allocation State
-  const [paymentAllocationOpen, setPaymentAllocationOpen] = React.useState(false);
+  const [paymentAllocationOpen, setPaymentAllocationOpen] =
+    React.useState(false);
   const [paymentAllocationContext, setPaymentAllocationContext] =
     React.useState<"item" | "group" | "header">("item");
-  const [paymentAllocationItems, setPaymentAllocationItems] =
-    React.useState<ProjectedLineItem[]>([]);
+  const [paymentAllocationItems, setPaymentAllocationItems] = React.useState<
+    ProjectedLineItem[]
+  >([]);
 
   // Modifier Add Dialog State
   const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
@@ -1072,9 +1092,11 @@ function POSTerminalInner() {
     for (const alloc of Object.values(allocations)) {
       if (alloc.type === "payment") {
         const pay = alloc as PaymentAllocation;
-        
+
         const isReferenced = referencedIds.has(alloc.allocationId);
-        const isActive = activePaymentConfigId === alloc.allocationId || activePaymentConfigId === alloc.correlationId;
+        const isActive =
+          activePaymentConfigId === alloc.allocationId ||
+          activePaymentConfigId === alloc.correlationId;
         const isDefault = pay.correlationId?.startsWith("group-default-");
 
         if (!isReferenced && !isActive && !isDefault) {
@@ -1117,7 +1139,12 @@ function POSTerminalInner() {
     });
 
     return configs;
-  }, [projectedState.allocations, projectedState.items, defaultPaymentAllocId, activePaymentConfigId]);
+  }, [
+    projectedState.allocations,
+    projectedState.items,
+    defaultPaymentAllocId,
+    activePaymentConfigId,
+  ]);
 
   const currentConfigName = React.useMemo(() => {
     if (
@@ -1125,7 +1152,7 @@ function POSTerminalInner() {
       activePaymentConfigId.startsWith("group-default-")
     ) {
       const method = activePaymentConfigId.replace("group-default-", "");
-      return `Guest (${method.toUpperCase()})`;
+      return `${customerName} (${method.toUpperCase()})`;
     }
     const allocations = projectedState.allocations;
     const activeAlloc = Object.values(allocations).find(
@@ -1145,6 +1172,7 @@ function POSTerminalInner() {
     defaultPaymentAllocId,
     defaultPaymentMethod,
     projectedState.allocations,
+    customerName,
   ]);
 
   const log = commitLog();
@@ -1181,8 +1209,6 @@ function POSTerminalInner() {
     [addItemWithDefaults, selectedPerson],
   );
 
-
-
   const handleReassign = useCallback(
     (lineId: string, newAssignee: string) => {
       reassignItem(lineId, newAssignee);
@@ -1196,13 +1222,17 @@ function POSTerminalInner() {
       lineId: string,
       splits: Array<{
         entity: string;
-        strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
+        strategyType:
+          | "percentage"
+          | "fixed_item"
+          | "fixed_global"
+          | "remaining";
         value: number;
         method?: string | null;
       }>,
-        mode: "group" | "item" = "group"
+      mode: "group" | "item" = "group",
     ) => {
-        splitItemPayment(lineId, splits, mode);
+      splitItemPayment(lineId, splits, mode);
       const splitName = [...splits]
         .sort((a, b) => b.value - a.value)
         .map((s) => {
@@ -1242,7 +1272,9 @@ function POSTerminalInner() {
         }
       }
       switchItemPayment(lineId, newMethod, payer, mode);
-      toast.success(`Payment switched to ${newMethod} for ${mode === "group" ? "group" : "this item"}`);
+      toast.success(
+        `Payment switched to ${newMethod} for ${mode === "group" ? "group" : "this item"}`,
+      );
     },
     [switchItemPayment, selectedPerson],
   );
@@ -1290,7 +1322,6 @@ function POSTerminalInner() {
     [guests],
   );
 
-
   const removeModChoiceOptions = React.useMemo(
     () =>
       activeModifiersOnSelected.map((mod) => ({
@@ -1322,7 +1353,9 @@ function POSTerminalInner() {
         let fromHash = viewingHash;
         if (startFromEmpty) {
           const fullLog = useVCSStore.getState().commitLog();
-          const rootCommit = fullLog.find((c) => c.authorId === "system-init") || fullLog[fullLog.length - 1];
+          const rootCommit =
+            fullLog.find((c) => c.authorId === "system-init") ||
+            fullLog[fullLog.length - 1];
           fromHash = rootCommit?.commitHash || null;
         }
         createBranch(trimmed, fromHash);
@@ -1333,11 +1366,11 @@ function POSTerminalInner() {
             : "";
         toast.success(`Branch "${trimmed}" created${fromLabel}`);
       } catch (e) {
-
-      toast.error((e as Error).message);
-    }
-  }, [createBranch, viewingHash]);  
-
+        toast.error((e as Error).message);
+      }
+    },
+    [createBranch, viewingHash],
+  );
 
   const handleResetOrder = useCallback(() => {
     resetOrder();
@@ -1377,17 +1410,30 @@ function POSTerminalInner() {
               const displayName = pointer?.label || active;
               const branchCount = Object.keys(branches).length;
               const isMain = active === main;
-              const isMerged = !isMain && pointer?.headHash && branches[main]?.headHash && pointer.headHash !== branches[main].headHash && useVCSStore.getState().engine.isAncestorOf(pointer.headHash, branches[main].headHash);
+              const isMerged =
+                !isMain &&
+                pointer?.headHash &&
+                branches[main]?.headHash &&
+                pointer.headHash !== branches[main].headHash &&
+                useVCSStore
+                  .getState()
+                  .engine.isAncestorOf(
+                    pointer.headHash,
+                    branches[main].headHash,
+                  );
 
               return (
                 <Button
                   variant="outline"
                   size="sm"
                   className={`h-7 gap-1.5 pr-2 ${
-                    isMain ? "border-primary/50 bg-primary/5 hover:bg-primary/10" :
-                    isMerged ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground" :
-                    isHypothetical ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10" :
-                    "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"
+                    isMain
+                      ? "border-primary/50 bg-primary/5 hover:bg-primary/10"
+                      : isMerged
+                        ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground"
+                        : isHypothetical
+                          ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10"
+                          : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"
                   }`}
                   onClick={() => setIsBranchManagerOpen(true)}
                 >
@@ -1695,20 +1741,23 @@ function POSTerminalInner() {
               </div>
             </div>
 
-          {/* Read-Only Warning */}
-          {(currentBranchName === mainBranchName || isMergedToMain) && !isViewingHistory && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-900/50 px-6 py-2.5 flex items-start gap-2.5 shrink-0">
-                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
-                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                <strong className="font-semibold uppercase tracking-wider text-[10px] mr-1.5">
-                  {currentBranchName === mainBranchName ? "Read-Only Trunk:" : "Merged Branch:"}
-                </strong>
-                {currentBranchName === mainBranchName 
-                  ? "Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger."
-                  : "This branch has already been merged into main and is read-only. Any modifications made here will automatically create a new draft branch."}
-                </p>
-              </div>
-            )}
+            {/* Read-Only Warning */}
+            {(currentBranchName === mainBranchName || isMergedToMain) &&
+              !isViewingHistory && (
+                <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-900/50 px-6 py-2.5 flex items-start gap-2.5 shrink-0">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                    <strong className="font-semibold uppercase tracking-wider text-[10px] mr-1.5">
+                      {currentBranchName === mainBranchName
+                        ? "Read-Only Trunk:"
+                        : "Merged Branch:"}
+                    </strong>
+                    {currentBranchName === mainBranchName
+                      ? "Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger."
+                      : "This branch has already been merged into main and is read-only. Any modifications made here will automatically create a new draft branch."}
+                  </p>
+                </div>
+              )}
 
             {/* Cart Items */}
             <div ref={checklistRef} className="flex-1 overflow-y-auto">
@@ -1932,7 +1981,9 @@ function POSTerminalInner() {
                   size="sm"
                   className="h-6 w-6 p-0"
                   onClick={() => setIsLedgerCollapsed((prev) => !prev)}
-                  title={isLedgerCollapsed ? "Expand ledger" : "Minimize ledger"}
+                  title={
+                    isLedgerCollapsed ? "Expand ledger" : "Minimize ledger"
+                  }
                 >
                   {isLedgerCollapsed ? (
                     <PanelRightOpen className="w-3.5 h-3.5" />
@@ -2004,7 +2055,9 @@ function POSTerminalInner() {
                                 stroke={line.color}
                                 strokeWidth={line.isMain ? 3 : 2}
                                 strokeLinecap="round"
-                                strokeDasharray={line.dashed ? "4,4" : undefined}
+                                strokeDasharray={
+                                  line.dashed ? "4,4" : undefined
+                                }
                               />
                             </g>
                           ))}
@@ -2049,7 +2102,9 @@ function POSTerminalInner() {
                               commit.commitHash === headHash());
                           const isAI = commit.authorId === "ai-agent";
                           const isSystem = commit.authorId === "system-init";
-                          const isExpanded = expandedCommits.has(commit.commitHash);
+                          const isExpanded = expandedCommits.has(
+                            commit.commitHash,
+                          );
                           const node = graphData.nodes[idx];
 
                           return (
@@ -2105,7 +2160,9 @@ function POSTerminalInner() {
                                           variant="outline"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            if (activeBranch() !== commit.branch) {
+                                            if (
+                                              activeBranch() !== commit.branch
+                                            ) {
                                               checkoutBranch(commit.branch);
                                               toast.success(
                                                 `Switched active branch to "${commit.branch}"`,
@@ -2115,8 +2172,8 @@ function POSTerminalInner() {
                                           className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${
                                             activeBranch() === commit.branch
                                               ? "border-primary text-primary bg-primary/5 ring-[0.5px] ring-primary/20"
-                                              : branches[commit.branch]?.type ===
-                                                  "hypothetical"
+                                              : branches[commit.branch]
+                                                    ?.type === "hypothetical"
                                                 ? "border-amber-400/40 text-amber-600 bg-amber-500/[0.04] hover:bg-amber-500/10 hover:border-amber-500"
                                                 : "border-emerald-400/40 text-emerald-600 bg-emerald-500/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500"
                                           }`}
@@ -2145,14 +2202,13 @@ function POSTerminalInner() {
                                   </TooltipProvider>
 
                                   <span>
-                                    {new Date(commit.timestamp).toLocaleTimeString(
-                                      [],
-                                      {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                        second: "2-digit",
-                                      },
-                                    )}
+                                    {new Date(
+                                      commit.timestamp,
+                                    ).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      second: "2-digit",
+                                    })}
                                   </span>
                                 </div>
                               </div>
@@ -2265,11 +2321,19 @@ function POSTerminalInner() {
         paymentConfigs={paymentConfigs}
         onApplyConfig={(configIdOrMethod, mode) => {
           if (paymentAllocationContext === "item") {
-            groupItemsPaymentConfig([paymentAllocationItems[0].lineId], configIdOrMethod);
+            groupItemsPaymentConfig(
+              [paymentAllocationItems[0].lineId],
+              configIdOrMethod,
+            );
             toast.success("Payment config updated for item");
           } else if (paymentAllocationContext === "group") {
-            groupItemsPaymentConfig(paymentAllocationItems.map((i) => i.lineId), configIdOrMethod);
-            toast.success(`Payment config updated for ${paymentAllocationItems.length} selected items`);
+            groupItemsPaymentConfig(
+              paymentAllocationItems.map((i) => i.lineId),
+              configIdOrMethod,
+            );
+            toast.success(
+              `Payment config updated for ${paymentAllocationItems.length} selected items`,
+            );
             setSelectedLineIds(new Set());
           } else {
             // header context
@@ -2277,11 +2341,15 @@ function POSTerminalInner() {
               const m = configIdOrMethod.replace("group-default-", "");
               changeDefaultPayment(m, mode as "change-existing" | "new-only");
             } else {
-              selectPaymentConfig(configIdOrMethod, mode as "change-existing" | "new-only");
+              selectPaymentConfig(
+                configIdOrMethod,
+                mode as "change-existing" | "new-only",
+              );
             }
             const targetName = configIdOrMethod.startsWith("group-default-")
-              ? `Guest (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
-              : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name || "Selected Config";
+              ? `${customerName} (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
+              : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name ||
+                "Selected Config";
             if (mode === "change-existing") {
               toast.success(`All items switched to ${targetName}`);
             } else {
@@ -2291,11 +2359,20 @@ function POSTerminalInner() {
         }}
         onApplyCustomSplit={(splits, mode) => {
           if (paymentAllocationContext === "item") {
-            handleSplitPayment(paymentAllocationItems[0].lineId, splits, mode as "group" | "item");
+            handleSplitPayment(
+              paymentAllocationItems[0].lineId,
+              splits,
+              mode as "group" | "item",
+            );
           } else if (paymentAllocationContext === "group") {
             const corrId = createTableSplitConfig(splits);
-            groupItemsPaymentConfig(paymentAllocationItems.map((i) => i.lineId), corrId);
-            toast.success(`Custom split applied to ${paymentAllocationItems.length} selected items`);
+            groupItemsPaymentConfig(
+              paymentAllocationItems.map((i) => i.lineId),
+              corrId,
+            );
+            toast.success(
+              `Custom split applied to ${paymentAllocationItems.length} selected items`,
+            );
             setSelectedLineIds(new Set());
           } else {
             // header context
@@ -2352,8 +2429,10 @@ function POSTerminalInner() {
               }}
             />
             <div className="text-[10px] text-muted-foreground">
-              Tip: press <span className="font-medium text-foreground">Ctrl+Enter</span>{" "}
-              or <span className="font-medium text-foreground">Cmd+Enter</span> to add.
+              Tip: press{" "}
+              <span className="font-medium text-foreground">Ctrl+Enter</span> or{" "}
+              <span className="font-medium text-foreground">Cmd+Enter</span> to
+              add.
             </div>
           </div>
 
@@ -2386,7 +2465,8 @@ function POSTerminalInner() {
               Select Guest
             </DialogTitle>
             <DialogDescription>
-              Choose a guest from the grid or add a new one if they are not listed.
+              Choose a guest from the grid or add a new one if they are not
+              listed.
             </DialogDescription>
           </DialogHeader>
 
@@ -2503,7 +2583,9 @@ function POSTerminalInner() {
           duplicateAndReassignItems(Array.from(selectedLineIds), option.id);
           setSelectedLineIds(new Set());
           setDupMoveDialogOpen(false);
-          toast.success(`Selected items duplicated and moved to ${option.label}`);
+          toast.success(
+            `Selected items duplicated and moved to ${option.label}`,
+          );
         }}
       />
 
@@ -2520,8 +2602,6 @@ function POSTerminalInner() {
           toast.success(`Selected items assigned to ${option.label}`);
         }}
       />
-
-
 
       <ChoiceDialog
         open={removeModDialogOpen}

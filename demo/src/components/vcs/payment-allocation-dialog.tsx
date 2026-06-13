@@ -23,7 +23,11 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { SplitEditor, PaymentSplitEntry, validateSplit } from "./split-editor";
-import type { AllocationBlock, PaymentAllocation, ProjectedLineItem } from "@/lib/vcs/types";
+import type {
+  AllocationBlock,
+  PaymentAllocation,
+  ProjectedLineItem,
+} from "@/lib/vcs/types";
 
 interface PaymentAllocationDialogProps {
   open: boolean;
@@ -35,12 +39,12 @@ interface PaymentAllocationDialogProps {
   defaultPaymentAllocId: string | null;
   defaultPaymentMethod: string;
   paymentConfigs: Array<{ id: string; name: string; isSplit: boolean }>;
-  
+
   onApplyConfig: (
     configIdOrMethod: string,
-    mode: "item" | "group" | "change-existing" | "new-only"
+    mode: "item" | "group" | "change-existing" | "new-only",
   ) => void;
-  
+
   onApplyCustomSplit: (
     splits: Array<{
       entity: string;
@@ -48,9 +52,9 @@ interface PaymentAllocationDialogProps {
       value: number;
       method?: string | null;
     }>,
-    mode: "item" | "group" | "change-existing" | "new-only"
+    mode: "item" | "group" | "change-existing" | "new-only",
   ) => void;
-  
+
   onAddGuest: (name: string) => void;
 }
 
@@ -71,7 +75,7 @@ export function PaymentAllocationDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreatingCustomSplit, setIsCreatingCustomSplit] = useState(false);
   const [splits, setSplits] = useState<PaymentSplitEntry[]>([]);
-  
+
   // For the header confirmation flow
   const [pendingSelection, setPendingSelection] = useState<{
     type: "config" | "custom";
@@ -89,10 +93,11 @@ export function PaymentAllocationDialog({
 
   // Build the list of grid choices
   const gridChoices = useMemo(() => {
+    const primaryGuest = guests[0] || "Guest";
     const choices = [
       ...PAYMENT_METHODS.map((method) => ({
         id: `group-default-${method}`,
-        label: `Guest (${method.toUpperCase()})`,
+        label: `${primaryGuest} (${method.toUpperCase()})`,
         description: "Built-in default payment config",
         badge: method.toUpperCase(),
         isSplit: false,
@@ -100,13 +105,15 @@ export function PaymentAllocationDialog({
       ...paymentConfigs.map((cfg) => ({
         id: cfg.id,
         label: cfg.name,
-        description: cfg.isSplit ? "Split payment config" : "Single payment config",
+        description: cfg.isSplit
+          ? "Split payment config"
+          : "Single payment config",
         badge: cfg.isSplit ? "Split" : "Saved",
         isSplit: cfg.isSplit,
       })),
     ];
     return choices;
-  }, [paymentConfigs]);
+  }, [paymentConfigs, guests]);
 
   // Filter choices by search query
   const filteredChoices = useMemo(() => {
@@ -116,7 +123,7 @@ export function PaymentAllocationDialog({
       (c) =>
         c.label.toLowerCase().includes(query) ||
         c.description.toLowerCase().includes(query) ||
-        c.badge.toLowerCase().includes(query)
+        c.badge.toLowerCase().includes(query),
     );
   }, [gridChoices, searchQuery]);
 
@@ -134,7 +141,12 @@ export function PaymentAllocationDialog({
   const handleStartCustomSplit = useCallback(() => {
     if (guests.length > 0) {
       setSplits([
-        { entity: guests[0], strategyType: "percentage", value: 100, method: null },
+        {
+          entity: guests[0],
+          strategyType: "percentage",
+          value: 100,
+          method: null,
+        },
       ]);
     } else {
       setSplits([]);
@@ -164,7 +176,9 @@ export function PaymentAllocationDialog({
   const isValidSplit = validateSplit(splits, totalContextPrice);
 
   // Apply custom split logic
-  const handleSaveCustomSplit = (mode: "item" | "group" | "change-existing" | "new-only") => {
+  const handleSaveCustomSplit = (
+    mode: "item" | "group" | "change-existing" | "new-only",
+  ) => {
     if (!isValidSplit) return;
     const mappedSplits = splits.map((s) => ({
       entity: s.entity,
@@ -190,9 +204,15 @@ export function PaymentAllocationDialog({
   // Header Switch choice final application
   const handleApplyHeaderChoice = (mode: "change-existing" | "new-only") => {
     if (!pendingSelection) return;
-    if (pendingSelection.type === "config" && pendingSelection.configIdOrMethod) {
+    if (
+      pendingSelection.type === "config" &&
+      pendingSelection.configIdOrMethod
+    ) {
       onApplyConfig(pendingSelection.configIdOrMethod, mode);
-    } else if (pendingSelection.type === "custom" && pendingSelection.customSplits) {
+    } else if (
+      pendingSelection.type === "custom" &&
+      pendingSelection.customSplits
+    ) {
       const mappedSplits = pendingSelection.customSplits.map((s) => ({
         entity: s.entity,
         strategyType: s.strategyType,
@@ -210,10 +230,16 @@ export function PaymentAllocationDialog({
       return (
         <div className="rounded-lg border bg-muted/30 p-2.5 mb-2.5 flex items-center justify-between text-xs">
           <div>
-            <span className="font-semibold text-foreground">{items[0].name}</span>
-            <span className="text-muted-foreground ml-1.5 font-mono">({items[0].sku})</span>
+            <span className="font-semibold text-foreground">
+              {items[0].name}
+            </span>
+            <span className="text-muted-foreground ml-1.5 font-mono">
+              ({items[0].sku})
+            </span>
           </div>
-          <span className="font-mono font-bold">${items[0].totalPrice.toFixed(2)}</span>
+          <span className="font-mono font-bold">
+            ${items[0].totalPrice.toFixed(2)}
+          </span>
         </div>
       );
     }
@@ -221,9 +247,13 @@ export function PaymentAllocationDialog({
       return (
         <div className="rounded-lg border bg-muted/30 p-2.5 mb-2.5 flex items-center justify-between text-xs">
           <div>
-            <span className="font-semibold text-foreground">Allocate {items.length} Selected Items</span>
+            <span className="font-semibold text-foreground">
+              Allocate {items.length} Selected Items
+            </span>
           </div>
-          <span className="font-mono font-bold">${totalContextPrice?.toFixed(2)}</span>
+          <span className="font-mono font-bold">
+            ${totalContextPrice?.toFixed(2)}
+          </span>
         </div>
       );
     }
@@ -239,8 +269,8 @@ export function PaymentAllocationDialog({
             {context === "header"
               ? "Order Default Payment Configuration"
               : context === "group"
-              ? "Allocate Payment (Bulk)"
-              : "Allocate Payment"}
+                ? "Allocate Payment (Bulk)"
+                : "Allocate Payment"}
           </DialogTitle>
           <DialogDescription className="text-xs">
             {context === "header"
@@ -260,7 +290,8 @@ export function PaymentAllocationDialog({
                 Apply Payment Allocation
               </h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Do you want to switch all existing items in the order to this configuration, or set it as default for new items only?
+                Do you want to switch all existing items in the order to this
+                configuration, or set it as default for new items only?
               </p>
             </div>
 
@@ -293,7 +324,9 @@ export function PaymentAllocationDialog({
           /* Custom Split Creator View */
           <div className="space-y-4 py-2 animate-in fade-in duration-150">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">Customize Splits & Payers</span>
+              <span className="text-sm font-semibold">
+                Customize Splits & Payers
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -323,7 +356,7 @@ export function PaymentAllocationDialog({
               >
                 Cancel
               </Button>
-              
+
               <div className="flex gap-2">
                 {context === "item" ? (
                   <>
@@ -386,7 +419,10 @@ export function PaymentAllocationDialog({
                         <span className="min-w-0 truncate text-xs font-semibold text-foreground">
                           {choice.label}
                         </span>
-                        <Badge variant="outline" className="text-[8px] h-4 scale-95 shrink-0 px-1 font-mono uppercase bg-muted/40">
+                        <Badge
+                          variant="outline"
+                          className="text-[8px] h-4 scale-95 shrink-0 px-1 font-mono uppercase bg-muted/40"
+                        >
                           {choice.badge}
                         </Badge>
                       </div>
