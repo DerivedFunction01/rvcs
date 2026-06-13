@@ -14,7 +14,10 @@ import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dia
 import { FulfillmentAllocationDialog } from "@/components/pos/fulfillment-allocation-dialog";
 import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
 import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
-import { ChoiceDialog, type ChoiceDialogOption } from "@/components/pos/choice-dialog";
+import {
+  ChoiceDialog,
+  type ChoiceDialogOption,
+} from "@/components/pos/choice-dialog";
 import { BranchConfigDialog } from "@/components/pos/branch-config-dialog";
 import { BranchManagerDialog } from "@/components/pos/branch-manager-dialog";
 import { MergeBranchDialog } from "@/components/pos/merge-dialog";
@@ -315,7 +318,11 @@ function LineItemNode({
   onAddModifier: (item: ProjectedLineItem) => void;
   onAddNote: (item: ProjectedLineItem) => void;
   onAllocConfig: (item: ProjectedLineItem) => void;
-  onSwapComboChoice?: (lineId: string, parentLineId: string, slotSku: string) => void;
+  onSwapComboChoice?: (
+    lineId: string,
+    parentLineId: string,
+    slotSku: string,
+  ) => void;
   depth: number;
   modifiers: CatalogItemEntry[];
   guests: Guest[];
@@ -359,10 +366,14 @@ function LineItemNode({
   const showSku = detailLevel === "full";
   const showAllocations = detailLevel !== "simple";
 
-  const parentItem = item.parentLineId ? useVCSStore.getState().projectedState.items[item.parentLineId] : null;
-  const parentCatalogEntry = parentItem ? useVCSStore.getState().catalog[parentItem.sku] : null;
+  const parentItem = item.parentLineId
+    ? useVCSStore.getState().projectedState.items[item.parentLineId]
+    : null;
+  const parentCatalogEntry = parentItem
+    ? useVCSStore.getState().catalog[parentItem.sku]
+    : null;
   const comboChoiceEntry = parentCatalogEntry?.comboChoices?.find(
-    (choice) => choice.optionSku === item.sku
+    (choice) => choice.optionSku === item.sku,
   );
   const isComboChoice = !!comboChoiceEntry;
   const slotSku = comboChoiceEntry?.slotSku;
@@ -491,7 +502,11 @@ function LineItemNode({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (slotSku) {
-                        onSwapComboChoice?.(item.lineId, item.parentLineId!, slotSku);
+                        onSwapComboChoice?.(
+                          item.lineId,
+                          item.parentLineId!,
+                          slotSku,
+                        );
                       }
                     }}
                   >
@@ -667,27 +682,30 @@ function LineItemNode({
               ) : null}
               {!isCanceled && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {(isRoot || catalogEntry?.type === "item") && filteredModifiers.length > 0 && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddModifier(item);
-                          }}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="text-xs">
-                        Add modifiers
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {(isRoot || catalogEntry?.type === "item" || item.sku === "custom_note") && (
+                  {(isRoot || catalogEntry?.type === "item") &&
+                    filteredModifiers.length > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAddModifier(item);
+                            }}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs">
+                          Add modifiers
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  {(isRoot ||
+                    catalogEntry?.type === "item" ||
+                    item.sku === "custom_note") && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -1317,7 +1335,8 @@ function POSTerminalInner() {
     slotSku: string;
   } | null>(null);
 
-  const [retainModifiersDuringSwap, setRetainModifiersDuringSwap] = React.useState<boolean>(true);
+  const [retainModifiersDuringSwap, setRetainModifiersDuringSwap] =
+    React.useState<boolean>(true);
 
   const handleOpenSwapDialog = React.useCallback(
     (lineId: string, parentLineId: string, slotSku: string) => {
@@ -1332,7 +1351,8 @@ function POSTerminalInner() {
     null,
   );
   const [noteText, setNoteText] = React.useState("");
-  const [linkNoteToComboBase, setLinkNoteToComboBase] = React.useState<boolean>(false);
+  const [linkNoteToComboBase, setLinkNoteToComboBase] =
+    React.useState<boolean>(false);
 
   const isComboChildItem = React.useMemo(() => {
     if (!noteItem || !noteItem.parentLineId) return false;
@@ -1365,9 +1385,10 @@ function POSTerminalInner() {
         );
       toast.success("Note updated");
     } else {
-      const parentId = linkNoteToComboBase && noteItem.parentLineId
-        ? noteItem.parentLineId
-        : noteItem.lineId;
+      const parentId =
+        linkNoteToComboBase && noteItem.parentLineId
+          ? noteItem.parentLineId
+          : noteItem.lineId;
       useVCSStore
         .getState()
         .addModifier(parentId, "custom_note", noteText.trim());
@@ -2074,37 +2095,46 @@ function POSTerminalInner() {
 
     // Filter comboChoices for the current slot
     const slotChoices = parentEntry.comboChoices.filter(
-      (c) => c.slotSku === slotSku
+      (c) => c.slotSku === slotSku,
     );
 
     return slotChoices.map((choice) => {
       const choiceEntry = catalog[choice.optionSku];
       const name = choiceEntry?.name || choice.optionSku;
 
-      const modifierName = choice.modifierSku ? catalog[choice.modifierSku]?.name : undefined;
+      const modifierName = choice.modifierSku
+        ? catalog[choice.modifierSku]?.name
+        : undefined;
       const label = modifierName ? `${name} (${modifierName})` : name;
 
       const currentItem = projectedState.items[swapChoiceState.lineId];
-      const isCurrent = choice.optionSku === currentItem?.sku && (
-        choice.modifierSku
-          ? currentItem.children?.some(c => c.sku === choice.modifierSku)
-          : !currentItem.children?.some(c =>
-              slotChoices.some(sc => sc.optionSku === choice.optionSku && sc.modifierSku === c.sku)
-            )
-      );
+      const isCurrent =
+        choice.optionSku === currentItem?.sku &&
+        (choice.modifierSku
+          ? currentItem.children?.some((c) => c.sku === choice.modifierSku)
+          : !currentItem.children?.some((c) =>
+              slotChoices.some(
+                (sc) =>
+                  sc.optionSku === choice.optionSku && sc.modifierSku === c.sku,
+              ),
+            ));
 
       return {
         id: `${choice.optionSku}:${choice.modifierSku || ""}`,
         label: label,
         description: `$${choice.price.toFixed(2)}`,
         badge: isCurrent ? (
-          <Badge className="bg-primary/20 text-primary border-transparent text-[9px] h-3.5 px-1 inline-flex">Current</Badge>
+          <Badge className="bg-primary/20 text-primary border-transparent text-[9px] h-3.5 px-1 inline-flex">
+            Current
+          </Badge>
         ) : undefined,
       };
     });
   }, [swapChoiceState, projectedState.items, catalog]);
 
-  const slotName = swapChoiceState ? (catalog[swapChoiceState.slotSku]?.name || "Slot Choice") : "Slot Choice";
+  const slotName = swapChoiceState
+    ? catalog[swapChoiceState.slotSku]?.name || "Slot Choice"
+    : "Slot Choice";
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -2424,7 +2454,7 @@ function POSTerminalInner() {
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* ─── LEFT PANEL: Catalog ─────────────────────────────────── */}
-          <aside className="w-64 border-r bg-card flex flex-col shrink-0">
+          <aside className="w-256 border-r bg-card flex flex-col shrink-0">
             <div className="p-3 border-b">
               <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Catalog
@@ -2437,7 +2467,7 @@ function POSTerminalInner() {
               />
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="p-2 space-y-1">
                 {Object.entries(groupedCatalog).map(([category, items]) => (
                   <div key={category}>
@@ -2791,12 +2821,21 @@ function POSTerminalInner() {
                           Charge Breakdown
                         </h4>
                         <div className="space-y-1">
-                          {projectedState.financials.chargeBreakdown.map((charge, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-xs">
-                              <span className="truncate pr-2 text-muted-foreground">{charge.label}</span>
-                              <span className="font-mono font-medium tabular-nums">${charge.chargeAmount.toFixed(2)}</span>
-                            </div>
-                          ))}
+                          {projectedState.financials.chargeBreakdown.map(
+                            (charge, idx) => (
+                              <div
+                                key={idx}
+                                className="flex justify-between items-center text-xs"
+                              >
+                                <span className="truncate pr-2 text-muted-foreground">
+                                  {charge.label}
+                                </span>
+                                <span className="font-mono font-medium tabular-nums">
+                                  ${charge.chargeAmount.toFixed(2)}
+                                </span>
+                              </div>
+                            ),
+                          )}
                         </div>
                       </div>
                     </PopoverContent>
@@ -4153,13 +4192,16 @@ function POSTerminalInner() {
                 <Checkbox
                   id="link-to-base-checkbox"
                   checked={linkNoteToComboBase}
-                  onCheckedChange={(checked) => setLinkNoteToComboBase(!!checked)}
+                  onCheckedChange={(checked) =>
+                    setLinkNoteToComboBase(!!checked)
+                  }
                 />
                 <label
                   htmlFor="link-to-base-checkbox"
                   className="text-xs font-semibold leading-none cursor-pointer select-none text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Apply note to combo base (will not be deleted if item is swapped)
+                  Apply note to combo base (will not be deleted if item is
+                  swapped)
                 </label>
               </div>
             )}
@@ -4234,7 +4276,7 @@ function POSTerminalInner() {
               swapChoiceState.parentLineId,
               optionSku,
               modifierSku || undefined,
-              retainModifiersDuringSwap
+              retainModifiersDuringSwap,
             );
             setSwapChoiceState(null);
             toast.success("Combo choice updated");
