@@ -19,6 +19,7 @@ model PosConfig {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  floors    Floor[]
 }
 
 // ─── Product Catalog (The Menu) ────────────────────────────────────────────────
@@ -85,6 +86,51 @@ model Server {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   repos     TransactionRepo[]
+}
+
+model Floor {
+  id          String           @id @default(cuid())
+  posConfigId String?
+  posConfig   PosConfig?       @relation(fields: [posConfigId], references: [id], onDelete: SetNull)
+  name        String
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  objects     FloorObject[]
+
+  @@index([posConfigId, sortOrder])
+}
+
+model FloorObject {
+  id         String     @id @default(cuid())
+  floorId    String
+  floor      Floor      @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  type       String     // table | chair | wall | deadspace
+  name       String
+  shapeType  String?    // circle | ellipse | rectangle | triangle | polygon
+  points     String     // JSON array of points
+  x          Int
+  y          Int
+  w          Int
+  h          Int
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  tableLinksAsTable TableChairLink[] @relation("table_object")
+  tableLinksAsChair TableChairLink[] @relation("chair_object")
+
+  @@index([floorId, type])
+}
+
+model TableChairLink {
+  id         String      @id @default(cuid())
+  tableId    String
+  chairId    String
+  table      FloorObject @relation("table_object", fields: [tableId], references: [id], onDelete: Cascade)
+  chair      FloorObject @relation("chair_object", fields: [chairId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, chairId])
+  @@index([chairId])
 }
 
 model TransactionRepo {

@@ -116,6 +116,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
   const [selectedServer, setSelectedServer] = useState("");
   const [selectedFloorId, setSelectedFloorId] = useState("");
   const [selectedTableId, setSelectedTableId] = useState("");
+  const [selectedObjectId, setSelectedObjectId] = useState("");
   const [customerFields, setCustomerFields] = useState<Record<string, string>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -162,6 +163,19 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
     [selectedTable],
   );
 
+  const selectedObject = useMemo(() => {
+    if (!selectedFloor) return null;
+    return selectedFloor.objects.find((object) => object.id === selectedObjectId) ?? null;
+  }, [selectedFloor, selectedObjectId]);
+
+  const linkedChairIds = useMemo(
+    () =>
+      selectedTable && selectedTable.kind === "table" && selectedTable.linkedChairIds
+        ? selectedTable.linkedChairIds
+        : [],
+    [selectedTable],
+  );
+
   const handleSelectType = (type: OrderTypeConfig) => {
     setSelectedType(type);
     const initial: Record<string, string> = {};
@@ -171,6 +185,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
     setCustomerFields(initial);
     setFieldErrors({});
     setSelectedTableId("");
+    setSelectedObjectId("");
     setStep(type.id === "walk-in" ? "floor" : "details");
   };
 
@@ -400,6 +415,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                     onValueChange={(value) => {
                       setSelectedFloorId(value);
                       setSelectedTableId("");
+                      setSelectedObjectId("");
                     }}
                   >
                     <SelectTrigger className="w-full">
@@ -420,7 +436,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                     Selected table
                   </p>
                   <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-                    {selectedTable ? selectedTable.label || selectedTable.id : "None selected"}
+                    {selectedTable ? selectedTable.label || selectedTable.id : selectedObject ? selectedObject.label || selectedObject.id : "None selected"}
                   </div>
                 </div>
 
@@ -450,14 +466,20 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                         }}
                       >
                         {floorGrid.map(({ x, y, object }) => {
-                          const selected = object?.kind === "table" && object.id === selectedTableId;
+                          const selected = object?.id === selectedObjectId;
+                          const linkedToSelectedTable =
+                            object?.kind === "chair" && linkedChairIds.includes(object.id);
                           const baseClass =
                             object?.kind === "wall"
                               ? "bg-zinc-800 text-white"
                               : object?.kind === "deadspace"
                                 ? "bg-zinc-100 text-zinc-400"
                                 : object?.kind === "chair"
-                                  ? "bg-sky-50 text-sky-700"
+                                  ? selected
+                                    ? "bg-sky-200 text-sky-900 ring-2 ring-sky-500"
+                                    : linkedToSelectedTable
+                                      ? "bg-sky-100 text-sky-800"
+                                      : "bg-sky-50 text-sky-700"
                                   : object?.kind === "table"
                                     ? selected
                                       ? "bg-emerald-200 text-emerald-900 ring-2 ring-emerald-500"
@@ -472,9 +494,13 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                               onClick={() => {
                                 if (object?.kind === "table") {
                                   setSelectedTableId(object.id === selectedTableId ? "" : object.id);
+                                  setSelectedObjectId(object.id === selectedObjectId ? "" : object.id);
+                                } else if (object?.kind === "chair") {
+                                  setSelectedTableId("");
+                                  setSelectedObjectId(object.id === selectedObjectId ? "" : object.id);
                                 }
                               }}
-                              disabled={object?.kind !== "table"}
+                              disabled={object?.kind === "wall" || object?.kind === "deadspace" || !object}
                             >
                               <div className="absolute inset-0 flex items-center justify-center p-1 text-center whitespace-pre-line">
                                 {object?.kind === "table"
@@ -501,6 +527,22 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                 )}
               </div>
             </div>
+
+            {selectedObject && (
+              <div className="rounded-xl border bg-card p-4 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{selectedObject.label || selectedObject.id}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {selectedObject.kind}
+                    </p>
+                  </div>
+                  {selectedObject.kind === "table" && linkedChairIds.length > 0 && (
+                    <Badge variant="secondary">{linkedChairIds.length} linked chairs</Badge>
+                  )}
+                </div>
+              </div>
+            )}
 
             {selectedTable && selectedGuestNames.length > 0 && (
               <div className="rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/15 p-4">

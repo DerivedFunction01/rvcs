@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-// ─── POS Config Types ──────────────────────────────────────────────────────
-
 interface CustomerField {
-  key: string;          // "name", "phone", "address", "email", "notes"
-  label: string;        // Display label
+  key: string;
+  label: string;
   type: "text" | "tel" | "email" | "textarea";
   required: boolean;
   placeholder?: string;
@@ -13,38 +11,31 @@ interface CustomerField {
 }
 
 interface OrderType {
-  id: string;           // "walk-in", "pickup", "delivery"
-  label: string;        // "Walk In", "Pickup", "Delivery"
-  description: string;
-  icon: string;         // Lucide icon name
-  customerFields: CustomerField[];
-  estimatedTimeLabel?: string; // e.g. "Ready in ~15 min"
-}
-
-interface FloorObject {
   id: string;
-  kind: "table" | "chair" | "wall" | "deadspace";
-  shape?: "circle" | "ellipse" | "rectangle" | "triangle" | "polygon";
-  label?: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  guestNames?: string[];
-  linkedChairIds?: string[];
-  chairLabels?: string[];
-  tableId?: string | null;
+  label: string;
+  description: string;
+  icon: string;
+  customerFields: CustomerField[];
+  estimatedTimeLabel?: string;
 }
 
-interface FloorConfig {
+interface FloorRow {
   id: string;
   name: string;
-  gridWidth: number;
-  gridHeight: number;
-  objects: FloorObject[];
+  sortOrder: number;
+  objects: Array<{
+    id: string;
+    type: string;
+    name: string;
+    shapeType: string | null;
+    points: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }>;
+  links: Array<{ tableId: string; chairId: string }>;
 }
-
-// ─── Default Configuration (seeded on first fetch) ─────────────────────────
 
 const DEFAULT_CONFIG = {
   key: "default",
@@ -141,129 +132,167 @@ const DEFAULT_CONFIG = {
       ],
     },
   ] as OrderType[],
-  floorConfigs: [
-    {
-      id: "floor-main",
-      name: "Main Floor",
-      gridWidth: 8,
-      gridHeight: 5,
-      objects: [
-        {
-          id: "wall-north",
-          kind: "wall",
-          x: 0,
-          y: 0,
-          w: 8,
-          h: 1,
-        },
-        {
-          id: "deadspace-entry",
-          kind: "deadspace",
-          x: 0,
-          y: 1,
-          w: 1,
-          h: 1,
-        },
-        {
-          id: "table-a",
-          kind: "table",
-          shape: "rectangle",
-          label: "Table A",
-          x: 2,
-          y: 1,
-          w: 2,
-          h: 1,
-          guestNames: ["Guest 1", "Guest 2"],
-          linkedChairIds: ["chair-a1", "chair-a2"],
-          chairLabels: ["A1", "A2"],
-        },
-        {
-          id: "chair-a1",
-          kind: "chair",
-          label: "A1",
-          x: 2,
-          y: 2,
-          w: 1,
-          h: 1,
-          tableId: "table-a",
-        },
-        {
-          id: "chair-a2",
-          kind: "chair",
-          label: "A2",
-          x: 3,
-          y: 2,
-          w: 1,
-          h: 1,
-          tableId: "table-a",
-        },
-        {
-          id: "table-b",
-          kind: "table",
-          shape: "circle",
-          label: "Table B",
-          x: 5,
-          y: 1,
-          w: 2,
-          h: 2,
-          guestNames: ["Guest 1", "Guest 2", "Guest 3"],
-          linkedChairIds: ["chair-b1", "chair-b2", "chair-b3"],
-          chairLabels: ["B1", "B2", "B3"],
-        },
-        {
-          id: "chair-b1",
-          kind: "chair",
-          label: "B1",
-          x: 5,
-          y: 3,
-          w: 1,
-          h: 1,
-          tableId: "table-b",
-        },
-        {
-          id: "chair-b2",
-          kind: "chair",
-          label: "B2",
-          x: 6,
-          y: 3,
-          w: 1,
-          h: 1,
-          tableId: "table-b",
-        },
-        {
-          id: "chair-b3",
-          kind: "chair",
-          label: "B3",
-          x: 6,
-          y: 2,
-          w: 1,
-          h: 1,
-          tableId: "table-b",
-        },
-        {
-          id: "wall-south",
-          kind: "wall",
-          x: 0,
-          y: 4,
-          w: 8,
-          h: 1,
-        },
-      ],
-    },
-  ] as FloorConfig[],
 };
 
-// ─── GET /api/pos-config ───────────────────────────────────────────────────
-// Returns the active POS configuration. Auto-seeds on first call.
+function defaultFloorSeed() {
+  return [
+    {
+      name: "Main Floor",
+      sortOrder: 0,
+      objects: [
+        { type: "wall", name: "North Wall", shapeType: null, points: [[0, 0], [8, 0]], x: 0, y: 0, w: 8, h: 1 },
+        { type: "deadspace", name: "Entry", shapeType: null, points: [[0, 1]], x: 0, y: 1, w: 1, h: 1 },
+        { type: "table", name: "Table 1", shapeType: "rectangle", points: [[2, 1], [4, 1], [4, 2], [2, 2]], x: 2, y: 1, w: 2, h: 1 },
+        { type: "chair", name: "Table 1 Chair 1", shapeType: "rectangle", points: [[2, 2]], x: 2, y: 2, w: 1, h: 1 },
+        { type: "chair", name: "Table 1 Chair 2", shapeType: "rectangle", points: [[3, 2]], x: 3, y: 2, w: 1, h: 1 },
+        { type: "table", name: "Table 2", shapeType: "circle", points: [[5, 1], [6, 1], [6, 2], [5, 2]], x: 5, y: 1, w: 2, h: 2 },
+        { type: "chair", name: "Table 2 Chair 1", shapeType: "rectangle", points: [[5, 3]], x: 5, y: 3, w: 1, h: 1 },
+        { type: "chair", name: "Table 2 Chair 2", shapeType: "rectangle", points: [[6, 3]], x: 6, y: 3, w: 1, h: 1 },
+        { type: "chair", name: "Table 2 Chair 3", shapeType: "rectangle", points: [[6, 2]], x: 6, y: 2, w: 1, h: 1 },
+        { type: "wall", name: "South Wall", shapeType: null, points: [[0, 4], [8, 4]], x: 0, y: 4, w: 8, h: 1 },
+      ],
+      links: [
+        { tableName: "Table 1", chairName: "Table 1 Chair 1" },
+        { tableName: "Table 1", chairName: "Table 1 Chair 2" },
+        { tableName: "Table 2", chairName: "Table 2 Chair 1" },
+        { tableName: "Table 2", chairName: "Table 2 Chair 2" },
+        { tableName: "Table 2", chairName: "Table 2 Chair 3" },
+      ],
+    },
+  ];
+}
+
+async function ensureDefaultFloors(posConfigId: string) {
+  const prisma = db as typeof db & { floor: any; floorObject: any; tableChairLink: any };
+  const existingFloors = await prisma.floor.findMany({
+    where: { posConfigId },
+    include: { objects: true },
+  });
+
+  if (existingFloors.length > 0) return;
+
+  for (const floorSeed of defaultFloorSeed()) {
+    const floor = await prisma.floor.create({
+      data: {
+        posConfigId,
+        name: floorSeed.name,
+        sortOrder: floorSeed.sortOrder,
+      },
+    });
+
+    const objectMap = new Map<string, { id: string; name: string }>();
+    for (const object of floorSeed.objects) {
+      const created = await prisma.floorObject.create({
+        data: {
+          floorId: floor.id,
+          type: object.type,
+          name: object.name,
+          shapeType: object.shapeType,
+          points: JSON.stringify(object.points),
+          x: object.x,
+          y: object.y,
+          w: object.w,
+          h: object.h,
+        },
+      });
+      objectMap.set(object.name, { id: created.id, name: created.name });
+    }
+
+    for (const link of floorSeed.links) {
+      const table = objectMap.get(link.tableName);
+      const chair = objectMap.get(link.chairName);
+      if (!table || !chair) continue;
+      await prisma.tableChairLink.create({
+        data: {
+          tableId: table.id,
+          chairId: chair.id,
+        },
+      });
+    }
+  }
+}
+
+async function readFloorConfigs(posConfigId: string): Promise<Array<{
+  id: string;
+  name: string;
+  gridWidth: number;
+  gridHeight: number;
+  objects: Array<{
+    id: string;
+    kind: "table" | "chair" | "wall" | "deadspace";
+    shape?: "circle" | "ellipse" | "rectangle" | "triangle" | "polygon";
+    label?: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    guestNames?: string[];
+    linkedChairIds?: string[];
+    chairLabels?: string[];
+    tableId?: string | null;
+  }>;
+}>> {
+  const prisma = db as typeof db & { floor: any; floorObject: any; tableChairLink: any };
+  const floors: FloorRow[] = await prisma.floor.findMany({
+    where: { posConfigId },
+    orderBy: { sortOrder: "asc" },
+    include: {
+      objects: true,
+    },
+  });
+
+  const links = await prisma.tableChairLink.findMany({
+    include: {
+      table: true,
+      chair: true,
+    },
+  });
+
+  return floors.map((floor) => {
+    const objects = floor.objects.map((object) => {
+      const matchingLinks = links.filter((link: { tableId: string; chairId: string }) => link.tableId === object.id);
+      const linkedChairIds = matchingLinks.map((link: { chairId: string }) => link.chairId);
+      const chairLabels = matchingLinks.map((link: { chair: { name: string } }) => link.chair.name);
+      const reverseLink = links.find((link: { chairId: string; tableId: string }) => link.chairId === object.id);
+
+      return {
+        id: object.id,
+        kind: object.type as "table" | "chair" | "wall" | "deadspace",
+        shape: (object.shapeType as "circle" | "ellipse" | "rectangle" | "triangle" | "polygon") || undefined,
+        label: object.name,
+        x: object.x,
+        y: object.y,
+        w: object.w,
+        h: object.h,
+        guestNames:
+          object.type === "table"
+            ? chairLabels.map((label) => `Guest ${label.split(" ").pop() || "1"}`)
+            : undefined,
+        linkedChairIds: object.type === "table" ? linkedChairIds : undefined,
+        chairLabels: object.type === "table" ? chairLabels : undefined,
+        tableId: object.type === "chair" ? reverseLink?.tableId ?? null : undefined,
+      };
+    });
+
+    const gridWidth = Math.max(1, ...objects.map((obj) => obj.x + obj.w));
+    const gridHeight = Math.max(1, ...objects.map((obj) => obj.y + obj.h));
+
+    return {
+      id: floor.id,
+      name: floor.name,
+      gridWidth,
+      gridHeight,
+      objects,
+    };
+  });
+}
 
 export async function GET() {
   try {
-    // Try to find an active config
     let config = await db.posConfig.findFirst({
       where: { active: true },
     });
 
-    // Auto-seed if no config exists
     if (!config) {
       config = await db.posConfig.create({
         data: {
@@ -277,9 +306,12 @@ export async function GET() {
       });
     }
 
+    await ensureDefaultFloors(config.id);
+
     const parsed = JSON.parse(config.config);
     const orderTypes = (parsed.orderTypes ?? parsed) as OrderType[];
     const defaultPaymentMethod = (parsed.defaultPaymentMethod ?? "cash") as string;
+    const floorConfigs = await readFloorConfigs(config.id);
 
     return NextResponse.json({
       id: config.id,
@@ -287,16 +319,13 @@ export async function GET() {
       label: config.label,
       defaultPaymentMethod,
       orderTypes,
-      floorConfigs: parsed.floorConfigs ?? [],
+      floorConfigs,
     });
   } catch (error) {
     console.error("POS config fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch POS config" }, { status: 500 });
   }
 }
-
-// ─── POST /api/pos-config ──────────────────────────────────────────────────
-// Upsert the POS configuration (admin endpoint).
 
 export async function POST(request: Request) {
   try {
@@ -333,14 +362,17 @@ export async function POST(request: Request) {
       },
     });
 
+    await ensureDefaultFloors(config.id);
+    const floorConfigs = await readFloorConfigs(config.id);
     const parsed = JSON.parse(config.config);
+
     return NextResponse.json({
       id: config.id,
       key: config.key,
       label: config.label,
       defaultPaymentMethod: parsed.defaultPaymentMethod ?? "cash",
       orderTypes: parsed.orderTypes ?? parsed,
-      floorConfigs: parsed.floorConfigs ?? [],
+      floorConfigs,
     });
   } catch (error) {
     console.error("POS config upsert error:", error);
