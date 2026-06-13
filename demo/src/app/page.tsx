@@ -2875,171 +2875,29 @@ function POSTerminalInner() {
             {selectedLineIds.size > 0 && (
               <div
                 ref={bulkActionsBarRef}
-                className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0"
+                className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex flex-col gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0"
               >
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={
-                      selectedLineIds.size > 0 &&
-                      selectedLineIds.size === filteredRootItems.length
-                    }
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedLineIds(
-                          new Set(filteredRootItems.map((i) => i.lineId)),
-                        );
-                      } else {
-                        setSelectedLineIds(new Set());
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={
+                        selectedLineIds.size > 0 &&
+                        selectedLineIds.size === filteredRootItems.length
                       }
-                    }}
-                  />
-                  <span className="text-xs font-semibold text-foreground select-none">
-                    {selectedLineIds.size} selected
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Quantity bulk increase/decrease */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
-                    onClick={() => {
-                      modifyItemsQty(Array.from(selectedLineIds), -1);
-                      toast.success("Selected items quantity decreased");
-                    }}
-                  >
-                    <Minus className="w-3.5 h-3.5 mr-1" />- Qty
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
-                    onClick={() => {
-                      modifyItemsQty(Array.from(selectedLineIds), 1);
-                      toast.success("Selected items quantity increased");
-                    }}
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1" />+ Qty
-                  </Button>
-
-                  {/* Quantity bulk set */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
-                    onClick={() => setQtyPadOpen(true)}
-                  >
-                    Set Qty
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
-                    onClick={() => {
-                      duplicateItems(Array.from(selectedLineIds));
-                      toast.success("Selected items duplicated");
-                    }}
-                  >
-                    <Copy className="w-3.5 h-3.5 mr-1" />
-                    Duplicate
-                  </Button>
-
-                  {/* Duplicate and Move */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
-                    onClick={() => setDupMoveDialogOpen(true)}
-                  >
-                    Dup & Move
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-destructive/90"
-                    onClick={() => {
-                      removeItems(Array.from(selectedLineIds));
-                      setSelectedLineIds(new Set());
-                      toast.success("Selected items removed");
-                    }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    Remove
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent"
-                    onClick={() => setAssignGuestDialogOpen(true)}
-                  >
-                    Assign Guest
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-31.25"
-                    onClick={() => {
-                      const selectedItems = Array.from(selectedLineIds)
-                        .map((id) => projectedState.items[id])
-                        .filter(Boolean);
-                      setPaymentAllocationItems(selectedItems);
-                      setPaymentAllocationContext("group");
-                      setPaymentAllocationOpen(true);
-                    }}
-                  >
-                    Allocate Payment
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium hover:bg-accent w-31.25"
-                    onClick={() => {
-                      const selectedItems = Array.from(selectedLineIds)
-                        .map((id) => projectedState.items[id])
-                        .filter(Boolean);
-                      setFulfillmentAllocationItems(selectedItems);
-                      setFulfillmentAllocationContext("group");
-                      setFulfillmentAllocationOpen(true);
-                    }}
-                  >
-                    Set Fulfillment
-                  </Button>
-
-                  {compatibleModifiers.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border border-primary/30 text-primary hover:bg-primary/5 gap-1"
-                      onClick={() => {
-                        setModifierAddItem(null);
-                        setModifierAddOpen(true);
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedLineIds(
+                            new Set(filteredRootItems.map((i) => i.lineId)),
+                          );
+                        } else {
+                          setSelectedLineIds(new Set());
+                        }
                       }}
-                    >
-                      <Plus className="w-3.5 h-3.5" />+ Modifier
-                    </Button>
-                  )}
-
-                  {activeModifiersOnSelected.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px] px-2.5 font-medium bg-background border border-destructive/30 text-destructive hover:bg-destructive/5 gap-1"
-                      onClick={() => setRemoveModDialogOpen(true)}
-                    >
-                      <Minus className="w-3.5 h-3.5" />- Modifier
-                    </Button>
-                  )}
-
-                  <SeparatorUI
-                    orientation="vertical"
-                    className="h-6 mx-1 shrink-0"
-                  />
-
+                    />
+                    <span className="text-xs font-semibold text-foreground select-none">
+                      {selectedLineIds.size} selected
+                    </span>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -3048,6 +2906,163 @@ function POSTerminalInner() {
                   >
                     <XCircle className="w-4 h-4" />
                   </Button>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {/* QTY Group */}
+                  <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
+                      Qty
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => {
+                        modifyItemsQty(Array.from(selectedLineIds), -1);
+                        toast.success("Selected items quantity decreased");
+                      }}
+                    >
+                      <Minus className="w-3.5 h-3.5 mr-1" />- 1
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => {
+                        modifyItemsQty(Array.from(selectedLineIds), 1);
+                        toast.success("Selected items quantity increased");
+                      }}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />+ 1
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => setQtyPadOpen(true)}
+                    >
+                      Set Qty
+                    </Button>
+                  </div>
+
+                  {/* ACTION Group */}
+                  <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
+                      Action
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => {
+                        duplicateItems(Array.from(selectedLineIds));
+                        toast.success("Selected items duplicated");
+                      }}
+                    >
+                      <Copy className="w-3.5 h-3.5 mr-1" />
+                      Duplicate
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => setDupMoveDialogOpen(true)}
+                    >
+                      Dup & Move
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium hover:bg-destructive/90"
+                      onClick={() => {
+                        removeItems(Array.from(selectedLineIds));
+                        setSelectedLineIds(new Set());
+                        toast.success("Selected items removed");
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+
+                  {/* ASSIGN Group */}
+                  <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
+                      Assign
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => setAssignGuestDialogOpen(true)}
+                    >
+                      Guest
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => {
+                        const selectedItems = Array.from(selectedLineIds)
+                          .map((id) => projectedState.items[id])
+                          .filter(Boolean);
+                        setPaymentAllocationItems(selectedItems);
+                        setPaymentAllocationContext("group");
+                        setPaymentAllocationOpen(true);
+                      }}
+                    >
+                      Payment
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                      onClick={() => {
+                        const selectedItems = Array.from(selectedLineIds)
+                          .map((id) => projectedState.items[id])
+                          .filter(Boolean);
+                        setFulfillmentAllocationItems(selectedItems);
+                        setFulfillmentAllocationContext("group");
+                        setFulfillmentAllocationOpen(true);
+                      }}
+                    >
+                      Fulfillment
+                    </Button>
+                  </div>
+
+                  {/* MODIFIERS Group */}
+                  {(compatibleModifiers.length > 0 ||
+                    activeModifiersOnSelected.length > 0) && (
+                    <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
+                        Mods
+                      </span>
+                      {compatibleModifiers.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-primary hover:bg-primary/5 gap-1"
+                          onClick={() => {
+                            setModifierAddItem(null);
+                            setModifierAddOpen(true);
+                          }}
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add
+                        </Button>
+                      )}
+                      {activeModifiersOnSelected.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-destructive hover:bg-destructive/5 gap-1"
+                          onClick={() => setRemoveModDialogOpen(true)}
+                        >
+                          <Minus className="w-3.5 h-3.5" /> Remove
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
