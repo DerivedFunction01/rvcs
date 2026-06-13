@@ -125,6 +125,24 @@ function getGuestColor(name: string, guests: string[]): string {
   return GUEST_PALETTE[Math.abs(hash) % GUEST_PALETTE.length];
 }
 
+function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Record<string, AllocationBlock> {
+  const patched: Record<string, AllocationBlock> = {};
+  for (const [id, alloc] of Object.entries(allocations)) {
+    if (alloc.type === "payment") {
+      const p = alloc as PaymentAllocation;
+      if (p.paymentStrategy.strategyType === "fixed_item" || p.paymentStrategy.strategyType === "fixed_global") {
+        patched[id] = {
+          ...p,
+          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" }
+        } as any;
+        continue;
+      }
+    }
+    patched[id] = alloc;
+  }
+  return patched;
+}
+
 // ─── Allocation Badge ──────────────────────────────────────────────────────
 
 function AllocationBadges({
@@ -141,6 +159,7 @@ function AllocationBadges({
   if (allocationIds.length === 0) return null;
 
   const seenPaymentGroups = new Set<string>();
+  const patchedAllocs = getPatchedAllocations(allocations);
 
   return (
     <div className="flex flex-wrap gap-1 mt-1.5">
@@ -166,7 +185,7 @@ function AllocationBadges({
           const paymentGroupId = payAlloc.correlationId || payAlloc.allocationId;
           if (seenPaymentGroups.has(paymentGroupId)) return null;
           seenPaymentGroups.add(paymentGroupId);
-          const displayName = getPaymentAllocDisplayName(payAlloc, allocations);
+          const displayName = getPaymentAllocDisplayName(patchedAllocs[payAlloc.allocationId] as PaymentAllocation, patchedAllocs);
           const isDefault = id === defaultPaymentAllocId;
           const isSplit = !!payAlloc.correlationId;
           return (
@@ -1075,8 +1094,9 @@ function POSTerminalInner() {
       }
     }
 
+    const patchedAllocs = getPatchedAllocations(allocations);
     singlePayers.forEach((pay, id) => {
-      const displayName = `Single: ${getPaymentAllocDisplayName(pay, allocations)}`;
+      const displayName = `Single: ${getPaymentAllocDisplayName(patchedAllocs[id] as PaymentAllocation, patchedAllocs)}`;
       configs.push({
         id,
         name: displayName,
@@ -1085,7 +1105,7 @@ function POSTerminalInner() {
     });
 
     splitGroups.forEach((group, correlationId) => {
-      const displayName = `Split: ${getPaymentAllocDisplayName(group[0], allocations)}`;
+      const displayName = `Split: ${getPaymentAllocDisplayName(patchedAllocs[group[0].allocationId] as PaymentAllocation, patchedAllocs)}`;
       configs.push({
         id: correlationId,
         name: displayName,
@@ -1112,8 +1132,9 @@ function POSTerminalInner() {
           a.correlationId === activePaymentConfigId),
     );
     if (activeAlloc) {
+      const patchedAllocs = getPatchedAllocations(allocations);
       const typeLabel = activeAlloc.correlationId ? "Split" : "Single";
-      return `${typeLabel}: ${getPaymentAllocDisplayName(activeAlloc, allocations)}`;
+      return `${typeLabel}: ${getPaymentAllocDisplayName(patchedAllocs[activeAlloc.allocationId] as PaymentAllocation, patchedAllocs)}`;
     }
     return "Default Config";
   }, [
@@ -1211,7 +1232,6 @@ function POSTerminalInner() {
     (
       splits: Array<{
         entity: string;
-        strategyType: "percentage" | "fixed" | "remaining";
         strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
         value: number;
         method?: string | null;
@@ -1248,7 +1268,6 @@ function POSTerminalInner() {
       lineId: string,
       splits: Array<{
         entity: string;
-        strategyType: "percentage" | "fixed" | "remaining";
         strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
         value: number;
         method?: string | null;

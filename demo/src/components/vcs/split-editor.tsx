@@ -15,7 +15,6 @@ import { Trash2, Plus, X } from "lucide-react";
 
 export interface PaymentSplitEntry {
   entity: string;
-  strategyType: "percentage" | "fixed" | "remaining";
   strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
   value: number;
   method?: string | null;
@@ -23,14 +22,12 @@ export interface PaymentSplitEntry {
 
 export function validateSplit(splits: PaymentSplitEntry[], itemTotalPrice?: number) {
   const totalPercentage = splits.filter(s => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0);
-  const totalFixed = splits.filter(s => s.strategyType === "fixed").reduce((sum, s) => sum + s.value, 0);
   const totalFixedItem = splits.filter(s => s.strategyType === "fixed_item").reduce((sum, s) => sum + s.value, 0);
   const totalFixedGlobal = splits.filter(s => s.strategyType === "fixed_global").reduce((sum, s) => sum + s.value, 0);
 
   if (splits.length < 1) return false;
   if (itemTotalPrice !== undefined) {
     const price = itemTotalPrice;
-    const fixedSum = totalFixed;
     const fixedSum = totalFixedItem + totalFixedGlobal;
     const pctSum = price * (totalPercentage / 100);
     return fixedSum + pctSum <= price + 0.01;
@@ -58,7 +55,6 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
   );
 
   const totalFixed = useMemo(
-    () => splits.filter(s => s.strategyType === "fixed").reduce((sum, s) => sum + s.value, 0),
     () => splits.filter(s => s.strategyType === "fixed_item" || s.strategyType === "fixed_global").reduce((sum, s) => sum + s.value, 0),
     [splits]
   );
@@ -123,7 +119,6 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     [splits, onChange]
   );
 
-  const handleSplitTypeChange = (index: number, type: "percentage" | "fixed" | "remaining") => {
   const handleSplitTypeChange = (index: number, type: "percentage" | "fixed_item" | "fixed_global" | "remaining") => {
     const updated = [...splits];
     updated[index] = {
@@ -203,7 +198,6 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="percentage" className="text-xs">Percentage</SelectItem>
-                <SelectItem value="fixed" className="text-xs">Fixed Amt</SelectItem>
                 <SelectItem value="fixed_item" className="text-xs">Fixed/Item</SelectItem>
                 <SelectItem value="fixed_global" className="text-xs">Fixed Global</SelectItem>
                 <SelectItem value="remaining" className="text-xs">Remaining</SelectItem>

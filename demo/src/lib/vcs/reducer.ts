@@ -668,9 +668,6 @@ function buildProjectedState(
       let remaining = lineTotal;
       const allocatedAmounts = new Map<string, number>();
 
-      // 1. Fixed payment strategies
-      const fixedAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "fixed");
-      for (const alloc of fixedAllocs) {
       // 1. Fixed payment strategies (item)
       const fixedItemAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "fixed_item" || a.paymentStrategy?.strategyType === "fixed");
       for (const alloc of fixedItemAllocs) {

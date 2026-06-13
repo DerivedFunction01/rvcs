@@ -52,7 +52,6 @@ interface AllocationConfigDialogProps {
     lineId: string,
     splits: Array<{
       entity: string;
-      strategyType: "percentage" | "fixed" | "remaining";
       strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
       value: number;
       method?: string | null;
@@ -62,6 +61,24 @@ interface AllocationConfigDialogProps {
   onResetToDefault: (lineId: string) => void;
   onSwitchItemPayment: (lineId: string, newMethod: string) => void;
   onAddGuest: (name: string) => void;
+}
+
+function getPatchedAllocations(allocations: Record<string, AllocationBlock>): Record<string, AllocationBlock> {
+  const patched: Record<string, AllocationBlock> = {};
+  for (const [id, alloc] of Object.entries(allocations)) {
+    if (alloc.type === "payment") {
+      const p = alloc as PaymentAllocation;
+      if (p.paymentStrategy.strategyType === "fixed_item" || p.paymentStrategy.strategyType === "fixed_global") {
+        patched[id] = {
+          ...p,
+          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" }
+        } as any;
+        continue;
+      }
+    }
+    patched[id] = alloc;
+  }
+  return patched;
 }
 
 export function AllocationConfigDialog({
@@ -115,6 +132,7 @@ export function AllocationConfigDialog({
   const existingPayments = useMemo(() => {
     const map = new Map<string, string>(); // display name -> ID (either allocationId or correlationId)
     const processedCorrelations = new Set<string>();
+    const patchedAllocs = getPatchedAllocations(allocations);
 
     for (const a of Object.values(allocations)) {
       if (a.type === "payment" && a.allocationId !== defaultPaymentAllocId) {
@@ -122,11 +140,11 @@ export function AllocationConfigDialog({
         if (pay.correlationId) {
           if (!processedCorrelations.has(pay.correlationId)) {
             processedCorrelations.add(pay.correlationId);
-            const name = getPaymentAllocDisplayName(pay, allocations);
+            const name = getPaymentAllocDisplayName(patchedAllocs[pay.allocationId] as PaymentAllocation, patchedAllocs);
             if (name) map.set(name, pay.correlationId);
           }
         } else {
-          const name = getPaymentAllocDisplayName(pay, allocations);
+          const name = getPaymentAllocDisplayName(patchedAllocs[pay.allocationId] as PaymentAllocation, patchedAllocs);
           if (name) map.set(name, pay.allocationId);
         }
       }
@@ -174,7 +192,6 @@ export function AllocationConfigDialog({
         const val = strat?.strategyType === "percentage" ? Math.round((strat.value ?? 1) * 100) : (strat?.value ?? 0);
         return {
           entity: p.payer || currentAssignee,
-          strategyType: strat?.strategyType || "percentage",
           strategyType: strat?.strategyType === "fixed" ? "fixed_item" : (strat?.strategyType || "percentage"),
           value: val,
           method: p.method || null,
@@ -307,7 +324,7 @@ export function AllocationConfigDialog({
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <span className="text-xs font-medium truncate">
-                        {getPaymentAllocDisplayName(payAlloc, allocations)}
+                        {getPaymentAllocDisplayName(getPatchedAllocations(allocations)[payAlloc.allocationId] as PaymentAllocation, getPatchedAllocations(allocations))}
                       </span>
                       {payAlloc.correlationId && (
                         <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">
@@ -319,8 +336,6 @@ export function AllocationConfigDialog({
                     <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0">
                       {payAlloc.paymentStrategy.strategyType === "percentage"
                         ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
-                        : payAlloc.paymentStrategy.strategyType === "fixed"
-                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}`
                         : payAlloc.paymentStrategy.strategyType === "fixed_item" || payAlloc.paymentStrategy.strategyType === "fixed"
                         ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
                         : payAlloc.paymentStrategy.strategyType === "fixed_global"
