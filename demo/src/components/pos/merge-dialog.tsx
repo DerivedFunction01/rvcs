@@ -1401,7 +1401,7 @@ function StepSelectBranches({
   isAlreadyMerged: (sourceBranch: string, targetBranch: string) => boolean;
   onNext: () => void;
 }) {
-  const branchNames = Object.keys(branches);
+  const branchNames = Object.keys(branches).filter(b => b !== "system");
   const mainBranchName = useVCSStore.getState().mainActiveBranch();
   const availableSources = branchNames.filter((b) => b !== targetBranch);
   const mergeableSources = availableSources.filter(
@@ -1866,7 +1866,7 @@ export function MergeBranchDialog({
   resolveGuestName,
 }: MergeDialogProps) {
   const [step, setStep] = useState<Step>("select");
-  const [targetBranch, setTargetBranch] = useState<string>(activeBranch);
+  const [targetBranch, setTargetBranch] = useState<string>(activeBranch === "system" ? "main" : activeBranch);
   const [selectedSources, setSelectedSources] = useState<Set<string>>(
     new Set(),
   );
@@ -1880,8 +1880,7 @@ export function MergeBranchDialog({
     if (open) {
       const mainBranchName = useVCSStore.getState().mainActiveBranch();
       const isTargetLocked =
-        activeBranch !== mainBranchName &&
-        isAlreadyMerged(activeBranch, mainBranchName);
+        (activeBranch !== mainBranchName && isAlreadyMerged(activeBranch, mainBranchName)) || activeBranch === "system";
       setStep("select");
       setTargetBranch(isTargetLocked ? mainBranchName : activeBranch);
       setSelectedSources(new Set());

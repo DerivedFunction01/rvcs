@@ -198,16 +198,19 @@ export function BranchManagerDialog({
 
         <ScrollArea className="flex-1 max-h-[50vh]">
           <div className="divide-y border-y">
-            {branchEntries.map(([branch, pointer]) => (
-              <BranchRow
-                key={branch}
-                branch={branch}
-                pointer={pointer}
-                isActive={activeBranch === branch}
-                onCheckout={() => onCheckout(branch)}
-                onConfigure={() => onConfigure(branch)}
-              />
-            ))}
+            {branchEntries.map(([branch, pointer]) => {
+              if (branch === "system") return null;
+              return (
+                <BranchRow
+                  key={branch}
+                  branch={branch}
+                  pointer={pointer}
+                  isActive={activeBranch === branch}
+                  onCheckout={() => onCheckout(branch)}
+                  onConfigure={() => onConfigure(branch)}
+                />
+              );
+            })}
           </div>
         </ScrollArea>
 

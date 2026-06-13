@@ -340,6 +340,9 @@ export class VCSEngine {
   }
 
   createBranch(name: string, fromCommitOrBranch?: string | null): void {
+    if (name === "system") {
+      throw new Error("Cannot manually create the reserved 'system' branch.");
+    }
     if (this.repo.branches[name]) {
       throw new Error(`Branch "${name}" already exists`);
     }
@@ -373,6 +376,9 @@ export class VCSEngine {
     if (oldName === newName) return;
     if (!newName.trim()) {
       throw new Error("Branch name cannot be empty");
+    }
+    if (oldName === "system" || newName === "system") {
+      throw new Error("Cannot rename the 'system' branch or use it as a target name.");
     }
     if (!this.repo.branches[oldName]) {
       throw new Error(`Branch "${oldName}" does not exist`);
@@ -413,6 +419,9 @@ export class VCSEngine {
   checkout(branch: string): void {
     if (!this.repo.branches[branch]) {
       throw new Error(`Branch "${branch}" does not exist`);
+    }
+    if (branch === "system") {
+      throw new Error("Cannot checkout the system branch directly.");
     }
     this.repo.activeBranch = branch;
   }
@@ -868,6 +877,9 @@ export class VCSEngine {
     branch?: string,
   ): VCSCommit[] {
     const targetBranch = branch || this.repo.activeBranch;
+    if (targetBranch === "system") {
+      throw new Error("Cannot squash commits on the system branch.");
+    }
     const headHash = this.repo.branches[targetBranch]?.headHash ?? null;
 
     if (!headHash) {
@@ -1129,6 +1141,9 @@ export class VCSEngine {
    */
   resetToCommit(targetHash: string, branch?: string): void {
     const targetBranch = branch || this.repo.activeBranch;
+    if (targetBranch === "system") {
+      throw new Error("Cannot reset commits on the system branch.");
+    }
     const headHash = this.repo.branches[targetBranch]?.headHash ?? null;
 
     if (!headHash) {

@@ -29,6 +29,7 @@ import {
   Copy,
 } from "lucide-react";
 import { SplitEditor, PaymentSplitEntry, validateSplit } from "./split-editor";
+import { useVCSStore } from "@/store/vcs-store";
 import type {
   AllocationBlock,
   PaymentAllocation,
@@ -41,7 +42,6 @@ interface PaymentAllocationDialogProps {
   context: "item" | "group" | "header";
   items: ProjectedLineItem[]; // 1 item for "item", multiple for "group", empty for "header"
   allocations: Record<string, AllocationBlock>;
-  guests: string[];
   defaultPaymentAllocId: string | null;
   defaultPaymentMethod: string;
   paymentConfigs: Array<{ id: string; name: string; isSplit: boolean }>;
@@ -63,8 +63,6 @@ interface PaymentAllocationDialogProps {
     }>,
     mode: "item" | "group" | "change-existing" | "new-only",
   ) => void;
-
-  onAddGuest: (name: string) => void;
 }
 
 export function PaymentAllocationDialog({
@@ -73,7 +71,6 @@ export function PaymentAllocationDialog({
   context,
   items,
   allocations,
-  guests,
   defaultPaymentAllocId,
   defaultPaymentMethod,
   paymentConfigs,
@@ -82,8 +79,13 @@ export function PaymentAllocationDialog({
   allItems = [],
   onApplyConfig,
   onApplyCustomSplit,
-  onAddGuest,
 }: PaymentAllocationDialogProps) {
+  const allocationsState = useVCSStore((s) => s.projectedState.allocations);
+  const getGuests = useVCSStore((s) => s.guests);
+  const guests = useMemo(() => {
+    return getGuests().map((g) => g.name);
+  }, [getGuests, allocationsState]);
+
   type ViewState = "main" | "guest-methods" | "splits" | "custom-split";
   const [view, setView] = useState<ViewState>("main");
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
@@ -617,8 +619,6 @@ export function PaymentAllocationDialog({
             <SplitEditor
               splits={splits}
               onChange={setSplits}
-              guests={guests}
-              onAddGuest={onAddGuest}
               itemTotalPrice={totalContextPrice}
             />
 

@@ -54,6 +54,10 @@ export function BranchConfigDialog({
       setError("Branch name cannot be empty");
       return;
     }
+    if (trimmed === "system") {
+      setError("Cannot use reserved branch name 'system'");
+      return;
+    }
     if (trimmed !== branchName && existingBranches.includes(trimmed)) {
       setError(`A branch named "${trimmed}" already exists`);
       return;

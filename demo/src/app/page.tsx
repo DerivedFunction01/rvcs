@@ -152,39 +152,17 @@ function POSTerminalInner({
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
-  const customerName = orderContext?.customerFields.name || "Guest";
-  const initialGuests: Guest[] = React.useMemo(() => {
-    const raw = orderContext?.customerFields.name || "Guest";
-    const primaryAlias = raw.toLowerCase() === "guest" ? undefined : raw;
-    const primary: Guest = {
-      id: "__vcs_guest_1__",
-      number: 1,
-      alias: primaryAlias,
-    };
-    if (orderContext?.initialGuestNames?.length) {
-      return orderContext.initialGuestNames.map((name, idx) => {
-        const nextNum = idx + 1;
-        const match = name.match(/^Guest\s+(\d+)(?:\s+\((.+)\))?$/i);
-        if (match)
-          return {
-            id: `__vcs_guest_${match[1]}__`,
-            number: parseInt(match[1], 10),
-            alias: match[2] || undefined,
-          };
-        const gMatch = name.match(/^__vcs_guest_(\d+)__$/i);
-        if (gMatch)
-          return {
-            id: name,
-            number: parseInt(gMatch[1], 10),
-            alias: undefined,
-          };
-        return { id: `__vcs_guest_${nextNum}__`, number: nextNum, alias: name };
-      });
-    }
-    return [primary];
-  }, [orderContext]);
+  const allocationsState = useVCSStore((s) => s.projectedState.allocations);
+  const getGuests = useVCSStore((s) => s.guests);
+  const storeGuests = React.useMemo(() => getGuests(), [getGuests, allocationsState]);
 
-  const [guests, setGuests] = React.useState<Guest[]>(initialGuests);
+  const guests: Guest[] = React.useMemo(() => {
+    return storeGuests.map((g, idx) => ({
+      id: g.id,
+      number: idx + 1,
+      alias: g.name,
+    }));
+  }, [storeGuests]);
 
   const resolveGuestName = useCallback(
     (idOrName: string): string => {
@@ -193,43 +171,20 @@ function POSTerminalInner({
           .split(",")
           .map((item) => item.trim())
           .map((id) => {
-            const g = guests.find((g) => g.id === id);
-            if (g) return g.alias || `Guest ${g.number}`;
-            const match = id.match(/^__vcs_guest_(\d+)__$/i);
-            if (match) return `Guest ${match[1]}`;
-            const legacyMatch = id.match(/^Guest\s+(\d+)(?:\s+\((.+)\))?$/i);
-            if (legacyMatch) return legacyMatch[2] || `Guest ${legacyMatch[1]}`;
-            return id;
+            const g = storeGuests.find((g) => g.id === id);
+            return g ? g.name : id;
           })
           .join(" + ");
       }
-      const g = guests.find((g) => g.id === idOrName);
-      if (g) return g.alias || `Guest ${g.number}`;
-      const match = idOrName.match(/^__vcs_guest_(\d+)__$/i);
-      if (match) return `Guest ${match[1]}`;
-      const legacyMatch = idOrName.match(/^Guest\s+(\d+)(?:\s+\((.+)\))?$/i);
-      if (legacyMatch) return legacyMatch[2] || `Guest ${legacyMatch[1]}`;
-      return idOrName;
+      const g = storeGuests.find((g) => g.id === idOrName);
+      return g ? g.name : idOrName;
     },
-    [guests],
-  );
-
-  const getGuestStableId = useCallback(
-    (displayNameOrId: string): string => {
-      const g = guests.find(
-        (g) =>
-          g.id === displayNameOrId ||
-          (g.alias && g.alias === displayNameOrId) ||
-          `Guest ${g.number}` === displayNameOrId,
-      );
-      return g ? g.id : displayNameOrId;
-    },
-    [guests],
+    [storeGuests],
   );
 
   const guestStrings = React.useMemo(
-    () => guests.map((g) => g.alias || `Guest ${g.number}`),
-    [guests],
+    () => storeGuests.map((g) => g.name),
+    [storeGuests],
   );
 
   const resolvedAllocations = React.useMemo(() => {
@@ -260,12 +215,16 @@ function POSTerminalInner({
   }, []);
 
   // Dropdown key states
-  const [selectedPerson, setSelectedPerson] = React.useState(
-    initialGuests[0].id,
-  );
+  const [selectedPerson, setSelectedPerson] = React.useState("");
+  React.useEffect(() => {
+    if (!selectedPerson && storeGuests.length > 0) {
+      setSelectedPerson(defaultAssignmentAllocId || storeGuests[0].id);
+    }
+  }, [storeGuests, selectedPerson, defaultAssignmentAllocId]);
+
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
   const [editGuestOpen, setEditGuestOpen] = React.useState(false);
-  const [guestToEdit, setGuestToEdit] = React.useState<Guest | null>(null);
+  const [guestToEdit, setGuestToEdit] = React.useState<any>(null);
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
@@ -360,32 +319,26 @@ function POSTerminalInner({
       useVCSStore.getState().updateOrderContext({ customerFields: fields });
       const newNameRaw = fields.name?.trim();
       if (newNameRaw) {
-        const primaryAlias =
-          newNameRaw.toLowerCase() === "guest" ? undefined : newNameRaw;
-        setGuests((prev) => {
-          const next = [...prev];
-          if (next[0]) next[0] = { ...next[0], alias: primaryAlias };
-          return next;
-        });
+        const primaryGuest = storeGuests[0];
+        if (primaryGuest && primaryGuest.name !== newNameRaw) {
+          useVCSStore.getState().updateGuest(primaryGuest.id, newNameRaw);
+        }
       }
       toast.success("Customer info updated");
     },
-    [setGuests],
+    [storeGuests],
   );
 
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
-    new Set(initialGuests.map((g) => g.id)),
+    new Set(storeGuests.map((g) => g.id)),
   );
   React.useEffect(() => {
     setVisibleGuests((prev) => {
       const next = new Set<string>();
-      for (const g of guests) {
-        if (prev.has(g.id)) next.add(g.id);
-        else next.add(g.id);
-      }
+      for (const g of storeGuests) next.add(g.id);
       return next;
     });
-  }, [guests]);
+  }, [storeGuests]);
 
   const [newBranchFromHistoryName, setNewBranchFromHistoryName] =
     React.useState("");
@@ -519,79 +472,14 @@ function POSTerminalInner({
   );
 
   // ─── Guest Management ──────────────────────────────────────────────────
-  const addGuests = useCallback(
-    (newGuests: Guest[]) => {
-      const valid = newGuests.filter(
-        (ng) =>
-          !guests.some(
-            (g) =>
-              g.id === ng.id ||
-              (ng.alias &&
-                g.alias &&
-                g.alias.toLowerCase() === ng.alias.toLowerCase()),
-          ),
-      );
-      if (valid.length === 0) return;
-      setGuests((prev) => [...prev, ...valid]);
-      for (const g of valid) addGuestPaymentAllocation(g.id);
-      if (valid.length === 1)
-        toast.success(
-          `${valid[0].alias || `Guest ${valid[0].number}`} added to the order`,
-        );
-      else toast.success(`${valid.length} guests added to the order`);
-    },
-    [guests, addGuestPaymentAllocation],
-  );
-
-  const handleSaveRenameGuest = useCallback(
-    (newAlias: string, newDescription: string) => {
-      if (!guestToEdit) return;
-      const trimmedAlias = newAlias.trim();
-      const trimmedDesc = newDescription.trim();
-      if (guestToEdit.id === guests[0]?.id) {
-        const currentFields =
-          useVCSStore.getState().orderContext?.customerFields || {};
-        useVCSStore.getState().updateOrderContext({
-          customerFields: { ...currentFields, name: trimmedAlias || "Guest" },
-        });
-      }
-      setGuests((prev) =>
-        prev.map((g) =>
-          g.id === guestToEdit.id
-            ? {
-                ...g,
-                alias: trimmedAlias || undefined,
-                description: trimmedDesc || undefined,
-              }
-            : g,
-        ),
-      );
-      toast.success(`Guest updated`);
-      setEditGuestOpen(false);
-      setGuestToEdit(null);
-    },
-    [guestToEdit, guests],
-  );
-
   const handleAddGuestFromDialog = useCallback(
     (name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      const currentMax =
-        guests.length > 0 ? Math.max(...guests.map((g) => g.number)) : 0;
-      const nextNum = currentMax + 1;
-      const newGuestId = `__vcs_guest_${nextNum}__`;
-      const isGuestFormat = /^guest\s*\d*$/i.test(trimmed);
-      const alias = isGuestFormat ? undefined : trimmed;
-      if (
-        guests.some(
-          (g) => g.alias?.toLowerCase() === alias?.toLowerCase() && alias,
-        )
-      )
-        return;
-      addGuests([{ id: newGuestId, number: nextNum, alias }]);
+      useVCSStore.getState().addGuest(trimmed);
+      toast.success(`${trimmed} added to the order`);
     },
-    [guests, addGuests],
+    [],
   );
 
   const handleOpenAddGuestDialog = useCallback(() => {
@@ -662,7 +550,7 @@ function POSTerminalInner({
       }
     }
     return count;
-  }, [rootItems, projectedState.allocations, guests, visibleGuests]);
+  }, [rootItems, projectedState.allocations, storeGuests, visibleGuests]);
 
   React.useEffect(() => {
     setSelectedLineIds((prev) => {
@@ -792,6 +680,7 @@ function POSTerminalInner({
   ]);
 
   const currentConfigName = React.useMemo(() => {
+    const customerName = orderContext?.customerFields.name || "Guest";
     if (
       activePaymentConfigId &&
       activePaymentConfigId.startsWith("group-default-")
@@ -819,10 +708,8 @@ function POSTerminalInner({
     return "Default Config";
   }, [
     activePaymentConfigId,
-    defaultPaymentAllocId,
-    defaultPaymentMethod,
     projectedState.allocations,
-    customerName,
+    orderContext,
   ]);
 
   const currentFulfillmentConfigName = React.useMemo(() => {
@@ -889,19 +776,18 @@ function POSTerminalInner({
     [addItemWithDefaults, selectedPerson, resolveGuestName],
   );
   const handleReassign = useCallback(
-    (lineId: string, newAssignee: string) => {
-      const stableIds = newAssignee
+    (lineId: string, newAssigneeIds: string) => {
+      const names = newAssigneeIds
         .split(",")
-        .map((p) => getGuestStableId(p.trim()))
-        .join(",");
-      reassignItem(lineId, stableIds);
-      const displayNames = stableIds
-        .split(",")
-        .map((id) => resolveGuestName(id))
+        .map((id) => {
+          const g = storeGuests.find((g) => g.id === id.trim());
+          return g ? g.name : id.trim();
+        })
         .join(" + ");
-      toast.success(`Reassigned to ${displayNames}`);
+      reassignItem(lineId, names);
+      toast.success(`Reassigned to ${names}`);
     },
-    [reassignItem, getGuestStableId, resolveGuestName],
+    [reassignItem, storeGuests],
   );
   const handleUpdateFulfillment = useCallback(
     (
@@ -935,7 +821,7 @@ function POSTerminalInner({
     ) => {
       splitItemPayment(
         lineId,
-        splits.map((s) => ({ ...s, entity: getGuestStableId(s.entity) })),
+        splits.map((s) => ({ ...s, entity: s.entity })),
         mode,
       );
       const splitName = [...splits]
@@ -947,7 +833,7 @@ function POSTerminalInner({
         .join(" / ");
       toast.success(`Payment split: ${splitName}`);
     },
-    [splitItemPayment, getGuestStableId],
+    [splitItemPayment],
   );
   const handleResetToDefault = useCallback(
     (lineId: string) => {
@@ -1001,14 +887,12 @@ function POSTerminalInner({
   );
   const guestChoiceOptions = React.useMemo(
     () =>
-      guests.map((guest) => ({
+      storeGuests.map((guest) => ({
         id: guest.id,
-        label: guest.alias || `Guest ${guest.number}`,
-        description:
-          guest.description ||
-          (guest.id === guests[0]?.id ? "Primary guest" : "Guest"),
+        label: guest.name,
+        description: guest.id === storeGuests[0]?.id ? "Primary guest" : "Guest",
       })),
-    [guests],
+    [storeGuests],
   );
   const removeModChoiceOptions = React.useMemo(
     () =>
@@ -1019,14 +903,14 @@ function POSTerminalInner({
       })),
     [activeModifiersOnSelected],
   );
-  const selectedGuestCount = guests.length;
+  const selectedGuestCount = storeGuests.length;
   const selectedGuestLabel = getUniqueGuestLabel(
     resolveGuestName(selectedPerson),
     guestStrings,
   );
   const selectedGuestDescription = React.useMemo(
-    () => guests.find((g) => g.id === selectedPerson)?.description,
-    [guests, selectedPerson],
+    () => (selectedPerson === storeGuests[0]?.id ? "Primary guest" : "Guest"),
+    [storeGuests, selectedPerson],
   );
   const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
     setAllocConfigItem((prev) => (prev === item ? null : item));
@@ -1470,7 +1354,6 @@ function POSTerminalInner({
         context={paymentAllocationContext}
         items={paymentAllocationItems}
         allocations={resolvedAllocations}
-        guests={guestStrings}
         defaultPaymentAllocId={defaultPaymentAllocId}
         defaultPaymentMethod={defaultPaymentMethod}
         paymentConfigs={paymentConfigs}
@@ -1506,7 +1389,7 @@ function POSTerminalInner({
               );
             }
             let targetName = configIdOrMethod.startsWith("group-default-")
-              ? `${customerName} (${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
+              ? `(${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
               : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name;
             if (!targetName) {
               const representativeAlloc = Object.values(
@@ -1556,7 +1439,6 @@ function POSTerminalInner({
             else toast.success("Custom split set as default for new items");
           }
         }}
-        onAddGuest={handleAddGuestFromDialog}
       />
 
       <FulfillmentAllocationDialog
@@ -1738,13 +1620,10 @@ function POSTerminalInner({
       <AddGuestDialog
         open={addGuestOpen}
         onOpenChange={setAddGuestOpen}
-        guests={guests}
-        onAddGuests={addGuests}
       />
       <GuestPickerDialog
         open={guestPickerOpen}
         onOpenChange={setGuestPickerOpen}
-        guests={guests}
         selectedPerson={selectedPerson}
         onSelectPerson={setSelectedPerson}
         onEditGuest={(g: any) => {
@@ -1757,7 +1636,6 @@ function POSTerminalInner({
         open={editGuestOpen}
         onOpenChange={setEditGuestOpen}
         guestToEdit={guestToEdit}
-        onSave={handleSaveRenameGuest}
       />
 
       <NoteDialog

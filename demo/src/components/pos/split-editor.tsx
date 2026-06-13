@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Trash2, Plus, X } from "lucide-react";
+import { useVCSStore } from "@/store/vcs-store";
 
 export interface PaymentSplitEntry {
   entity: string;
@@ -40,12 +41,16 @@ export function validateSplit(splits: PaymentSplitEntry[], itemTotalPrice?: numb
 interface SplitEditorProps {
   splits: PaymentSplitEntry[];
   onChange: (splits: PaymentSplitEntry[]) => void;
-  guests: string[];
-  onAddGuest: (name: string) => void;
   itemTotalPrice?: number;
 }
 
-export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPrice }: SplitEditorProps) {
+export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorProps) {
+  const allocationsState = useVCSStore((s) => s.projectedState.allocations);
+  const getGuests = useVCSStore((s) => s.guests);
+  const onAddGuest = useVCSStore((s) => s.addGuest);
+  const guests = useMemo(() => {
+    return getGuests().map((g) => g.name);
+  }, [getGuests, allocationsState]);
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
   const [showNewGuestInput, setShowNewGuestInput] = useState(false);
 
