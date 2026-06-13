@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  ChevronLeft,
   Zap,
   RefreshCw,
   Eye,
@@ -219,22 +220,66 @@ function ConflictCard({
 
 // ─── Conflicts Popup Dialog ───────────────────────────────────────────────────
 
+function findItemForConflict(
+  conflict: MergeConflict,
+  state: ProjectedState | undefined,
+): { name: string; sku: string; price: number } | null {
+  if (!state) return null;
+  let lineId = conflict.lineId;
+
+  if (!lineId && conflict.allocationId) {
+    // Scan items to see which one has this allocation ID
+    const matchingItem = Object.values(state.items).find((item) =>
+      item.allocations.includes(conflict.allocationId!),
+    );
+    if (matchingItem) {
+      lineId = matchingItem.lineId;
+    }
+  }
+
+  if (lineId) {
+    const item = state.items[lineId];
+    if (item) {
+      return {
+        name: item.name,
+        sku: item.sku,
+        price: item.totalPrice,
+      };
+    }
+  }
+  return null;
+}
+
 function ConflictsDialog({
   open,
   onOpenChange,
   conflicts,
   onConflictChange,
+  autoMergedState,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   conflicts: MergeConflict[];
   onConflictChange: (id: string, resolution: string) => void;
+  autoMergedState?: ProjectedState;
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
   const unresolvedCount = conflicts.filter((c) => !c.resolution).length;
+
+  useEffect(() => {
+    if (open) {
+      setActiveIndex(0);
+    }
+  }, [open]);
+
+  const activeConflict = conflicts[activeIndex];
+  const affectedItem = activeConflict
+    ? findItemForConflict(activeConflict, autoMergedState)
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-[480px] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TriangleAlert className="w-4 h-4 text-amber-500" />
@@ -254,28 +299,119 @@ function ConflictsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-1 px-1 mt-2">
-          <div className="space-y-3 pb-2">
-            {conflicts.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-4">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-                  Clean merge — no conflicts detected
-                </p>
-              </div>
-            ) : (
-              conflicts.map((c) => (
-                <ConflictCard key={c.id} conflict={c} onChange={onConflictChange} />
-              ))
-            )}
-          </div>
-        </ScrollArea>
+        <div className="space-y-4 py-2">
+          {conflicts.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-4">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                Clean merge — no conflicts detected
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Conflict Card for current active index */}
+              {activeConflict && (
+                <ConflictCard
+                  conflict={activeConflict}
+                  onChange={onConflictChange}
+                />
+              )}
 
-        <div className="pt-2">
-          <Button
-            className="w-full h-9"
-            onClick={() => onOpenChange(false)}
-          >
+              {/* Affected Item Details */}
+              {affectedItem && (
+                <div className="rounded-xl border bg-muted/40 p-3 flex items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Package className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {affectedItem.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {affectedItem.sku}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-xs font-mono font-bold text-foreground">
+                      ${affectedItem.price.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation Controls */}
+              {conflicts.length > 1 && (
+                <div className="flex flex-col gap-3.5 pt-3 border-t mt-4">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs flex items-center gap-1.5"
+                      disabled={activeIndex === 0}
+                      type="button"
+                      onClick={() => setActiveIndex((prev) => prev - 1)}
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      Previous
+                    </Button>
+
+                    {/* Dots row */}
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-[200px] sm:max-w-[240px]">
+                      {conflicts.map((c, idx) => {
+                        const isActive = idx === activeIndex;
+                        const isResolved = !!c.resolution;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setActiveIndex(idx)}
+                            className={`w-2.5 h-2.5 rounded-full transition-all border ${
+                              isActive
+                                ? "ring-2 ring-primary ring-offset-1 scale-110"
+                                : ""
+                            } ${
+                              isResolved
+                                ? "bg-emerald-500 border-emerald-500"
+                                : "bg-amber-400 border-amber-400"
+                            }`}
+                            title={`Conflict ${idx + 1}: ${isResolved ? "Resolved" : "Unresolved"}`}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs flex items-center gap-1.5"
+                      disabled={activeIndex === conflicts.length - 1}
+                      type="button"
+                      onClick={() => setActiveIndex((prev) => prev + 1)}
+                    >
+                      Next
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground font-medium px-0.5">
+                    <span>
+                      Conflict {activeIndex + 1} of {conflicts.length}
+                    </span>
+                    <span>
+                      {conflicts.filter((c) => c.resolution).length} of{" "}
+                      {conflicts.length} resolved
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="pt-2 border-t">
+          <Button className="w-full h-9" onClick={() => onOpenChange(false)}>
             Done
           </Button>
         </div>
@@ -344,7 +480,8 @@ function MergedStateSheet({
           </SheetTitle>
           <SheetDescription className="text-[11px]">
             {sourceBranches.join(" + ")} → {targetBranch}
-            {" · "}This is a read-only projection of what the order would look like after merging.
+            {" · "}This is a read-only projection of what the order would look
+            like after merging.
           </SheetDescription>
         </SheetHeader>
 
@@ -353,7 +490,8 @@ function MergedStateSheet({
             {/* Items */}
             <section className="space-y-1">
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                Order Items — {rootItems.length} line{rootItems.length !== 1 ? "s" : ""}
+                Order Items — {rootItems.length} line
+                {rootItems.length !== 1 ? "s" : ""}
               </p>
               {rootItems.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">
@@ -716,9 +854,7 @@ function StepPreview({
               <AlertTriangle className="w-5 h-5 text-amber-500" />
             )}
             <div>
-              <p className="text-xs font-semibold text-foreground">
-                Conflicts
-              </p>
+              <p className="text-xs font-semibold text-foreground">Conflicts</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 {conflicts.length === 0
                   ? "None"
@@ -749,7 +885,8 @@ function StepPreview({
           <div className="flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
             <TriangleAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
-              {unresolvedCount} conflict{unresolvedCount !== 1 ? "s" : ""} need resolution before merging
+              {unresolvedCount} conflict{unresolvedCount !== 1 ? "s" : ""} need
+              resolution before merging
             </p>
           </div>
         ) : (
@@ -790,6 +927,7 @@ function StepPreview({
         onOpenChange={setConflictsOpen}
         conflicts={conflicts}
         onConflictChange={onConflictChange}
+        autoMergedState={preview.autoMergedState}
       />
 
       <MergedStateSheet
@@ -833,7 +971,9 @@ function StepDone({
       <div className="rounded-xl border bg-muted/30 p-3 space-y-2 font-mono text-[10px]">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">commit</span>
-          <span className="text-foreground">{mergeCommitHash.slice(0, 12)}</span>
+          <span className="text-foreground">
+            {mergeCommitHash.slice(0, 12)}
+          </span>
         </div>
         <div className="flex items-start justify-between">
           <span className="text-muted-foreground">merge_parent_hashes</span>
@@ -928,7 +1068,8 @@ export function MergeBranchDialog({
 
   const stepDescription = {
     select: "Select which branches to merge together.",
-    preview: "Review deltas, inspect the merged order, and resolve any conflicts.",
+    preview:
+      "Review deltas, inspect the merged order, and resolve any conflicts.",
     done: "The merge commit has been recorded in the ledger.",
   }[step];
 
