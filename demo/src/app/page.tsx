@@ -4276,6 +4276,7 @@ function POSTerminalInner() {
         onOpenChange={setIsMergeOpen}
         branches={branches}
         activeBranch={activeBranch()}
+        resolveGuestName={resolveGuestName}
         isAlreadyMerged={(sourceBranch, targetBranch) => {
           const sourceHead = branches[sourceBranch]?.headHash;
           const targetHead = branches[targetBranch]?.headHash;
