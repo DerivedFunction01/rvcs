@@ -44,6 +44,7 @@ import type {
   OrderTypeConfig,
 } from "@/lib/pos/types";
 import { CustomerSearchDialog } from "@/components/pos/customer-search-dialog";
+import { CustomerFieldInput } from "@/components/pos/customer-fields";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Store,
@@ -54,14 +55,6 @@ const ICON_MAP: Record<string, React.ElementType> = {
 function getOrderIcon(iconName: string): React.ElementType {
   return ICON_MAP[iconName] ?? Store;
 }
-
-const FIELD_ICONS: Record<string, React.ElementType> = {
-  name: User,
-  phone: Phone,
-  address: MapPin,
-  notes: MessageSquare,
-  email: AtSign,
-};
 
 function StepIndicator({
   step,
@@ -164,7 +157,11 @@ export function OrderInitScreen({
   const [defaultPayerSeat, setDefaultPayerSeat] = useState<string | null>(null);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
 
-  const handleSelectCustomer = (data: { name: string; phone: string; address: string }) => {
+  const handleSelectCustomer = (data: {
+    name: string;
+    phone: string;
+    address: string;
+  }) => {
     setCustomerFields((prev) => {
       const next = { ...prev };
       if (selectedType?.customerFields.some((f) => f.key === "name")) {
@@ -1045,86 +1042,33 @@ export function OrderInitScreen({
               </Button>
             </div>
 
-            {selectedType?.customerFields.map((field) => {
-              const FieldIcon = FIELD_ICONS[field.key] ?? User;
-              const hasError = !!fieldErrors[field.key];
-
-              return (
-                <div key={field.key} className="space-y-1.5">
-                  <Label
-                    htmlFor={`field-${field.key}`}
-                    className="text-sm font-medium flex items-center gap-1.5"
-                  >
-                    <FieldIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                    {field.label}
-                    {field.required && (
-                      <span className="text-destructive text-xs">*</span>
-                    )}
-                  </Label>
-
-                  {field.type === "textarea" ? (
-                    <Textarea
-                      id={`field-${field.key}`}
-                      placeholder={field.placeholder}
-                      value={customerFields[field.key] || ""}
-                      onChange={(e) => {
-                        setCustomerFields((prev) => ({
-                          ...prev,
-                          [field.key]: e.target.value,
-                        }));
-                        if (hasError) {
-                          setFieldErrors((prev) => {
-                            const next = { ...prev };
-                            delete next[field.key];
-                            return next;
-                          });
-                        }
-                      }}
-                      className={`min-h-[80px] ${hasError ? "border-destructive" : ""}`}
-                    />
-                  ) : (
-                    <Input
-                      id={`field-${field.key}`}
-                      type={
-                        field.type === "tel"
-                          ? "tel"
-                          : field.type === "email"
-                            ? "email"
-                            : "text"
-                      }
-                      placeholder={field.placeholder}
-                      value={customerFields[field.key] || ""}
-                      onChange={(e) => {
-                        setCustomerFields((prev) => ({
-                          ...prev,
-                          [field.key]: e.target.value,
-                        }));
-                        if (hasError) {
-                          setFieldErrors((prev) => {
-                            const next = { ...prev };
-                            delete next[field.key];
-                            return next;
-                          });
-                        }
-                      }}
-                      className={hasError ? "border-destructive" : ""}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleStartOrder();
-                        }
-                      }}
-                    />
-                  )}
-
-                  {hasError && (
-                    <p className="text-xs text-destructive">
-                      {fieldErrors[field.key]}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {selectedType?.customerFields.map((field) => (
+              <CustomerFieldInput
+                key={field.key}
+                field={field}
+                value={customerFields[field.key] || ""}
+                error={fieldErrors[field.key]}
+                onChange={(val) => {
+                  setCustomerFields((prev) => ({
+                    ...prev,
+                    [field.key]: val,
+                  }));
+                  if (fieldErrors[field.key]) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next[field.key];
+                      return next;
+                    });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleStartOrder();
+                  }
+                }}
+              />
+            ))}
           </div>
 
           <div className="mt-8">

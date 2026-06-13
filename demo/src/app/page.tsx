@@ -28,6 +28,7 @@ import {
   GuestPickerDialog,
   EditGuestDialog,
 } from "@/components/pos/guest-dialogs";
+import { CustomerEditDialog } from "@/components/pos/customer-edit-dialog";
 import { CatalogPanel } from "@/components/pos/catalog-panel";
 import { ActiveCheckPanel } from "@/components/pos/active-check-panel";
 import { CommitLedgerPanel } from "@/components/pos/commit-ledger-panel";
@@ -298,9 +299,6 @@ function POSTerminalInner({
     description: string;
   } | null>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
-  const [editedCustomerFields, setEditedCustomerFields] = React.useState<
-    Record<string, string>
-  >({});
 
   const handleConfirmHistoryOp = React.useCallback(() => {
     if (!historyOpDialog) return;
@@ -320,17 +318,14 @@ function POSTerminalInner({
   }, [historyOpDialog, squashPendingCommits, resetToCommit]);
 
   const handleOpenCustomerDialog = React.useCallback(() => {
-    setEditedCustomerFields(
-      orderContext?.customerFields ? { ...orderContext.customerFields } : {},
-    );
     setCustomerDialogOpen(true);
-  }, [orderContext]);
+  }, []);
 
-  const handleSaveCustomerFields = React.useCallback(() => {
+  const handleSaveCustomerFields = React.useCallback((fields: Record<string, string>) => {
     useVCSStore
       .getState()
-      .updateOrderContext({ customerFields: editedCustomerFields });
-    const newNameRaw = editedCustomerFields.name?.trim();
+      .updateOrderContext({ customerFields: fields });
+    const newNameRaw = fields.name?.trim();
     if (newNameRaw) {
       const primaryAlias =
         newNameRaw.toLowerCase() === "guest" ? undefined : newNameRaw;
@@ -340,9 +335,8 @@ function POSTerminalInner({
         return next;
       });
     }
-    setCustomerDialogOpen(false);
     toast.success("Customer info updated");
-  }, [editedCustomerFields]);
+  }, [setGuests]);
 
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
     new Set(initialGuests.map((g) => g.id)),
@@ -1206,108 +1200,13 @@ function POSTerminalInner({
         )}
 
         {/* ─── Customer Info Edit Dialog ──────────────────────────────── */}
-        <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <User className="w-4 h-4 text-primary" /> Edit Customer Info
-              </DialogTitle>
-              <DialogDescription>
-                Update the customer details for this order. Changes apply
-                immediately.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <User className="w-3 h-3" /> Name
-                </label>
-                <Input
-                  id="customer-name"
-                  placeholder="e.g. John Smith"
-                  value={editedCustomerFields.name ?? ""}
-                  onChange={(e) =>
-                    setEditedCustomerFields((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                  className="h-9 text-sm"
-                  autoComplete="name"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Phone className="w-3 h-3" /> Phone
-                </label>
-                <Input
-                  id="customer-phone"
-                  type="tel"
-                  placeholder="e.g. (555) 123-4567"
-                  value={editedCustomerFields.phone ?? ""}
-                  onChange={(e) =>
-                    setEditedCustomerFields((prev) => ({
-                      ...prev,
-                      phone: e.target.value,
-                    }))
-                  }
-                  className="h-9 text-sm"
-                  autoComplete="tel"
-                />
-              </div>
-              {orderContext?.orderType === "delivery" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <MapPin className="w-3 h-3" /> Delivery Address
-                  </label>
-                  <Input
-                    id="customer-address"
-                    placeholder="e.g. 123 Main St, City, State"
-                    value={editedCustomerFields.address ?? ""}
-                    onChange={(e) =>
-                      setEditedCustomerFields((prev) => ({
-                        ...prev,
-                        address: e.target.value,
-                      }))
-                    }
-                    className="h-9 text-sm"
-                    autoComplete="street-address"
-                  />
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Settings2 className="w-3 h-3" /> Order Notes
-                </label>
-                <Textarea
-                  id="customer-notes"
-                  placeholder="Allergies, special requests, etc."
-                  value={editedCustomerFields.notes ?? ""}
-                  onChange={(e) =>
-                    setEditedCustomerFields((prev) => ({
-                      ...prev,
-                      notes: e.target.value,
-                    }))
-                  }
-                  className="text-sm resize-none"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCustomerDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleSaveCustomerFields}>
-                <User className="w-3.5 h-3.5 mr-1.5" /> Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CustomerEditDialog
+          open={customerDialogOpen}
+          onOpenChange={setCustomerDialogOpen}
+          orderType={orderContext?.orderType}
+          customerFields={orderContext?.customerFields || {}}
+          onSave={handleSaveCustomerFields}
+        />
 
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
