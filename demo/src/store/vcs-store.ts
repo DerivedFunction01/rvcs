@@ -26,6 +26,7 @@ import {
   generateSplitCorrelationId,
 } from "@/lib/pos/utils";
 import { projectState } from "@/lib/vcs/reducer";
+import { toast } from "sonner";
 
 // ─── Storage Key ──────────────────────────────────────────────────────────────
 
@@ -857,6 +858,21 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     commitDeltas: (deltas, authorId = "pos-ui") => {
       const store = get();
+
+      if (store.engine.getActiveBranch() === "main") {
+        const serverName = store.orderContext?.serverName || "Tom";
+        let draftBranchName = generateDraftBranchName(serverName);
+        let suffix = 2;
+        while (store.engine.getRepo().branches[draftBranchName]) {
+          draftBranchName = `${generateDraftBranchName(serverName)}-${suffix}`;
+          suffix += 1;
+        }
+        const fromHash = store.viewingHash || "main";
+        store.engine.createBranch(draftBranchName, fromHash);
+        store.engine.checkout(draftBranchName);
+        toast.info(`Automatically moved to new draft branch "${draftBranchName}" to protect main.`);
+      }
+
       const commit = store.engine.commit(deltas, authorId);
       set({
         viewingHash: null, // Reset to HEAD after new commit

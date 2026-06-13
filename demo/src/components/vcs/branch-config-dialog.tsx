@@ -131,7 +131,7 @@ export function BranchConfigDialog({
                 <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
                   The primary ledger history. This branch serves as the authoritative source of truth and cannot be reclassified.
                   <div className="mt-2 p-2 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                    <strong className="font-semibold">Warning:</strong> Main is purely a read-only place. Adding items will be marked with <em className="font-semibold">*new*</em> from main. Reducing quantity or removing items will be marked with a cancel if it did not originate from main.
+                    <strong className="font-semibold">Warning:</strong> Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger.
                   </div>
                 </div>
               </div>

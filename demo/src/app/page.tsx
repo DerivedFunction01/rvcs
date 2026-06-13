@@ -1769,7 +1769,7 @@ function POSTerminalInner() {
                 <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
                   <strong className="font-semibold uppercase tracking-wider text-[10px] mr-1.5">Read-Only Trunk:</strong>
-                  Main is purely a read-only place. Adding items will be marked with <em className="font-semibold">*new*</em> from main. Reducing quantity or removing items will be marked with a <span className="font-semibold">cancel</span> if it did not originate from main.
+                  Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger.
                 </p>
               </div>
             )}
