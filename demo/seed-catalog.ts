@@ -100,6 +100,16 @@ const SEED_DATA = [
     allergens: ["dairy"],
     brand: "",
   },
+  {
+    sku: "SKU-DRINK-WATER",
+    name: "Water",
+    basePrice: 1.99,
+    category: "drink",
+    type: "item",
+    dietaryFlags: ["vegan", "gluten_free"],
+    allergens: [],
+    brand: "",
+  },
   // ─── Desserts ────────────────────────────────────────────────────────────
   {
     sku: "SKU-DESSRT-CAKE",
@@ -722,6 +732,12 @@ async function main() {
       categoryHint: "surcharge",
       description: "Operator credit card fee passthrough",
     },
+    {
+      code: "WATER",
+      label: "Water",
+      categoryHint: "sales_tax",
+      description: "Water, typically tax exempt",
+    },
   ];
   for (const t of tags) {
     await (prisma as any).chargeTag.upsert({
@@ -832,6 +848,17 @@ async function main() {
       originCode: null,
       priority: 0,
     },
+    // PA: WATER — 0%
+    {
+      jCode: "US-PA",
+      tCode: "WATER",
+      chargeCategory: "sales_tax",
+      rateType: "percentage",
+      rate: 0.0,
+      calculationBasis: "retail_price",
+      originCode: null,
+      priority: 0,
+    },
   ];
 
   for (const r of rules) {
@@ -868,6 +895,7 @@ async function main() {
       { skuId: "SKU-DESSRT-COOKIE", tCode: "PREPARED_FOOD" },
       { skuId: "SKU-BURGER-COMBO", tCode: "PREPARED_FOOD" },
       { skuId: "SKU-CHINESE-GEN-TSO", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-DRINK-WATER", tCode: "WATER" },
       // Modifiers are not tagged — they fall back to GENERAL (6%) unless overridden
       // Combo slots are $0 base price; tagging PREPARED_FOOD so they align if priced
     ];
