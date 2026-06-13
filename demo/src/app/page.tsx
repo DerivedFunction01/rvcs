@@ -2454,7 +2454,7 @@ function POSTerminalInner() {
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* ─── LEFT PANEL: Catalog ─────────────────────────────────── */}
-          <aside className="w-256 border-r bg-card flex flex-col shrink-0">
+          <aside className="w-lg border-r bg-card flex flex-col shrink-0">
             <div className="p-3 border-b">
               <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Catalog
