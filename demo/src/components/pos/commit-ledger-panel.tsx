@@ -11,12 +11,36 @@ export function CommitLedgerPanel(props: any) {
 
   return (
     <aside className={`border-l bg-card flex flex-col shrink-0 transition-all duration-200 ${isLedgerCollapsed ? "w-12" : "w-72"}`}>
-      <div className="p-3 border-b flex items-center justify-between gap-2">
-        {!isLedgerCollapsed && <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><GitCommitHorizontal className="w-3.5 h-3.5" />Ledger</h2>}
-        <div className="flex items-center gap-1">
-          {!isLedgerCollapsed && <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{log.length}</Badge>}
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsLedgerCollapsed((prev: any) => !prev)} title={isLedgerCollapsed ? "Expand ledger" : "Minimize ledger"}>{isLedgerCollapsed ? <PanelRightOpen className="w-3.5 h-3.5" /> : <PanelRightClose className="w-3.5 h-3.5" />}</Button>
-        </div>
+      <div className={`p-3 border-b flex ${isLedgerCollapsed ? "flex-col items-center gap-3" : "items-center justify-between gap-2"}`}>
+        {isLedgerCollapsed ? (
+          <>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => setIsLedgerCollapsed(false)}>
+                    <GitCommitHorizontal className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>Commit Ledger</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsLedgerCollapsed((prev: any) => !prev)} title="Expand ledger">
+              <PanelRightOpen className="w-3.5 h-3.5" />
+            </Button>
+          </>
+        ) : (
+          <>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><GitCommitHorizontal className="w-3.5 h-3.5" />Ledger</h2>
+            <div className="flex items-center gap-1">
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{log.length}</Badge>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsLedgerCollapsed((prev: any) => !prev)} title="Minimize ledger">
+                <PanelRightClose className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </>
+        )}
       </div>
       {!isLedgerCollapsed && (
         <>
@@ -103,9 +127,11 @@ export function CommitLedgerPanel(props: any) {
           </ScrollArea>
         </>
       )}
-      <div className="p-3 border-t">
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground"><span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Offline-ready</span><span>{log.length} local commits</span></div>
-      </div>
+      {!isLedgerCollapsed && (
+        <div className="p-3 border-t">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground"><span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Offline-ready</span><span>{log.length} local commits</span></div>
+        </div>
+      )}
     </aside>
   );
 }

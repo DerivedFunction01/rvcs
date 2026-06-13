@@ -253,6 +253,7 @@ function POSTerminalInner({
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
+  const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] = React.useState(false);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
   const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
@@ -1309,6 +1310,8 @@ function POSTerminalInner({
             onRemoveNoteFromItems={handleRemoveNoteFromItems}
             onCleanupStaleNotes={handleCleanupStaleNotes}
             onAttachNoteToOrder={handleAttachNoteToOrder}
+            isGroupNotesCollapsed={isGroupNotesCollapsed}
+            setIsGroupNotesCollapsed={setIsGroupNotesCollapsed}
           />
           <CommitLedgerPanel
             isLedgerCollapsed={isLedgerCollapsed}
