@@ -107,16 +107,63 @@ function getSelectedGuestNames(table: FloorObject | null): string[] {
   return Array.from({ length: count }, (_, idx) => `Guest ${idx + 1}`);
 }
 
-export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenProps) {
+function getDisplayLabel(object: FloorObject): string {
+  if (!object.label) return "";
+  if (object.kind === "chair") {
+    const chairMatch = object.label.match(/Chair\s+(\d+)/i);
+    if (chairMatch) return `C${chairMatch[1]}`;
+    const numMatch = object.label.match(/(\d+)$/);
+    if (numMatch) return `C${numMatch[1]}`;
+  }
+  return object.label;
+}
+
+function getFontSize(object: FloorObject, label: string): number {
+  let width = 2;
+  let height = 2;
+
+  if (object.shape === "circle") {
+    width = height = (object.radius || 1) * 2;
+  } else if (object.shape === "ellipse") {
+    width = (object.radiusX || 2) * 2;
+    height = (object.radiusY || 1) * 2;
+  } else {
+    width = object.width || 2;
+    height = object.height || 2;
+  }
+
+  const baseFontSize = Math.min(width, height) * 0.25;
+  if (!label) return baseFontSize;
+
+  const charRatio = 0.55;
+  const maxTextWidth = width * 0.85; // Leave 15% margins
+  const estimatedTextWidth = label.length * baseFontSize * charRatio;
+
+  if (estimatedTextWidth > maxTextWidth) {
+    return baseFontSize * (maxTextWidth / estimatedTextWidth);
+  }
+  return baseFontSize;
+}
+
+export function OrderInitScreen({
+  onOrderStart,
+  storeLabel,
+}: OrderInitScreenProps) {
   const [step, setStep] = useState<InitStep>("loading");
   const [orderTypes, setOrderTypes] = useState<OrderTypeConfig[]>([]);
   const [floorConfigs, setFloorConfigs] = useState<FloorConfig[]>([]);
-  const [servers, setServers] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedType, setSelectedType] = useState<OrderTypeConfig | null>(null);
+  const [servers, setServers] = useState<Array<{ id: string; name: string }>>(
+    [],
+  );
+  const [selectedType, setSelectedType] = useState<OrderTypeConfig | null>(
+    null,
+  );
   const [selectedServer, setSelectedServer] = useState("");
   const [selectedFloorId, setSelectedFloorId] = useState("");
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
-  const [customerFields, setCustomerFields] = useState<Record<string, string>>({});
+  const [customerFields, setCustomerFields] = useState<Record<string, string>>(
+    {},
+  );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -191,14 +238,16 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
   }));
 
   const toggleObjectSelection = (object: FloorObject | null | undefined) => {
-    if (!object || object.kind === "wall" || object.kind === "deadspace") return;
+    if (!object || object.kind === "wall" || object.kind === "deadspace")
+      return;
     setSelectedObjectIds((prev) => {
       const next = new Set(prev);
       const isSelected = next.has(object.id);
       if (object.kind === "table") {
         if (isSelected) {
           next.delete(object.id);
-          for (const chairId of object.linkedChairIds || []) next.delete(chairId);
+          for (const chairId of object.linkedChairIds || [])
+            next.delete(chairId);
         } else {
           next.add(object.id);
           for (const chairId of object.linkedChairIds || []) next.add(chairId);
@@ -291,7 +340,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <div className="text-center">
-              <p className="text-sm font-medium">Fetching POS configuration...</p>
+              <p className="text-sm font-medium">
+                Fetching POS configuration...
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Loading order types for {storeLabel}
               </p>
@@ -314,7 +365,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
             <div className="flex items-center gap-3 mb-3">
               <GitCommitHorizontal className="w-5 h-5 text-primary" />
               <div>
-                <h1 className="text-sm font-bold tracking-tight">Retail VCS Terminal</h1>
+                <h1 className="text-sm font-bold tracking-tight">
+                  Retail VCS Terminal
+                </h1>
                 <p className="text-[10px] text-muted-foreground">
                   {storeLabel} - Version-Controlled POS
                 </p>
@@ -348,7 +401,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
             </div>
 
             <div className="text-center">
-              <h2 className="text-2xl font-bold tracking-tight">How would you like to order?</h2>
+              <h2 className="text-2xl font-bold tracking-tight">
+                How would you like to order?
+              </h2>
               <p className="text-sm text-muted-foreground mt-2">
                 Select an order type to get started
               </p>
@@ -371,7 +426,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                         <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors" />
                       </div>
                       <CardTitle className="text-lg">{type.label}</CardTitle>
-                      <CardDescription className="text-xs">{type.description}</CardDescription>
+                      <CardDescription className="text-xs">
+                        {type.description}
+                      </CardDescription>
                     </CardHeader>
                     {type.estimatedTimeLabel && (
                       <CardContent className="pt-0">
@@ -411,7 +468,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
       selectedFloor.objects.forEach((o) => {
         let hw = 1;
         let hh = 1;
-        
+
         if (o.shape === "circle") {
           hw = hh = o.radius || 1;
         } else if (o.shape === "ellipse") {
@@ -450,7 +507,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
             <div className="flex items-center gap-3 mb-3">
               <GitCommitHorizontal className="w-5 h-5 text-primary" />
               <div>
-                <h1 className="text-sm font-bold tracking-tight">Retail VCS Terminal</h1>
+                <h1 className="text-sm font-bold tracking-tight">
+                  Retail VCS Terminal
+                </h1>
                 <p className="text-[10px] text-muted-foreground">
                   {storeLabel} - Version-Controlled POS
                 </p>
@@ -464,12 +523,19 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
           <div className="max-w-5xl mx-auto space-y-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight">Choose a table, or skip</h2>
+                <h2 className="text-2xl font-bold tracking-tight">
+                  Choose a table, or skip
+                </h2>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Optional for walk-in. If you pick a table, its guest names will auto-load.
+                  Optional for walk-in. If you pick a table, its guest names
+                  will auto-load.
                 </p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setStep("details")}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStep("details")}
+              >
                 Skip table config
               </Button>
             </div>
@@ -523,29 +589,31 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                       <Grid2x2 className="w-3.5 h-3.5" />
                       {selectedFloor.name}
                     </div>
-                    <div
-                      className="relative rounded-lg border bg-background overflow-hidden flex items-center justify-center min-h-[300px] p-4"
-                    >
+                    <div className="relative rounded-lg border bg-background overflow-hidden flex items-center justify-center min-h-[300px] p-4">
                       <svg
                         viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
                         className="w-full h-full max-h-[600px]"
                       >
                         {selectedFloor.objects.map((object) => {
-                          const selected = object ? selectedObjectIds.includes(object.id) : false;
+                          const selected = object
+                            ? selectedObjectIds.includes(object.id)
+                            : false;
                           const linkedToSelectedTable =
-                            object?.kind === "chair" && linkedChairIds.has(object.id);
-                          
+                            object?.kind === "chair" &&
+                            linkedChairIds.has(object.id);
+
                           let fillClass = "fill-card text-muted-foreground";
                           let strokeClass = "stroke-muted-foreground";
                           let textColorClass = "fill-muted-foreground";
-                          
+
                           if (object?.kind === "wall") {
                             fillClass = "fill-zinc-800";
                             strokeClass = "stroke-zinc-800";
                             textColorClass = "fill-white";
                           } else if (object?.kind === "deadspace") {
                             fillClass = "fill-zinc-100 dark:fill-zinc-900";
-                            strokeClass = "stroke-zinc-300 dark:stroke-zinc-700";
+                            strokeClass =
+                              "stroke-zinc-300 dark:stroke-zinc-700";
                             textColorClass = "fill-zinc-400";
                           } else if (object?.kind === "chair") {
                             if (selected) {
@@ -558,46 +626,87 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                               textColorClass = "fill-sky-800 dark:fill-sky-200";
                             } else {
                               fillClass = "fill-sky-50 dark:fill-sky-950/30";
-                              strokeClass = "stroke-sky-300 dark:stroke-sky-800";
+                              strokeClass =
+                                "stroke-sky-300 dark:stroke-sky-800";
                               textColorClass = "fill-sky-700 dark:fill-sky-300";
                             }
                           } else if (object?.kind === "table") {
                             if (selected) {
-                              fillClass = "fill-emerald-200 dark:fill-emerald-900";
+                              fillClass =
+                                "fill-emerald-200 dark:fill-emerald-900";
                               strokeClass = "stroke-emerald-500";
-                              textColorClass = "fill-emerald-900 dark:fill-emerald-100";
+                              textColorClass =
+                                "fill-emerald-900 dark:fill-emerald-100";
                             } else {
-                              fillClass = "fill-emerald-50 hover:fill-emerald-100 dark:fill-emerald-950/30 dark:hover:fill-emerald-900/50";
-                              strokeClass = "stroke-emerald-300 dark:stroke-emerald-800";
-                              textColorClass = "fill-emerald-800 dark:fill-emerald-200";
+                              fillClass =
+                                "fill-emerald-50 hover:fill-emerald-100 dark:fill-emerald-950/30 dark:hover:fill-emerald-900/50";
+                              strokeClass =
+                                "stroke-emerald-300 dark:stroke-emerald-800";
+                              textColorClass =
+                                "fill-emerald-800 dark:fill-emerald-200";
                             }
                           }
 
                           const renderShape = () => {
                             const rotation = object.rotation || 0;
-                            const transform = rotation ? `rotate(${rotation} ${object.x} ${object.y})` : undefined;
-                            
+                            const transform = rotation
+                              ? `rotate(${rotation} ${object.x} ${object.y})`
+                              : undefined;
+
                             switch (object.shape) {
                               case "circle":
-                                return <circle cx={object.x} cy={object.y} r={object.radius || 1} transform={transform} />;
+                                return (
+                                  <circle
+                                    cx={object.x}
+                                    cy={object.y}
+                                    r={object.radius || 1}
+                                    transform={transform}
+                                  />
+                                );
                               case "ellipse":
-                                return <ellipse cx={object.x} cy={object.y} rx={object.radiusX || 2} ry={object.radiusY || 1} transform={transform} />;
+                                return (
+                                  <ellipse
+                                    cx={object.x}
+                                    cy={object.y}
+                                    rx={object.radiusX || 2}
+                                    ry={object.radiusY || 1}
+                                    transform={transform}
+                                  />
+                                );
                               case "triangle":
                               case "polygon":
                                 if (object.points) {
-                                  const pts = object.points.map(p => `${p[0]},${p[1]}`).join(" ");
-                                  return <polygon points={pts} transform={transform} />;
+                                  const pts = object.points
+                                    .map((p) => `${p[0]},${p[1]}`)
+                                    .join(" ");
+                                  return (
+                                    <polygon
+                                      points={pts}
+                                      transform={transform}
+                                    />
+                                  );
                                 }
                                 return null;
                               case "rectangle":
                               default:
                                 const w = object.width || 2;
                                 const h = object.height || 2;
-                                return <rect x={object.x - w/2} y={object.y - h/2} width={w} height={h} transform={transform} rx={0.2} ry={0.2} />;
+                                return (
+                                  <rect
+                                    x={object.x - w / 2}
+                                    y={object.y - h / 2}
+                                    width={w}
+                                    height={h}
+                                    transform={transform}
+                                    rx={0.2}
+                                    ry={0.2}
+                                  />
+                                );
                             }
                           };
 
-                          const fontSize = Math.min(object.width || 2, object.height || 2, object.radius ? object.radius * 2 : 2) * 0.25;
+                          const displayLabel = getDisplayLabel(object);
+                          const fontSize = getFontSize(object, displayLabel);
 
                           return (
                             <g
@@ -607,7 +716,7 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                               strokeWidth={0.05}
                             >
                               {renderShape()}
-                              {object.label && (
+                              {displayLabel && (
                                 <text
                                   x={object.x}
                                   y={object.y}
@@ -615,24 +724,34 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                                   textAnchor="middle"
                                   dominantBaseline="middle"
                                   className={`font-semibold select-none pointer-events-none ${textColorClass}`}
-                                  transform={object.rotation ? `rotate(${object.rotation} ${object.x} ${object.y})` : undefined}
+                                  transform={
+                                    object.rotation
+                                      ? `rotate(${object.rotation} ${object.x} ${object.y})`
+                                      : undefined
+                                  }
                                 >
-                                  {object.label}
+                                  {displayLabel}
                                 </text>
                               )}
-                              {object.kind === "table" && (object as any).seatCount && (object as any).seatCount > 0 && (
-                                <text
-                                  x={object.x}
-                                  y={object.y + fontSize * 1.5}
-                                  fontSize={fontSize * 0.7}
-                                  textAnchor="middle"
-                                  dominantBaseline="middle"
-                                  className={`font-medium select-none pointer-events-none ${textColorClass} opacity-80`}
-                                  transform={object.rotation ? `rotate(${object.rotation} ${object.x} ${object.y})` : undefined}
-                                >
-                                  {(object as any).seatCount} seats
-                                </text>
-                              )}
+                              {object.kind === "table" &&
+                                (object as any).seatCount &&
+                                (object as any).seatCount > 0 && (
+                                  <text
+                                    x={object.x}
+                                    y={object.y + fontSize * 1.5}
+                                    fontSize={fontSize * 0.7}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    className={`font-medium select-none pointer-events-none ${textColorClass} opacity-80`}
+                                    transform={
+                                      object.rotation
+                                        ? `rotate(${object.rotation} ${object.x} ${object.y})`
+                                        : undefined
+                                    }
+                                  >
+                                    {(object as any).seatCount} seats
+                                  </text>
+                                )}
                             </g>
                           );
                         })}
@@ -654,9 +773,13 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
               <div className="rounded-xl border bg-card p-4 text-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{selectedObjectNames.length} selected</Badge>
+                    <Badge variant="secondary">
+                      {selectedObjectNames.length} selected
+                    </Badge>
                     {selectedTables.length > 0 && (
-                      <Badge variant="outline">{selectedTables.length} table(s)</Badge>
+                      <Badge variant="outline">
+                        {selectedTables.length} table(s)
+                      </Badge>
                     )}
                     {selectedObjectNames.map((object) => (
                       <Badge key={object.id} variant="outline">
@@ -708,7 +831,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
           <div className="flex items-center gap-3 mb-3">
             <GitCommitHorizontal className="w-5 h-5 text-primary" />
             <div>
-              <h1 className="text-sm font-bold tracking-tight">Retail VCS Terminal</h1>
+              <h1 className="text-sm font-bold tracking-tight">
+                Retail VCS Terminal
+              </h1>
               <p className="text-[10px] text-muted-foreground">
                 {storeLabel} - Version-Controlled POS
               </p>
@@ -724,7 +849,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
             variant="ghost"
             size="sm"
             className="mb-6 text-xs text-muted-foreground"
-            onClick={() => setStep(selectedType?.id === "walk-in" ? "floor" : "order")}
+            onClick={() =>
+              setStep(selectedType?.id === "walk-in" ? "floor" : "order")
+            }
           >
             <ArrowLeft className="w-3 h-3 mr-1" />
             Back
@@ -737,7 +864,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                 return (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
                     <Icon className="w-4 h-4 text-primary" />
-                    <span className="font-medium text-sm">{selectedType.label}</span>
+                    <span className="font-medium text-sm">
+                      {selectedType.label}
+                    </span>
                     {selectedType.estimatedTimeLabel && (
                       <Badge variant="secondary" className="text-[10px] ml-1">
                         <Clock className="w-3 h-3 mr-1" />
@@ -751,7 +880,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
           )}
 
           <div className="space-y-4">
-            <h2 className="text-xl font-bold tracking-tight">Customer Details</h2>
+            <h2 className="text-xl font-bold tracking-tight">
+              Customer Details
+            </h2>
             <p className="text-sm text-muted-foreground">
               Fill in the required information to start the order
             </p>
@@ -768,7 +899,9 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                   >
                     <FieldIcon className="w-3.5 h-3.5 text-muted-foreground" />
                     {field.label}
-                    {field.required && <span className="text-destructive text-xs">*</span>}
+                    {field.required && (
+                      <span className="text-destructive text-xs">*</span>
+                    )}
                   </Label>
 
                   {field.type === "textarea" ? (
@@ -794,7 +927,13 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                   ) : (
                     <Input
                       id={`field-${field.key}`}
-                      type={field.type === "tel" ? "tel" : field.type === "email" ? "email" : "text"}
+                      type={
+                        field.type === "tel"
+                          ? "tel"
+                          : field.type === "email"
+                            ? "email"
+                            : "text"
+                      }
                       placeholder={field.placeholder}
                       value={customerFields[field.key] || ""}
                       onChange={(e) => {
@@ -820,7 +959,11 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                     />
                   )}
 
-                  {hasError && <p className="text-xs text-destructive">{fieldErrors[field.key]}</p>}
+                  {hasError && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors[field.key]}
+                    </p>
+                  )}
                 </div>
               );
             })}
