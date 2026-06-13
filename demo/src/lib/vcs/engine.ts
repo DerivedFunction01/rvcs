@@ -442,22 +442,42 @@ export class VCSEngine {
 
   /**
    * Build the full ancestor set for a given hash (inclusive of that hash itself).
+   * Walks first-parent and merge-parent links so merged-in branches count as ancestors.
    * Returns a Map of hash → log index for later recency comparison.
    */
   private allAncestors(hash: string | null): Map<string, number> {
     const result = new Map<string, number>();
     if (!hash) return result;
+
     const indexMap = new Map(this.repo.log.map((c, i) => [c.commitHash, i]));
-    let current: string | null = hash;
+    const commitByHash = new Map(this.repo.log.map((c) => [c.commitHash, c]));
     const visited = new Set<string>();
-    while (current && !visited.has(current)) {
+    const queue: string[] = [hash];
+
+    while (queue.length > 0) {
+      const current = queue.pop()!;
+      if (visited.has(current)) continue;
       visited.add(current);
+
       const idx = indexMap.get(current);
       if (idx !== undefined) result.set(current, idx);
-      const commit = this.repo.log[idx ?? -1];
-      current = commit?.parentHash ?? null;
+
+      const commit = commitByHash.get(current);
+      if (!commit) continue;
+
+      if (commit.parentHash) queue.push(commit.parentHash);
+      for (const mergeHash of commit.mergeParentHashes) {
+        queue.push(mergeHash);
+      }
     }
+
     return result;
+  }
+
+  /** True when ancestorHash is reachable from descendantHash via parent/merge links. */
+  isAncestorOf(ancestorHash: string, descendantHash: string | null): boolean {
+    if (!descendantHash) return false;
+    return this.allAncestors(descendantHash).has(ancestorHash);
   }
 
   /**
@@ -574,6 +594,15 @@ export class VCSEngine {
     // Fast-forward: LCA is the target head (target is strictly behind all sources)
     const isFastForward = lcaHash !== null && lcaHash === targetHead;
 
+    // Already merged: source tip is an ancestor of target (git "Already up to date")
+    const alreadyMergedBranches = sourceBranches.filter((sb) => {
+      const head = sourceHeads[sb];
+      return head !== null && this.isAncestorOf(head, targetHead);
+    });
+    const isUpToDate =
+      sourceBranches.length > 0 &&
+      alreadyMergedBranches.length === sourceBranches.length;
+
     return {
       lcaHash,
       targetHead,
@@ -582,6 +611,8 @@ export class VCSEngine {
       conflicts,
       autoMergedState,
       isFastForward,
+      alreadyMergedBranches,
+      isUpToDate,
     };
   }
 

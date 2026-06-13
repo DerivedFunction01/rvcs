@@ -58,6 +58,8 @@ interface MergeDialogProps {
   onOpenChange: (open: boolean) => void;
   branches: BranchMap;
   activeBranch: string;
+  /** True when source tip is already an ancestor of the target head (git "Already up to date"). */
+  isAlreadyMerged: (sourceBranch: string, targetBranch: string) => boolean;
   onPreview: (sourceBranches: string[], targetBranch: string) => MergePreview;
   onCommit: (
     sourceBranches: string[],
@@ -440,6 +442,7 @@ function StepSelectBranches({
   setTargetBranch,
   selectedSources,
   setSelectedSources,
+  isAlreadyMerged,
   onNext,
 }: {
   branches: BranchMap;
@@ -448,12 +451,17 @@ function StepSelectBranches({
   setTargetBranch: (b: string) => void;
   selectedSources: Set<string>;
   setSelectedSources: (s: Set<string>) => void;
+  isAlreadyMerged: (sourceBranch: string, targetBranch: string) => boolean;
   onNext: () => void;
 }) {
   const branchNames = Object.keys(branches);
   const availableSources = branchNames.filter((b) => b !== targetBranch);
+  const mergeableSources = availableSources.filter(
+    (b) => !isAlreadyMerged(b, targetBranch),
+  );
 
   const toggleSource = (name: string) => {
+    if (isAlreadyMerged(name, targetBranch)) return;
     const next = new Set(selectedSources);
     if (next.has(name)) next.delete(name);
     else next.add(name);
@@ -507,16 +515,20 @@ function StepSelectBranches({
           ) : (
             availableSources.map((b) => {
               const checked = selectedSources.has(b);
+              const alreadyMerged = isAlreadyMerged(b, targetBranch);
               return (
                 <div
                   key={b}
-                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
-                    checked ? "bg-primary/5" : "hover:bg-accent/40"
+                  className={`flex items-center gap-3 px-3 py-2.5 transition-colors ${
+                    alreadyMerged
+                      ? "opacity-60 cursor-not-allowed"
+                      : `cursor-pointer ${checked ? "bg-primary/5" : "hover:bg-accent/40"}`
                   }`}
                   onClick={() => toggleSource(b)}
                 >
                   <Checkbox
                     checked={checked}
+                    disabled={alreadyMerged}
                     onCheckedChange={() => toggleSource(b)}
                     onClick={(e) => e.stopPropagation()}
                     className="h-4 w-4 data-[state=checked]:border-primary"
@@ -526,6 +538,14 @@ function StepSelectBranches({
                     <span className="text-xs text-muted-foreground font-mono truncate">
                       {branches[b].headHash?.slice(0, 7) ?? "no commits"}
                     </span>
+                    {alreadyMerged && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[9px] h-4 px-1.5 shrink-0"
+                      >
+                        Already merged
+                      </Badge>
+                    )}
                   </div>
                 </div>
               );
@@ -538,11 +558,16 @@ function StepSelectBranches({
             {selectedSources.size !== 1 ? "es" : ""} selected
           </p>
         )}
+        {mergeableSources.length === 0 && availableSources.length > 0 && (
+          <p className="text-[10px] text-muted-foreground">
+            All other branches are already merged into {targetBranch}.
+          </p>
+        )}
       </div>
 
       <Button
         onClick={onNext}
-        disabled={selectedSources.size === 0}
+        disabled={selectedSources.size === 0 || mergeableSources.length === 0}
         className="w-full h-9 gap-2"
       >
         <GitMerge className="w-4 h-4" />
@@ -578,7 +603,7 @@ function StepPreview({
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
 
   const unresolvedCount = conflicts.filter((c) => !c.resolution).length;
-  const canConfirm = unresolvedCount === 0;
+  const canConfirm = unresolvedCount === 0 && !preview.isUpToDate;
 
   const targetDeltaCount = preview.deltasByBranch[targetBranch]?.length ?? 0;
   const sourceDeltaCounts = sourceBranches.map((sb) => ({
@@ -612,6 +637,11 @@ function StepPreview({
             {preview.isFastForward && (
               <Badge className="text-[10px] h-5 bg-sky-500 hover:bg-sky-500 gap-1">
                 <Zap className="w-2.5 h-2.5" /> Fast-forward
+              </Badge>
+            )}
+            {preview.isUpToDate && (
+              <Badge variant="secondary" className="text-[10px] h-5 gap-1">
+                Already up to date
               </Badge>
             )}
             {preview.lcaHash && (
@@ -706,6 +736,13 @@ function StepPreview({
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
             <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
               Clean merge — no conflicts
+            </p>
+          </div>
+        ) : preview.isUpToDate ? (
+          <div className="flex items-center gap-2 rounded-xl bg-muted/50 border px-3 py-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <p className="text-xs text-muted-foreground font-medium">
+              Selected branches are already merged into {targetBranch}
             </p>
           </div>
         ) : unresolvedCount > 0 ? (
@@ -824,6 +861,7 @@ export function MergeBranchDialog({
   onOpenChange,
   branches,
   activeBranch,
+  isAlreadyMerged,
   onPreview,
   onCommit,
 }: MergeDialogProps) {
@@ -930,6 +968,7 @@ export function MergeBranchDialog({
               setTargetBranch={setTargetBranch}
               selectedSources={selectedSources}
               setSelectedSources={setSelectedSources}
+              isAlreadyMerged={isAlreadyMerged}
               onNext={handlePreview}
             />
           )}

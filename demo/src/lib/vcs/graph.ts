@@ -103,28 +103,43 @@ export function buildCommitGraph(
     currentY += rowHeight;
   });
 
-  // 3. Build connecting lines
+  // 3. Build connecting lines (first-parent + merge-parent edges)
+  const commitByHash = new Map(log.map((c) => [c.commitHash, c]));
   const lines: GraphLine[] = [];
-  log.forEach((commit, idx) => {
-    const node = nodes[idx];
-    const startX = node.x;
-    const startY = node.y;
 
-    if (commit.parentHash && commitIndices[commit.parentHash] !== undefined) {
-      const parentIdx = commitIndices[commit.parentHash];
-      const parentNode = nodes[parentIdx];
-      const endX = parentNode.x;
-      const endY = parentNode.y;
+  const addEdge = (
+    childHash: string,
+    parentHash: string,
+    colorBranch: string,
+    edgeKind: "parent" | "merge"
+  ) => {
+    const childIdx = commitIndices[childHash];
+    const parentIdx = commitIndices[parentHash];
+    if (childIdx === undefined || parentIdx === undefined) return;
 
-      lines.push({
-        id: `${commit.commitHash}-${parentCommitHash(commit)}`,
-        startX,
-        startY,
-        endX,
-        endY,
-        color: getColor(commit.branch),
-        dashed: branches[commit.branch]?.type === "hypothetical",
-      });
+    const childNode = nodes[childIdx];
+    const parentNode = nodes[parentIdx];
+
+    lines.push({
+      id: `${childHash}-${edgeKind}-${parentHash}`,
+      startX: childNode.x,
+      startY: childNode.y,
+      endX: parentNode.x,
+      endY: parentNode.y,
+      color: getColor(colorBranch),
+      dashed: branches[colorBranch]?.type === "hypothetical",
+    });
+  };
+
+  log.forEach((commit) => {
+    if (commit.parentHash) {
+      addEdge(commit.commitHash, commit.parentHash, commit.branch, "parent");
+    }
+
+    for (const mergeHash of commit.mergeParentHashes) {
+      const mergeParent = commitByHash.get(mergeHash);
+      const mergeBranch = mergeParent?.branch ?? commit.branch;
+      addEdge(commit.commitHash, mergeHash, mergeBranch, "merge");
     }
   });
 
@@ -133,8 +148,4 @@ export function buildCommitGraph(
   const height = currentY;
 
   return { nodes, lines, width, height };
-}
-
-function parentCommitHash(commit: VCSCommit): string {
-  return commit.parentHash || "";
 }

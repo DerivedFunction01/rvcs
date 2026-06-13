@@ -13,6 +13,7 @@ import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialo
 import { TableSplitDialog } from "@/components/vcs/table-split-dialog";
 import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
 import { BranchConfigDialog } from "@/components/vcs/branch-config-dialog";
+import { BranchManagerDialog } from "@/components/vcs/branch-manager-dialog";
 import { MergeBranchDialog } from "@/components/vcs/merge-dialog";
 import {
   Popover,
@@ -46,11 +47,9 @@ import {
   UserPlus,
   Settings2,
   Split,
-  Star,
   ChevronDown,
   ChevronRight,
   GitBranch,
-  GitMerge,
   Lightbulb,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -686,7 +685,6 @@ function POSTerminalInner() {
   const [selectedPerson, setSelectedPerson] = React.useState(customerName);
   const [newGuestName, setNewGuestName] = React.useState("");
   const [showAddGuest, setShowAddGuest] = React.useState(false);
-  const [newBranchName, setNewBranchName] = React.useState("");
   const [catalogFilter, setCatalogFilter] = React.useState("");
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
 
@@ -714,7 +712,8 @@ function POSTerminalInner() {
   const [newBranchFromHistoryName, setNewBranchFromHistoryName] =
     React.useState("");
 
-  // Branch configuration dialog state
+  // Branch manager / configuration dialog state
+  const [isBranchManagerOpen, setIsBranchManagerOpen] = React.useState(false);
   const [isBranchConfigOpen, setIsBranchConfigOpen] = React.useState(false);
   const [branchToConfig, setBranchToConfig] = React.useState<string | null>(
     null,
@@ -1228,27 +1227,28 @@ function POSTerminalInner() {
     setAllocConfigItem((prev) => (prev === item ? null : item));
   }, []);
 
-  const handleCreateBranch = useCallback(() => {
-    if (!newBranchName.trim()) return;
-    try {
-      // Branch from the currently-viewed commit (viewingHash), or HEAD if not time-traveling (null → engine uses HEAD)
-      createBranch(newBranchName.trim(), viewingHash);
-      const fromLabel = viewingHash
-        ? ` at commit ${viewingHash.substring(0, 7)}`
-        : "";
-      toast.success(`Branch "${newBranchName.trim()}" created${fromLabel}`);
-      setNewBranchName("");
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }, [createBranch, newBranchName, viewingHash]);
+  const handleCreateBranch = useCallback(
+    (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      try {
+        createBranch(trimmed, viewingHash);
+        const fromLabel = viewingHash
+          ? ` at commit ${viewingHash.substring(0, 7)}`
+          : "";
+        toast.success(`Branch "${trimmed}" created${fromLabel}`);
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+    },
+    [createBranch, viewingHash],
+  );
 
   const handleResetOrder = useCallback(() => {
     resetOrder();
     setShowResetConfirm(false);
     setNewGuestName("");
     setShowAddGuest(false);
-    setNewBranchName("");
     setCatalogFilter("");
     toast.success("Order reset — ready for a new order");
   }, [resetOrder]);
@@ -1272,130 +1272,52 @@ function POSTerminalInner() {
             </div>
           </div>
 
-          {/* Branch Tabs */}
+          {/* Active branch — compact; full list in dialog */}
           <div className="flex items-center gap-2">
-            {Object.entries(branches).map(([branch, pointer]) => {
-              const isMainActive = mainActiveBranch() === branch;
-              const isActive = activeBranch() === branch;
-              const isHypothetical = pointer.type === "hypothetical";
-              const displayName = pointer.label || branch;
+            {(() => {
+              const active = activeBranch();
+              const main = mainActiveBranch();
+              const pointer = branches[active];
+              const isHypothetical = pointer?.type === "hypothetical";
+              const displayName = pointer?.label || active;
+              const branchCount = Object.keys(branches).length;
+
               return (
-                <div
-                  key={branch}
-                  className={`flex items-center gap-1 border rounded-md px-1.5 py-0.5 shrink-0 transition-all ${
-                    isActive
-                      ? isHypothetical
-                        ? "border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/20"
-                        : "border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500/20"
-                      : isHypothetical
-                        ? "border-amber-200/60 dark:border-amber-800/40 bg-amber-500/5 hover:bg-amber-500/10"
-                        : "border-border bg-card hover:bg-accent/40"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-7 gap-1.5 pr-2 ${
+                    isHypothetical
+                      ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10"
+                      : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"
                   }`}
+                  onClick={() => setIsBranchManagerOpen(true)}
                 >
-                  <span
-                    className="flex items-center shrink-0"
-                    title={
-                      isHypothetical
-                        ? "Hypothetical (What-if) Branch"
-                        : "Parallel Input Branch"
-                    }
-                  >
-                    {isHypothetical ? (
-                      <Lightbulb className="w-3 h-3 text-amber-500" />
-                    ) : (
-                      <GitBranch className="w-3 h-3 text-emerald-500" />
-                    )}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`text-xs h-6 px-1 ${isActive ? "font-bold text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    onClick={() => checkoutBranch(branch)}
-                    title={`Checkout ${branch}${pointer.label ? ` (${pointer.label})` : ""}`}
-                  >
+                  {isHypothetical ? (
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  ) : (
+                    <GitBranch className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  )}
+                  <span className="text-xs font-semibold max-w-[120px] truncate">
                     {displayName}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 p-0 hover:bg-muted"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBranchToConfig(branch);
-                      setIsBranchConfigOpen(true);
-                    }}
-                    title="Configure branch"
-                  >
-                    <Settings2 className="w-3 h-3 text-muted-foreground/60 hover:text-foreground" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 p-0 hover:bg-muted"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMainActiveBranch(branch);
-                      toast.success(`"${branch}" set as main active branch`);
-                    }}
-                    title={
-                      isMainActive
-                        ? "Main active branch"
-                        : "Mark as main active branch"
-                    }
-                  >
-                    <Star
-                      className={`w-3 h-3 ${isMainActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/30"}`}
-                    />
-                  </Button>
-                </div>
-              );
-            })}
-            <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      value={newBranchName}
-                      onChange={(e) => setNewBranchName(e.target.value)}
-                      placeholder="new-branch"
-                      className={`w-28 h-7 text-xs transition-all ${viewingHash ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
-                      onKeyDown={(e) => e.key === "Enter" && handleCreateBranch()}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={`h-7 w-7 p-0 transition-all ${viewingHash ? "border-amber-400/50 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30" : ""}`}
-                      onClick={handleCreateBranch}
+                  </span>
+                  {main !== active && (
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      · main: {branches[main]?.label || main}
+                    </span>
+                  )}
+                  {branchCount > 1 && (
+                    <Badge
+                      variant="secondary"
+                      className="text-[9px] h-4 px-1.5 ml-0.5"
                     >
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
-                  {viewingHash
-                    ? `Branch from commit ${viewingHash.substring(0, 7)}`
-                    : "Branch from current HEAD"}
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            {/* Merge button — shown when 2+ branches exist */}
-            {Object.keys(branches).length >= 2 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 w-7 p-0 border-violet-400/50 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 dark:text-violet-400"
-                    onClick={() => setIsMergeOpen(true)}
-                  >
-                    <GitMerge className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Merge branches
-                </TooltipContent>
-              </Tooltip>
-            )}
+                      {branchCount}
+                    </Badge>
+                  )}
+                  <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+                </Button>
+              );
+            })()}
           </div>
 
           {/* Guest Selector + Payment + New Order */}
@@ -2389,6 +2311,33 @@ function POSTerminalInner() {
         }}
       />
 
+      <BranchManagerDialog
+        open={isBranchManagerOpen}
+        onOpenChange={setIsBranchManagerOpen}
+        branches={branches}
+        activeBranch={activeBranch()}
+        mainActiveBranch={mainActiveBranch()}
+        viewingHash={viewingHash}
+        onCheckout={(branch) => {
+          checkoutBranch(branch);
+          toast.success(`Switched to "${branch}"`);
+        }}
+        onSetMainActive={(branch) => {
+          setMainActiveBranch(branch);
+          toast.success(`"${branch}" set as main active branch`);
+        }}
+        onConfigure={(branch) => {
+          setIsBranchManagerOpen(false);
+          setBranchToConfig(branch);
+          setIsBranchConfigOpen(true);
+        }}
+        onCreateBranch={handleCreateBranch}
+        onOpenMerge={() => {
+          setIsBranchManagerOpen(false);
+          setIsMergeOpen(true);
+        }}
+      />
+
       <BranchConfigDialog
         open={isBranchConfigOpen}
         onOpenChange={setIsBranchConfigOpen}
@@ -2410,6 +2359,14 @@ function POSTerminalInner() {
         onOpenChange={setIsMergeOpen}
         branches={branches}
         activeBranch={activeBranch()}
+        isAlreadyMerged={(sourceBranch, targetBranch) => {
+          const sourceHead = branches[sourceBranch]?.headHash;
+          const targetHead = branches[targetBranch]?.headHash;
+          if (!sourceHead || !targetHead) return false;
+          return useVCSStore
+            .getState()
+            .engine.isAncestorOf(sourceHead, targetHead);
+        }}
         onPreview={previewMerge}
         onCommit={(sourceBranches, targetBranch, resolutionDeltas) => {
           commitMerge(sourceBranches, targetBranch, resolutionDeltas);

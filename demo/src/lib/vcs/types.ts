@@ -368,4 +368,8 @@ export interface MergePreview {
   /** S_LCA ⊕ ΔT ⊕ ΔS1 ⊕ … (target wins conflicts by default) */
   autoMergedState: ProjectedState;
   isFastForward: boolean;
+  /** Source branches whose tips are already ancestors of the target head */
+  alreadyMergedBranches: string[];
+  /** True when every selected source is already merged into the target */
+  isUpToDate: boolean;
 }
