@@ -146,6 +146,7 @@ function POSTerminalInner({
     addGroupNote,
     removeGroupNote,
     cleanupStaleNotes,
+    attachNoteToOrder,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
@@ -936,6 +937,10 @@ function POSTerminalInner({
   const handleCleanupStaleNotes = useCallback((noteIds: string[]) => {
     cleanupStaleNotes(noteIds);
   }, [cleanupStaleNotes]);
+
+  const handleAttachNoteToOrder = useCallback((noteId: string, attached: boolean) => {
+    attachNoteToOrder(noteId, attached);
+  }, [attachNoteToOrder]);
   const guestChoiceOptions = React.useMemo(
     () =>
       guests.map((guest) => ({
@@ -1299,6 +1304,7 @@ function POSTerminalInner({
             projectedState={projectedState}
             onRemoveNoteFromItems={handleRemoveNoteFromItems}
             onCleanupStaleNotes={handleCleanupStaleNotes}
+            onAttachNoteToOrder={handleAttachNoteToOrder}
           />
           <CommitLedgerPanel
             isLedgerCollapsed={isLedgerCollapsed}

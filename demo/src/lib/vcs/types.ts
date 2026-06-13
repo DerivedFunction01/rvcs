@@ -58,6 +58,7 @@ export interface NoteAllocation {
   correlationId?: string | null;
   type: "note";
   text: string;
+  attachedTo?: "order" | null;
 }
 
 export type AllocationBlock =

@@ -11,20 +11,23 @@ interface GroupNotesPanelProps {
   projectedState: ProjectedState;
   onRemoveNoteFromItems: (lineIds: string[], noteId: string) => void;
   onCleanupStaleNotes: (noteIds: string[]) => void;
+  onAttachNoteToOrder: (noteId: string, attached: boolean) => void;
 }
 
 export function GroupNotesPanel({
   projectedState,
   onRemoveNoteFromItems,
   onCleanupStaleNotes,
+  onAttachNoteToOrder,
 }: GroupNotesPanelProps) {
-  const { notes, staleNotes } = React.useMemo(() => {
+  const { notes, staleNotes, orderNotes } = React.useMemo(() => {
     const allNotes: Array<{
       allocationId: string;
       text: string;
       linkedLineIds: string[];
       linkedItemNames: string[];
       isStale: boolean;
+      attachedToOrder?: boolean;
     }> = [];
 
     const noteAllocs = Object.values(projectedState.allocations).filter(
@@ -45,13 +48,15 @@ export function GroupNotesPanel({
         text: note.text,
         linkedLineIds: linked.map((i) => i.lineId),
         linkedItemNames: linked.map((i) => i.name),
-        isStale: linked.length === 0,
+        isStale: linked.length === 0 && note.attachedTo !== "order",
+        attachedToOrder: note.attachedTo === "order",
       });
     }
 
     return {
-      notes: allNotes.filter((n) => !n.isStale),
+      notes: allNotes.filter((n) => !n.isStale && !n.attachedToOrder),
       staleNotes: allNotes.filter((n) => n.isStale),
+      orderNotes: allNotes.filter((n) => n.attachedToOrder),
     };
   }, [projectedState]);
 
@@ -63,7 +68,7 @@ export function GroupNotesPanel({
           Group Notes
         </h2>
         <Badge variant="secondary" className="text-[10px]">
-          {notes.length} Active
+          {notes.length + orderNotes.length} Active
         </Badge>
       </div>
 
@@ -71,7 +76,7 @@ export function GroupNotesPanel({
         <div className="p-3 space-y-4">
           {/* Stale Notes Warning Panel */}
           {staleNotes.length > 0 && (
-            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50 space-y-2.5">
+            <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50 space-y-3">
               <div className="flex items-start gap-2 text-amber-800 dark:text-amber-300">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <div className="text-xs">
@@ -81,6 +86,36 @@ export function GroupNotesPanel({
                   </p>
                 </div>
               </div>
+
+              {/* Individual Stale Notes List */}
+              <div className="space-y-2 pt-1 border-t border-amber-200/50 dark:border-amber-900/40">
+                {staleNotes.map((note) => (
+                  <div key={note.allocationId} className="bg-background/85 dark:bg-card/50 p-2 rounded border border-amber-200 dark:border-amber-900/45 text-xs space-y-1.5 shadow-sm">
+                    <div className="font-medium text-foreground pr-4 break-words">
+                      "{note.text}"
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-5 text-[9px] px-1.5 py-0 bg-background hover:bg-accent border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 font-medium"
+                        onClick={() => onAttachNoteToOrder(note.allocationId, true)}
+                      >
+                        Attach to Order
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-5 text-[9px] px-1.5 py-0 bg-background hover:bg-accent border-amber-200 dark:border-amber-900 text-destructive hover:text-destructive hover:bg-destructive/10 font-medium"
+                        onClick={() => onCleanupStaleNotes([note.allocationId])}
+                      >
+                        Purge
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -88,14 +123,57 @@ export function GroupNotesPanel({
                 onClick={() => onCleanupStaleNotes(staleNotes.map((n) => n.allocationId))}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" />
-                Purge Stale Notes
+                Purge All Stale Notes
               </Button>
+            </div>
+          )}
+
+          {/* Order Notes Section */}
+          {orderNotes.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
+                Order Notes
+              </span>
+              <div className="space-y-2">
+                {orderNotes.map((note) => (
+                  <div
+                    key={note.allocationId}
+                    className="p-3 rounded-lg border border-primary/20 bg-primary/5 shadow-sm space-y-2 group relative hover:border-primary/40 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-semibold leading-relaxed text-foreground pr-6">
+                        {note.text}
+                      </p>
+                      <button
+                        title="Detach from order"
+                        className="absolute right-2 top-2 p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-accent/40"
+                        onClick={() => onAttachNoteToOrder(note.allocationId, false)}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-[9px] bg-background text-primary border-primary/20">
+                        📌 Attached to Order
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 text-[9px] text-destructive hover:bg-destructive/10 px-1.5"
+                        onClick={() => onCleanupStaleNotes([note.allocationId])}
+                      >
+                        Delete Note
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Notes List */}
           <div className="space-y-2.5">
-            {notes.length === 0 && staleNotes.length === 0 ? (
+            {notes.length === 0 && staleNotes.length === 0 && orderNotes.length === 0 ? (
               <div className="py-12 text-center text-xs text-muted-foreground/60 flex flex-col items-center justify-center gap-2">
                 <ClipboardSignature className="w-8 h-8 text-muted-foreground/40" />
                 <span>No group notes assigned.</span>

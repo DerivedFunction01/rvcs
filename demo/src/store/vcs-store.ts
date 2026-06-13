@@ -141,6 +141,7 @@ interface VCSStore {
   addGroupNote: (lineIds: string[], text: string) => void;
   removeGroupNote: (lineIds: string[], noteId: string) => void;
   cleanupStaleNotes: (noteIds: string[]) => void;
+  attachNoteToOrder: (noteId: string, attached: boolean) => void;
 
   /**
    * Switch the default payment configuration.
@@ -853,6 +854,49 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         store.commitDeltas(deltas, "pos-ui");
         toast.success("Stale notes cleared successfully");
       }
+    },
+
+    attachNoteToOrder: (noteId, attached) => {
+      const store = get();
+      const currentAlloc = store.projectedState.allocations[noteId];
+      if (!currentAlloc || currentAlloc.type !== "note") return;
+
+      const updatedAlloc = {
+        ...currentAlloc,
+        attachedTo: attached ? ("order" as const) : null,
+      };
+
+      const deltas: Delta[] = [
+        {
+          action: "undeclare_allocation",
+          allocationId: noteId,
+        },
+        {
+          action: "declare_allocation",
+          allocation: updatedAlloc,
+        },
+      ];
+
+      if (attached) {
+        const activeItems = Object.values(store.projectedState.items);
+        for (const item of activeItems) {
+          if (item.allocations.includes(noteId)) {
+            deltas.push({
+              action: "modify_item_allocations",
+              lineId: item.lineId,
+              beforeAllocations: item.allocations,
+              afterAllocations: item.allocations.filter(id => id !== noteId),
+            });
+          }
+        }
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
+      toast.success(
+        attached
+          ? "Note attached to order"
+          : "Note detached from order"
+      );
     },
 
     selectPaymentConfig: (
