@@ -18,6 +18,7 @@ import type {
   ProjectedLineItem,
   MergePreview,
 } from "@/lib/vcs/types";
+import { BranchType, SquashType } from "@/lib/vcs/types";
 import type { ResolvedChargeRule } from "@/lib/pos/financials";
 import { evaluateBusinessRules, type RenderedCheck } from "@/lib/pos/evaluate";
 import type { OrderContext } from "@/lib/pos/types";
@@ -353,7 +354,7 @@ interface VCSStore {
   mainActiveBranch: () => string;
   updateBranchConfig: (
     name: string,
-    config: { type?: "parallel" | "hypothetical"; label?: string },
+    config: { type?: BranchType; label?: string },
   ) => void;
   renameBranch: (oldName: string, newName: string) => void;
 
@@ -373,7 +374,7 @@ interface VCSStore {
    * Squash all pending commits from `fromHash` (inclusive) up to HEAD into
    * a single replacement commit. Confirmed commits are untouchable.
    */
-  squashPendingCommits: (fromHash: string, type: "light" | "full") => void;
+  squashPendingCommits: (fromHash: string, type: SquashType) => void;
   /**
    * Reset the active branch HEAD to `targetHash`, discarding all pending
    * commits after it. Confirmed commits cannot be discarded.

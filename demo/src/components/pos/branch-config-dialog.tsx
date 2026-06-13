@@ -12,15 +12,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GitBranch, Lightbulb, Save, Info, AlertTriangle } from "lucide-react";
+import { BranchType } from "@/lib/vcs/types";
 
 interface BranchConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   branchName: string;
-  currentType: "parallel" | "hypothetical";
+  currentType: BranchType;
   currentLabel: string;
   existingBranches: string[];
-  onSave: (newName: string, type: "parallel" | "hypothetical", label: string) => void;
+  onSave: (newName: string, type: BranchType, label: string) => void;
 }
 
 export function BranchConfigDialog({
@@ -33,7 +34,7 @@ export function BranchConfigDialog({
   onSave,
 }: BranchConfigDialogProps) {
   const [name, setName] = useState(branchName);
-  const [type, setType] = useState<"parallel" | "hypothetical">(currentType);
+  const [type, setType] = useState<BranchType>(currentType);
   const [label, setLabel] = useState(currentLabel);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,15 +145,15 @@ export function BranchConfigDialog({
                 {/* Parallel Input */}
                 <button
                   type="button"
-                  onClick={() => setType("parallel")}
+                  onClick={() => setType(BranchType.Parallel)}
                   className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
-                    type === "parallel"
+                    type === BranchType.Parallel
                       ? "border-emerald-500 bg-emerald-500/[0.04] shadow-xs"
                       : "border-border hover:border-muted-foreground/30 bg-background"
                   }`}
                 >
                   <div className={`p-1.5 rounded-lg mb-2 ${
-                    type === "parallel" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"
+                    type === BranchType.Parallel ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"
                   }`}>
                     <GitBranch className="w-4 h-4" />
                   </div>
@@ -165,15 +166,15 @@ export function BranchConfigDialog({
                 {/* Hypothetical */}
                 <button
                   type="button"
-                  onClick={() => setType("hypothetical")}
+                  onClick={() => setType(BranchType.Hypothetical)}
                   className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
-                    type === "hypothetical"
+                    type === BranchType.Hypothetical
                       ? "border-amber-500 bg-amber-500/[0.04] shadow-xs"
                       : "border-border hover:border-muted-foreground/30 bg-background"
                   }`}
                 >
                   <div className={`p-1.5 rounded-lg mb-2 ${
-                    type === "hypothetical" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"
+                    type === BranchType.Hypothetical ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"
                   }`}>
                     <Lightbulb className="w-4 h-4" />
                   </div>

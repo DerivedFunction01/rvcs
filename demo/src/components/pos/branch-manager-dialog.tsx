@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { generateDraftBranchName } from "@/lib/pos/id";
 import type { BranchMap } from "@/lib/vcs/types";
+import { BranchType } from "@/lib/vcs/types";
 
 interface BranchManagerDialogProps {
   open: boolean;
@@ -51,7 +52,7 @@ function BranchRow({
   onCheckout: () => void;
   onConfigure: () => void;
 }) {
-  const isHypothetical = pointer.type === "hypothetical";
+  const isHypothetical = pointer.type === BranchType.Hypothetical;
   const displayName = pointer.label || branch;
   const isMain = branch === "main";
 

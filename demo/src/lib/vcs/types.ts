@@ -260,9 +260,14 @@ export interface ProjectedState {
 
 // ─── Branch Pointers ──────────────────────────────────────────────────────────
 
+export enum BranchType {
+  Parallel = "parallel",
+  Hypothetical = "hypothetical",
+}
+
 export interface BranchPointer {
   headHash: string | null;
-  type?: "parallel" | "hypothetical";
+  type?: BranchType;
   label?: string;
 }
 
@@ -331,13 +336,14 @@ export interface VCSRepo {
 
 // ─── Merge Semantics ──────────────────────────────────────────────────────────
 
-export type MergeConflictType =
-  | "add_add"
-  | "remove_modify_sku"
-  | "remove_modify_alloc"
-  | "modify_sku_sku"
-  | "alloc_alloc"
-  | "modify_alloc_alloc";
+export enum MergeConflictType {
+  AddAdd = "add_add",
+  RemoveModifySku = "remove_modify_sku",
+  RemoveModifyAlloc = "remove_modify_alloc",
+  ModifySkuSku = "modify_sku_sku",
+  AllocAlloc = "alloc_alloc",
+  ModifyAllocAlloc = "modify_alloc_alloc",
+}
 
 /**
  * A detected conflict between two branches touching the same entity.
@@ -377,4 +383,9 @@ export interface MergePreview {
   alreadyMergedBranches: string[];
   /** True when every selected source is already merged into the target */
   isUpToDate: boolean;
+}
+
+export enum SquashType {
+  Light = "light",
+  Full = "full",
 }

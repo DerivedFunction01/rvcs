@@ -1,4 +1,5 @@
 import type { VCSCommit } from "./types";
+import { BranchType } from "./types";
 
 export interface GraphNode {
   commitHash: string;
@@ -40,7 +41,7 @@ export function buildCommitGraph(
   activeBranch: string,
   mainActiveBranch: string,
   expandedHashes: Set<string>,
-  branches: Record<string, { type?: "parallel" | "hypothetical" }> = {}
+  branches: Record<string, { type?: BranchType }> = {}
 ): { nodes: GraphNode[]; lines: GraphLine[]; width: number; height: number } {
   const n = log.length;
   if (n === 0) {
@@ -128,7 +129,7 @@ export function buildCommitGraph(
       endX: parentNode.x,
       endY: parentNode.y,
       color: getColor(colorBranch),
-      dashed: branches[colorBranch]?.type === "hypothetical",
+      dashed: branches[colorBranch]?.type === BranchType.Hypothetical,
       isMain: colorBranch === "main",
     });
   };

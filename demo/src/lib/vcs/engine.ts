@@ -17,6 +17,11 @@ import type {
   MergeConflict,
   MergePreview,
 } from "./types";
+import {
+  BranchType,
+  MergeConflictType,
+  SquashType,
+} from "./types";
 import { projectState } from "./reducer";
 import { generateCommitHash, generateLineId, generateAllocationId } from "./id";
 
@@ -52,7 +57,7 @@ function detectConflict(
     if (identical) return null; // clean auto-dedup
     return {
       id,
-      type: "add_add",
+      type: MergeConflictType.AddAdd,
       lineId: deltaA.lineId,
       branchA,
       branchB,
@@ -74,7 +79,7 @@ function detectConflict(
     const lineId = (deltaA as { lineId: string }).lineId;
     return {
       id,
-      type: "remove_modify_sku",
+      type: MergeConflictType.RemoveModifySku,
       lineId,
       branchA,
       branchB,
@@ -96,7 +101,7 @@ function detectConflict(
     const lineId = (deltaA as { lineId: string }).lineId;
     return {
       id,
-      type: "remove_modify_alloc",
+      type: MergeConflictType.RemoveModifyAlloc,
       lineId,
       branchA,
       branchB,
@@ -115,7 +120,7 @@ function detectConflict(
   ) {
     return {
       id,
-      type: "modify_sku_sku",
+      type: MergeConflictType.ModifySkuSku,
       lineId: deltaA.lineId,
       branchA,
       branchB,
@@ -133,7 +138,7 @@ function detectConflict(
   ) {
     return {
       id,
-      type: "modify_alloc_alloc",
+      type: MergeConflictType.ModifyAllocAlloc,
       lineId: deltaA.lineId,
       branchA,
       branchB,
@@ -151,7 +156,7 @@ function detectConflict(
   ) {
     return {
       id,
-      type: "alloc_alloc",
+      type: MergeConflictType.AllocAlloc,
       allocationId: deltaA.allocation.allocationId,
       branchA,
       branchB,
@@ -304,7 +309,7 @@ export class VCSEngine {
    */
   commitSystem(deltas: Delta[], authorId: string = "system"): VCSCommit {
     if (!this.repo.branches["system"]) {
-      this.repo.branches["system"] = { headHash: null, type: "parallel" };
+      this.repo.branches["system"] = { headHash: null, type: BranchType.Parallel };
     }
     return this.commit(deltas, authorId, "system");
   }
@@ -373,12 +378,12 @@ export class VCSEngine {
     } else {
       headHash = this.repo.branches[this.repo.activeBranch]?.headHash ?? null;
     }
-    this.repo.branches[name] = { headHash, type: "parallel" };
+    this.repo.branches[name] = { headHash, type: BranchType.Parallel };
   }
 
   updateBranchConfig(
     name: string,
-    config: { type?: "parallel" | "hypothetical"; label?: string },
+    config: { type?: BranchType; label?: string },
   ): void {
     this.ensureBranchExists(name);
     this.repo.branches[name] = {
@@ -876,7 +881,7 @@ export class VCSEngine {
    */
   squashPendingCommits(
     squashFromHash: string,
-    type: "light" | "full",
+    type: SquashType,
     branch?: string,
   ): VCSCommit[] {
     const targetBranch = branch || this.repo.activeBranch;
@@ -994,7 +999,7 @@ export class VCSEngine {
       }
     }
 
-    if (type === "full") {
+    if (type === SquashType.Full) {
       const optimizedDeltas: Delta[] = [];
       const lastModifyQtyDeltaMap = new Map<string, Delta>();
       for (const d of allDeltas) {
@@ -1032,7 +1037,7 @@ export class VCSEngine {
         branch: targetBranch,
         timestamp: new Date().toISOString(),
         authorId: "pos-squash",
-        metadata: { squashedCount: rangeCommits.length, squashType: "full" },
+        metadata: { squashedCount: rangeCommits.length, squashType: SquashType.Full },
         deltas: optimizedDeltas,
       };
 

@@ -65,6 +65,7 @@ import type {
   PaymentAllocation,
   FulfillmentAllocation,
 } from "@/lib/vcs/types";
+import { MergeConflictType, SquashType } from "@/lib/vcs/types";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
@@ -96,17 +97,17 @@ type Step = "select" | "preview" | "done";
 
 function conflictLabel(c: MergeConflict): string {
   switch (c.type) {
-    case "add_add":
+    case MergeConflictType.AddAdd:
       return `Same item ID, different content (lineId: ${c.lineId?.slice(0, 8)})`;
-    case "remove_modify_sku":
+    case MergeConflictType.RemoveModifySku:
       return `Item removed vs SKU changed (lineId: ${c.lineId?.slice(0, 8)})`;
-    case "remove_modify_alloc":
+    case MergeConflictType.RemoveModifyAlloc:
       return `Item removed vs allocation changed (lineId: ${c.lineId?.slice(0, 8)})`;
-    case "modify_sku_sku":
+    case MergeConflictType.ModifySkuSku:
       return `SKU changed to different values (lineId: ${c.lineId?.slice(0, 8)})`;
-    case "alloc_alloc":
+    case MergeConflictType.AllocAlloc:
       return `Allocation edited on both branches (id: ${c.allocationId?.slice(0, 8)})`;
-    case "modify_alloc_alloc":
+    case MergeConflictType.ModifyAllocAlloc:
       return `Allocations changed differently (lineId: ${c.lineId?.slice(0, 8)})`;
   }
 }
@@ -1558,8 +1559,8 @@ function StepPreview({
   onConfirm: () => void;
   onBack: () => void;
   isCommitting: boolean;
-  squashBeforeMerge: "none" | "light" | "full";
-  onSquashBeforeMergeChange: (val: "none" | "light" | "full") => void;
+  squashBeforeMerge: "none" | SquashType;
+  onSquashBeforeMergeChange: (val: "none" | SquashType) => void;
   resolveGuestName?: (idOrName: string) => string;
 }) {
   const [conflictsOpen, setConflictsOpen] = useState(false);
@@ -1649,9 +1650,9 @@ function StepPreview({
             Squash source commits before merging
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {(["none", "light", "full"] as const).map((type) => {
+            {(["none", SquashType.Light, SquashType.Full] as const).map((type) => {
               const label = MERGE_SQUASH_DESCRIPTIONS[type].label;
-              const desc = type === "none" ? "Merge as-is" : type === "light" ? "Prune net-zero" : "Compress range";
+              const desc = type === "none" ? "Merge as-is" : type === SquashType.Light ? "Prune net-zero" : "Compress range";
               const isSelected = squashBeforeMerge === type;
               return (
                 <button
@@ -1874,7 +1875,7 @@ export function MergeBranchDialog({
   const [conflicts, setConflicts] = useState<MergeConflict[]>([]);
   const [mergeCommitHash, setMergeCommitHash] = useState<string>("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const [squashBeforeMerge, setSquashBeforeMerge] = useState<"none" | "light" | "full">("none");
+  const [squashBeforeMerge, setSquashBeforeMerge] = useState<"none" | SquashType>("none");
 
   useEffect(() => {
     if (open) {
@@ -1983,7 +1984,7 @@ export function MergeBranchDialog({
           }
           if (firstPendingHash && firstPendingHash !== branchHead) {
             try {
-              engine.squashPendingCommits(firstPendingHash, squashBeforeMerge, srcBranch);
+              engine.squashPendingCommits(firstPendingHash, squashBeforeMerge as SquashType, srcBranch);
             } catch {
               // Non-fatal: squash may fail for single-commit branches or if already squashed
             }
