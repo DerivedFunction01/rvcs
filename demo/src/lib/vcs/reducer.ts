@@ -630,6 +630,16 @@ function buildProjectedState(
     personMap.set(person, { subtotal: 0, items: [], paymentMethod: null });
   }
 
+  const globalFixedBalances = new Map<string, number>();
+  for (const alloc of Object.values(allocations)) {
+    if (alloc.type === "payment") {
+      const payAlloc = alloc as PaymentAllocation;
+      if (payAlloc.paymentStrategy?.strategyType === "fixed_global") {
+        globalFixedBalances.set(alloc.allocationId, payAlloc.paymentStrategy.value ?? 0);
+      }
+    }
+  }
+
   for (const root of roots) {
     const lineTotal = sumTree(root);
     subtotal += lineTotal;
@@ -661,10 +671,27 @@ function buildProjectedState(
       // 1. Fixed payment strategies
       const fixedAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "fixed");
       for (const alloc of fixedAllocs) {
+      // 1. Fixed payment strategies (item)
+      const fixedItemAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "fixed_item" || a.paymentStrategy?.strategyType === "fixed");
+      for (const alloc of fixedItemAllocs) {
         const val = alloc.paymentStrategy.value ?? 0;
         const amt = Math.min(remaining, val);
         allocatedAmounts.set(alloc.allocationId, amt);
         remaining -= amt;
+      }
+
+      // 1.5 Fixed payment strategies (global)
+      const fixedGlobalAllocs = paymentAllocs.filter(a => a.paymentStrategy?.strategyType === "fixed_global");
+      for (const alloc of fixedGlobalAllocs) {
+        const balance = globalFixedBalances.get(alloc.allocationId) ?? 0;
+        if (balance > 0) {
+          const amt = Math.min(remaining, balance);
+          allocatedAmounts.set(alloc.allocationId, amt);
+          globalFixedBalances.set(alloc.allocationId, balance - amt);
+          remaining -= amt;
+        } else {
+          allocatedAmounts.set(alloc.allocationId, 0); // No budget left
+        }
       }
 
       // 2. Percentage payment strategies

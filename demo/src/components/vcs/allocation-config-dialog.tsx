@@ -53,6 +53,7 @@ interface AllocationConfigDialogProps {
     splits: Array<{
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
+      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
       value: number;
       method?: string | null;
     }>,
@@ -174,6 +175,7 @@ export function AllocationConfigDialog({
         return {
           entity: p.payer || currentAssignee,
           strategyType: strat?.strategyType || "percentage",
+          strategyType: strat?.strategyType === "fixed" ? "fixed_item" : (strat?.strategyType || "percentage"),
           value: val,
           method: p.method || null,
         };
@@ -319,6 +321,10 @@ export function AllocationConfigDialog({
                         ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
                         : payAlloc.paymentStrategy.strategyType === "fixed"
                         ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}`
+                        : payAlloc.paymentStrategy.strategyType === "fixed_item" || payAlloc.paymentStrategy.strategyType === "fixed"
+                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
+                        : payAlloc.paymentStrategy.strategyType === "fixed_global"
+                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)} total`
                         : "remaining"}
                     </span>
                   </div>

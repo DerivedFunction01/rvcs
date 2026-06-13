@@ -124,6 +124,7 @@ interface VCSStore {
     splits: Array<{
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
+      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
       value: number;
       method?: string | null;
     }>,
@@ -141,6 +142,7 @@ interface VCSStore {
     splits: Array<{
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
+      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
       value: number; // decimal for percentage (e.g. 0.6), absolute value for fixed, 0 for remaining
       method?: string | null;
     }>,
@@ -524,6 +526,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       splits: Array<{
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
+        strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
         value: number;
         method?: string | null;
       }>,
@@ -536,6 +539,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const hasRemaining = splits.some((s) => s.strategyType === "remaining");
       const totalPct = splits.filter((s) => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0);
       const hasFixed = splits.some((s) => s.strategyType === "fixed");
+      const hasFixed = splits.some((s) => s.strategyType === "fixed_item" || s.strategyType === "fixed_global");
 
       const finalSplits = [...splits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
@@ -566,6 +570,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         method: split.method || method,
         paymentStrategy: {
           strategyType: split.strategyType,
+          strategyType: split.strategyType as any,
           value: split.strategyType === "remaining" ? null : split.value,
         },
         timeOfPayment: { type: "immediate" as const, calculatedAt: new Date().toISOString() },
@@ -586,6 +591,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       splits: Array<{
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
+        strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
         value: number;
         method?: string | null;
       }>,
@@ -602,6 +608,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const hasRemaining = splits.some((s) => s.strategyType === "remaining");
       const totalPct = splits.filter((s) => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0);
       const hasFixed = splits.some((s) => s.strategyType === "fixed");
+      const hasFixed = splits.some((s) => s.strategyType === "fixed_item" || s.strategyType === "fixed_global");
 
       const finalSplits = [...splits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
@@ -642,6 +649,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         method: split.method || null,
         paymentStrategy: {
           strategyType: split.strategyType,
+          strategyType: split.strategyType as any,
           value: split.strategyType === "remaining" ? null : split.value,
         },
         timeOfPayment: { type: "immediate" as const, calculatedAt: new Date().toISOString() },

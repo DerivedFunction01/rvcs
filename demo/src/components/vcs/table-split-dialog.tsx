@@ -22,6 +22,7 @@ interface TableSplitDialogProps {
     splits: Array<{
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
+      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
       value: number;
       method?: string | null;
     }>
