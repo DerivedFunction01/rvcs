@@ -35,6 +35,7 @@ import {
   MessageSquare,
   AtSign,
   Grid2x2,
+  Search,
 } from "lucide-react";
 import type {
   FloorConfig,
@@ -42,6 +43,7 @@ import type {
   OrderContext,
   OrderTypeConfig,
 } from "@/lib/pos/types";
+import { CustomerSearchDialog } from "@/components/pos/customer-search-dialog";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Store,
@@ -160,6 +162,32 @@ export function OrderInitScreen({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [defaultPayerSeat, setDefaultPayerSeat] = useState<string | null>(null);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+
+  const handleSelectCustomer = (data: { name: string; phone: string; address: string }) => {
+    setCustomerFields((prev) => {
+      const next = { ...prev };
+      if (selectedType?.customerFields.some((f) => f.key === "name")) {
+        next["name"] = data.name;
+      }
+      if (selectedType?.customerFields.some((f) => f.key === "phone")) {
+        next["phone"] = data.phone;
+      }
+      if (selectedType?.customerFields.some((f) => f.key === "address")) {
+        next["address"] = data.address;
+      }
+      return next;
+    });
+
+    // Clear validation errors for these keys
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next["name"];
+      delete next["phone"];
+      delete next["address"];
+      return next;
+    });
+  };
 
   React.useEffect(() => {
     Promise.all([fetch("/api/pos-config"), fetch("/api/servers")])
@@ -996,12 +1024,26 @@ export function OrderInitScreen({
           )}
 
           <div className="space-y-4">
-            <h2 className="text-xl font-bold tracking-tight">
-              Customer Details
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Fill in the required information to start the order
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">
+                  Customer Details
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Fill in the required information to start the order
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCustomerSearchOpen(true)}
+                className="gap-1.5 h-8 text-xs font-semibold"
+              >
+                <Search className="w-3.5 h-3.5" />
+                Find Customer
+              </Button>
+            </div>
 
             {selectedType?.customerFields.map((field) => {
               const FieldIcon = FIELD_ICONS[field.key] ?? User;
@@ -1110,6 +1152,12 @@ export function OrderInitScreen({
           </div>
         </div>
       </main>
+
+      <CustomerSearchDialog
+        open={customerSearchOpen}
+        onOpenChange={setCustomerSearchOpen}
+        onSelectCustomer={handleSelectCustomer}
+      />
 
       <footer className="border-t bg-card px-4 py-2 flex items-center justify-between text-[10px] text-muted-foreground mt-auto">
         <span>VCS-Retail v2.0.0-PRO MVP</span>

@@ -86,7 +86,7 @@ const DEFAULT_CONFIG = {
           type: "tel" as const,
           required: true,
           placeholder: "(555) 123-4567",
-          validation: { minLength: 10, maxLength: 20 },
+          validation: { minLength: 3, maxLength: 20 },
         },
         {
           key: "notes",
@@ -118,7 +118,7 @@ const DEFAULT_CONFIG = {
           type: "tel" as const,
           required: true,
           placeholder: "(555) 123-4567",
-          validation: { minLength: 10, maxLength: 20 },
+          validation: { minLength: 3, maxLength: 20 },
         },
         {
           key: "address",

@@ -1420,8 +1420,72 @@ async function main() {
   }
   
   console.log("✅ Icon configs seeded.");
+
+  // 6. Customer Profiles
+  console.log("🌱 Seeding Customer Profiles...");
+  await (prisma as any).customerProfile.deleteMany({});
+  
+  const customers = [
+    {
+      loyaltyTier: "gold",
+      name: { firstName: "John", lastName: "Doe", displayName: "John Doe" },
+      contacts: [
+        { channel: "phone", value: "555-0199", isPrimary: true },
+        { channel: "email", value: "john.doe@example.com", isPrimary: false }
+      ],
+      locations: [
+        { formattedAddress: "123 Gold Medallion Way, New York, NY 10001", isDefault: true }
+      ]
+    },
+    {
+      loyaltyTier: "silver",
+      name: { firstName: "Jane", lastName: "Smith", displayName: "Jane Smith" },
+      contacts: [
+        { channel: "phone", value: "555-0244", isPrimary: true },
+        { channel: "email", value: "jane.smith@example.com", isPrimary: false }
+      ],
+      locations: [
+        { formattedAddress: "456 Silver Lining St, San Francisco, CA 94102", isDefault: true }
+      ]
+    },
+    {
+      loyaltyTier: "bronze",
+      name: { firstName: "Bob", lastName: "Johnson", displayName: "Bob Johnson" },
+      contacts: [
+        { channel: "phone", value: "555-0322", isPrimary: true },
+        { channel: "email", value: "bob.j@example.com", isPrimary: false }
+      ],
+      locations: [
+        { formattedAddress: "789 Bronze Gate Rd, Seattle, WA 98101", isDefault: true }
+      ]
+    }
+  ];
+
+  for (const c of customers) {
+    const profile = await (prisma as any).customerProfile.create({
+      data: {
+        loyaltyTier: c.loyaltyTier,
+        names: {
+          create: {
+            firstName: c.name.firstName,
+            lastName: c.name.lastName,
+            displayName: c.name.displayName
+          }
+        },
+        contacts: {
+          create: c.contacts
+        },
+        deliveryLocations: {
+          create: c.locations
+        }
+      }
+    });
+  }
+
+  console.log("✅ Customer profiles seeded.");
 }
 
 main()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
+

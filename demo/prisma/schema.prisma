@@ -253,3 +253,62 @@ model TransactionCommit {
   @@index([repoId, commitHash])
   @@index([parentHash])
 }
+
+// ─── Customer Profiles ─────────────────────────────────────────────────────────
+
+model CustomerProfile {
+  id               String              @id @default(cuid())
+  loyaltyTier      String              @default("standard") // "standard" | "bronze" | "silver" | "gold"
+  createdAt        DateTime            @default(now())
+  names            CustomerName[]
+  attributes       CustomerAttribute[]
+  contacts         CustomerContact[]
+  deliveryLocations DeliveryLocation[]
+}
+
+model CustomerName {
+  id          String          @id @default(cuid())
+  customerId  String
+  customer    CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String
+  middleName  String?
+  suffix      String?
+  displayName String
+
+  @@index([customerId])
+}
+
+model CustomerAttribute {
+  id         String          @id @default(cuid())
+  customerId String
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  key        String
+  value      String
+
+  @@index([customerId])
+}
+
+model CustomerContact {
+  id         String          @id @default(cuid())
+  customerId String
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channel    String          // "email" | "phone" | "sms"
+  value      String
+  isPrimary  Boolean         @default(false)
+
+  @@index([customerId])
+}
+
+model DeliveryLocation {
+  id               String          @id @default(cuid())
+  customerId       String
+  customer         CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  formattedAddress String
+  geoCoordinates   String?         // "lat,lng"
+  isDefault        Boolean         @default(false)
+  lastUsed         DateTime?
+
+  @@index([customerId])
+}
+
