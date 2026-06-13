@@ -166,7 +166,7 @@ interface VCSStore {
    * The allocation IDs are prefixed with the sanitized guest name so they are identifiable.
    * Returns the correlationId (group-{sanitizedName}-{method}) for the active method's group.
    */
-  addGuestPaymentAllocation: (guestName: string) => string;
+  addGuestPaymentAllocation: (guestIdOrName: string) => string;
 
   /**
    * Add an item using the default shared allocations.
@@ -175,7 +175,7 @@ interface VCSStore {
   addItemWithDefaults: (
     sku: string,
     qty: number,
-    assigneeName?: string,
+    assigneeIdOrName?: string,
   ) => void;
 
   /**
@@ -246,7 +246,7 @@ interface VCSStore {
   /**
    * Reassign an item to a different guest (new assignment allocation).
    */
-  reassignItem: (lineId: string, newAssignee: string) => void;
+  reassignItem: (lineId: string, newAssigneeIdOrName: string) => void;
 
   /**
    * Update the fulfillment allocation of an item (when it is fulfilled).
@@ -267,7 +267,7 @@ interface VCSStore {
   switchItemPayment: (
     lineId: string,
     newMethod: string,
-    payer: string,
+    payerIdOrName: string,
     mode?: "group" | "item",
   ) => void;
 
@@ -332,11 +332,11 @@ interface VCSStore {
 
   // Actions — Bulk Operations
   duplicateItems: (lineIds: string[]) => void;
-  duplicateAndReassignItems: (lineIds: string[], targetGuest: string) => void;
+  duplicateAndReassignItems: (lineIds: string[], targetGuestIdOrName: string) => void;
   removeItems: (lineIds: string[]) => void;
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
-  reassignItems: (lineIds: string[], newAssignee: string) => void;
+  reassignItems: (lineIds: string[], newAssigneeIdOrName: string) => void;
   groupItemsPaymentConfig: (lineIds: string[], targetId: string) => void;
   groupItemsFulfillmentConfig: (lineIds: string[], targetId: string) => void;
   addGroupModifier: (
@@ -737,8 +737,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       void paymentMethod;
     },
 
-    addGuestPaymentAllocation: (guestName: string) => {
+    addGuestPaymentAllocation: (guestIdOrName: string) => {
       const store = get();
+      const state = store.projectedState;
+      let guestName = guestIdOrName;
+      
+      const alloc = state.allocations[guestIdOrName];
+      if (alloc && alloc.type === "assignment") {
+        guestName = alloc.entity;
+      }
+      
       // Sanitize guest name to a safe prefix (lowercase, alphanumeric + dash)
       const sanitized =
         guestName
@@ -780,7 +788,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       return activeCorrelationId;
     },
 
-    addItemWithDefaults: (sku, qty, assigneeName) => {
+    addItemWithDefaults: (sku, qty, assigneeIdOrName) => {
       const store = get();
       const defaultAssignId = store.defaultAssignmentAllocId;
       const configId = store.activePaymentConfigId;
@@ -794,25 +802,31 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let assignId = defaultAssignId;
       const deltas: Delta[] = [];
 
-      const defaultName = store.orderContext?.customerFields.name || "Guest";
-      if (assigneeName && assigneeName !== defaultName) {
-        // Find existing assignment allocation for this guest name
-        const existingAssign = Object.values(state.allocations).find(
-          (a) =>
-            a.type === "assignment" &&
-            (a as AssignmentAllocation).entity === assigneeName,
-        );
-        if (existingAssign) {
-          assignId = existingAssign.allocationId;
+      if (assigneeIdOrName) {
+        const targetAlloc = state.allocations[assigneeIdOrName];
+        if (targetAlloc && targetAlloc.type === "assignment") {
+          assignId = assigneeIdOrName;
         } else {
-          const newAssignId = generateAllocationId("assign");
-          const newAssignAlloc: AssignmentAllocation = {
-            allocationId: newAssignId,
-            type: "assignment",
-            entity: assigneeName,
-          };
-          store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
-          assignId = newAssignId;
+          const defaultName = store.orderContext?.customerFields.name || "Guest";
+          if (assigneeIdOrName !== defaultName) {
+            const existingByName = Object.values(state.allocations).find(
+              (a) =>
+                a.type === "assignment" &&
+                (a as AssignmentAllocation).entity === assigneeIdOrName,
+            );
+            if (existingByName) {
+              assignId = existingByName.allocationId;
+            } else {
+              const newAssignId = generateAllocationId("assign");
+              const newAssignAlloc: AssignmentAllocation = {
+                allocationId: newAssignId,
+                type: "assignment",
+                entity: assigneeIdOrName,
+              };
+              store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
+              assignId = newAssignId;
+            }
+          }
         }
       }
 
@@ -1184,19 +1198,29 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       method: string | null = null,
     ) => {
       const store = get();
+      const state = store.projectedState;
       const customerName = store.orderContext?.customerFields.name || "Guest";
 
+      const resolvedSplits = splits.map(s => {
+        let entityName = s.entity;
+        const alloc = state.allocations[s.entity];
+        if (alloc && alloc.type === "assignment") {
+          entityName = alloc.entity;
+        }
+        return { ...s, entity: entityName };
+      });
+
       // Check if we need to auto-add a remaining allocator
-      const hasRemaining = splits.some((s) => s.strategyType === "remaining");
-      const totalPct = splits
+      const hasRemaining = resolvedSplits.some((s) => s.strategyType === "remaining");
+      const totalPct = resolvedSplits
         .filter((s) => s.strategyType === "percentage")
         .reduce((sum, s) => sum + s.value, 0);
-      const hasFixed = splits.some(
+      const hasFixed = resolvedSplits.some(
         (s) =>
           s.strategyType === "fixed_item" || s.strategyType === "fixed_global",
       );
 
-      const finalSplits = [...splits];
+      const finalSplits = [...resolvedSplits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
         let remEntity = customerName;
         let suffix = 2;
@@ -1270,17 +1294,26 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       const customerName = store.orderContext?.customerFields.name || "Guest";
 
+      const resolvedSplits = splits.map(s => {
+        let entityName = s.entity;
+        const alloc = state.allocations[s.entity];
+        if (alloc && alloc.type === "assignment") {
+          entityName = alloc.entity;
+        }
+        return { ...s, entity: entityName };
+      });
+
       // Check if we need to auto-add a remaining allocator
-      const hasRemaining = splits.some((s) => s.strategyType === "remaining");
-      const totalPct = splits
+      const hasRemaining = resolvedSplits.some((s) => s.strategyType === "remaining");
+      const totalPct = resolvedSplits
         .filter((s) => s.strategyType === "percentage")
         .reduce((sum, s) => sum + s.value, 0);
-      const hasFixed = splits.some(
+      const hasFixed = resolvedSplits.some(
         (s) =>
           s.strategyType === "fixed_item" || s.strategyType === "fixed_global",
       );
 
-      const finalSplits = [...splits];
+      const finalSplits = [...resolvedSplits];
       if (!hasRemaining && (totalPct < 0.999 || hasFixed)) {
         let remEntity = customerName;
         let suffix = 2;
@@ -1386,19 +1419,31 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
     },
 
-    reassignItem: (lineId: string, newAssignee: string) => {
+    reassignItem: (lineId: string, newAssigneeIdOrName: string) => {
       const store = get();
       const state = store.projectedState;
       const item = state.items[lineId];
       if (!item) return;
 
-      // Create a new assignment allocation for the new assignee
-      const newAssignAllocId = generateAllocationId("assign");
-      const newAssignAlloc: AssignmentAllocation = {
-        allocationId: newAssignAllocId,
-        type: "assignment",
-        entity: newAssignee,
-      };
+      let targetAssignId = newAssigneeIdOrName;
+      const targetAlloc = state.allocations[newAssigneeIdOrName];
+
+      if (!targetAlloc || targetAlloc.type !== "assignment") {
+        const existingByName = Object.values(state.allocations).find(
+          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === newAssigneeIdOrName
+        );
+        if (existingByName) {
+          targetAssignId = existingByName.allocationId;
+        } else {
+          targetAssignId = generateAllocationId("assign");
+          const newAssignAlloc: AssignmentAllocation = {
+            allocationId: targetAssignId,
+            type: "assignment",
+            entity: newAssigneeIdOrName,
+          };
+          store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
+        }
+      }
 
       // Find current assignment alloc
       const currentAssignAllocId = item.allocations.find(
@@ -1406,10 +1451,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
 
       const newAllocations = item.allocations.map((id) =>
-        id === currentAssignAllocId ? newAssignAllocId : id,
+        id === currentAssignAllocId ? targetAssignId : id,
       );
 
-      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
       store.commitDeltas(
         [
           {
@@ -1494,13 +1538,19 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     switchItemPayment: (
       lineId: string,
       newMethod: string,
-      payer: string,
+      payerIdOrName: string,
       mode: "group" | "item" = "item",
     ) => {
       const store = get();
       const state = store.projectedState;
       const item = state.items[lineId];
       if (!item) return;
+
+      let payer = payerIdOrName;
+      const targetAlloc = state.allocations[payerIdOrName];
+      if (targetAlloc && targetAlloc.type === "assignment") {
+        payer = targetAlloc.entity;
+      }
 
       // Create a new payment allocation with the specified method
       const newPayAllocId = generateAllocationId("item-pay");
@@ -1918,19 +1968,30 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.commitDeltas(deltas, "pos-ui");
     },
 
-    duplicateAndReassignItems: (lineIds, targetGuest) => {
+    duplicateAndReassignItems: (lineIds, targetGuestIdOrName) => {
       const store = get();
       const state = store.projectedState;
       const deltas: Delta[] = [];
 
-      const newAssignAllocId = generateAllocationId("assign");
-      const newAssignAlloc: AssignmentAllocation = {
-        allocationId: newAssignAllocId,
-        type: "assignment",
-        entity: targetGuest,
-      };
+      let targetAssignId = targetGuestIdOrName;
+      const targetAlloc = state.allocations[targetGuestIdOrName];
 
-      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
+      if (!targetAlloc || targetAlloc.type !== "assignment") {
+        const existingByName = Object.values(state.allocations).find(
+          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === targetGuestIdOrName
+        );
+        if (existingByName) {
+          targetAssignId = existingByName.allocationId;
+        } else {
+          targetAssignId = generateAllocationId("assign");
+          const newAssignAlloc: AssignmentAllocation = {
+            allocationId: targetAssignId,
+            type: "assignment",
+            entity: targetGuestIdOrName,
+          };
+          store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
+        }
+      }
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -1939,8 +2000,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             (id) => state.allocations[id]?.type === "assignment",
           );
           const rootAllocations = currentAssignAllocId
-            ? item.allocations.map((id) => (id === currentAssignAllocId ? newAssignAllocId : id))
-            : [...item.allocations, newAssignAllocId];
+            ? item.allocations.map((id) => (id === currentAssignAllocId ? targetAssignId : id))
+            : [...item.allocations, targetAssignId];
 
           buildCloneDeltas(item, null, 1, deltas, { rootAllocations });
         }
@@ -2042,19 +2103,30 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
     },
 
-    reassignItems: (lineIds, newAssignee) => {
+    reassignItems: (lineIds, newAssigneeIdOrName) => {
       const store = get();
       const state = store.projectedState;
       const deltas: Delta[] = [];
 
-      const newAssignAllocId = generateAllocationId("assign");
-      const newAssignAlloc: AssignmentAllocation = {
-        allocationId: newAssignAllocId,
-        type: "assignment",
-        entity: newAssignee,
-      };
+      let targetAssignId = newAssigneeIdOrName;
+      const targetAlloc = state.allocations[newAssigneeIdOrName];
 
-      store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
+      if (!targetAlloc || targetAlloc.type !== "assignment") {
+        const existingByName = Object.values(state.allocations).find(
+          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === newAssigneeIdOrName
+        );
+        if (existingByName) {
+          targetAssignId = existingByName.allocationId;
+        } else {
+          targetAssignId = generateAllocationId("assign");
+          const newAssignAlloc: AssignmentAllocation = {
+            allocationId: targetAssignId,
+            type: "assignment",
+            entity: newAssigneeIdOrName,
+          };
+          store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
+        }
+      }
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -2064,7 +2136,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           );
 
           const newAllocations = item.allocations.map((id) =>
-            id === currentAssignAllocId ? newAssignAllocId : id,
+            id === currentAssignAllocId ? targetAssignId : id,
           );
 
           deltas.push({
@@ -2251,14 +2323,28 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     },
 
     mimicOrder: (
-      sourceAssignee,
-      targetAssignee,
-      targetPayer,
+      sourceAssigneeIdOrName,
+      targetAssigneeIdOrName,
+      targetPayerIdOrName,
       paymentMethod,
     ) => {
       const store = get();
+      const state = store.projectedState;
       const headHash = store.engine.getHeadHash();
       if (!headHash) return;
+
+      let sourceAssignee = sourceAssigneeIdOrName;
+      let targetAssignee = targetAssigneeIdOrName;
+      let targetPayer = targetPayerIdOrName;
+
+      const sourceAlloc = state.allocations[sourceAssigneeIdOrName];
+      if (sourceAlloc && sourceAlloc.type === "assignment") sourceAssignee = sourceAlloc.entity;
+
+      const targetAlloc = state.allocations[targetAssigneeIdOrName];
+      if (targetAlloc && targetAlloc.type === "assignment") targetAssignee = targetAlloc.entity;
+
+      const payerAlloc = state.allocations[targetPayerIdOrName];
+      if (payerAlloc && payerAlloc.type === "assignment") targetPayer = payerAlloc.entity;
 
       const assignAllocId = generateAllocationId("assign");
       const payAllocId = generateAllocationId("pay");
