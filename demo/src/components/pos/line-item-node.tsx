@@ -303,15 +303,6 @@ export function LineItemNode({
                     split
                   </Badge>
                 )}
-                {hasNonDefaultPayment && !hasSplitPayment && (
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] h-3.5 px-1 border-amber-300 text-amber-600"
-                  >
-                    <CreditCard className="w-2.5 h-2.5 mr-0.5" />
-                    custom
-                  </Badge>
-                )}
               </div>
               {showSku && (
                 <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 truncate">
