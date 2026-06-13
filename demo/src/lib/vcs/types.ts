@@ -12,7 +12,7 @@ export interface TimeBlock {
 }
 
 export interface PaymentStrategy {
-  strategyType: "percentage" | "fixed" | "remaining";
+  strategyType: "percentage" | "fixed" | "remaining" | "fixed_item" | "fixed_global";
   value: number | null;
 }
 
@@ -263,6 +263,7 @@ export interface ComboChoiceEntry {
   slotSku: string;
   optionSku: string;
   price: number;
+  modifierSku?: string;
 }
 
 export interface CatalogItemEntry {

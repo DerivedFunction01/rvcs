@@ -239,6 +239,7 @@ interface VCSStore {
     oldLineId: string,
     parentLineId: string,
     newSku: string,
+    modifierSku?: string,
   ) => void;
   removeItem: (lineId: string) => void;
   modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
@@ -1419,7 +1420,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
     },
 
-    swapComboChoice: (oldLineId, parentLineId, newSku) => {
+    swapComboChoice: (oldLineId, parentLineId, newSku, modifierSku) => {
       const store = get();
       const state = store.projectedState;
       const oldItem = state.items[oldLineId];
@@ -1446,23 +1447,23 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       });
 
       // 3. Recursively inject defaults for the new child SKU
-      const injectDefaults = (itemSku: string, itemLineId: string) => {
+      const injectDefaults = (itemSku: string, itemLineId: string, customSizeSku?: string) => {
         const entry = store.catalog[itemSku];
         if (!entry) return;
 
         // Auto-inject default size modifier if catalog entry has an applied size group
         if (entry.appliedSizeGroup) {
-          const defaultSku = entry.appliedSizeGroup.defaultSku;
+          const sizeSku = customSizeSku || entry.appliedSizeGroup.defaultSku;
           const newId = generateLineId();
           deltas.push({
             action: "add_item",
             lineId: newId,
             parentLineId: itemLineId,
-            sku: defaultSku,
+            sku: sizeSku,
             qty: 1,
             allocations: [],
           });
-          injectDefaults(defaultSku, newId);
+          injectDefaults(sizeSku, newId);
         }
 
         // Auto-inject default choice for each unique combo slot
@@ -1486,7 +1487,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
       };
 
-      injectDefaults(newSku, childId);
+      injectDefaults(newSku, childId, modifierSku);
 
       store.commitDeltas(deltas, "pos-ui");
     },

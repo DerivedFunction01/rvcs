@@ -2065,11 +2065,24 @@ function POSTerminalInner() {
     return slotChoices.map((choice) => {
       const choiceEntry = catalog[choice.optionSku];
       const name = choiceEntry?.name || choice.optionSku;
+
+      const modifierName = choice.modifierSku ? catalog[choice.modifierSku]?.name : undefined;
+      const label = modifierName ? `${name} (${modifierName})` : name;
+
+      const currentItem = projectedState.items[swapChoiceState.lineId];
+      const isCurrent = choice.optionSku === currentItem?.sku && (
+        choice.modifierSku
+          ? currentItem.children?.some(c => c.sku === choice.modifierSku)
+          : !currentItem.children?.some(c =>
+              slotChoices.some(sc => sc.optionSku === choice.optionSku && sc.modifierSku === c.sku)
+            )
+      );
+
       return {
-        id: choice.optionSku,
-        label: name,
+        id: `${choice.optionSku}:${choice.modifierSku || ""}`,
+        label: label,
         description: `$${choice.price.toFixed(2)}`,
-        badge: choice.optionSku === projectedState.items[swapChoiceState.lineId]?.sku ? (
+        badge: isCurrent ? (
           <Badge className="bg-primary/20 text-primary border-transparent text-[9px] h-3.5 px-1 inline-flex">Current</Badge>
         ) : undefined,
       };
@@ -4125,10 +4138,12 @@ function POSTerminalInner() {
         options={swapOptions}
         onChoose={(option) => {
           if (swapChoiceState) {
+            const [optionSku, modifierSku] = option.id.split(":");
             swapComboChoice(
               swapChoiceState.lineId,
               swapChoiceState.parentLineId,
-              option.id
+              optionSku,
+              modifierSku || undefined
             );
             setSwapChoiceState(null);
             toast.success("Combo choice updated");

@@ -533,11 +533,26 @@ function resolveCatalog(
         if (parentItem) {
           const parentEntry = catalog[parentItem.sku];
           if (parentEntry?.comboChoices) {
+            // Case A: Direct child of a combo
             const comboChoice = parentEntry.comboChoices.find(
-              (c) => c.optionSku === item.sku
+              (c) => c.optionSku === item.sku && !c.modifierSku
             );
             if (comboChoice) {
               resolvedPrice = comboChoice.price;
+            }
+          } else if (parentItem.parentLineId) {
+            // Case B: Grandchild modifier of a combo choice
+            const grandparentItem = items[parentItem.parentLineId];
+            if (grandparentItem) {
+              const grandparentEntry = catalog[grandparentItem.sku];
+              if (grandparentEntry?.comboChoices) {
+                const comboChoice = grandparentEntry.comboChoices.find(
+                  (c) => c.optionSku === parentItem.sku && c.modifierSku === item.sku
+                );
+                if (comboChoice) {
+                  resolvedPrice = comboChoice.price;
+                }
+              }
             }
           }
         }
