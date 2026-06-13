@@ -46,9 +46,78 @@ model CatalogItem {
   appliedSizeGroup    SizeGroup? @relation("ItemSizeGroup", fields: [appliedSizeGroupId], references: [id])
 
   // Relations
-  allowedStates  ModifierStateOption[] @relation("ModifierStates")
-  allowedModifiers ItemModifier[] @relation("ItemModifiers")
-  modifierOf       ItemModifier[] @relation("ModifierItems")
+  allowedStates    ModifierStateOption[] @relation("ModifierStates")
+  allowedModifiers ItemModifier[]        @relation("ItemModifiers")
+  modifierOf       ItemModifier[]        @relation("ModifierItems")
+  chargeTags       SkuChargeTag[]
+}
+
+// ─── Charge / Tax System ────────────────────────────────────────────────────────
+// Jurisdiction-aware, tag-based charge engine.
+// Covers: sales tax, excise, import duties, operator surcharges.
+
+model ChargeJurisdiction {
+  id         String       @id @default(cuid())
+  code       String       @unique
+  // Geographic: "18106" | "US-PA-LEHIGH" | "US-PA" | "US"
+  // Trade:      "US-TRADE" (federal trade policy — parallel to geographic "US")
+  name       String
+  type       String
+  // "zip" | "county" | "state" | "federal" | "trade"
+  parentCode String?      // walks up the geographic hierarchy
+  createdAt  DateTime     @default(now())
+
+  rules      ChargeRule[]
+}
+
+model ChargeTag {
+  id           String         @id @default(cuid())
+  code         String         @unique
+  // "GENERAL" | "PREPARED_FOOD" | "GROCERY" | "ALCOHOL" | "EXEMPT" | etc.
+  label        String
+  description  String         @default("")
+  categoryHint String         @default("sales_tax")
+  // "sales_tax" | "excise" | "import_duty" | "surcharge"
+  createdAt    DateTime       @default(now())
+
+  rules        ChargeRule[]
+  skus         SkuChargeTag[]
+}
+
+model ChargeRule {
+  id               String             @id @default(cuid())
+  jurisdictionId   String
+  jurisdiction     ChargeJurisdiction @relation(fields: [jurisdictionId], references: [id], onDelete: Cascade)
+  tagId            String
+  tag              ChargeTag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  chargeCategory   String
+  // "sales_tax" | "excise" | "import_duty" | "surcharge"
+  rateType         String
+  // "percentage" | "per_unit" | "compound"
+  calculationBasis String   @default("retail_price")
+  // "retail_price" | "wholesale_cost" | "subtotal" | "subtotal_plus_tax"
+  rate             Float
+  originCode       String?
+  // ISO-3166 alpha-2 filter: "CN", "CA" — null means applies regardless of origin
+  priority         Int      @default(0)
+  effectiveFrom    DateTime @default(now())
+  effectiveTo      DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([jurisdictionId, tagId])
+  @@index([originCode])
+}
+
+model SkuChargeTag {
+  skuId      String
+  tagId      String
+  originCode String?     // origin of this SKU's goods (for tariff rule matching)
+  sku        CatalogItem @relation(fields: [skuId], references: [sku], onDelete: Cascade)
+  tag        ChargeTag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([skuId, tagId])
+  @@index([skuId])
 }
 
 model SizeGroup {

@@ -12,7 +12,12 @@ export interface TimeBlock {
 }
 
 export interface PaymentStrategy {
-  strategyType: "percentage" | "fixed" | "remaining" | "fixed_item" | "fixed_global";
+  strategyType:
+    | "percentage"
+    | "fixed"
+    | "remaining"
+    | "fixed_item"
+    | "fixed_global";
   value: number | null;
 }
 
@@ -203,8 +208,8 @@ export interface ProjectedLineItem {
   lineId: string;
   parentLineId: string | null;
   sku: string;
-  name: string;       // Late-bound from catalog
-  basePrice: number;  // Late-bound from catalog
+  name: string; // Late-bound from catalog
+  basePrice: number; // Late-bound from catalog
   qty: number;
   canceledQty: number;
   totalPrice: number; // Computed: basePrice * qty
@@ -221,8 +226,51 @@ export interface PersonBreakdown {
   paymentMethod: string | null;
 }
 
+// ─── Charge / Tax Breakdown ────────────────────────────────────────────────────
+
+export type ChargeCategory =
+  | "sales_tax"
+  | "excise"
+  | "import_duty"
+  | "surcharge";
+export type ChargeRateType = "percentage" | "per_unit" | "compound";
+export type CalculationBasis =
+  | "retail_price"
+  | "wholesale_cost"
+  | "subtotal"
+  | "subtotal_plus_tax";
+
+export interface ChargeBreakdownLine {
+  jurisdictionCode: string;
+  jurisdictionName: string;
+  tagCode: string;
+  chargeCategory: ChargeCategory;
+  rateType: ChargeRateType;
+  rate: number;
+  chargeAmount: number;
+  label: string; // e.g. "PA Sales Tax (6%)", "PA Malt Beverage Excise ($0.08/unit)"
+}
+
+// Resolved rule entry — passed from store into projectState
+export interface ResolvedChargeRule {
+  jurisdictionCode: string;
+  jurisdictionName: string;
+  tagCode: string;
+  chargeCategory: ChargeCategory;
+  rateType: ChargeRateType;
+  calculationBasis: CalculationBasis;
+  rate: number;
+  originCode: string | null;
+  priority: number;
+}
+
 export interface ProjectedFinancials {
   subtotal: number;
+  taxTotal: number; // sales_tax + excise
+  surchargeTotal: number; // surcharge + import_duty
+  chargeTotal: number; // taxTotal + surchargeTotal
+  grandTotal: number; // subtotal + chargeTotal
+  chargeBreakdown: ChargeBreakdownLine[];
   personBreakdown: PersonBreakdown[];
 }
 
@@ -266,6 +314,12 @@ export interface ComboChoiceEntry {
   modifierSku?: string;
 }
 
+export interface SkuChargeTagEntry {
+  tagCode: string;
+  categoryHint: string;
+  originCode?: string | null;
+}
+
 export interface CatalogItemEntry {
   sku: string;
   name: string;
@@ -282,6 +336,7 @@ export interface CatalogItemEntry {
   appliedSizeGroup?: SizeGroup | null;
   allowedStates?: ModifierStateOption[];
   allowedModifiers?: string[];
+  chargeTags?: SkuChargeTagEntry[]; // resolved from SkuChargeTag — empty = use GENERAL rules
 }
 
 // ─── VCS Repository (The "Repo") ──────────────────────────────────────────────
@@ -289,7 +344,7 @@ export interface CatalogItemEntry {
 export interface VCSRepo {
   contextType: string;
   contextId: string;
-  orderContext?: unknown;  // Optional external state, not part of core VCS semantics
+  orderContext?: unknown; // Optional external state, not part of core VCS semantics
   log: VCSCommit[];
   branches: BranchMap;
   activeBranch: string;

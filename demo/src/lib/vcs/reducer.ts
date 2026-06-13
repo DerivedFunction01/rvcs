@@ -19,6 +19,9 @@ import type {
   BatchRemoveItems,
   BatchModifySku,
   PaymentAllocation,
+  ResolvedChargeRule,
+  ChargeBreakdownLine,
+  ChargeCategory,
 } from "./types";
 import { deriveCloneId, generateAllocationId } from "./id";
 
@@ -166,12 +169,15 @@ interface InternalLineItem {
  * @param log        - The append-only commit log
  * @param targetHash - The commit hash to project (null = empty state)
  * @param catalog    - The trusted product catalog for late-bound resolution
+ * @param confirmedHash - Optional confirmed (locked) head hash
+ * @param chargeRules   - Optional resolved charge rules for the active jurisdiction
  */
 export function projectState(
   log: VCSCommit[],
   targetHash: string | null,
   catalog: Record<string, CatalogItemEntry>,
   confirmedHash?: string | null,
+  chargeRuleSet?: ResolvedChargeRule[],
 ): ProjectedState {
   const items: Record<string, InternalLineItem> = {};
   const allocations: Record<string, AllocationBlock> = {};
@@ -180,7 +186,15 @@ export function projectState(
     return {
       items: {},
       allocations: {},
-      financials: { subtotal: 0, personBreakdown: [] },
+      financials: {
+        subtotal: 0,
+        taxTotal: 0,
+        surchargeTotal: 0,
+        chargeTotal: 0,
+        grandTotal: 0,
+        chargeBreakdown: [],
+        personBreakdown: [],
+      },
     };
   }
 
@@ -205,6 +219,7 @@ export function projectState(
         catalog,
         commit.commitHash,
         confirmedAncestors,
+        chargeRuleSet,
       );
     }
   }
@@ -224,7 +239,7 @@ export function projectState(
   resolveCatalog(items, catalog);
 
   // Phase 4: Build tree structure and compute financials
-  return buildProjectedState(items, allocations, catalog);
+  return buildProjectedState(items, allocations, catalog, chargeRuleSet);
 }
 
 // ─── Delta Application ─────────────────────────────────────────────────────────
@@ -237,6 +252,7 @@ function applyDelta(
   catalog: Record<string, CatalogItemEntry>,
   commitHash: string,
   confirmedAncestors: Set<string>,
+  chargeRuleSet?: ResolvedChargeRule[],
 ): void {
   const isConfirmedDelta = confirmedAncestors.has(commitHash);
 
@@ -333,6 +349,7 @@ function applyDelta(
         fullLog,
         catalog,
         isConfirmedDelta,
+        chargeRuleSet,
       );
       break;
   }
@@ -347,9 +364,10 @@ function applyBatchByFilter(
   fullLog: VCSCommit[],
   catalog: Record<string, CatalogItemEntry>,
   isConfirmedDelta: boolean,
+  chargeRuleSet?: ResolvedChargeRule[],
 ): void {
   // Project state at the base_revision_id for deterministic filtering
-  const baseState = projectState(fullLog, delta.baseRevisionId, catalog, null);
+  const baseState = projectState(fullLog, delta.baseRevisionId, catalog, null, chargeRuleSet);
   const baseItems = Object.values(baseState.items);
 
   // Find matching items
@@ -667,6 +685,7 @@ function buildProjectedState(
   items: Record<string, InternalLineItem>,
   allocations: Record<string, AllocationBlock>,
   catalog?: Record<string, CatalogItemEntry>,
+  chargeRuleSet?: ResolvedChargeRule[],
 ): ProjectedState {
   // Build tree structure
   const itemMap: Record<string, ProjectedLineItem> = {};
@@ -920,11 +939,128 @@ function buildProjectedState(
     }
   }
 
+  // ─── Phase 3: Charge Computation ────────────────────────────────────────────
+  // For each root line item, resolve which charge rules apply and compute amounts.
+  // Rules:
+  //   - Items with NO chargeTags → use rules whose tagCode === "GENERAL"
+  //   - Items WITH chargeTags    → use rules matching any of their tagCodes (GENERAL is skipped)
+  // Modifier children are taxed independently via the same lookup (usually GENERAL = 6%).
+
+  const chargeAccumulator = new Map<
+    string,
+    { amount: number; rule: ResolvedChargeRule }
+  >();
+  const activeChargeRules = chargeRuleSet ?? [];
+
+  const applyChargeRules = (
+    lineItem: ProjectedLineItem,
+    qty: number,
+    price: number,
+  ) => {
+    if (activeChargeRules.length === 0) return;
+    const catalogEntry = (
+      catalog as Record<string, CatalogItemEntry | undefined>
+    )[lineItem.sku];
+    const tags = catalogEntry?.chargeTags ?? [];
+    const skuOriginCode = tags[0]?.originCode ?? null;
+
+    const tagCodes = tags.map((t) => t.tagCode);
+    const hasExplicitTags = tagCodes.length > 0;
+
+    for (const rule of activeChargeRules) {
+      const tagMatches = hasExplicitTags
+        ? tagCodes.includes(rule.tagCode)
+        : rule.tagCode === "GENERAL";
+      if (!tagMatches) continue;
+
+      if (rule.originCode !== null && rule.originCode !== skuOriginCode)
+        continue;
+
+      let amount = 0;
+      if (rule.rateType === "percentage") {
+        amount = price * rule.rate;
+      } else if (rule.rateType === "per_unit") {
+        amount = qty * rule.rate;
+      } else if (rule.rateType === "compound") {
+        amount = price * rule.rate;
+      }
+
+      const key = `${rule.jurisdictionCode}::${rule.tagCode}::${rule.chargeCategory}::${rule.rateType}`;
+      const existing = chargeAccumulator.get(key);
+      chargeAccumulator.set(key, {
+        amount: (existing?.amount ?? 0) + amount,
+        rule,
+      });
+    }
+  };
+
+  for (const item of Object.values(flatItems)) {
+    if (item.status === "canceled") continue;
+    // Apply charges to root items (their price already includes all children for combo totals)
+    // We apply charges to each line individually (root + modifiers) so modifier tax is correct.
+    applyChargeRules(item, item.qty, item.totalPrice);
+    // Also apply to direct children (modifiers)
+    for (const child of item.children) {
+      if (child.status !== "canceled") {
+        applyChargeRules(child, child.qty, child.totalPrice);
+      }
+    }
+  }
+
+  // Build chargeBreakdown from accumulator
+  const chargeBreakdown: ChargeBreakdownLine[] = [];
+  let taxTotal = 0;
+  let surchargeTotal = 0;
+
+  for (const [, { amount, rule }] of chargeAccumulator.entries()) {
+    const rounded = Math.round(amount * 100) / 100;
+    if (rounded === 0) continue;
+
+    const rateLabel =
+      rule.rateType === "per_unit"
+        ? `$${rule.rate.toFixed(2)}/unit`
+        : `${(rule.rate * 100).toFixed(0)}%`;
+    const categoryLabel: Record<ChargeCategory, string> = {
+      sales_tax: "Sales Tax",
+      excise: "Excise",
+      import_duty: "Import Surcharge",
+      surcharge: "Surcharge",
+    };
+    chargeBreakdown.push({
+      jurisdictionCode: rule.jurisdictionCode,
+      jurisdictionName: rule.jurisdictionName,
+      tagCode: rule.tagCode,
+      chargeCategory: rule.chargeCategory as ChargeCategory,
+      rateType: rule.rateType as "percentage" | "per_unit" | "compound",
+      rate: rule.rate,
+      chargeAmount: rounded,
+      label: `${rule.jurisdictionName} ${categoryLabel[rule.chargeCategory as ChargeCategory] ?? rule.chargeCategory} (${rateLabel})`,
+    });
+
+    if (
+      rule.chargeCategory === "sales_tax" ||
+      rule.chargeCategory === "excise"
+    ) {
+      taxTotal += rounded;
+    } else {
+      surchargeTotal += rounded;
+    }
+  }
+
+  const chargeTotal = Math.round((taxTotal + surchargeTotal) * 100) / 100;
+  taxTotal = Math.round(taxTotal * 100) / 100;
+  surchargeTotal = Math.round(surchargeTotal * 100) / 100;
+
   return {
     items: flatItems,
     allocations,
     financials: {
       subtotal: Math.round(subtotal * 100) / 100,
+      taxTotal,
+      surchargeTotal,
+      chargeTotal,
+      grandTotal: Math.round((subtotal + chargeTotal) * 100) / 100,
+      chargeBreakdown,
       personBreakdown: Array.from(personMap.entries()).map(
         ([person, data]) => ({
           person,

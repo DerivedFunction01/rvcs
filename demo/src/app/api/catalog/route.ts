@@ -16,6 +16,9 @@ export async function GET() {
         },
         allowedStates: true,
         allowedModifiers: true,
+        chargeTags: {
+          include: { tag: true },
+        },
       },
       orderBy: { category: "asc" },
     });
@@ -60,12 +63,20 @@ export async function GET() {
         priceOverride: as.priceOverride,
       })),
       allowedModifiers: item.allowedModifiers.map((am) => am.modifierSku),
+      chargeTags: item.chargeTags.map((ct) => ({
+        tagCode: ct.tag.code,
+        categoryHint: ct.tag.categoryHint,
+        originCode: ct.originCode,
+      })),
     }));
 
     return NextResponse.json({ catalog });
   } catch (error) {
     console.error("Catalog fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch catalog" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch catalog" },
+      { status: 500 },
+    );
   }
 }
 
@@ -87,7 +98,10 @@ export async function POST(request: Request) {
     }>;
 
     if (!Array.isArray(items)) {
-      return NextResponse.json({ error: "items array required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "items array required" },
+        { status: 400 },
+      );
     }
 
     for (const item of items) {
@@ -116,9 +130,14 @@ export async function POST(request: Request) {
     }
 
     const count = await db.catalogItem.count();
-    return NextResponse.json({ message: `Seeded ${items.length} items (${count} total)` });
+    return NextResponse.json({
+      message: `Seeded ${items.length} items (${count} total)`,
+    });
   } catch (error) {
     console.error("Catalog seed error:", error);
-    return NextResponse.json({ error: "Failed to seed catalog" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to seed catalog" },
+      { status: 500 },
+    );
   }
 }

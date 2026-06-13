@@ -183,16 +183,36 @@ const SEED_DATA = [
     allergens: [],
     brand: "",
     comboChoices: [
-      { slotSku: "SKU-BASE-BURGER", optionSku: "SKU-BURGER-REG", price: 4.00 },
-      { slotSku: "SKU-BASE-BURGER", optionSku: "SKU-BURGER-VEG", price: 4.50 },
-      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-FRIES", price: 1.50 },
-      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-FRIES", modifierSku: "MOD-FRIES-MED", price: 0.50 },
-      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-FRIES", modifierSku: "MOD-FRIES-LRG", price: 1.00 },
-      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-ONION-RINGS", price: 2.00 },
-      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SODA", price: 1.00 },
-      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SODA", modifierSku: "MOD-SODA-MED", price: 0.25 },
-      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SODA", modifierSku: "MOD-SODA-LRG", price: 0.50 },
-      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SHAKE", price: 3.00 },
+      { slotSku: "SKU-BASE-BURGER", optionSku: "SKU-BURGER-REG", price: 4.0 },
+      { slotSku: "SKU-BASE-BURGER", optionSku: "SKU-BURGER-VEG", price: 4.5 },
+      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-FRIES", price: 1.5 },
+      {
+        slotSku: "SKU-BASE-FRIES",
+        optionSku: "SKU-FRIES",
+        modifierSku: "MOD-FRIES-MED",
+        price: 0.5,
+      },
+      {
+        slotSku: "SKU-BASE-FRIES",
+        optionSku: "SKU-FRIES",
+        modifierSku: "MOD-FRIES-LRG",
+        price: 1.0,
+      },
+      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-ONION-RINGS", price: 2.0 },
+      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SODA", price: 1.0 },
+      {
+        slotSku: "SKU-BASE-DRINK",
+        optionSku: "SKU-DRINK-SODA",
+        modifierSku: "MOD-SODA-MED",
+        price: 0.25,
+      },
+      {
+        slotSku: "SKU-BASE-DRINK",
+        optionSku: "SKU-DRINK-SODA",
+        modifierSku: "MOD-SODA-LRG",
+        price: 0.5,
+      },
+      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SHAKE", price: 3.0 },
     ],
   },
   {
@@ -606,6 +626,264 @@ async function main() {
   const count = await prisma.catalogItem.count();
   console.log(
     `✅ Done. ${count} catalog items seeded successfully with variant options and states.`,
+  );
+
+  // ─── Charge System Seed ────────────────────────────────────────────────────
+  // Seed jurisdictions, tags, rules, and SKU tag assignments.
+  // Delete in dependency order to avoid FK violations.
+  await (prisma as any).skuChargeTag.deleteMany({});
+  await (prisma as any).chargeRule.deleteMany({});
+  await (prisma as any).chargeTag.deleteMany({});
+  await (prisma as any).chargeJurisdiction.deleteMany({});
+
+  // 1. Jurisdictions (geographic chain + trade layer)
+  const jurisdictions = [
+    {
+      code: "US",
+      name: "United States (Federal)",
+      type: "federal",
+      parentCode: null,
+    },
+    {
+      code: "US-TRADE",
+      name: "US Federal Trade Policy",
+      type: "trade",
+      parentCode: null,
+    },
+    { code: "US-PA", name: "Pennsylvania", type: "state", parentCode: "US" },
+    {
+      code: "US-PA-LEHIGH",
+      name: "Lehigh County, PA",
+      type: "county",
+      parentCode: "US-PA",
+    },
+    {
+      code: "18106",
+      name: "ZIP 18106 (Allentown, PA)",
+      type: "zip",
+      parentCode: "US-PA-LEHIGH",
+    },
+  ];
+  for (const j of jurisdictions) {
+    await (prisma as any).chargeJurisdiction.upsert({
+      where: { code: j.code },
+      update: j,
+      create: j,
+    });
+  }
+
+  // 2. Tags
+  const tags = [
+    {
+      code: "GENERAL",
+      label: "General Goods",
+      categoryHint: "sales_tax",
+      description: "Default fallback for untagged items",
+    },
+    {
+      code: "PREPARED_FOOD",
+      label: "Prepared / Hot Food",
+      categoryHint: "sales_tax",
+      description: "Hot food sold ready-to-eat",
+    },
+    {
+      code: "GROCERY",
+      label: "Grocery / Unprepared Food",
+      categoryHint: "sales_tax",
+      description: "Cold/packaged food, typically exempt",
+    },
+    {
+      code: "ALCOHOL",
+      label: "Alcoholic Beverages",
+      categoryHint: "excise",
+      description: "Beer, wine, spirits",
+    },
+    {
+      code: "FUEL",
+      label: "Fuel",
+      categoryHint: "excise",
+      description: "Gasoline, diesel",
+    },
+    {
+      code: "EXEMPT",
+      label: "Tax Exempt",
+      categoryHint: "sales_tax",
+      description: "Gift cards, non-taxable services",
+    },
+    {
+      code: "CN_TARIFF_301",
+      label: "Section 301 (China)",
+      categoryHint: "import_duty",
+      description: "US Section 301 tariff on Chinese-origin goods",
+    },
+    {
+      code: "SURCHARGE_CC",
+      label: "Credit Card Surcharge",
+      categoryHint: "surcharge",
+      description: "Operator credit card fee passthrough",
+    },
+  ];
+  for (const t of tags) {
+    await (prisma as any).chargeTag.upsert({
+      where: { code: t.code },
+      update: t,
+      create: t,
+    });
+  }
+
+  // Helper: get IDs
+  const jMap: Record<string, string> = {};
+  for (const j of await (prisma as any).chargeJurisdiction.findMany()) {
+    jMap[j.code] = j.id;
+  }
+  const tMap: Record<string, string> = {};
+  for (const t of await (prisma as any).chargeTag.findMany()) {
+    tMap[t.code] = t.id;
+  }
+
+  // 3. Charge Rules
+  // Semantics: items with NO tags use GENERAL rules.
+  //            Tagged items use their tag's rules (overrides the default assumption).
+  const rules = [
+    // PA: GENERAL — 6% sales tax (the default rate for untagged items in jurisdiction)
+    {
+      jCode: "US-PA",
+      tCode: "GENERAL",
+      chargeCategory: "sales_tax",
+      rateType: "percentage",
+      rate: 0.06,
+      calculationBasis: "retail_price",
+      originCode: null,
+      priority: 0,
+    },
+    // PA: PREPARED_FOOD — 6% sales tax (same rate; explicit override for tagged food)
+    {
+      jCode: "US-PA",
+      tCode: "PREPARED_FOOD",
+      chargeCategory: "sales_tax",
+      rateType: "percentage",
+      rate: 0.06,
+      calculationBasis: "retail_price",
+      originCode: null,
+      priority: 0,
+    },
+    // PA: GROCERY — 0% (PA exempts unprepared food)
+    {
+      jCode: "US-PA",
+      tCode: "GROCERY",
+      chargeCategory: "sales_tax",
+      rateType: "percentage",
+      rate: 0.0,
+      calculationBasis: "retail_price",
+      originCode: null,
+      priority: 0,
+    },
+    // PA: ALCOHOL — 6% sales tax + $0.08/unit malt beverage excise (stacked rules)
+    {
+      jCode: "US-PA",
+      tCode: "ALCOHOL",
+      chargeCategory: "sales_tax",
+      rateType: "percentage",
+      rate: 0.06,
+      calculationBasis: "retail_price",
+      originCode: null,
+      priority: 0,
+    },
+    {
+      jCode: "US-PA",
+      tCode: "ALCOHOL",
+      chargeCategory: "excise",
+      rateType: "per_unit",
+      rate: 0.08,
+      calculationBasis: "retail_price",
+      originCode: null,
+      priority: 1,
+    },
+    // PA: EXEMPT — 0%
+    {
+      jCode: "US-PA",
+      tCode: "EXEMPT",
+      chargeCategory: "sales_tax",
+      rateType: "percentage",
+      rate: 0.0,
+      calculationBasis: "retail_price",
+      originCode: null,
+      priority: 0,
+    },
+    // US-TRADE: Section 301 tariff — 25% import duty on CN-origin goods
+    {
+      jCode: "US-TRADE",
+      tCode: "CN_TARIFF_301",
+      chargeCategory: "import_duty",
+      rateType: "percentage",
+      rate: 0.25,
+      calculationBasis: "retail_price",
+      originCode: "CN",
+      priority: 0,
+    },
+    // US: Credit card surcharge — 3% on subtotal+tax (forward compat demo)
+    {
+      jCode: "US",
+      tCode: "SURCHARGE_CC",
+      chargeCategory: "surcharge",
+      rateType: "percentage",
+      rate: 0.03,
+      calculationBasis: "subtotal_plus_tax",
+      originCode: null,
+      priority: 0,
+    },
+  ];
+
+  for (const r of rules) {
+    await (prisma as any).chargeRule.create({
+      data: {
+        jurisdictionId: jMap[r.jCode],
+        tagId: tMap[r.tCode],
+        chargeCategory: r.chargeCategory,
+        rateType: r.rateType,
+        rate: r.rate,
+        calculationBasis: r.calculationBasis,
+        originCode: r.originCode,
+        priority: r.priority,
+      },
+    });
+  }
+
+  // 4. SKU Tag Assignments
+  // Items with no SkuChargeTag rows → engine uses GENERAL rules for the jurisdiction.
+  // Tagged items' rules fully replace the GENERAL default.
+  const skuTags: Array<{ skuId: string; tCode: string; originCode?: string }> =
+    [
+      // Food items → PREPARED_FOOD (6% PA)
+      { skuId: "SKU-BURGER-REG", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-BURGER-DLX", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-BURGER-VEG", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-FRIES", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-ONION-RINGS", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-COLESLAW", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-DRINK-SODA", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-DRINK-ICEDTEA", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-DRINK-SHAKE", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-DESSRT-CAKE", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-DESSRT-COOKIE", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-BURGER-COMBO", tCode: "PREPARED_FOOD" },
+      { skuId: "SKU-CHINESE-GEN-TSO", tCode: "PREPARED_FOOD" },
+      // Modifiers are not tagged — they fall back to GENERAL (6%) unless overridden
+      // Combo slots are $0 base price; tagging PREPARED_FOOD so they align if priced
+    ];
+
+  for (const st of skuTags) {
+    const tagId = tMap[st.tCode];
+    if (!tagId) continue;
+    await (prisma as any).skuChargeTag.upsert({
+      where: { skuId_tagId: { skuId: st.skuId, tagId } },
+      update: {},
+      create: { skuId: st.skuId, tagId, originCode: st.originCode ?? null },
+    });
+  }
+
+  console.log(
+    "✅ Charge system seeded: jurisdictions, tags, rules, and SKU tag assignments.",
   );
 }
 

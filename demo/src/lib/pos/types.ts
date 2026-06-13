@@ -8,6 +8,7 @@ export interface OrderContext {
   customerFields: Record<string, string>;
   estimatedTimeLabel?: string | null;
   initiatedAt: string;
+  jurisdictionCode?: string; // e.g. "18106" — resolved to full charge-rule chain at order time
 }
 
 export interface CustomerFieldConfig {
