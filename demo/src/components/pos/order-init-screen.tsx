@@ -216,20 +216,6 @@ export function OrderInitScreen({
     [selectedObjects],
   );
 
-  const selectedGuestNames = useMemo(() => {
-    const names = new Set<string>();
-    for (const object of selectedObjects) {
-      if (object.kind === "table") {
-        for (const guest of getSelectedGuestNames(object)) {
-          names.add(guest);
-        }
-      } else if (object.kind === "chair") {
-        names.add(object.label || object.id);
-      }
-    }
-    return Array.from(names);
-  }, [selectedObjects]);
-
   const linkedChairIds = useMemo(() => {
     const ids = new Set<string>();
     for (const object of selectedTables) {
@@ -241,6 +227,22 @@ export function OrderInitScreen({
     }
     return ids;
   }, [selectedTables]);
+
+  const selectedGuestNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const object of selectedObjects) {
+      if (object.kind === "table") {
+        for (const guest of getSelectedGuestNames(object)) {
+          names.add(guest);
+        }
+      } else if (object.kind === "chair") {
+        if (!linkedChairIds.has(object.id)) {
+          names.add(object.label || object.id);
+        }
+      }
+    }
+    return Array.from(names);
+  }, [selectedObjects, linkedChairIds]);
 
   const selectedObjectNames = selectedObjects.map((object) => ({
     id: object.id,

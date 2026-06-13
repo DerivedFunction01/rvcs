@@ -175,7 +175,7 @@ async function ensureDefaultFloors(posConfigId: string) {
     include: { objects: true },
   });
 
-  const needsReseed = existingFloors.length === 0 || existingFloors.some((f: any) => f.objects.some((o: any) => !o.type || !o.name || o.rotation === undefined || o.rotation === null));
+  const needsReseed = existingFloors.length === 0 || existingFloors.some((f: any) => f.objects.length === 0 || f.objects.some((o: any) => !o.type || !o.name || o.rotation === undefined || o.rotation === null));
 
   if (!needsReseed) return;
 
