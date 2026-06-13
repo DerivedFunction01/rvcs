@@ -2,14 +2,17 @@ import type { AllocationBlock, PaymentAllocation } from "@/lib/vcs/types";
 
 export function getPaymentAllocDisplayName(
   alloc: AllocationBlock,
-  allAllocations: Record<string, AllocationBlock>
+  allAllocations: Record<string, AllocationBlock>,
 ): string {
   if (alloc.type !== "payment") return "";
   const pay = alloc as PaymentAllocation;
 
   const siblings = pay.correlationId
     ? Object.values(allAllocations).filter(
-        (a) => a.type === "payment" && a.correlationId === pay.correlationId && a.allocationId !== alloc.allocationId
+        (a) =>
+          a.type === "payment" &&
+          a.correlationId === pay.correlationId &&
+          a.allocationId !== alloc.allocationId,
       )
     : [];
 
@@ -52,7 +55,7 @@ export function getAssignmentAllocDisplayName(alloc: AllocationBlock): string {
 }
 
 export function generateSplitCorrelationId(
-  splits: Array<{ entity: string; percentage: number }>
+  splits: Array<{ entity: string; percentage: number }>,
 ): string {
   const parts = [...splits]
     .sort((a, b) => b.percentage - a.percentage)
@@ -62,7 +65,7 @@ export function generateSplitCorrelationId(
 
 export function formatFulfillmentTime(
   calculatedAtStr: string,
-  initiatedAtStr?: string
+  initiatedAtStr?: string,
 ): string {
   const calcDate = new Date(calculatedAtStr);
   const timeStr = calcDate.toLocaleTimeString([], {
@@ -97,3 +100,29 @@ export function formatFulfillmentTime(
     return `${month} ${day}, ${year}, ${timeStr}`;
   }
 }
+
+export const SQUASH_DESCRIPTIONS = {
+  light: {
+    label: "Light Squash",
+    desc: "Prune intermediate quantity changes and net-zero items, keeping original commit history structure.",
+  },
+  full: {
+    label: "Full Squash",
+    desc: "Prune net-zero items and collapse/compress the range of commits into a single commit.",
+  },
+};
+
+export const MERGE_SQUASH_DESCRIPTIONS = {
+  none: {
+    label: "No Squash",
+    desc: "Source branch commits will be merged directly, retaining the complete commit history graph.",
+  },
+  light: {
+    label: "Light Squash",
+    desc: "Net-zero items and intermediate quantity changes are pruned from source commits, keeping their individual commit boundaries.",
+  },
+  full: {
+    label: "Full Squash",
+    desc: "All pending commits on each source branch are collapsed into a single commit containing optimized deltas before merging.",
+  },
+};

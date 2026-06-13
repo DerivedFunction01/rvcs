@@ -67,6 +67,7 @@ import type {
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
+  MERGE_SQUASH_DESCRIPTIONS,
 } from "@/lib/pos/utils";
 import { areDeltasIdentical } from "@/lib/vcs";
 
@@ -1598,7 +1599,7 @@ function StepPreview({
           </div>
           <div className="grid grid-cols-3 gap-2">
             {(["none", "light", "full"] as const).map((type) => {
-              const label = type === "none" ? "No Squash" : type === "light" ? "Light Squash" : "Full Squash";
+              const label = MERGE_SQUASH_DESCRIPTIONS[type].label;
               const desc = type === "none" ? "Merge as-is" : type === "light" ? "Prune net-zero" : "Compress range";
               const isSelected = squashBeforeMerge === type;
               return (
@@ -1619,9 +1620,7 @@ function StepPreview({
             })}
           </div>
           <p className="text-[10px] text-muted-foreground leading-normal mt-1">
-            {squashBeforeMerge === "none" && "Source branch commits will be merged directly, retaining the complete commit history graph."}
-            {squashBeforeMerge === "light" && "Net-zero items (added and then removed) are pruned from each source branch's commits, keeping their individual commit boundaries."}
-            {squashBeforeMerge === "full" && "All pending commits on each source branch are collapsed into a single commit containing optimized deltas before merging."}
+            {MERGE_SQUASH_DESCRIPTIONS[squashBeforeMerge].desc}
           </p>
         </div>
 

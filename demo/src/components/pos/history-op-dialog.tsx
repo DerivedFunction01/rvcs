@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Lock, ChevronsUpDown, Eraser } from "lucide-react";
+import { SQUASH_DESCRIPTIONS } from "@/lib/pos/utils";
 
 export function HistoryOpDialog({
   open,
@@ -50,9 +51,9 @@ export function HistoryOpDialog({
                     : "border-border bg-card opacity-70 hover:opacity-100"
                 }`}
               >
-                <div className="font-bold text-foreground">Light Squash</div>
+                <div className="font-bold text-foreground">{SQUASH_DESCRIPTIONS.light.label}</div>
                 <div className="text-[10px] text-muted-foreground leading-normal font-normal">
-                  Remove net-zero items, keeping original commit history structure.
+                  {SQUASH_DESCRIPTIONS.light.desc}
                 </div>
               </button>
 
@@ -65,9 +66,9 @@ export function HistoryOpDialog({
                     : "border-border bg-card opacity-70 hover:opacity-100"
                 }`}
               >
-                <div className="font-bold text-foreground">Full Squash</div>
+                <div className="font-bold text-foreground">{SQUASH_DESCRIPTIONS.full.label}</div>
                 <div className="text-[10px] text-muted-foreground leading-normal font-normal">
-                  Remove net-zero items and compress range into a single commit.
+                  {SQUASH_DESCRIPTIONS.full.desc}
                 </div>
               </button>
             </div>
@@ -89,8 +90,8 @@ export function HistoryOpDialog({
           >
             {operation?.type === "squash"
               ? squashType === "light"
-                ? "Apply Light Squash"
-                : "Apply Full Squash"
+                ? `Apply ${SQUASH_DESCRIPTIONS.light.label}`
+                : `Apply ${SQUASH_DESCRIPTIONS.full.label}`
               : "Reset Branch"}
           </Button>
         </DialogFooter>
