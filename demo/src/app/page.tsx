@@ -691,8 +691,7 @@ function POSTerminalInner() {
   const checklistRef = React.useRef<HTMLDivElement | null>(null);
   const bulkActionsBarRef = React.useRef<HTMLDivElement | null>(null);
 
-  // Dropdown key states to reset Select menus after an option is selected
-  const [removeModSelectKey, setRemoveModSelectKey] = React.useState(0);
+  // Dropdown key states
   const [selectedPerson, setSelectedPerson] = React.useState(initialGuests[0] || customerName);
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
   const [addGuestName, setAddGuestName] = React.useState("");
@@ -705,6 +704,7 @@ function POSTerminalInner() {
   const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] = React.useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = React.useState(false);
+  const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
 
   // Active check view filter state
   const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
@@ -1308,6 +1308,16 @@ function POSTerminalInner() {
   const paymentDialogDescription =
     "Choose a built-in payment method or one of the saved payment configs.";
 
+  const removeModChoiceOptions = React.useMemo(
+    () =>
+      activeModifiersOnSelected.map((mod) => ({
+        id: mod.sku,
+        label: mod.name,
+        description: mod.sku,
+      })),
+    [activeModifiersOnSelected],
+  );
+
   const filteredGuests = React.useMemo(() => {
     const query = guestSearchQuery.trim().toLowerCase();
     if (!query) return guests;
@@ -1898,29 +1908,14 @@ function POSTerminalInner() {
                   )}
 
                   {activeModifiersOnSelected.length > 0 && (
-                    <Select
-                      key={`remove-mod-select-${removeModSelectKey}`}
-                      onValueChange={(val) => {
-                        removeGroupModifier(Array.from(selectedLineIds), val);
-                        toast.success("Removed modifier in bulk");
-                        setRemoveModSelectKey((k) => k + 1);
-                      }}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] px-2.5 font-medium bg-background border border-destructive/30 text-destructive hover:bg-destructive/5 gap-1"
+                      onClick={() => setRemoveModDialogOpen(true)}
                     >
-                      <SelectTrigger className="h-7 text-[11px] px-2 font-medium bg-background border border-destructive/30 text-destructive hover:bg-destructive/5 w-[115px]">
-                        <SelectValue placeholder="- Modifier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeModifiersOnSelected.map((mod) => (
-                          <SelectItem
-                            key={mod.sku}
-                            value={mod.sku}
-                            className="text-[11px]"
-                          >
-                            {mod.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <Minus className="w-3.5 h-3.5" />- Modifier
+                    </Button>
                   )}
 
                   <SeparatorUI
@@ -2525,6 +2520,19 @@ function POSTerminalInner() {
           groupItemsPaymentConfig(Array.from(selectedLineIds), option.id);
           setPaymentDialogOpen(false);
           toast.success(`Selected payment reallocated to ${option.label}`);
+        }}
+      />
+
+      <ChoiceDialog
+        open={removeModDialogOpen}
+        onOpenChange={setRemoveModDialogOpen}
+        title="Remove Modifier"
+        description="Choose a modifier to remove from all selected items."
+        searchPlaceholder="Search modifiers..."
+        options={removeModChoiceOptions}
+        onChoose={(option) => {
+          removeGroupModifier(Array.from(selectedLineIds), option.id);
+          toast.success(`Removed modifier ${option.label} in bulk`);
         }}
       />
 
