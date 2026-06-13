@@ -204,6 +204,7 @@ export class VCSEngine {
 
     this.repo.log.push(newCommit);
     this.repo.branches[branch] = {
+      ...this.repo.branches[branch],
       headHash: newCommit.commitHash,
     };
 
