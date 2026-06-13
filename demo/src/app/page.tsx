@@ -264,6 +264,9 @@ function LineItemNode({
   guests,
   isSelected = false,
   onSelectToggle,
+  isCollapsed,
+  onToggleCollapse,
+  collapsedItems,
 }: {
   item: ProjectedLineItem;
   allocations: Record<string, AllocationBlock>;
@@ -276,6 +279,9 @@ function LineItemNode({
   guests: string[];
   isSelected?: boolean;
   onSelectToggle?: (lineId: string) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: (lineId: string) => void;
+  collapsedItems?: Set<string>;
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
@@ -283,6 +289,7 @@ function LineItemNode({
   const isCanceled = item.status === "canceled";
   const isPending = item.status === "pending";
   const isChanged = item.status === "changed";
+  const isConfirmed = item.status === "confirmed";
   const hasSplitPayment =
     item.allocations.filter((id) => allocations[id]?.type === "payment")
       .length > 1;
@@ -315,7 +322,13 @@ function LineItemNode({
             isRoot
               ? isSelected && !isCanceled
                 ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
-                : `border-border cursor-pointer ${isCanceled ? "bg-muted/20 hover:bg-muted/30" : "bg-card hover:bg-accent/50"}`
+                : `border-border cursor-pointer ${
+                    isCanceled
+                      ? "bg-muted/20 hover:bg-muted/30"
+                      : isConfirmed
+                        ? "bg-muted/30 hover:bg-muted/50"
+                        : "bg-card hover:bg-accent/50"
+                  }`
               : "border-transparent bg-muted/40"
           }`}
           onClick={
@@ -345,6 +358,19 @@ function LineItemNode({
                       guests,
                     )}`}
                   />
+                )}
+                {item.children.some((child) => child.name !== "") ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleCollapse?.(item.lineId);
+                    }}
+                    className="w-4 h-4 -ml-0.5 -mr-1 flex items-center justify-center rounded hover:bg-muted shrink-0 text-muted-foreground transition-colors"
+                  >
+                    {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                ) : (
+                  <div className="w-4 h-4 -ml-0.5 -mr-1 shrink-0" />
                 )}
                 {isRoot && !isCanceled ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
@@ -641,7 +667,7 @@ function LineItemNode({
           </div>
         </div>
       </div>
-      {item.children
+      {!isCollapsed && item.children
         .filter((child) => child.name !== "")
         .map((child) => (
           <LineItemNode
@@ -655,6 +681,9 @@ function LineItemNode({
             depth={depth + 1}
             modifiers={modifiers}
             guests={guests}
+            isCollapsed={collapsedItems?.has(child.lineId)}
+            onToggleCollapse={onToggleCollapse}
+            collapsedItems={collapsedItems}
           />
         ))}
     </>
@@ -867,6 +896,39 @@ function POSTerminalInner() {
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
     React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
+
+  const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(new Set());
+
+  const handleToggleCollapse = React.useCallback((lineId: string) => {
+    setCollapsedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineId)) {
+        next.delete(lineId);
+      } else {
+        next.add(lineId);
+      }
+      return next;
+    });
+  }, []);
+
+  const hasCollapsedItems = collapsedItems.size > 0;
+  const toggleAllCollapsed = React.useCallback(() => {
+    if (hasCollapsedItems) {
+      setCollapsedItems(new Set()); // Expand all
+    } else {
+      const allParentIds = new Set<string>();
+      const findParents = (items: ProjectedLineItem[]) => {
+        for (const item of items) {
+          if (item.children.some((c) => c.name !== "")) {
+            allParentIds.add(item.lineId);
+            findParents(item.children);
+          }
+        }
+      };
+      findParents(Object.values(projectedState.items));
+      setCollapsedItems(allParentIds);
+    }
+  }, [hasCollapsedItems, projectedState.items]);
 
   // ─── History Operation Confirm Dialog State ───────────────────────────────
   const [historyOpDialog, setHistoryOpDialog] = React.useState<{
@@ -2051,6 +2113,22 @@ function POSTerminalInner() {
                     </div>
                   </PopoverContent>
                 </Popover>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 ml-1 text-muted-foreground hover:bg-accent"
+                      onClick={toggleAllCollapsed}
+                    >
+                      <ChevronsUpDown className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {hasCollapsedItems ? "Expand all items" : "Collapse all items"}
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <div className="flex items-center gap-4">
                 {projectedState.financials.personBreakdown.map((pb) => (
@@ -2122,6 +2200,9 @@ function POSTerminalInner() {
                       guests={guests}
                       isSelected={selectedLineIds.has(item.lineId)}
                       onSelectToggle={handleSelectToggle}
+                      isCollapsed={collapsedItems.has(item.lineId)}
+                      onToggleCollapse={handleToggleCollapse}
+                      collapsedItems={collapsedItems}
                     />
                   ))}
                 </div>
