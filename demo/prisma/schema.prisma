@@ -108,11 +108,26 @@ model FloorObject {
   type       String     // table | chair | wall | deadspace
   name       String
   shapeType  String?    // circle | ellipse | rectangle | triangle | polygon
-  points     String     // JSON array of points
-  x          Int
-  y          Int
-  w          Int
-  h          Int
+  
+  // Shape geometry fields
+  centerX    Float      @default(0)  // Center X coordinate
+  centerY    Float      @default(0)  // Center Y coordinate
+  rotation   Float      @default(0)  // Rotation in degrees (0-360)
+  
+  // Circle: radius
+  radius     Float?
+  
+  // Ellipse: semi-major and semi-minor axes
+  semiMajorAxis Float?
+  semiMinorAxis Float?
+  
+  // Rectangle/Square: width and height (unrotated)
+  width      Float?
+  height     Float?
+  
+  // Triangle/Polygon: vertices as JSON array of [x, y] pairs (unrotated, centered at origin)
+  vertices   String?    // JSON array: [[x1, y1], [x2, y2], ...]
+  
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
