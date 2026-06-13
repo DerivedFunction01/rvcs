@@ -8,16 +8,16 @@ import {
   formatFulfillmentTime,
 } from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
-import { OrderInitScreen } from "@/components/vcs/order-init-screen";
-import { AllocationConfigDialog } from "@/components/vcs/allocation-config-dialog";
-import { PaymentAllocationDialog } from "@/components/vcs/payment-allocation-dialog";
-import { FulfillmentAllocationDialog } from "@/components/vcs/fulfillment-allocation-dialog";
-import { ModifierAddDialog } from "@/components/vcs/modifier-add-dialog";
-import { NumberPadDialog } from "@/components/vcs/number-pad-dialog";
-import { ChoiceDialog } from "@/components/vcs/choice-dialog";
-import { BranchConfigDialog } from "@/components/vcs/branch-config-dialog";
-import { BranchManagerDialog } from "@/components/vcs/branch-manager-dialog";
-import { MergeBranchDialog } from "@/components/vcs/merge-dialog";
+import { OrderInitScreen } from "@/components/pos/order-init-screen";
+import { AllocationConfigDialog } from "@/components/pos/allocation-config-dialog";
+import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dialog";
+import { FulfillmentAllocationDialog } from "@/components/pos/fulfillment-allocation-dialog";
+import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
+import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
+import { ChoiceDialog } from "@/components/pos/choice-dialog";
+import { BranchConfigDialog } from "@/components/pos/branch-config-dialog";
+import { BranchManagerDialog } from "@/components/pos/branch-manager-dialog";
+import { MergeBranchDialog } from "@/components/pos/merge-dialog";
 import {
   Dialog,
   DialogContent,
@@ -1241,7 +1241,11 @@ function POSTerminalInner() {
       return `${f.method} @ ${formatFulfillmentTime(f.time.calculatedAt, orderContext?.initiatedAt)}`;
     }
     return "On Confirmation";
-  }, [activeFulfillmentConfigId, projectedState.allocations, orderContext?.initiatedAt]);
+  }, [
+    activeFulfillmentConfigId,
+    projectedState.allocations,
+    orderContext?.initiatedAt,
+  ]);
   const log = commitLog();
   const branches = useVCSStore.getState().engine.getRepo().branches;
 
