@@ -533,6 +533,16 @@ export function OrderInitScreen({
 
         <main className="flex-1 p-6">
           <div className="max-w-5xl mx-auto space-y-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground"
+              onClick={() => setStep("order")}
+            >
+              <ArrowLeft className="w-3 h-3 mr-1" />
+              Back
+            </Button>
+
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">
