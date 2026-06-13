@@ -108,11 +108,15 @@ model FloorObject {
   type       String     // table | chair | wall | deadspace
   name       String
   shapeType  String?    // circle | ellipse | rectangle | triangle | polygon
-  points     String     // JSON array of points
-  x          Int
-  y          Int
-  w          Int
-  h          Int
+  x          Float
+  y          Float
+  rotation   Float      @default(0)
+  width      Float?
+  height     Float?
+  radius     Float?
+  radiusX    Float?
+  radiusY    Float?
+  points     String?    // JSON array of points
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 

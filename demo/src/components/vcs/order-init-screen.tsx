@@ -397,16 +397,51 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
   }
 
   if (step === "floor") {
-    const floorGrid = selectedFloor
-      ? Array.from({ length: selectedFloor.gridWidth * selectedFloor.gridHeight }, (_, idx) => {
-          const x = idx % selectedFloor.gridWidth;
-          const y = Math.floor(idx / selectedFloor.gridWidth);
-          const object = selectedFloor.objects.find(
-            (item) => x >= item.x && x < item.x + item.w && y >= item.y && y < item.y + item.h,
-          );
-          return { x, y, object };
-        })
-      : [];
+    let vbX = 0;
+    let vbY = 0;
+    let vbW = 10;
+    let vbH = 10;
+
+    if (selectedFloor && selectedFloor.objects.length > 0) {
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      selectedFloor.objects.forEach((o) => {
+        let hw = 1;
+        let hh = 1;
+        
+        if (o.shape === "circle") {
+          hw = hh = o.radius || 1;
+        } else if (o.shape === "ellipse") {
+          hw = o.radiusX || 2;
+          hh = o.radiusY || 1;
+        } else if (o.shape === "rectangle" || !o.shape) {
+          hw = (o.width || 2) / 2;
+          hh = (o.height || 2) / 2;
+        } else if (o.points && o.points.length > 0) {
+          const pxs = o.points.map((p) => p[0]);
+          const pys = o.points.map((p) => p[1]);
+          minX = Math.min(minX, ...pxs);
+          maxX = Math.max(maxX, ...pxs);
+          minY = Math.min(minY, ...pys);
+          maxY = Math.max(maxY, ...pys);
+          return;
+        }
+
+        minX = Math.min(minX, o.x - hw);
+        maxX = Math.max(maxX, o.x + hw);
+        minY = Math.min(minY, o.y - hh);
+        maxY = Math.max(maxY, o.y + hh);
+      });
+
+      const pad = 1;
+      vbX = minX - pad;
+      vbY = minY - pad;
+      vbW = Math.max(1, maxX - minX + pad * 2);
+      vbH = Math.max(1, maxY - minY + pad * 2);
+    }
 
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -489,60 +524,119 @@ export function OrderInitScreen({ onOrderStart, storeLabel }: OrderInitScreenPro
                       {selectedFloor.name}
                     </div>
                     <div
-                      className="relative rounded-lg border bg-background overflow-hidden"
-                      style={{
-                        aspectRatio: `${selectedFloor.gridWidth} / ${selectedFloor.gridHeight}`,
-                      }}
+                      className="relative rounded-lg border bg-background overflow-hidden flex items-center justify-center min-h-[300px] p-4"
                     >
-                      <div
-                        className="grid h-full w-full"
-                        style={{
-                          gridTemplateColumns: `repeat(${selectedFloor.gridWidth}, minmax(0, 1fr))`,
-                          gridTemplateRows: `repeat(${selectedFloor.gridHeight}, minmax(0, 1fr))`,
-                        }}
+                      <svg
+                        viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
+                        className="w-full h-full max-h-[600px]"
                       >
-                        {floorGrid.map(({ x, y, object }) => {
+                        {selectedFloor.objects.map((object) => {
                           const selected = object ? selectedObjectIds.includes(object.id) : false;
                           const linkedToSelectedTable =
                             object?.kind === "chair" && linkedChairIds.has(object.id);
-                          const baseClass =
-                            object?.kind === "wall"
-                              ? "bg-zinc-800 text-white"
-                              : object?.kind === "deadspace"
-                                ? "bg-zinc-100 text-zinc-400"
-                                : object?.kind === "chair"
-                                  ? selected
-                                    ? "bg-sky-200 text-sky-900 ring-2 ring-sky-500"
-                                    : linkedToSelectedTable
-                                      ? "bg-sky-100 text-sky-800"
-                                      : "bg-sky-50 text-sky-700"
-                                  : object?.kind === "table"
-                                    ? selected
-                                      ? "bg-emerald-200 text-emerald-900 ring-2 ring-emerald-500"
-                                      : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                    : "bg-card text-muted-foreground";
+                          
+                          let fillClass = "fill-card text-muted-foreground";
+                          let strokeClass = "stroke-muted-foreground";
+                          let textColorClass = "fill-muted-foreground";
+                          
+                          if (object?.kind === "wall") {
+                            fillClass = "fill-zinc-800";
+                            strokeClass = "stroke-zinc-800";
+                            textColorClass = "fill-white";
+                          } else if (object?.kind === "deadspace") {
+                            fillClass = "fill-zinc-100 dark:fill-zinc-900";
+                            strokeClass = "stroke-zinc-300 dark:stroke-zinc-700";
+                            textColorClass = "fill-zinc-400";
+                          } else if (object?.kind === "chair") {
+                            if (selected) {
+                              fillClass = "fill-sky-200 dark:fill-sky-900";
+                              strokeClass = "stroke-sky-500";
+                              textColorClass = "fill-sky-900 dark:fill-sky-100";
+                            } else if (linkedToSelectedTable) {
+                              fillClass = "fill-sky-100 dark:fill-sky-900/50";
+                              strokeClass = "stroke-sky-400";
+                              textColorClass = "fill-sky-800 dark:fill-sky-200";
+                            } else {
+                              fillClass = "fill-sky-50 dark:fill-sky-950/30";
+                              strokeClass = "stroke-sky-300 dark:stroke-sky-800";
+                              textColorClass = "fill-sky-700 dark:fill-sky-300";
+                            }
+                          } else if (object?.kind === "table") {
+                            if (selected) {
+                              fillClass = "fill-emerald-200 dark:fill-emerald-900";
+                              strokeClass = "stroke-emerald-500";
+                              textColorClass = "fill-emerald-900 dark:fill-emerald-100";
+                            } else {
+                              fillClass = "fill-emerald-50 hover:fill-emerald-100 dark:fill-emerald-950/30 dark:hover:fill-emerald-900/50";
+                              strokeClass = "stroke-emerald-300 dark:stroke-emerald-800";
+                              textColorClass = "fill-emerald-800 dark:fill-emerald-200";
+                            }
+                          }
+
+                          const renderShape = () => {
+                            const rotation = object.rotation || 0;
+                            const transform = rotation ? `rotate(${rotation} ${object.x} ${object.y})` : undefined;
+                            
+                            switch (object.shape) {
+                              case "circle":
+                                return <circle cx={object.x} cy={object.y} r={object.radius || 1} transform={transform} />;
+                              case "ellipse":
+                                return <ellipse cx={object.x} cy={object.y} rx={object.radiusX || 2} ry={object.radiusY || 1} transform={transform} />;
+                              case "triangle":
+                              case "polygon":
+                                if (object.points) {
+                                  const pts = object.points.map(p => `${p[0]},${p[1]}`).join(" ");
+                                  return <polygon points={pts} transform={transform} />;
+                                }
+                                return null;
+                              case "rectangle":
+                              default:
+                                const w = object.width || 2;
+                                const h = object.height || 2;
+                                return <rect x={object.x - w/2} y={object.y - h/2} width={w} height={h} transform={transform} rx={0.2} ry={0.2} />;
+                            }
+                          };
+
+                          const fontSize = Math.min(object.width || 2, object.height || 2, object.radius ? object.radius * 2 : 2) * 0.25;
 
                           return (
-                            <button
-                              key={`${x}-${y}`}
-                              type="button"
-                              className={`relative border border-dashed text-[10px] transition-colors ${baseClass}`}
+                            <g
+                              key={object.id}
                               onClick={() => toggleObjectSelection(object)}
-                              disabled={object?.kind === "wall" || object?.kind === "deadspace" || !object}
+                              className={`cursor-pointer transition-colors ${fillClass} ${strokeClass} ${object.kind === "wall" || object.kind === "deadspace" ? "pointer-events-none" : ""}`}
+                              strokeWidth={0.05}
                             >
-                              <div className="absolute inset-0 flex items-center justify-center p-1 text-center whitespace-pre-line">
-                                {object?.kind === "table"
-                                  ? `${object.label || object.id}\n${object.shape || "table"}`
-                                  : object?.kind === "chair"
-                                    ? object.label || "Chair"
-                                    : object?.kind === "wall"
-                                      ? "Wall"
-                                      : ""}
-                              </div>
-                            </button>
+                              {renderShape()}
+                              {object.label && (
+                                <text
+                                  x={object.x}
+                                  y={object.y}
+                                  fontSize={fontSize}
+                                  textAnchor="middle"
+                                  dominantBaseline="middle"
+                                  className={`font-semibold select-none pointer-events-none ${textColorClass}`}
+                                  transform={object.rotation ? `rotate(${object.rotation} ${object.x} ${object.y})` : undefined}
+                                >
+                                  {object.label}
+                                </text>
+                              )}
+                              {object.kind === "table" && (object as any).seatCount && (object as any).seatCount > 0 && (
+                                <text
+                                  x={object.x}
+                                  y={object.y + fontSize * 1.5}
+                                  fontSize={fontSize * 0.7}
+                                  textAnchor="middle"
+                                  dominantBaseline="middle"
+                                  className={`font-medium select-none pointer-events-none ${textColorClass} opacity-80`}
+                                  transform={object.rotation ? `rotate(${object.rotation} ${object.x} ${object.y})` : undefined}
+                                >
+                                  {(object as any).seatCount} seats
+                                </text>
+                              )}
+                            </g>
                           );
                         })}
-                      </div>
+                      </svg>
                       <div className="absolute top-3 right-3 rounded-md bg-background/90 border px-2 py-1 text-[10px] text-muted-foreground">
                         Tap a table to auto-load guests
                       </div>

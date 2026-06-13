@@ -327,8 +327,13 @@ export interface FloorObjectBase {
   label?: string;
   x: number;
   y: number;
-  w: number;
-  h: number;
+  rotation?: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  radiusX?: number;
+  radiusY?: number;
+  points?: Array<[number, number]>;
 }
 
 export interface FloorTableObject extends FloorObjectBase {
@@ -356,8 +361,6 @@ export type FloorObject =
 export interface FloorConfig {
   id: string;
   name: string;
-  gridWidth: number;
-  gridHeight: number;
   objects: FloorObject[];
 }
 
