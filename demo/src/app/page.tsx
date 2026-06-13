@@ -1123,8 +1123,8 @@ function POSTerminalInner() {
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [guestSearchQuery, setGuestSearchQuery] = React.useState("");
   const [catalogFilter, setCatalogFilter] = React.useState("");
-  const [avoidAllergens, setAvoidAllergens] = React.useState<Set<string>>(new Set());
-  const [requireDietaryFlags, setRequireDietaryFlags] = React.useState<Set<string>>(new Set());
+  const [requireTags, setRequireTags] = React.useState<Set<string>>(new Set());
+  const [avoidTags, setAvoidTags] = React.useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
@@ -1514,20 +1514,13 @@ function POSTerminalInner() {
     return acc;
   }, {});
 
-  const availableAllergens = React.useMemo(() => {
-    const allergens = new Set<string>();
+  const availableTags = React.useMemo(() => {
+    const tags = new Set<string>();
     for (const item of catalogItems) {
-      for (const a of item.allergens) allergens.add(a);
+      for (const a of item.allergens) tags.add(a);
+      for (const f of item.dietaryFlags) tags.add(f);
     }
-    return Array.from(allergens).sort();
-  }, [catalogItems]);
-
-  const availableDietaryFlags = React.useMemo(() => {
-    const flags = new Set<string>();
-    for (const item of catalogItems) {
-      for (const f of item.dietaryFlags) flags.add(f);
-    }
-    return Array.from(flags).sort();
+    return Array.from(tags).sort();
   }, [catalogItems]);
 
   const rootItems = Object.values(projectedState.items).filter(
@@ -2114,8 +2107,8 @@ function POSTerminalInner() {
     setAddGuestAlias("");
     setAddGuestOpen(false);
     setCatalogFilter("");
-    setAvoidAllergens(new Set());
-    setRequireDietaryFlags(new Set());
+    setRequireTags(new Set());
+    setAvoidTags(new Set());
     toast.success("Order reset — ready for a new order");
   }, [resetOrder]);
 
@@ -2502,106 +2495,65 @@ function POSTerminalInner() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className={`h-6 text-[10px] px-2 gap-1.5 ${requireDietaryFlags.size > 0 ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20" : ""}`}
+                        className={`h-6 text-[10px] px-2 gap-1.5 ${(requireTags.size > 0 || avoidTags.size > 0) ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
                       >
                         <Filter className="w-3 h-3" />
-                        {requireDietaryFlags.size > 0 ? `Dietary (${requireDietaryFlags.size})` : "Dietary"}
+                        {(requireTags.size > 0 || avoidTags.size > 0) ? `Filters (${requireTags.size + avoidTags.size})` : "Filters"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-56 p-2" align="start">
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between px-1 pb-1 border-b">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Dietary Needs</span>
-                          {requireDietaryFlags.size > 0 && (
-                            <Button variant="link" className="h-auto p-0 text-[10px]" onClick={() => setRequireDietaryFlags(new Set())}>Clear</Button>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Filter Items</span>
+                          {(requireTags.size > 0 || avoidTags.size > 0) && (
+                            <Button variant="link" className="h-auto p-0 text-[10px]" onClick={() => { setRequireTags(new Set()); setAvoidTags(new Set()); }}>Clear</Button>
                           )}
                         </div>
-                        <div className="max-h-48 overflow-y-auto pt-1 space-y-1">
-                          {availableDietaryFlags.map((flag) => {
-                            const config = iconConfigs[flag];
+                        <div className="max-h-64 overflow-y-auto pt-1 space-y-1">
+                          {availableTags.map((tag) => {
+                            const config = iconConfigs[tag];
                             const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
-                            const isChecked = requireDietaryFlags.has(flag);
+                            const isRequired = requireTags.has(tag);
+                            const isAvoided = avoidTags.has(tag);
+                            
+                            let stateClass = "hover:bg-accent text-foreground";
+                            let iconColor = config ? config.color : "text-muted-foreground";
+                            if (isRequired) {
+                              stateClass = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+                              iconColor = "text-emerald-600 dark:text-emerald-400";
+                            } else if (isAvoided) {
+                              stateClass = "bg-rose-500/10 text-rose-700 dark:text-rose-400";
+                              iconColor = "text-rose-600 dark:text-rose-400";
+                            }
+
                             return (
-                              <label
-                                key={flag}
-                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors"
+                              <button
+                                key={tag}
+                                className={`w-full flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${stateClass}`}
+                                onClick={() => {
+                                  if (!isRequired && !isAvoided) {
+                                    setRequireTags(prev => new Set(prev).add(tag));
+                                  } else if (isRequired) {
+                                    setRequireTags(prev => { const n = new Set(prev); n.delete(tag); return n; });
+                                    setAvoidTags(prev => new Set(prev).add(tag));
+                                  } else if (isAvoided) {
+                                    setAvoidTags(prev => { const n = new Set(prev); n.delete(tag); return n; });
+                                  }
+                                }}
                               >
-                                <Checkbox
-                                  checked={isChecked}
-                                  onCheckedChange={(checked) => {
-                                    setRequireDietaryFlags((prev) => {
-                                      const next = new Set(prev);
-                                      if (checked) next.add(flag);
-                                      else next.delete(flag);
-                                      return next;
-                                    });
-                                  }}
-                                  className="w-3.5 h-3.5"
-                                />
-                                <Icon className={`w-3.5 h-3.5 ${config ? config.color : "text-muted-foreground"}`} />
-                                <span className="text-xs font-medium capitalize">
-                                  {config ? config.label : formatLabel(flag)}
-                                </span>
-                              </label>
+                                <div className="flex items-center gap-2">
+                                  <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+                                  <span className="text-xs font-medium capitalize">
+                                    {config ? config.label : formatLabel(tag)}
+                                  </span>
+                                </div>
+                                {isRequired && <Plus className="w-3.5 h-3.5 opacity-70" />}
+                                {isAvoided && <Minus className="w-3.5 h-3.5 opacity-70" />}
+                              </button>
                             );
                           })}
-                          {availableDietaryFlags.length === 0 && (
-                            <div className="text-xs text-muted-foreground text-center py-2">No dietary flags found</div>
-                          )}
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={`h-6 text-[10px] px-2 gap-1.5 ${avoidAllergens.size > 0 ? "border-amber-500/50 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20" : ""}`}
-                      >
-                        <Filter className="w-3 h-3" />
-                        {avoidAllergens.size > 0 ? `Avoid ${avoidAllergens.size}` : "Allergens"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2" align="start">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between px-1 pb-1 border-b">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Avoid Allergens</span>
-                          {avoidAllergens.size > 0 && (
-                            <Button variant="link" className="h-auto p-0 text-[10px]" onClick={() => setAvoidAllergens(new Set())}>Clear</Button>
-                          )}
-                        </div>
-                        <div className="max-h-48 overflow-y-auto pt-1 space-y-1">
-                          {availableAllergens.map((allergen) => {
-                            const config = iconConfigs[allergen];
-                            const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
-                            const isChecked = avoidAllergens.has(allergen);
-                            return (
-                              <label
-                                key={allergen}
-                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors"
-                              >
-                                <Checkbox
-                                  checked={isChecked}
-                                  onCheckedChange={(checked) => {
-                                    setAvoidAllergens((prev) => {
-                                      const next = new Set(prev);
-                                      if (checked) next.add(allergen);
-                                      else next.delete(allergen);
-                                      return next;
-                                    });
-                                  }}
-                                  className="w-3.5 h-3.5"
-                                />
-                                <Icon className={`w-3.5 h-3.5 ${config ? config.color : "text-muted-foreground"}`} />
-                                <span className="text-xs font-medium capitalize">
-                                  {config ? config.label : formatLabel(allergen)}
-                                </span>
-                              </label>
-                            );
-                          })}
-                          {availableAllergens.length === 0 && (
-                            <div className="text-xs text-muted-foreground text-center py-2">No allergens found</div>
+                          {availableTags.length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center py-2">No tags found</div>
                           )}
                         </div>
                       </div>
@@ -2631,14 +2583,17 @@ function POSTerminalInner() {
                     ) {
                       return false;
                     }
-                    if (avoidAllergens.size > 0) {
+                    if (avoidTags.size > 0) {
                       for (const a of i.allergens) {
-                        if (avoidAllergens.has(a)) return false;
+                        if (avoidTags.has(a)) return false;
+                      }
+                      for (const f of i.dietaryFlags) {
+                        if (avoidTags.has(f)) return false;
                       }
                     }
-                    if (requireDietaryFlags.size > 0) {
-                      for (const f of requireDietaryFlags) {
-                        if (!i.dietaryFlags.includes(f)) return false;
+                    if (requireTags.size > 0) {
+                      for (const tag of requireTags) {
+                        if (!i.allergens.includes(tag) && !i.dietaryFlags.includes(tag)) return false;
                       }
                     }
                     return true;
