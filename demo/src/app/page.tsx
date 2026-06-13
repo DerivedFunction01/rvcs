@@ -139,6 +139,8 @@ function AllocationBadges({
 }) {
   if (allocationIds.length === 0) return null;
 
+  const seenPaymentGroups = new Set<string>();
+
   return (
     <div className="flex flex-wrap gap-1 mt-1.5">
       {allocationIds.map((id) => {
@@ -160,6 +162,9 @@ function AllocationBadges({
         }
         if (alloc.type === "payment") {
           const payAlloc = alloc as PaymentAllocation;
+          const paymentGroupId = payAlloc.correlationId || payAlloc.allocationId;
+          if (seenPaymentGroups.has(paymentGroupId)) return null;
+          seenPaymentGroups.add(paymentGroupId);
           const displayName = getPaymentAllocDisplayName(payAlloc, allocations);
           const isDefault = id === defaultPaymentAllocId;
           const isSplit = !!payAlloc.correlationId;
