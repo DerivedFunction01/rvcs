@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useCallback } from "react";
+import { useVCSStore } from "@/store/vcs-store";
 import {
-  useVCSStore,
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
-} from "@/store/vcs-store";
+} from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { OrderInitScreen } from "@/components/vcs/order-init-screen";
 import { PaymentSwitchDialog } from "@/components/vcs/payment-switch-dialog";

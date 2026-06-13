@@ -41,7 +41,7 @@ import type {
   FloorObject,
   OrderContext,
   OrderTypeConfig,
-} from "@/lib/vcs/types";
+} from "@/lib/pos/types";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Store,

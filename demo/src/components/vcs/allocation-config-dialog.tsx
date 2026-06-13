@@ -34,8 +34,8 @@ import type { AllocationBlock, PaymentAllocation, ProjectedLineItem } from "@/li
 import {
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
-  useVCSStore,
-} from "@/store/vcs-store";
+} from "@/lib/pos/utils";
+import { useVCSStore } from "@/store/vcs-store";
 
 interface PaymentSplitEntry {
   entity: string;

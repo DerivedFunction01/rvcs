@@ -13,12 +13,18 @@ import type {
   Delta,
   AssignmentAllocation,
   PaymentAllocation,
-  OrderContext,
   AllocationBlock,
   ProjectedLineItem,
   MergePreview,
 } from "@/lib/vcs/types";
-import { generateAllocationId, generateLineId, generateDraftBranchName } from "@/lib/vcs/id";
+import type { OrderContext } from "@/lib/pos/types";
+import { generateAllocationId, generateLineId } from "@/lib/vcs/id";
+import { generateDraftBranchName } from "@/lib/pos/id";
+import {
+  getPaymentAllocDisplayName,
+  getAssignmentAllocDisplayName,
+  generateSplitCorrelationId,
+} from "@/lib/pos/utils";
 import { projectState } from "@/lib/vcs/reducer";
 
 // ─── Storage Key ──────────────────────────────────────────────────────────────
@@ -30,82 +36,7 @@ function generateContextId(): string {
   return `${CONTEXT_ID_PREFIX}${Date.now()}`;
 }
 
-// ─── Allocation Auto-Naming ───────────────────────────────────────────────────
-// Generates human-readable names from allocation config data.
-
-/**
- * Generate a display name for a payment allocation.
- * Single: "cash — Alice"
- * Split: "Alice 60% / Charlie 40%"
- */
-export function getPaymentAllocDisplayName(
-  alloc: AllocationBlock,
-  allAllocations: Record<string, AllocationBlock>
-): string {
-  if (alloc.type !== "payment") return "";
-  const pay = alloc as PaymentAllocation;
-
-  // Find sibling payment allocations sharing the same correlationId
-  const siblings = pay.correlationId
-    ? Object.values(allAllocations).filter(
-        (a) => a.type === "payment" && a.correlationId === pay.correlationId && a.allocationId !== alloc.allocationId
-      )
-    : [];
-
-  const formatStrategy = (sp: PaymentAllocation) => {
-    const strat = sp.paymentStrategy;
-    if (strat?.strategyType === "fixed") {
-      return `${sp.payer} $${(strat.value ?? 0).toFixed(2)}`;
-    } else if (strat?.strategyType === "remaining") {
-      return `${sp.payer} remaining`;
-    } else {
-      const pct = Math.round((strat?.value ?? 1) * 100);
-      return `${sp.payer} ${pct}%`;
-    }
-  };
-
-  if (siblings.length > 0) {
-    // This is part of a split — build combined name
-    const allSplits = [alloc, ...siblings].sort((a, b) => {
-      const va = ((a as PaymentAllocation).paymentStrategy?.value ?? 1) * 100;
-      const vb = ((b as PaymentAllocation).paymentStrategy?.value ?? 1) * 100;
-      return vb - va; // descending by percentage
-    });
-    const parts = allSplits.map((s) => formatStrategy(s as PaymentAllocation));
-    return parts.join(" / ");
-  }
-
-  // Single allocation
-  const strat = pay.paymentStrategy;
-  if (strat && strat.strategyType !== "percentage") {
-    return formatStrategy(pay);
-  }
-  const parts: string[] = [];
-  if (pay.method) parts.push(pay.method);
-  if (pay.payer) parts.push(pay.payer);
-  return parts.join(" — ") || "payment";
-}
-
-/**
- * Generate a display name for an assignment allocation.
- */
-export function getAssignmentAllocDisplayName(alloc: AllocationBlock): string {
-  if (alloc.type !== "assignment") return "";
-  return (alloc as AssignmentAllocation).entity || "unassigned";
-}
-
-/**
- * Generate a correlation ID for a payment split.
- * Format: "split-{payer1}-{pct1}-{payer2}-{pct2}-..."
- */
-export function generateSplitCorrelationId(
-  splits: Array<{ entity: string; percentage: number }>
-): string {
-  const parts = [...splits]
-    .sort((a, b) => b.percentage - a.percentage)
-    .map((s) => `${s.entity}-${s.percentage}`);
-  return `split-${parts.join("-")}`;
-}
+// POS helpers are now located in the dedicated POS library.
 
 // ─── Create Default Repo ──────────────────────────────────────────────────────
 

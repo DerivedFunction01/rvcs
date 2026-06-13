@@ -16,24 +16,6 @@ export function generateAllocationId(prefix?: string): string {
   return `alloc-${prefixStr}${createId()}`;
 }
 
-/** Generate a unique branch name for a draft POS branch. */
-export function generateBranchName(prefix: string = "pos-draft"): string {
-  return `${prefix}-${createId()}`;
-}
-
-/**
- * Generate a deterministic POS draft branch name from a server label.
- * Example: "Tom" -> "pos-draft-server-tom"
- */
-export function generateDraftBranchName(serverName: string): string {
-  const slug = serverName
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `pos-draft-server-${slug || "unknown"}`;
-}
-
 /**
  * Generate a deterministic clone ID for batch_duplicate_and_reallocate.
  * Uses the source line ID + base revision for reproducibility.
