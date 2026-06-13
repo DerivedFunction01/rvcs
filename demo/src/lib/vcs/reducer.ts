@@ -250,6 +250,10 @@ function applyDelta(
       allocations[delta.allocation.allocationId] = delta.allocation;
       break;
 
+    case "undeclare_allocation":
+      delete allocations[delta.allocationId];
+      break;
+
     case "add_item":
       items[delta.lineId] = {
         lineId: delta.lineId,

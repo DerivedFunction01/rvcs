@@ -4,7 +4,7 @@
 
 // ─── Allocation System (First-Class Decoupled Contracts) ────────────────────────
 
-export type AllocationType = "assignment" | "payment" | "fulfillment";
+export type AllocationType = "assignment" | "payment" | "fulfillment" | "note";
 
 export interface TimeBlock {
   type: "immediate" | "scheduled" | "deferred";
@@ -53,16 +53,29 @@ export interface FulfillmentAllocation {
   fulfillmentMetadata: FulfillmentMetadata;
 }
 
+export interface NoteAllocation {
+  allocationId: string;
+  correlationId?: string | null;
+  type: "note";
+  text: string;
+}
+
 export type AllocationBlock =
   | AssignmentAllocation
   | PaymentAllocation
-  | FulfillmentAllocation;
+  | FulfillmentAllocation
+  | NoteAllocation;
 
 // ─── Delta Operations (Polymorphic, Append-Only) ────────────────────────────────
 
 export interface DeclareAllocationDelta {
   action: "declare_allocation";
   allocation: AllocationBlock;
+}
+
+export interface UndeclareAllocationDelta {
+  action: "undeclare_allocation";
+  allocationId: string;
 }
 
 export interface AddItemDelta {
@@ -181,6 +194,7 @@ export interface BatchByFilterDelta {
 // Union of all delta types
 export type Delta =
   | DeclareAllocationDelta
+  | UndeclareAllocationDelta
   | AddItemDelta
   | RemoveItemDelta
   | ModifyItemAllocationsDelta

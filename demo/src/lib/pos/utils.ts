@@ -62,7 +62,7 @@ export function generateSplitCorrelationId(
 
 export function formatFulfillmentTime(
   calculatedAtStr: string,
-  initiatedAtStr: string | undefined
+  initiatedAtStr?: string
 ): string {
   const calcDate = new Date(calculatedAtStr);
   const timeStr = calcDate.toLocaleTimeString([], {

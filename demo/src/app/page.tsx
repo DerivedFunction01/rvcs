@@ -32,6 +32,8 @@ import { CustomerEditDialog } from "@/components/pos/customer-edit-dialog";
 import { CatalogPanel } from "@/components/pos/catalog-panel";
 import { ActiveCheckPanel } from "@/components/pos/active-check-panel";
 import { CommitLedgerPanel } from "@/components/pos/commit-ledger-panel";
+import { GroupNotesPanel } from "@/components/pos/group-notes-panel";
+import { GroupNoteDialog } from "@/components/pos/group-note-dialog";
 
 import {
   Dialog,
@@ -141,6 +143,9 @@ function POSTerminalInner({
     addGuestPaymentAllocation,
     squashPendingCommits,
     resetToCommit,
+    addGroupNote,
+    removeGroupNote,
+    cleanupStaleNotes,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
@@ -252,6 +257,8 @@ function POSTerminalInner({
   const [assignGuestDialogOpen, setAssignGuestDialogOpen] =
     React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
+  const [groupNoteOpen, setGroupNoteOpen] = React.useState(false);
+  const [groupNoteLineIds, setGroupNoteLineIds] = React.useState<string[]>([]);
   const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(
     new Set(),
   );
@@ -911,6 +918,24 @@ function POSTerminalInner({
     },
     [selectedLineIds, setItemsQty],
   );
+
+  const handleOpenGroupNoteDialog = useCallback((lineIds: string[]) => {
+    setGroupNoteLineIds(lineIds);
+    setGroupNoteOpen(true);
+  }, []);
+
+  const handleSaveGroupNote = useCallback((text: string) => {
+    addGroupNote(groupNoteLineIds, text);
+    setSelectedLineIds(new Set());
+  }, [addGroupNote, groupNoteLineIds]);
+
+  const handleRemoveNoteFromItems = useCallback((lineIds: string[], noteId: string) => {
+    removeGroupNote(lineIds, noteId);
+  }, [removeGroupNote]);
+
+  const handleCleanupStaleNotes = useCallback((noteIds: string[]) => {
+    cleanupStaleNotes(noteIds);
+  }, [cleanupStaleNotes]);
   const guestChoiceOptions = React.useMemo(
     () =>
       guests.map((guest) => ({
@@ -1268,6 +1293,12 @@ function POSTerminalInner({
             setModifierAddOpen={setModifierAddOpen}
             activeModifiersOnSelected={activeModifiersOnSelected}
             setRemoveModDialogOpen={setRemoveModDialogOpen}
+            onGroupNoteOpen={handleOpenGroupNoteDialog}
+          />
+          <GroupNotesPanel
+            projectedState={projectedState}
+            onRemoveNoteFromItems={handleRemoveNoteFromItems}
+            onCleanupStaleNotes={handleCleanupStaleNotes}
           />
           <CommitLedgerPanel
             isLedgerCollapsed={isLedgerCollapsed}
@@ -1734,6 +1765,13 @@ function POSTerminalInner({
           removeGroupModifier(Array.from(selectedLineIds), option.id);
           toast.success(`Removed modifier ${option.label} in bulk`);
         }}
+      />
+
+      <GroupNoteDialog
+        open={groupNoteOpen}
+        onOpenChange={setGroupNoteOpen}
+        onSave={handleSaveGroupNote}
+        selectedCount={groupNoteLineIds.length}
       />
 
       <BranchManagerDialog

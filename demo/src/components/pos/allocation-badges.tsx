@@ -1,6 +1,6 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { User, CreditCard, Clock, Split } from "lucide-react";
+import { User, CreditCard, Clock, Split, MessageSquare } from "lucide-react";
 import { useVCSStore } from "@/store/vcs-store";
 import {
   getPaymentAllocDisplayName,
@@ -11,6 +11,7 @@ import type {
   AllocationBlock,
   PaymentAllocation,
   FulfillmentAllocation,
+  NoteAllocation,
 } from "@/lib/vcs/types";
 import { type Guest, getPatchedAllocations } from "@/lib/pos/ui-utils";
 
@@ -98,6 +99,20 @@ export function AllocationBadges({
             >
               <Clock className="w-2.5 h-2.5 mr-0.5" />
               {displayLabel}
+            </Badge>
+          );
+        }
+        if (alloc.type === "note") {
+          const noteAlloc = alloc as NoteAllocation;
+          return (
+            <Badge
+              key={id}
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4 font-medium border-primary/30 text-primary bg-primary/5 max-w-40 truncate"
+              title={noteAlloc.text}
+            >
+              <MessageSquare className="w-2.5 h-2.5 mr-0.5 shrink-0" />
+              <span className="truncate">{noteAlloc.text}</span>
             </Badge>
           );
         }

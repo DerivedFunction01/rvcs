@@ -138,6 +138,10 @@ interface VCSStore {
     mode: "change-existing" | "new-only",
   ) => void;
 
+  addGroupNote: (lineIds: string[], text: string) => void;
+  removeGroupNote: (lineIds: string[], noteId: string) => void;
+  cleanupStaleNotes: (noteIds: string[]) => void;
+
   /**
    * Switch the default payment configuration.
    * @param newConfigId The allocationId (single) or correlationId (split) of the target configuration.
@@ -782,6 +786,73 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       mode: "change-existing" | "new-only",
     ) => {
       get().selectPaymentConfig(`group-default-${newMethod}`, mode);
+    },
+
+    addGroupNote: (lineIds, text) => {
+      const store = get();
+      const noteId = `note-${generateAllocationId()}`;
+      
+      const deltas: Delta[] = [
+        {
+          action: "declare_allocation",
+          allocation: {
+            allocationId: noteId,
+            type: "note",
+            text: text.trim(),
+          },
+        },
+      ];
+
+      for (const lineId of lineIds) {
+        const item = store.projectedState.items[lineId];
+        if (item) {
+          const before = item.allocations || [];
+          const after = [...before.filter(id => id !== noteId), noteId];
+          deltas.push({
+            action: "modify_item_allocations",
+            lineId,
+            beforeAllocations: before,
+            afterAllocations: after,
+          });
+        }
+      }
+
+      store.commitDeltas(deltas, "pos-ui");
+    },
+
+    removeGroupNote: (lineIds, noteId) => {
+      const store = get();
+      const deltas: Delta[] = [];
+
+      for (const lineId of lineIds) {
+        const item = store.projectedState.items[lineId];
+        if (item) {
+          const before = item.allocations || [];
+          const after = before.filter(id => id !== noteId);
+          deltas.push({
+            action: "modify_item_allocations",
+            lineId,
+            beforeAllocations: before,
+            afterAllocations: after,
+          });
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+    },
+
+    cleanupStaleNotes: (noteIds) => {
+      const store = get();
+      const deltas: Delta[] = noteIds.map(noteId => ({
+        action: "undeclare_allocation",
+        allocationId: noteId,
+      }));
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+        toast.success("Stale notes cleared successfully");
+      }
     },
 
     selectPaymentConfig: (
