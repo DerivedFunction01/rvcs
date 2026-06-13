@@ -1213,6 +1213,7 @@ function POSTerminalInner() {
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
         value: number;
+        method?: string | null;
       }>,
     ) => {
       const configId = createTableSplitConfig(splits, defaultPaymentMethod);
@@ -1248,6 +1249,7 @@ function POSTerminalInner() {
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
         value: number;
+        method?: string | null;
       }>,
         mode: "group" | "item" = "group"
     ) => {

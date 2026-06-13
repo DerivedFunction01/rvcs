@@ -23,6 +23,7 @@ interface TableSplitDialogProps {
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
       value: number;
+      method?: string | null;
     }>
   ) => void;
 }
@@ -41,7 +42,7 @@ export function TableSplitDialog({
     if (open) {
       if (guests.length > 0) {
         setSplits([
-          { entity: guests[0], strategyType: "percentage", value: 100 },
+          { entity: guests[0], strategyType: "percentage", value: 100, method: null },
         ]);
       } else {
         setSplits([]);
@@ -57,6 +58,7 @@ export function TableSplitDialog({
       entity: s.entity,
       strategyType: s.strategyType,
       value: s.strategyType === "percentage" ? s.value / 100 : s.value,
+      method: s.method,
     }));
     onCreateSplit(mappedSplits);
     onOpenChange(false);

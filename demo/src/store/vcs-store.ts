@@ -125,6 +125,7 @@ interface VCSStore {
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
       value: number;
+      method?: string | null;
     }>,
     method?: string | null
   ) => string;
@@ -141,6 +142,7 @@ interface VCSStore {
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
       value: number; // decimal for percentage (e.g. 0.6), absolute value for fixed, 0 for remaining
+      method?: string | null;
     }>,
     mode?: "group" | "item"
   ) => void;
@@ -523,6 +525,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
         value: number;
+        method?: string | null;
       }>,
       method: string | null = null
     ) => {
@@ -560,7 +563,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         allocationId: generateAllocationId("split-pay"),
         type: "payment" as const,
         payer: split.entity,
-        method: method,
+        method: split.method || method,
         paymentStrategy: {
           strategyType: split.strategyType,
           value: split.strategyType === "remaining" ? null : split.value,
@@ -584,6 +587,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         entity: string;
         strategyType: "percentage" | "fixed" | "remaining";
         value: number;
+        method?: string | null;
       }>,
       mode: "group" | "item" = "group"
     ) => {
@@ -635,7 +639,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         allocationId: generateAllocationId("split-pay"),
         type: "payment" as const,
         payer: split.entity,
-        method: null,
+        method: split.method || null,
         paymentStrategy: {
           strategyType: split.strategyType,
           value: split.strategyType === "remaining" ? null : split.value,

@@ -17,6 +17,7 @@ export interface PaymentSplitEntry {
   entity: string;
   strategyType: "percentage" | "fixed" | "remaining";
   value: number;
+  method?: string | null;
 }
 
 export function validateSplit(splits: PaymentSplitEntry[], itemTotalPrice?: number) {
@@ -84,7 +85,7 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     if (splits.some((s) => s.entity.toLowerCase() === entity.toLowerCase())) return;
 
     const n = splits.length + 1;
-    const newSplits = [...splits, { entity, strategyType: "percentage" as const, value: Math.floor(100 / n) }];
+    const newSplits = [...splits, { entity, strategyType: "percentage" as const, value: Math.floor(100 / n), method: null }];
     const allPercentage = newSplits.every(s => s.strategyType === "percentage");
     if (allPercentage) {
       const base = Math.floor(100 / n);
@@ -127,6 +128,12 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     onChange(updated);
   };
 
+  const handleSplitMethodChange = (index: number, val: string) => {
+    const updated = [...splits];
+    updated[index] = { ...updated[index], method: val === "any" ? null : val };
+    onChange(updated);
+  };
+
   const handleSplitValueChange = (index: number, val: number) => {
     const updated = [...splits];
     updated[index] = { ...updated[index], value: Math.max(0, val) };
@@ -144,7 +151,7 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
     const n = splits.length + 1;
     const newSplits = [
       ...splits,
-      { entity: name, strategyType: "percentage" as const, value: Math.floor(100 / n) },
+      { entity: name, strategyType: "percentage" as const, value: Math.floor(100 / n), method: null },
     ];
     const allPercentage = newSplits.every((s) => s.strategyType === "percentage");
     if (allPercentage) {
@@ -176,8 +183,8 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
 
       <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
         {splits.map((split, idx) => (
-          <div key={split.entity} className="flex items-center gap-2 border-b pb-2 last:border-b-0 last:pb-0">
-            <span className="text-xs font-semibold text-foreground truncate w-24" title={split.entity}>
+          <div key={split.entity} className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b pb-2 last:border-b-0 last:pb-0">
+            <span className="text-xs font-semibold text-foreground truncate flex-1 min-w-[60px]" title={split.entity}>
               {split.entity}
             </span>
 
@@ -185,7 +192,7 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
               value={split.strategyType}
               onValueChange={(val) => handleSplitTypeChange(idx, val as any)}
             >
-              <SelectTrigger className="h-7 text-[10px] w-24 shrink-0">
+              <SelectTrigger className="h-7 text-[10px] w-20 sm:w-24 shrink-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -195,8 +202,24 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
               </SelectContent>
             </Select>
 
+            <Select
+              value={split.method || "any"}
+              onValueChange={(val) => handleSplitMethodChange(idx, val)}
+            >
+              <SelectTrigger className="h-7 text-[10px] w-18 sm:w-20 shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any" className="text-xs">Method...</SelectItem>
+                <SelectItem value="cash" className="text-xs">Cash</SelectItem>
+                <SelectItem value="visa" className="text-xs">Visa</SelectItem>
+                <SelectItem value="mastercard" className="text-xs">Mastercard</SelectItem>
+                <SelectItem value="amex" className="text-xs">Amex</SelectItem>
+              </SelectContent>
+            </Select>
+
             {split.strategyType !== "remaining" ? (
-              <div className="flex items-center gap-1 w-20 shrink-0">
+              <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
                 <Input
                   type="number"
                   value={split.value}
@@ -208,8 +231,8 @@ export function SplitEditor({ splits, onChange, guests, onAddGuest, itemTotalPri
                 </span>
               </div>
             ) : (
-              <div className="w-20 shrink-0 text-[10px] text-muted-foreground font-mono text-center bg-muted/30 py-1 rounded">
-                Remaining
+              <div className="w-16 sm:w-20 shrink-0 text-[10px] text-muted-foreground font-mono text-center bg-muted/30 py-1 rounded">
+                Rem.
               </div>
             )}
 

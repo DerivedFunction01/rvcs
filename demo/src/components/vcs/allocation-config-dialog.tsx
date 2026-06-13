@@ -54,6 +54,7 @@ interface AllocationConfigDialogProps {
       entity: string;
       strategyType: "percentage" | "fixed" | "remaining";
       value: number;
+      method?: string | null;
     }>,
     mode: "group" | "item"
   ) => void;
@@ -174,11 +175,12 @@ export function AllocationConfigDialog({
           entity: p.payer || currentAssignee,
           strategyType: strat?.strategyType || "percentage",
           value: val,
+          method: p.method || null,
         };
       });
       setSplits(initialSplits);
     } else {
-      setSplits([{ entity: currentAssignee, strategyType: "percentage", value: 100 }]);
+      setSplits([{ entity: currentAssignee, strategyType: "percentage", value: 100, method: null }]);
     }
     setIsSplitting(true);
   }, [item, currentAssignee, currentPayments]);
@@ -189,6 +191,7 @@ export function AllocationConfigDialog({
       entity: s.entity,
       strategyType: s.strategyType,
       value: s.strategyType === "percentage" ? s.value / 100 : s.value,
+      method: s.method,
     }));
     onSplitPayment(item.lineId, mappedSplits, mode);
     setIsSplitting(false);
