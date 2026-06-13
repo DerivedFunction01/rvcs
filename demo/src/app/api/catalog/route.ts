@@ -30,6 +30,7 @@ export async function GET() {
       allergens: JSON.parse(item.allergens) as string[],
       brand: item.brand,
       active: item.active,
+      comboChoices: JSON.parse(item.comboChoices || "[]") as any[],
       sizeGroupId: item.sizeGroupId,
       appliedSizeGroupId: item.appliedSizeGroupId,
       appliedSizeGroup: item.appliedSizeGroup

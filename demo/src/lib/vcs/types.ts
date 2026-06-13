@@ -259,6 +259,12 @@ export interface ModifierStateOption {
   priceOverride: number | null;
 }
 
+export interface ComboChoiceEntry {
+  slotSku: string;
+  optionSku: string;
+  price: number;
+}
+
 export interface CatalogItemEntry {
   sku: string;
   name: string;
@@ -269,6 +275,7 @@ export interface CatalogItemEntry {
   allergens: string[];
   brand: string;
   active: boolean;
+  comboChoices?: ComboChoiceEntry[];
   sizeGroupId?: string | null;
   appliedSizeGroupId?: string | null;
   appliedSizeGroup?: SizeGroup | null;

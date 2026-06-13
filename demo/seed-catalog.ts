@@ -172,6 +172,55 @@ const SEED_DATA = [
     allergens: [],
     brand: "",
   },
+  // ─── Combos & Slots ────────────────────────────────────────────────────────
+  {
+    sku: "SKU-BURGER-COMBO",
+    name: "Burger Combo",
+    basePrice: 10.0,
+    category: "combo",
+    type: "item",
+    dietaryFlags: [],
+    allergens: [],
+    brand: "",
+    comboChoices: [
+      { slotSku: "SKU-BASE-BURGER", optionSku: "SKU-BURGER-REG", price: 4.0 },
+      { slotSku: "SKU-BASE-BURGER", optionSku: "SKU-BURGER-VEG", price: 4.5 },
+      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-FRIES", price: 1.5 },
+      { slotSku: "SKU-BASE-FRIES", optionSku: "SKU-ONION-RINGS", price: 2.0 },
+      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SODA", price: 1.0 },
+      { slotSku: "SKU-BASE-DRINK", optionSku: "SKU-DRINK-SHAKE", price: 3.0 },
+    ],
+  },
+  {
+    sku: "SKU-BASE-BURGER",
+    name: "Burger Selection",
+    basePrice: 0.0,
+    category: "combo-slot",
+    type: "item",
+    dietaryFlags: [],
+    allergens: [],
+    brand: "",
+  },
+  {
+    sku: "SKU-BASE-FRIES",
+    name: "Fries Selection",
+    basePrice: 0.0,
+    category: "combo-slot",
+    type: "item",
+    dietaryFlags: [],
+    allergens: [],
+    brand: "",
+  },
+  {
+    sku: "SKU-BASE-DRINK",
+    name: "Drink Selection",
+    basePrice: 0.0,
+    category: "combo-slot",
+    type: "item",
+    dietaryFlags: [],
+    allergens: [],
+    brand: "",
+  },
 ];
 
 async function main() {
@@ -204,6 +253,9 @@ async function main() {
         dietaryFlags: JSON.stringify(item.dietaryFlags),
         allergens: JSON.stringify(item.allergens),
         brand: item.brand,
+        comboChoices: (item as any).comboChoices
+          ? JSON.stringify((item as any).comboChoices)
+          : "[]",
         active: true,
       },
       create: {
@@ -215,6 +267,9 @@ async function main() {
         dietaryFlags: JSON.stringify(item.dietaryFlags),
         allergens: JSON.stringify(item.allergens),
         brand: item.brand,
+        comboChoices: (item as any).comboChoices
+          ? JSON.stringify((item as any).comboChoices)
+          : "[]",
         active: true,
       },
     });

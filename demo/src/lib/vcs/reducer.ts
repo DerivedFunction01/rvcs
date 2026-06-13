@@ -527,7 +527,22 @@ function resolveCatalog(
     const entry = catalog[item.sku];
     if (entry) {
       item.resolvedName = entry.name;
-      item.resolvedPrice = entry.basePrice;
+      let resolvedPrice = entry.basePrice;
+      if (item.parentLineId) {
+        const parentItem = items[item.parentLineId];
+        if (parentItem) {
+          const parentEntry = catalog[parentItem.sku];
+          if (parentEntry?.comboChoices) {
+            const comboChoice = parentEntry.comboChoices.find(
+              (c) => c.optionSku === item.sku
+            );
+            if (comboChoice) {
+              resolvedPrice = comboChoice.price;
+            }
+          }
+        }
+      }
+      item.resolvedPrice = resolvedPrice;
 
       // Resolve modifier states (e.g. NO onions, EXTRA cheese)
       if (item.selectedModifierState) {

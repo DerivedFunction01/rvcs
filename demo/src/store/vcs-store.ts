@@ -235,6 +235,11 @@ interface VCSStore {
     modifierSku: string,
     selectedModifierState?: string,
   ) => void;
+  swapComboChoice: (
+    oldLineId: string,
+    parentLineId: string,
+    newSku: string,
+  ) => void;
   removeItem: (lineId: string) => void;
   modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
   duplicateItem: (lineId: string) => void;
@@ -661,19 +666,47 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         allocations: targetAllocations,
       });
 
-      // Auto-inject default size modifier if catalog entry has an applied size group
-      const catalogEntry = store.catalog[sku];
-      if (catalogEntry && catalogEntry.appliedSizeGroup) {
-        const defaultSku = catalogEntry.appliedSizeGroup.defaultSku;
-        deltas.push({
-          action: "add_item",
-          lineId: generateLineId(),
-          parentLineId: parentLineId,
-          sku: defaultSku,
-          qty: 1,
-          allocations: [],
-        });
-      }
+      const injectDefaults = (itemSku: string, itemLineId: string) => {
+        const entry = store.catalog[itemSku];
+        if (!entry) return;
+
+        // Auto-inject default size modifier if catalog entry has an applied size group
+        if (entry.appliedSizeGroup) {
+          const defaultSku = entry.appliedSizeGroup.defaultSku;
+          const childId = generateLineId();
+          deltas.push({
+            action: "add_item",
+            lineId: childId,
+            parentLineId: itemLineId,
+            sku: defaultSku,
+            qty: 1,
+            allocations: [],
+          });
+          injectDefaults(defaultSku, childId);
+        }
+
+        // Auto-inject default choice for each unique combo slot
+        if (entry.comboChoices && entry.comboChoices.length > 0) {
+          const seenSlots = new Set<string>();
+          for (const choice of entry.comboChoices) {
+            if (!seenSlots.has(choice.slotSku)) {
+              seenSlots.add(choice.slotSku);
+              const childId = generateLineId();
+              deltas.push({
+                action: "add_item",
+                lineId: childId,
+                parentLineId: itemLineId,
+                sku: choice.optionSku,
+                qty: 1,
+                allocations: [],
+              });
+              injectDefaults(choice.optionSku, childId);
+            }
+          }
+        }
+      };
+
+      injectDefaults(sku, parentLineId);
 
       store.commitDeltas(deltas, "pos-ui");
     },
@@ -1384,6 +1417,78 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         ],
         "pos-ui",
       );
+    },
+
+    swapComboChoice: (oldLineId, parentLineId, newSku) => {
+      const store = get();
+      const state = store.projectedState;
+      const oldItem = state.items[oldLineId];
+      if (!oldItem) return;
+
+      const deltas: Delta[] = [];
+
+      // 1. Remove the old choice
+      deltas.push({
+        action: "remove_item",
+        lineId: oldLineId,
+        qty: oldItem.qty,
+      });
+
+      // 2. Add the new choice child
+      const childId = generateLineId();
+      deltas.push({
+        action: "add_item",
+        lineId: childId,
+        parentLineId,
+        sku: newSku,
+        qty: oldItem.qty,
+        allocations: [],
+      });
+
+      // 3. Recursively inject defaults for the new child SKU
+      const injectDefaults = (itemSku: string, itemLineId: string) => {
+        const entry = store.catalog[itemSku];
+        if (!entry) return;
+
+        // Auto-inject default size modifier if catalog entry has an applied size group
+        if (entry.appliedSizeGroup) {
+          const defaultSku = entry.appliedSizeGroup.defaultSku;
+          const newId = generateLineId();
+          deltas.push({
+            action: "add_item",
+            lineId: newId,
+            parentLineId: itemLineId,
+            sku: defaultSku,
+            qty: 1,
+            allocations: [],
+          });
+          injectDefaults(defaultSku, newId);
+        }
+
+        // Auto-inject default choice for each unique combo slot
+        if (entry.comboChoices && entry.comboChoices.length > 0) {
+          const seenSlots = new Set<string>();
+          for (const choice of entry.comboChoices) {
+            if (!seenSlots.has(choice.slotSku)) {
+              seenSlots.add(choice.slotSku);
+              const newId = generateLineId();
+              deltas.push({
+                action: "add_item",
+                lineId: newId,
+                parentLineId: itemLineId,
+                sku: choice.optionSku,
+                qty: 1,
+                allocations: [],
+              });
+              injectDefaults(choice.optionSku, newId);
+            }
+          }
+        }
+      };
+
+      injectDefaults(newSku, childId);
+
+      store.commitDeltas(deltas, "pos-ui");
     },
 
     removeItem: (lineId) => {

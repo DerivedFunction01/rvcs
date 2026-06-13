@@ -14,7 +14,7 @@ import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dia
 import { FulfillmentAllocationDialog } from "@/components/pos/fulfillment-allocation-dialog";
 import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
 import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
-import { ChoiceDialog } from "@/components/pos/choice-dialog";
+import { ChoiceDialog, type ChoiceDialogOption } from "@/components/pos/choice-dialog";
 import { BranchConfigDialog } from "@/components/pos/branch-config-dialog";
 import { BranchManagerDialog } from "@/components/pos/branch-manager-dialog";
 import { MergeBranchDialog } from "@/components/pos/merge-dialog";
@@ -296,6 +296,7 @@ function LineItemNode({
   onAddModifier,
   onAddNote,
   onAllocConfig,
+  onSwapComboChoice,
   depth,
   modifiers,
   guests,
@@ -314,6 +315,7 @@ function LineItemNode({
   onAddModifier: (item: ProjectedLineItem) => void;
   onAddNote: (item: ProjectedLineItem) => void;
   onAllocConfig: (item: ProjectedLineItem) => void;
+  onSwapComboChoice?: (lineId: string, parentLineId: string, slotSku: string) => void;
   depth: number;
   modifiers: CatalogItemEntry[];
   guests: Guest[];
@@ -356,6 +358,14 @@ function LineItemNode({
 
   const showSku = detailLevel === "full";
   const showAllocations = detailLevel !== "simple";
+
+  const parentItem = item.parentLineId ? useVCSStore.getState().projectedState.items[item.parentLineId] : null;
+  const parentCatalogEntry = parentItem ? useVCSStore.getState().catalog[parentItem.sku] : null;
+  const comboChoiceEntry = parentCatalogEntry?.comboChoices?.find(
+    (choice) => choice.optionSku === item.sku
+  );
+  const isComboChoice = !!comboChoiceEntry;
+  const slotSku = comboChoiceEntry?.slotSku;
 
   return (
     <>
@@ -473,6 +483,21 @@ function LineItemNode({
                 >
                   {item.name}
                 </span>
+                {isComboChoice && !isCanceled && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 p-0 ml-1.5 inline-flex text-primary hover:text-primary hover:bg-primary/10 shrink-0 align-middle"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (slotSku) {
+                        onSwapComboChoice?.(item.lineId, item.parentLineId!, slotSku);
+                      }
+                    }}
+                  >
+                    <ArrowLeftRight className="w-3 h-3" />
+                  </Button>
+                )}
                 {item.basePrice === 0 && (
                   <Badge variant="secondary" className="text-[9px] h-3.5 px-1">
                     mod
@@ -751,6 +776,7 @@ function LineItemNode({
               onAddModifier={onAddModifier}
               onAddNote={onAddNote}
               onAllocConfig={onAllocConfig}
+              onSwapComboChoice={onSwapComboChoice}
               depth={depth + 1}
               modifiers={modifiers}
               guests={guests}
@@ -909,6 +935,7 @@ function POSTerminalInner() {
     updateFulfillmentAllocation,
     resetItemPaymentToDefault,
     switchItemPayment,
+    swapComboChoice,
     activePaymentConfigId,
     activeFulfillmentConfigId,
     selectPaymentConfig,
@@ -1283,6 +1310,20 @@ function POSTerminalInner() {
     [],
   );
 
+  // Combo Choice Swap Dialog State
+  const [swapChoiceState, setSwapChoiceState] = React.useState<{
+    lineId: string;
+    parentLineId: string;
+    slotSku: string;
+  } | null>(null);
+
+  const handleOpenSwapDialog = React.useCallback(
+    (lineId: string, parentLineId: string, slotSku: string) => {
+      setSwapChoiceState({ lineId, parentLineId, slotSku });
+    },
+    [],
+  );
+
   // Note Add Dialog State
   const [noteDialogOpen, setNoteDialogOpen] = React.useState(false);
   const [noteItem, setNoteItem] = React.useState<ProjectedLineItem | null>(
@@ -1404,7 +1445,7 @@ function POSTerminalInner() {
   // ─── Derived State ──────────────────────────────────────────────────────
 
   const catalogItems = Object.values(catalog).filter(
-    (i) => i.active && i.type === "item",
+    (i) => i.active && i.type === "item" && i.category !== "combo-slot",
   );
   const modifierItems = Object.values(catalog).filter(
     (i) => i.active && i.type === "modifier",
@@ -2007,6 +2048,35 @@ function POSTerminalInner() {
   }, [resetOrder]);
 
   // ─── Render ─────────────────────────────────────────────────────────────
+
+  const swapOptions = React.useMemo<ChoiceDialogOption[]>(() => {
+    if (!swapChoiceState) return [];
+    const { parentLineId, slotSku } = swapChoiceState;
+    const parentItem = projectedState.items[parentLineId];
+    if (!parentItem) return [];
+    const parentEntry = catalog[parentItem.sku];
+    if (!parentEntry?.comboChoices) return [];
+
+    // Filter comboChoices for the current slot
+    const slotChoices = parentEntry.comboChoices.filter(
+      (c) => c.slotSku === slotSku
+    );
+
+    return slotChoices.map((choice) => {
+      const choiceEntry = catalog[choice.optionSku];
+      const name = choiceEntry?.name || choice.optionSku;
+      return {
+        id: choice.optionSku,
+        label: name,
+        description: `$${choice.price.toFixed(2)}`,
+        badge: choice.optionSku === projectedState.items[swapChoiceState.lineId]?.sku ? (
+          <Badge className="bg-primary/20 text-primary border-transparent text-[9px] h-3.5 px-1 inline-flex">Current</Badge>
+        ) : undefined,
+      };
+    });
+  }, [swapChoiceState, projectedState.items, catalog]);
+
+  const slotName = swapChoiceState ? (catalog[swapChoiceState.slotSku]?.name || "Slot Choice") : "Slot Choice";
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -2717,6 +2787,7 @@ function POSTerminalInner() {
                       onAddModifier={handleOpenModifierDialog}
                       onAddNote={handleOpenNoteDialog}
                       onAllocConfig={handleAllocConfig}
+                      onSwapComboChoice={handleOpenSwapDialog}
                       depth={0}
                       modifiers={modifierItems}
                       guests={guests}
@@ -4042,6 +4113,27 @@ function POSTerminalInner() {
         initialValue={null}
         min={1}
         onConfirm={handleSetBulkQty}
+      />
+
+      <ChoiceDialog
+        open={!!swapChoiceState}
+        onOpenChange={(open) => {
+          if (!open) setSwapChoiceState(null);
+        }}
+        title={`Swap ${slotName}`}
+        description="Select an alternative option to swap for this slot."
+        options={swapOptions}
+        onChoose={(option) => {
+          if (swapChoiceState) {
+            swapComboChoice(
+              swapChoiceState.lineId,
+              swapChoiceState.parentLineId,
+              option.id
+            );
+            setSwapChoiceState(null);
+            toast.success("Combo choice updated");
+          }
+        }}
       />
 
       <ChoiceDialog
