@@ -485,7 +485,8 @@ export class VCSEngine {
    * Returns the most-recent commit hash that is a common ancestor of all provided hashes.
    */
   findLCA(hashes: (string | null)[]): string | null {
-    const nonNull = hashes.filter((h): h is string => h !== null);
+    if (hashes.includes(null)) return null;
+    const nonNull = hashes as string[];
     if (nonNull.length === 0) return null;
 
     // Build ancestor set for first hash
@@ -625,7 +626,21 @@ export class VCSEngine {
     targetBranch: string,
     resolutionDeltas: Delta[]
   ): VCSCommit {
-    const parentHash = this.repo.branches[targetBranch]?.headHash ?? null;
+    const targetHead = this.repo.branches[targetBranch]?.headHash ?? null;
+    const sourceHeads: Record<string, string | null> = {};
+    for (const sb of sourceBranches) {
+      sourceHeads[sb] = this.repo.branches[sb]?.headHash ?? null;
+    }
+
+    const allTips = [targetHead, ...Object.values(sourceHeads)];
+    const lcaHash = this.findLCA(allTips);
+
+    const sourceDeltas: Delta[] = [];
+    for (const sb of sourceBranches) {
+      sourceDeltas.push(...this.deltasAfterLCA(sourceHeads[sb], lcaHash));
+    }
+
+    const parentHash = targetHead;
     const mergeParentHashes = sourceBranches
       .map(sb => this.repo.branches[sb]?.headHash)
       .filter((h): h is string => h !== null);
@@ -637,7 +652,7 @@ export class VCSEngine {
       branch: targetBranch,
       timestamp: new Date().toISOString(),
       authorId: "pos-ui",
-      deltas: resolutionDeltas,
+      deltas: [...sourceDeltas, ...resolutionDeltas],
     };
 
     this.repo.log.push(mergeCommit);

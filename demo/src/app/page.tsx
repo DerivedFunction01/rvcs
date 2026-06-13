@@ -1724,6 +1724,17 @@ function POSTerminalInner() {
               </div>
             </div>
 
+            {/* Main Branch Read-Only Warning */}
+            {currentBranchName === "main" && !isViewingHistory && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-900/50 px-6 py-2.5 flex items-start gap-2.5 shrink-0">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <strong className="font-semibold uppercase tracking-wider text-[10px] mr-1.5">Read-Only Trunk:</strong>
+                  Main is purely a read-only place. Adding items will be marked with <em className="font-semibold">*new*</em> from main. Reducing quantity or removing items will be marked with a <span className="font-semibold">cancel</span> if it did not originate from main.
+                </p>
+              </div>
+            )}
+
             {/* Cart Items */}
             <div ref={checklistRef} className="flex-1 overflow-y-auto">
               {filteredRootItems.length === 0 ? (
