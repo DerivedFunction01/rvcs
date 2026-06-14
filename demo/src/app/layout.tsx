@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Retail VCS Terminal — Version-Controlled POS",
   description:
-    "A version-controlled, event-sourced retail checkout system. Orders are Git repositories.",
+    "A version-controlled, event-sourced retail checkout system. Orders are Version Control repositories.",
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
 };
 
