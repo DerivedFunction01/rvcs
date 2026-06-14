@@ -188,10 +188,12 @@ export function POSTerminalScreen({
     new Set(),
   );
   const [detailLevelState, setDetailLevelState] = React.useState<ViewMode>(prefs.detailLevel);
+  const [isCompactModeState, setIsCompactModeState] = React.useState(prefs.isCompactMode);
 
   const isLedgerCollapsed = isLedgerCollapsedState;
   const isGroupNotesCollapsed = isGroupNotesCollapsedState;
   const detailLevel = detailLevelState;
+  const isCompactMode = isCompactModeState;
 
   const setIsLedgerCollapsed = React.useCallback((val: boolean | ((prev: boolean) => boolean)) => {
     setIsLedgerCollapsedState(prev => {
@@ -213,6 +215,14 @@ export function POSTerminalScreen({
     setDetailLevelState(prev => {
       const next = typeof val === 'function' ? val(prev) : val;
       updateRepoPreferences(repoId, { detailLevel: next });
+      return next;
+    });
+  }, [repoId, updateRepoPreferences]);
+
+  const setIsCompactMode = React.useCallback((val: boolean | ((prev: boolean) => boolean)) => {
+    setIsCompactModeState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      updateRepoPreferences(repoId, { isCompactMode: next });
       return next;
     });
   }, [repoId, updateRepoPreferences]);
@@ -672,6 +682,8 @@ export function POSTerminalScreen({
               setDetailLevel={setDetailLevel}
               guestFilterOp={guestFilterOp}
               setGuestFilterOp={setGuestFilterOp}
+              isCompactMode={isCompactMode}
+              setIsCompactMode={setIsCompactMode}
             />
           </OrderContextBanner>
         )}
@@ -699,6 +711,7 @@ export function POSTerminalScreen({
             setHideCanceled={setHideCanceled}
             canceledCount={canceledCount}
             detailLevel={detailLevel}
+            isCompactMode={isCompactMode}
             setDetailLevel={setDetailLevel}
             selectedPerson={selectedPerson}
             filteredRootItems={filteredRootItems}

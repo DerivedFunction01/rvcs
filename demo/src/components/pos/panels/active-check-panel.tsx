@@ -47,6 +47,7 @@ export function ActiveCheckPanel(props: any) {
     resolveGuestName,
     hideCanceled,
     detailLevel,
+    isCompactMode,
     filteredRootItems,
     resolvedAllocations,
     defaultPaymentAllocId,
@@ -250,6 +251,7 @@ export function ActiveCheckPanel(props: any) {
                 onToggleCollapse={handleToggleCollapse}
                 collapsedItems={collapsedItems}
                 detailLevel={detailLevel}
+                isCompactMode={isCompactMode}
                 hideCanceled={hideCanceled}
                 qtyStep={parsedStep}
               />

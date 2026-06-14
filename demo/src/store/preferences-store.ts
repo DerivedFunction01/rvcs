@@ -6,12 +6,14 @@ export interface AppPreferences {
   detailLevel: ViewMode;
   isLedgerCollapsed: boolean;
   isGroupNotesCollapsed: boolean;
+  isCompactMode: boolean;
 }
 
 export const defaultAppPreferences: AppPreferences = {
   detailLevel: ViewMode.Simple,
   isLedgerCollapsed: true,
   isGroupNotesCollapsed: true,
+  isCompactMode: false,
 };
 
 interface PreferencesStore {

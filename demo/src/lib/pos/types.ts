@@ -132,9 +132,9 @@ export interface FloorConfig {
 }
 
 export enum ViewMode {
-  Simple = "simple",
-  Balanced = "balanced",
-  Full = "full",
+  Simple = "Simple",
+  Balanced = "Balanced",
+  Full = "Full",
 }
 
 export enum SplitQtyType {

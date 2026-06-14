@@ -49,9 +49,11 @@ export function GlobalSettingsDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ViewMode.Simple}>Simple</SelectItem>
-                <SelectItem value={ViewMode.Balanced}>Balanced</SelectItem>
-                <SelectItem value={ViewMode.Full}>Full</SelectItem>
+                {Object.values(ViewMode).map(mode => (
+                  <SelectItem key={mode} value={mode}>
+                    {mode}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -75,6 +77,17 @@ export function GlobalSettingsDialog({
               id="group-notes-collapsed" 
               checked={defaultPrefs.isGroupNotesCollapsed}
               onCheckedChange={(checked) => updateDefaultPreferences({ isGroupNotesCollapsed: !!checked })}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <label htmlFor="compact-mode" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+              Compact Mode
+            </label>
+            <Checkbox 
+              id="compact-mode" 
+              checked={defaultPrefs.isCompactMode}
+              onCheckedChange={(checked) => updateDefaultPreferences({ isCompactMode: !!checked })}
             />
           </div>
         </div>

@@ -54,6 +54,7 @@ export function LineItemNode({
   onToggleCollapse,
   collapsedItems,
   detailLevel = ViewMode.Simple,
+  isCompactMode = false,
   hideCanceled = false,
   qtyStep,
 }: {
@@ -79,6 +80,7 @@ export function LineItemNode({
   onToggleCollapse?: (lineId: string) => void;
   collapsedItems?: Set<string>;
   detailLevel?: ViewMode;
+  isCompactMode?: boolean;
   hideCanceled: boolean;
   qtyStep?: number;
 }) {
@@ -198,8 +200,8 @@ export function LineItemNode({
   });
   const activeSku = activeSizeChild?.sku;
 
-  const showSku = detailLevel === "full";
-  const showAllocations = detailLevel !== "simple";
+  const showSku = detailLevel === ViewMode.Full;
+  const showAllocations = detailLevel !== ViewMode.Simple;
 
   const parentItem = item.parentLineId
     ? projectedState.items[item.parentLineId]
@@ -286,7 +288,7 @@ export function LineItemNode({
                 ) : (
                   <div className="w-4 h-4 -ml-0.5 -mr-1 shrink-0" />
                 )}
-                {isRoot && !isCanceled && !inlineQtyMainQtyLocked ? (
+                {isRoot && !isCanceled && !(inlineQtyMainQtyLocked || isCompactMode) ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
                     <Button
                       variant="ghost"
@@ -330,7 +332,7 @@ export function LineItemNode({
                       <Plus className="w-2.5 h-2.5" />
                     </Button>
                   </div>
-                ) : isRoot && !isCanceled && inlineQtyMainQtyLocked ? (
+                ) : isRoot && !isCanceled && (inlineQtyMainQtyLocked || isCompactMode) ? (
                   <span className="text-[10px] text-muted-foreground font-mono font-semibold min-w-2.5 text-center select-none">
                     {item.qty}
                   </span>
@@ -487,18 +489,48 @@ export function LineItemNode({
                   <span className="text-[10px] text-muted-foreground mr-1">
                     {inlineQtyLabel}:
                   </span>
-                  <div className="flex items-center rounded border p-0.5 bg-muted/20 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 p-0 hover:bg-background"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const currentInline = item.inlineQty ?? 1;
-                        if (currentInline > inlineStep) {
+                  {isCompactMode ? (
+                    <span className="text-[10px] text-foreground font-mono font-semibold select-none">
+                      {formatInlineQty(item.inlineQty ?? 1)}{inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
+                    </span>
+                  ) : (
+                    <div className="flex items-center rounded border p-0.5 bg-muted/20 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 p-0 hover:bg-background"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentInline = item.inlineQty ?? 1;
+                          if (currentInline > inlineStep) {
+                            const nextInline =
+                              Math.round((currentInline - inlineStep) * 100) /
+                              100;
+                            useVCSStore
+                              .getState()
+                              .modifyItemInlineQty(
+                                item.lineId,
+                                currentInline,
+                                nextInline,
+                              );
+                          }
+                        }}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <span className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1">
+                        {formatInlineQty(item.inlineQty ?? 1)}
+                        {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 p-0 hover:bg-background"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const currentInline = item.inlineQty ?? 1;
                           const nextInline =
-                            Math.round((currentInline - inlineStep) * 100) /
-                            100;
+                            Math.round((currentInline + inlineStep) * 100) / 100;
                           useVCSStore
                             .getState()
                             .modifyItemInlineQty(
@@ -506,36 +538,12 @@ export function LineItemNode({
                               currentInline,
                               nextInline,
                             );
-                        }
-                      }}
-                    >
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <span className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1">
-                      {formatInlineQty(item.inlineQty ?? 1)}
-                      {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 p-0 hover:bg-background"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const currentInline = item.inlineQty ?? 1;
-                        const nextInline =
-                          Math.round((currentInline + inlineStep) * 100) / 100;
-                        useVCSStore
-                          .getState()
-                          .modifyItemInlineQty(
-                            item.lineId,
-                            currentInline,
-                            nextInline,
-                          );
-                      }}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                  </div>
+                        }}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -597,7 +605,7 @@ export function LineItemNode({
                   ${item.totalPrice.toFixed(2)}
                 </span>
               ) : null}
-              {!isCanceled && (
+              {!isCanceled && !isCompactMode && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   {(isRoot || catalogEntry?.type === CatalogItemType.Item) &&
                     filteredModifiers.length > 0 && (
@@ -724,6 +732,7 @@ export function LineItemNode({
               onToggleCollapse={onToggleCollapse}
               collapsedItems={collapsedItems}
               detailLevel={detailLevel}
+              isCompactMode={isCompactMode}
               hideCanceled={hideCanceled}
               qtyStep={step}
             />

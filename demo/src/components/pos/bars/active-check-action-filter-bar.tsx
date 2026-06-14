@@ -32,6 +32,8 @@ interface ActiveCheckActionFilterBarProps {
   setDetailLevel: (level: ViewMode) => void;
   guestFilterOp: "AND" | "OR";
   setGuestFilterOp: (v: "AND" | "OR") => void;
+  isCompactMode: boolean;
+  setIsCompactMode: (compact: boolean) => void;
 }
 
 export function ActiveCheckActionFilterBar({
@@ -51,6 +53,8 @@ export function ActiveCheckActionFilterBar({
   setDetailLevel,
   guestFilterOp,
   setGuestFilterOp,
+  isCompactMode,
+  setIsCompactMode,
 }: ActiveCheckActionFilterBarProps) {
   return (
     <div className="flex items-center gap-2 pl-4 border-l border-primary/10">
@@ -293,6 +297,16 @@ export function ActiveCheckActionFilterBar({
               />
               <span className="font-medium text-foreground">
                 Hide voided items
+              </span>
+            </label>
+            <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors">
+              <Checkbox
+                checked={isCompactMode}
+                onCheckedChange={(v) => setIsCompactMode(!!v)}
+                className="w-3.5 h-3.5"
+              />
+              <span className="font-medium text-foreground">
+                Compact view
               </span>
             </label>
           </div>
