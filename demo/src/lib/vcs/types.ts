@@ -410,6 +410,7 @@ export interface VCSRepo {
   contextType: RepoContextType | string;
   contextId: string;
   orderContext?: unknown; // Optional external state, not part of core VCS semantics
+  preferences?: Record<string, unknown>;
   log: VCSCommit[];
   branches: BranchMap;
   activeBranch: string;

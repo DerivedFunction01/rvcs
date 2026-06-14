@@ -202,9 +202,55 @@ export function PaymentAllocationDialog({
     return methods;
   }, [selectedGuest, allocations]);
 
+  const computedPaymentConfigs = useMemo(() => {
+    const configs = new Map<string, { id: string; name: string; isSplit: boolean }>();
+    
+    for (const cfg of paymentConfigs) {
+      configs.set(cfg.id, cfg);
+    }
+
+    const groups = new Map<string, PaymentAllocation[]>();
+    for (const alloc of Object.values(allocations)) {
+      if (alloc.type === AllocationType.Payment) {
+        const p = alloc as PaymentAllocation;
+        if (p.correlationId?.startsWith("group-default-") || p.correlationId?.startsWith("group-guest-") || p.correlationId?.startsWith("group-")) {
+          continue;
+        }
+        
+        const id = p.correlationId || p.allocationId;
+        if (!groups.has(id)) {
+          groups.set(id, []);
+        }
+        groups.get(id)!.push(p);
+      }
+    }
+
+    for (const [id, allocs] of groups.entries()) {
+      if (configs.has(id)) continue;
+
+      const isSplit = allocs.length > 1;
+      let name = "";
+      if (isSplit) {
+        name = allocs
+          .sort((a, b) => (b.paymentStrategy.value ?? 0) - (a.paymentStrategy.value ?? 0))
+          .map((a) => {
+             const strat = a.paymentStrategy.strategyType;
+             return `${a.payer} ${strat === "remaining" ? "rem" : strat === "percentage" ? `${Math.round((a.paymentStrategy.value ?? 1) * 100)}%` : `$${a.paymentStrategy.value}`}`;
+          })
+          .join(" / ");
+      } else {
+        const a = allocs[0];
+        name = `${a.payer} (${a.method ? a.method.toUpperCase() : "ANY"})`;
+      }
+      configs.set(id, { id, name, isSplit });
+    }
+
+    return Array.from(configs.values());
+  }, [paymentConfigs, allocations]);
+
   // Splits & saved configs
   const savedSplits = useMemo(() => {
-    return paymentConfigs
+    return computedPaymentConfigs
       .filter((cfg) => cfg.isSplit)
       .map((cfg) => ({
         id: cfg.id,
@@ -213,10 +259,10 @@ export function PaymentAllocationDialog({
         badge: "Split",
         isSplit: true,
       }));
-  }, [paymentConfigs]);
+  }, [computedPaymentConfigs]);
 
   const savedSingles = useMemo(() => {
-    return paymentConfigs
+    return computedPaymentConfigs
       .filter((cfg) => !cfg.isSplit)
       .map((cfg) => ({
         id: cfg.id,
@@ -225,7 +271,7 @@ export function PaymentAllocationDialog({
         badge: "Saved",
         isSplit: false,
       }));
-  }, [paymentConfigs]);
+  }, [computedPaymentConfigs]);
 
   // Find if there is an active guest selected (other than the primary guest)
   const activeGuestName = useMemo(() => {
@@ -434,6 +480,18 @@ export function PaymentAllocationDialog({
     onOpenChange(false);
   };
 
+  const handleSaveConfigOnly = () => {
+    if (!isValidSplit) return;
+    const mappedSplits = splits.map((s) => ({
+      entity: s.entity,
+      strategyType: s.strategyType,
+      value: s.strategyType === PaymentStrategyType.Percentage ? s.value / 100 : s.value,
+      method: s.method,
+    }));
+    useVCSStore.getState().createTableSplitConfig(mappedSplits);
+    setView("splits");
+  };
+
   const handleCustomSplitClick = () => {
     if (context === AllocationContext.Header) {
       setPendingSelection({
@@ -638,6 +696,14 @@ export function PaymentAllocationDialog({
               </Button>
 
               <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!isValidSplit}
+                  onClick={handleSaveConfigOnly}
+                >
+                  Save Config
+                </Button>
                 {context === AllocationContext.Item ? (
                   <>
                     <Button

@@ -126,6 +126,7 @@ function createFreshRepo(orderContext?: OrderContext): VCSRepo {
     contextType: RepoContextType.Cart,
     contextId: generateContextId(),
     orderContext,
+    preferences: {},
     log: [],
     branches: { main: { headHash: null } },
     activeBranch: "main",
@@ -148,6 +149,7 @@ interface VCSStore {
   isInitialized: boolean;
   orderContext: OrderContext | null;
   defaultPaymentMethod: string; // from POS config
+  preferences: Record<string, unknown>;
 
   // Default Allocation IDs (shared across items)
   defaultAssignmentAllocId: string | null;
@@ -176,6 +178,7 @@ interface VCSStore {
   resetOrder: () => void;
   updateOrderType: (newType: OrderType, newTypeLabel: string) => void;
   updateOrderContext: (context: Partial<OrderContext>) => void;
+  updatePreferences: (prefs: Partial<Record<string, unknown>>) => void;
 
   // Actions — Default Allocations
   /**
@@ -437,6 +440,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     isInitialized: false,
     orderContext: null,
     defaultPaymentMethod: "cash",
+    preferences: {},
 
     // ─── Default Allocation IDs ─────────────────────────────────────────────
     defaultAssignmentAllocId: null,
@@ -694,6 +698,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         isInitialized: false,
         orderContext: null,
         defaultPaymentMethod: "cash",
+        preferences: {},
         defaultAssignmentAllocId: null,
         defaultPaymentAllocId: null,
         activePaymentConfigId: null,
@@ -732,6 +737,22 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       set({
         orderContext: updatedContext,
+      });
+      store.persist();
+    },
+
+    updatePreferences: (prefs: Partial<Record<string, unknown>>) => {
+      const store = get();
+      const updatedPreferences = {
+        ...store.preferences,
+        ...prefs,
+      };
+
+      const repo = store.engine.getRepo();
+      repo.preferences = updatedPreferences;
+
+      set({
+        preferences: updatedPreferences,
       });
       store.persist();
     },
@@ -3086,6 +3107,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             ),
             isInitialized: hasOrderContext,
             orderContext: (repo.orderContext as OrderContext) ?? null,
+            preferences: repo.preferences || {},
             defaultAssignmentAllocId,
             defaultPaymentAllocId,
             activePaymentConfigId,

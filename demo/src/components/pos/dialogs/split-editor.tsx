@@ -45,7 +45,7 @@ export function validateSplit(
     const pctSum = price * (totalPercentage / 100);
     return fixedSum + pctSum <= price + 0.01;
   } else {
-    return totalPercentage <= 100;
+    return totalPercentage <= 100.001;
   }
 }
 
@@ -105,14 +105,14 @@ export function SplitEditor({
   const handleDistributeEqually = useCallback(() => {
     const n = splits.length;
     if (n === 0) return;
-    const base = Math.floor(100 / n);
+    const base = Math.round((100 / n) * 1000) / 1000;
     const updated = splits.map((s) => ({
       ...s,
       strategyType: PaymentStrategyType.Percentage,
       value: base,
     }));
-    const remainder = 100 - base * n;
-    updated[0].value += remainder;
+    const remainder = Math.round((100 - base * n) * 1000) / 1000;
+    updated[0].value = Math.round((updated[0].value + remainder) * 1000) / 1000;
     onChange(updated);
   }, [splits, onChange]);
 
@@ -149,12 +149,12 @@ export function SplitEditor({
           (s) => s.strategyType === PaymentStrategyType.Percentage,
         )
       ) {
-        const base = Math.floor(100 / n);
+        const base = Math.round((100 / n) * 1000) / 1000;
         newSplits.forEach((s) => {
           s.value = base;
         });
-        const remainder = 100 - base * n;
-        newSplits[0].value += remainder;
+        const remainder = Math.round((100 - base * n) * 1000) / 1000;
+        newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
       }
 
       onChange(newSplits);
@@ -190,12 +190,12 @@ export function SplitEditor({
       isAutoPercent &&
       newSplits.every((s) => s.strategyType === PaymentStrategyType.Percentage)
     ) {
-      const base = Math.floor(100 / n);
+      const base = Math.round((100 / n) * 1000) / 1000;
       newSplits.forEach((s) => {
         s.value = base;
       });
-      const remainder = 100 - base * n;
-      newSplits[0].value += remainder;
+      const remainder = Math.round((100 - base * n) * 1000) / 1000;
+      newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
     }
 
     onChange(newSplits);
@@ -216,12 +216,12 @@ export function SplitEditor({
         (s) => s.strategyType === PaymentStrategyType.Percentage,
       );
       if (allPercentage) {
-        const base = Math.floor(100 / newSplits.length);
+        const base = Math.round((100 / newSplits.length) * 1000) / 1000;
         newSplits.forEach((s) => {
           s.value = base;
         });
-        const remainder = 100 - base * newSplits.length;
-        newSplits[0].value += remainder;
+        const remainder = Math.round((100 - base * newSplits.length) * 1000) / 1000;
+        newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
       }
       onChange(newSplits);
     },
@@ -297,12 +297,12 @@ export function SplitEditor({
       isAutoPercent &&
       newSplits.every((s) => s.strategyType === PaymentStrategyType.Percentage)
     ) {
-      const base = Math.floor(100 / n);
+      const base = Math.round((100 / n) * 1000) / 1000;
       newSplits.forEach((s) => {
         s.value = base;
       });
-      const remainder = 100 - base * n;
-      newSplits[0].value += remainder;
+      const remainder = Math.round((100 - base * n) * 1000) / 1000;
+      newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
     }
     onChange(newSplits);
   }, [
@@ -408,6 +408,7 @@ export function SplitEditor({
               <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
                 <Input
                   type="number"
+                  step="0.001"
                   value={split.value}
                   onChange={(e) =>
                     handleSplitValueChange(idx, Number(e.target.value) || 0)
@@ -494,6 +495,7 @@ export function SplitEditor({
             <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
               <Input
                 type="number"
+                step="0.001"
                 placeholder={
                   quickAddStrategy === "percentage" ? "Auto" : "0.00"
                 }
