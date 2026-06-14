@@ -65,9 +65,17 @@ export function AssignmentAllocationDialog({
       setNewGuestInputName("");
       if (currentAssignment) {
         if (currentAssignment.allocationId.startsWith("alloc-assign-")) {
-          setSelectedIds(
-            currentAssignment.entity.split(",").map((s) => s.trim()),
-          );
+          const idsOrNames = currentAssignment.entity.split(",").map((s) => s.trim());
+          const resolvedIds = idsOrNames.map((idOrName) => {
+            if (guests.some((g) => g.id === idOrName)) {
+              return idOrName;
+            }
+            const found = guests.find(
+              (g) => g.alias === idOrName || `Guest ${g.number}` === idOrName
+            );
+            return found ? found.id : null;
+          }).filter(Boolean) as string[];
+          setSelectedIds(resolvedIds);
         } else {
           setSelectedIds([currentAssignment.allocationId]);
         }
@@ -75,7 +83,7 @@ export function AssignmentAllocationDialog({
         setSelectedIds([]);
       }
     }
-  }, [open, currentAssignment]);
+  }, [open, currentAssignment, guests]);
 
   const toggleGuestSelection = useCallback((guestId: string) => {
     setSelectedIds((prev) => {

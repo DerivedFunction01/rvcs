@@ -56,6 +56,63 @@ export function getGuestColor(name: string, guests: Guest[]): string {
   return GUEST_PALETTE[Math.abs(hash) % GUEST_PALETTE.length];
 }
 
+export const BRANCH_COLORS = [
+  {
+    name: "blue",
+    hex: "#3b82f6",
+    badge:
+      "border-blue-400/40 text-blue-600 bg-blue-500/4 dark:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500",
+  },
+  {
+    name: "emerald",
+    hex: "#10b981",
+    badge:
+      "border-emerald-400/40 text-emerald-600 bg-emerald-500/4 dark:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500",
+  },
+  {
+    name: "amber",
+    hex: "#f59e0b",
+    badge:
+      "border-amber-400/40 text-amber-600 bg-amber-500/4 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500",
+  },
+  {
+    name: "purple",
+    hex: "#8b5cf6",
+    badge:
+      "border-purple-400/40 text-purple-600 bg-purple-500/4 dark:text-purple-400 hover:bg-purple-500/10 hover:border-purple-500",
+  },
+  {
+    name: "pink",
+    hex: "#ec4899",
+    badge:
+      "border-pink-400/40 text-pink-600 bg-pink-500/4 dark:text-pink-400 hover:bg-pink-500/10 hover:border-pink-500",
+  },
+  {
+    name: "cyan",
+    hex: "#06b6d4",
+    badge:
+      "border-cyan-400/40 text-cyan-600 bg-cyan-500/4 dark:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500",
+  },
+  {
+    name: "orange",
+    hex: "#f97316",
+    badge:
+      "border-orange-400/40 text-orange-600 bg-orange-500/4 dark:text-orange-400 hover:bg-orange-500/10 hover:border-orange-500",
+  },
+];
+
+export function getBranchColorInfo(branchName: string) {
+  if (branchName === "main") return BRANCH_COLORS[0];
+  if (branchName === "system") return BRANCH_COLORS[1];
+
+  let hash = 0;
+  for (let i = 0; i < branchName.length; i++) {
+    hash = branchName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = 2 + (Math.abs(hash) % (BRANCH_COLORS.length - 2));
+  return BRANCH_COLORS[index];
+}
+
 export function getUniqueGuestLabel(name: string, allGuests: string[]): string {
   if (/^(guest|table|chair|seat)\b/i.test(name)) return name;
   const parts = name.trim().split(/\s+/);

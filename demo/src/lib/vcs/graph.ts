@@ -1,5 +1,6 @@
 import type { VCSCommit } from "./types";
 import { BranchType } from "./types";
+import { getBranchColorInfo } from "../pos/ui-utils";
 
 export interface GraphNode {
   commitHash: string;
@@ -72,9 +73,8 @@ export function buildCommitGraph(
     return lane * LANE_WIDTH + LANE_OFFSET;
   };
 
-  const getColor = (branch: string) => {
-    const lane = laneMap[branch] ?? 0;
-    return COLORS[lane % COLORS.length];
+  const getColor = (branchName: string) => {
+    return getBranchColorInfo(branchName).hex;
   };
 
   // 2. Build nodes with dynamic heights
