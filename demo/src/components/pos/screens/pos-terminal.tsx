@@ -1,67 +1,45 @@
 "use client";
 
-import { AllocationConfigDialog } from "@/components/pos/dialogs/allocation-config-dialog";
-import { AssignmentAllocationDialog } from "@/components/pos/dialogs/assignment-allocation-dialog";
-import { BranchConfigDialog } from "@/components/pos/dialogs/branch-config-dialog";
-import { BranchManagerDialog } from "@/components/pos/dialogs/branch-manager-dialog";
-import {
-  ChoiceDialog,
-} from "@/components/pos/dialogs/choice-dialog";
-import { FulfillmentAllocationDialog } from "@/components/pos/dialogs/fulfillment-allocation-dialog";
-import { MergeBranchDialog } from "@/components/pos/dialogs/merge-dialog";
-import { ModifierAddDialog } from "@/components/pos/dialogs/modifier-add-dialog";
-import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
-import { PaymentAllocationDialog } from "@/components/pos/dialogs/payment-allocation-dialog";
-import { SplitQtyDialog } from "@/components/pos/dialogs/split-qty-dialog";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
 import React from "react";
 
-import { usePostTerminalGuests } from "@/components/pos/screens/hooks/use-post-terminal-guests";
-import { usePostTerminalSelection } from "@/components/pos/screens/hooks/use-post-terminal-selection";
-import { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
+import { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
+import { usePostTerminalAllocationDialogs } from "@/components/pos/screens/hooks/use-post-terminal-allocation-dialogs";
+import { usePostTerminalBranchDialogs } from "@/components/pos/screens/hooks/use-post-terminal-branch-dialogs";
 import { usePostTerminalCatalog } from "@/components/pos/screens/hooks/use-post-terminal-catalog";
 import { usePostTerminalConfigs } from "@/components/pos/screens/hooks/use-post-terminal-configs";
-import { usePostTerminalAllocationDialogs } from "@/components/pos/screens/hooks/use-post-terminal-allocation-dialogs";
+import { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
+import { usePostTerminalGuests } from "@/components/pos/screens/hooks/use-post-terminal-guests";
 import { usePostTerminalQtyDialogs } from "@/components/pos/screens/hooks/use-post-terminal-qty-dialogs";
-import { usePostTerminalBranchDialogs } from "@/components/pos/screens/hooks/use-post-terminal-branch-dialogs";
-import { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
+import { usePostTerminalSelection } from "@/components/pos/screens/hooks/use-post-terminal-selection";
+
+import { PosAllocationDialogs } from "@/components/pos/screens/dialogs/pos-allocation-dialogs";
+import { PosBranchDialogs } from "@/components/pos/screens/dialogs/pos-branch-dialogs";
+import { PosChoiceDialogs } from "@/components/pos/screens/dialogs/pos-choice-dialogs";
+import { PosGuestDialogs } from "@/components/pos/screens/dialogs/pos-guest-dialogs";
+import { PosMiscDialogs } from "@/components/pos/screens/dialogs/pos-misc-dialogs";
 
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
 import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
 import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
-import { CustomerEditDialog } from "@/components/pos/dialogs/customer-edit-dialog";
-import { GroupNoteDialog } from "@/components/pos/dialogs/group-note-dialog";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
-import {
-  AddGuestDialog,
-  EditGuestDialog,
-  GuestPickerDialog,
-} from "@/components/pos/dialogs/guest-dialogs";
-import { HistoryOpDialog } from "@/components/pos/dialogs/history-op-dialog";
-import { NoteDialog } from "@/components/pos/dialogs/note-dialog";
 
 import { OrderContextBanner } from "@/components/pos/bars/order-context-banner";
+import { PosQtyDialogs } from "@/components/pos/screens/dialogs/pos-qty-dialogs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator as SeparatorUI } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AllocationContext,
-  ConfigUpdateMode,
   type FloorConfig,
   type OrderTypeConfig,
-  PaymentUpdateMode,
-  ViewMode,
+  ViewMode
 } from "@/lib/pos/types";
-import { generateAllocationId } from "@/lib/vcs/id";
 import {
   AllocationType,
-  BranchType,
-  type Delta,
-  DeltaActionType,
-  type FulfillmentAllocation,
   ItemStatus,
   type PaymentAllocation,
   type ProjectedLineItem,
@@ -77,7 +55,6 @@ import {
   User,
   XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────
 
@@ -95,7 +72,6 @@ export function POSTerminalScreen({
     activeBranch,
     commitLog,
     headHash,
-    addModifier,
     removeItem,
     checkoutBranch,
     viewRevision,
@@ -104,30 +80,18 @@ export function POSTerminalScreen({
     defaultPaymentMethod,
     defaultPaymentAllocId,
     defaultAssignmentAllocId,
-    changeDefaultPayment,
-    updateFulfillmentAllocation,
-    swapComboChoice,
     activePaymentConfigId,
     activeFulfillmentConfigId,
-    selectPaymentConfig,
-    selectFulfillmentConfig,
-    createTableSplitConfig,
     duplicateItems,
-    duplicateAndReassignItems,
     removeItems,
     modifyItemsQty,
-    reassignItems,
-    groupItemsPaymentConfig,
-    addGroupModifier,
-    removeGroupModifier,
-    previewMerge,
-    commitMerge,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const currentBranchName = activeBranch();
 
+  const terminalGuests = usePostTerminalGuests(projectedState.allocations, defaultAssignmentAllocId);
   const {
     storeGuests,
     guests,
@@ -144,14 +108,9 @@ export function POSTerminalScreen({
     setVisiblePayers,
     guestFilterOp,
     setGuestFilterOp,
-  } = usePostTerminalGuests(projectedState.allocations, defaultAssignmentAllocId);
+  } = terminalGuests;
 
-  const {
-    resolvedAllocations,
-    paymentConfigs,
-    currentConfigName,
-    currentFulfillmentConfigName,
-  } = usePostTerminalConfigs({
+  const terminalConfigs = usePostTerminalConfigs({
     projectedState,
     activePaymentConfigId,
     activeFulfillmentConfigId,
@@ -159,89 +118,61 @@ export function POSTerminalScreen({
     orderContext,
     resolveGuestName,
   });
-
   const {
-    addGuestOpen,
+    resolvedAllocations,
+    currentConfigName,
+    currentFulfillmentConfigName,
+  } = terminalConfigs;
+
+  const baseDialogs = usePostTerminalDialogs();
+  const {
     setAddGuestOpen,
-    editGuestOpen,
-    setEditGuestOpen,
-    guestToEdit,
-    setGuestToEdit,
-    guestPickerOpen,
     setGuestPickerOpen,
-    removeModDialogOpen,
     setRemoveModDialogOpen,
-    groupNoteOpen,
-    setGroupNoteOpen,
     groupNoteLineIds,
-    customerDialogOpen,
-    setCustomerDialogOpen,
-    modifierAddOpen,
     setModifierAddOpen,
     modifierAddItem,
     setModifierAddItem,
     swapChoiceState,
-    setSwapChoiceState,
-    retainModifiersDuringSwap,
-    setRetainModifiersDuringSwap,
-    noteDialogOpen,
     setNoteDialogOpen,
     noteItem,
     handleOpenCustomerDialog,
     handleOpenModifierDialog,
     handleOpenSwapDialog,
     handleOpenNoteDialog,
-    handleOpenAddGuestDialog,
     handleOpenGroupNoteDialog,
-  } = usePostTerminalDialogs();
+  } = baseDialogs;
 
+  const allocationDialogs = usePostTerminalAllocationDialogs();
   const {
-    allocConfigItem,
-    setAllocConfigItem,
-    assignmentAllocationOpen,
     setAssignmentAllocationOpen,
-    assignmentAllocationContext,
     setAssignmentAllocationContext,
-    assignmentAllocationItems,
     setAssignmentAllocationItems,
-    paymentAllocationOpen,
     setPaymentAllocationOpen,
-    paymentAllocationContext,
     setPaymentAllocationContext,
-    paymentAllocationItems,
     setPaymentAllocationItems,
-    fulfillmentAllocationOpen,
     setFulfillmentAllocationOpen,
-    fulfillmentAllocationContext,
     setFulfillmentAllocationContext,
-    fulfillmentAllocationItems,
     setFulfillmentAllocationItems,
     handleAllocConfig,
-  } = usePostTerminalAllocationDialogs();
+  } = allocationDialogs;
 
+  const qtyDialogs = usePostTerminalQtyDialogs();
   const {
-    qtyPadOpen,
     setQtyPadOpen,
-    splitQtyDialogOpen,
     setSplitQtyDialogOpen,
-    dupMoveDialogOpen,
     setDupMoveDialogOpen,
-  } = usePostTerminalQtyDialogs();
+  } = qtyDialogs;
 
+  const branchDialogs = usePostTerminalBranchDialogs();
   const {
     historyOpDialog,
     setHistoryOpDialog,
-    isBranchManagerOpen,
     setIsBranchManagerOpen,
-    isBranchConfigOpen,
-    setIsBranchConfigOpen,
     branchToConfig,
-    setBranchToConfig,
-    isMergeOpen,
-    setIsMergeOpen,
     showResetConfirm,
     setShowResetConfirm,
-  } = usePostTerminalBranchDialogs();
+  } = branchDialogs;
 
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(true);
   const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] =
@@ -251,7 +182,7 @@ export function POSTerminalScreen({
   );
   const [detailLevel, setDetailLevel] = React.useState<
     ViewMode
-    >(ViewMode.Simple);
+  >(ViewMode.Simple);
   const [hideCanceled, setHideCanceled] = React.useState(false);
 
   const hasCollapsedItems = collapsedItems.size > 0;
@@ -337,10 +268,10 @@ export function POSTerminalScreen({
         .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
       const payerIds = rawPaymentAllocs.length > 0
         ? rawPaymentAllocs.map((a) => {
-            const rawPayer = a.payer;
-            const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
-            return matchedPayer ? matchedPayer.id : rawPayer;
-          })
+          const rawPayer = a.payer;
+          const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
+          return matchedPayer ? matchedPayer.id : rawPayer;
+        })
         : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
@@ -393,10 +324,10 @@ export function POSTerminalScreen({
         .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
       const payerIds = rawPaymentAllocs.length > 0
         ? rawPaymentAllocs.map((a) => {
-            const rawPayer = a.payer;
-            const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
-            return matchedPayer ? matchedPayer.id : rawPayer;
-          })
+          const rawPayer = a.payer;
+          const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
+          return matchedPayer ? matchedPayer.id : rawPayer;
+        })
         : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
@@ -428,24 +359,21 @@ export function POSTerminalScreen({
     [rootItems, selectedLineIds],
   );
 
-  const {
-    catalogItems,
-    modifierItems,
-    groupedCatalog,
-    availableTags,
-    compatibleModifiers,
-    singleItemCompatibleModifiers,
-    activeModifiersOnSelected,
-    removeModChoiceOptions,
-    swapOptions,
-    slotName,
-  } = usePostTerminalCatalog(
+  const catalogData = usePostTerminalCatalog(
     catalog,
     selectedItems,
     modifierAddItem,
     swapChoiceState,
     projectedState.items
   );
+  const {
+    catalogItems,
+    modifierItems,
+    groupedCatalog,
+    availableTags,
+    compatibleModifiers,
+    activeModifiersOnSelected,
+  } = catalogData;
 
   const maxSelectedQty = React.useMemo(() => {
     return selectedItems.reduce((max, item) => Math.max(max, item.qty), 0);
@@ -475,25 +403,7 @@ export function POSTerminalScreen({
   );
   const isViewingHistory = viewingHash !== null && viewingHash !== headHash();
 
-  const {
-    handleConfirmHistoryOp,
-    handleSaveCustomerFields,
-    handleSaveBranchConfig,
-    handleSaveNote,
-    handleAddGuestFromDialog,
-    handleAddItem,
-    handleReassign,
-    handleSplitPayment,
-    handleResetToDefault,
-    handleSetBulkQty,
-    handleSplitQty,
-    handleSaveGroupNote,
-    handleRemoveNoteFromItems,
-    handleCleanupStaleNotes,
-    handleAttachNoteToOrder,
-    handleCreateBranch,
-    handleResetOrder,
-  } = usePostTerminalActions({
+  const terminalActions = usePostTerminalActions({
     selectedPerson,
     resolveGuestName,
     storeGuests,
@@ -511,6 +421,13 @@ export function POSTerminalScreen({
     setShowResetConfirm,
     setAddGuestOpen,
   });
+  const {
+    handleAddItem,
+    handleRemoveNoteFromItems,
+    handleCleanupStaleNotes,
+    handleAttachNoteToOrder,
+    handleResetOrder,
+  } = terminalActions;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -697,10 +614,10 @@ export function POSTerminalScreen({
               activeBranch={activeBranch()}
               isViewingHistory={isViewingHistory}
               guests={guests}
-            visibleAssignees={visibleAssignees}
-            setVisibleAssignees={setVisibleAssignees}
-            visiblePayers={visiblePayers}
-            setVisiblePayers={setVisiblePayers}
+              visibleAssignees={visibleAssignees}
+              setVisibleAssignees={setVisibleAssignees}
+              visiblePayers={visiblePayers}
+              setVisiblePayers={setVisiblePayers}
               toggleAllCollapsed={toggleAllCollapsed}
               hasCollapsedItems={hasCollapsedItems}
               hideCanceled={hideCanceled}
@@ -708,20 +625,11 @@ export function POSTerminalScreen({
               canceledCount={canceledCount}
               detailLevel={detailLevel}
               setDetailLevel={setDetailLevel}
-            guestFilterOp={guestFilterOp}
-            setGuestFilterOp={setGuestFilterOp}
+              guestFilterOp={guestFilterOp}
+              setGuestFilterOp={setGuestFilterOp}
             />
           </OrderContextBanner>
         )}
-
-        {/* ─── Customer Info Edit Dialog ──────────────────────────────── */}
-        <CustomerEditDialog
-          open={customerDialogOpen}
-          onOpenChange={setCustomerDialogOpen}
-          orderType={orderContext?.orderType}
-          customerFields={orderContext?.customerFields || {}}
-          onSave={handleSaveCustomerFields}
-        />
 
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -825,530 +733,59 @@ export function POSTerminalScreen({
       </div>
 
       {/* ─── Dialogs ─────────────────────────────────────────────────── */}
-      <HistoryOpDialog
-        open={!!historyOpDialog}
-        onOpenChange={(open) => {
-          if (!open) setHistoryOpDialog(null);
-        }}
-        operation={historyOpDialog}
-        onConfirm={handleConfirmHistoryOp}
-      />
-
-      <AllocationConfigDialog
-        open={!!allocConfigItem}
-        onOpenChange={(open) => {
-          if (!open) setAllocConfigItem(null);
-        }}
-        item={allocConfigItem}
-        allocations={resolvedAllocations}
-        defaultPaymentAllocId={defaultPaymentAllocId}
-        defaultPaymentMethod={defaultPaymentMethod}
-        onResetToDefault={handleResetToDefault}
-        onTriggerAssignmentAllocation={(item) => {
-          setAssignmentAllocationItems([item]);
-          setAssignmentAllocationContext(AllocationContext.Item);
-          setAssignmentAllocationOpen(true);
-        }}
-        onTriggerPaymentAllocation={(item) => {
-          setPaymentAllocationItems([item]);
-          setPaymentAllocationContext(AllocationContext.Item);
-          setPaymentAllocationOpen(true);
-        }}
-        onTriggerFulfillmentAllocation={(item) => {
-          setFulfillmentAllocationItems([item]);
-          setFulfillmentAllocationContext(AllocationContext.Item);
-          setFulfillmentAllocationOpen(true);
-        }}
-        initiatedAt={orderContext?.initiatedAt}
-      />
-
-      <AssignmentAllocationDialog
-        open={assignmentAllocationOpen}
-        onOpenChange={setAssignmentAllocationOpen}
-        context={assignmentAllocationContext}
-        items={assignmentAllocationItems}
-        allocations={projectedState.allocations}
+      <PosAllocationDialogs
+        dialogs={allocationDialogs}
+        actions={terminalActions}
+        configs={terminalConfigs}
+        projectedState={projectedState}
+        orderContext={orderContext}
         guests={guests}
-        onApplyConfig={(guestIds) => {
-          if (assignmentAllocationContext === AllocationContext.Item) {
-            handleReassign(assignmentAllocationItems[0].lineId, guestIds);
-          } else {
-            reassignItems(
-              assignmentAllocationItems.map((i) => i.lineId),
-              guestIds,
-            );
-            const displayNames = guestIds
-              .split(",")
-              .map((id) => resolveGuestName(id))
-              .join(" + ");
-            toast.success(
-              `Assigned selected ${assignmentAllocationItems.length} items to ${displayNames}`,
-            );
-            setSelectedLineIds(new Set());
-          }
-        }}
-        onAddGuest={handleAddGuestFromDialog}
-      />
-
-      <PaymentAllocationDialog
-        open={paymentAllocationOpen}
-        onOpenChange={setPaymentAllocationOpen}
-        context={paymentAllocationContext}
-        items={paymentAllocationItems}
-        allocations={resolvedAllocations}
-        defaultPaymentAllocId={defaultPaymentAllocId}
-        defaultPaymentMethod={defaultPaymentMethod}
-        paymentConfigs={paymentConfigs}
-        activePaymentConfigId={activePaymentConfigId}
-        selectedGuestName={resolveGuestName(selectedPerson)}
-        allItems={Object.values(projectedState.items)}
-        onApplyConfig={(configIdOrMethod, mode) => {
-          if (paymentAllocationContext === AllocationContext.Item) {
-            groupItemsPaymentConfig(
-              [paymentAllocationItems[0].lineId],
-              configIdOrMethod,
-            );
-            toast.success("Payment config updated for item");
-          } else if (paymentAllocationContext === AllocationContext.Group) {
-            groupItemsPaymentConfig(
-              paymentAllocationItems.map((i) => i.lineId),
-              configIdOrMethod,
-            );
-            toast.success(
-              `Payment config updated for ${paymentAllocationItems.length} selected items`,
-            );
-            setSelectedLineIds(new Set());
-          } else {
-            if (configIdOrMethod.startsWith("group-default-")) {
-              changeDefaultPayment(
-                configIdOrMethod.replace("group-default-", ""),
-                mode as ConfigUpdateMode,
-              );
-            } else {
-              selectPaymentConfig(configIdOrMethod, mode as ConfigUpdateMode);
-            }
-            let targetName = configIdOrMethod.startsWith("group-default-")
-              ? `(${configIdOrMethod.replace("group-default-", "").toUpperCase()})`
-              : paymentConfigs.find((c) => c.id === configIdOrMethod)?.name;
-            if (!targetName) {
-              const representativeAlloc = Object.values(
-                projectedState.allocations,
-              ).find(
-                (a) =>
-                  a.type === AllocationType.Payment &&
-                  ((a as PaymentAllocation).allocationId === configIdOrMethod ||
-                    (a as PaymentAllocation).correlationId ===
-                      configIdOrMethod),
-              ) as PaymentAllocation | undefined;
-              if (representativeAlloc) {
-                targetName = `${resolveGuestName(representativeAlloc.payer)} (${(representativeAlloc.method || "").toUpperCase()})`;
-              } else {
-                targetName = "Selected Config";
-              }
-            }
-            if (mode === ConfigUpdateMode.ChangeExisting) {
-              toast.success(`All items switched to ${targetName}`);
-            } else {
-              toast.success(`Default set to ${targetName} for new items`);
-            }
-          }
-        }}
-        onApplyCustomSplit={(splits, mode) => {
-          if (paymentAllocationContext === AllocationContext.Item) {
-            handleSplitPayment(
-              paymentAllocationItems[0].lineId,
-              splits,
-              mode as PaymentUpdateMode,
-            );
-          } else if (paymentAllocationContext === AllocationContext.Group) {
-            const corrId = createTableSplitConfig(splits);
-            groupItemsPaymentConfig(
-              paymentAllocationItems.map((i) => i.lineId),
-              corrId,
-            );
-            toast.success(
-              `Custom split applied to ${paymentAllocationItems.length} selected items`,
-            );
-            setSelectedLineIds(new Set());
-          } else {
-            const corrId = createTableSplitConfig(splits);
-            selectPaymentConfig(corrId, mode as ConfigUpdateMode);
-            if (mode === ConfigUpdateMode.ChangeExisting)
-              toast.success("Custom split applied to all existing items");
-            else toast.success("Custom split set as default for new items");
-          }
-        }}
-      />
-
-      <FulfillmentAllocationDialog
-        open={fulfillmentAllocationOpen}
-        onOpenChange={setFulfillmentAllocationOpen}
-        context={fulfillmentAllocationContext}
-        items={fulfillmentAllocationItems}
-        allocations={projectedState.allocations}
-        activeFulfillmentConfigId={activeFulfillmentConfigId}
-        allItems={Object.values(projectedState.items)}
-        floorConfigs={floorConfigs}
-        guests={guests}
-        onApplyFulfillmentConfig={(selection, mode) => {
-          if (fulfillmentAllocationContext === AllocationContext.Item) {
-            if (selection.type === "config") {
-              const matchedAllocs = Object.values(
-                projectedState.allocations,
-              ).filter(
-                (a): a is FulfillmentAllocation =>
-                  a.type === AllocationType.Fulfillment &&
-                  (a.allocationId === selection.configId ||
-                    a.correlationId === selection.configId),
-              );
-              if (matchedAllocs.length > 0) {
-                const targetAllocIds = matchedAllocs.map((a) => a.allocationId);
-                const item =
-                  projectedState.items[fulfillmentAllocationItems[0].lineId];
-                if (item) {
-                  const nonFulAllocs = item.allocations.filter(
-                    (id) =>
-                      projectedState.allocations[id]?.type !==
-                      AllocationType.Fulfillment,
-                  );
-                  useVCSStore.getState().commitDeltas(
-                    [
-                      {
-                        action: DeltaActionType.ModifyItemAllocations,
-                        lineId: item.lineId,
-                        beforeAllocations: item.allocations,
-                        afterAllocations: [...nonFulAllocs, ...targetAllocIds],
-                      },
-                    ],
-                    "pos-ui",
-                  );
-                  toast.success("Fulfillment configuration updated for item");
-                }
-              }
-            } else if (selection.type === "custom" && selection.customConfig) {
-              const c = selection.customConfig;
-              updateFulfillmentAllocation(
-                fulfillmentAllocationItems[0].lineId,
-                c.timeType,
-                c.calculatedAt,
-                c.method,
-                c.destinationLabel,
-                c.destinationId,
-              );
-              toast.success("Fulfillment updated for item");
-            }
-          } else if (fulfillmentAllocationContext === AllocationContext.Group) {
-            if (selection.type === "config") {
-              const matchedAllocs = Object.values(
-                projectedState.allocations,
-              ).filter(
-                (a): a is FulfillmentAllocation =>
-                  a.type === AllocationType.Fulfillment &&
-                  (a.allocationId === selection.configId ||
-                    a.correlationId === selection.configId),
-              );
-              if (matchedAllocs.length > 0) {
-                const targetAllocIds = matchedAllocs.map((a) => a.allocationId);
-                const targetItemIds = fulfillmentAllocationItems.map(
-                  (i) => i.lineId,
-                );
-                const deltas: Delta[] = [];
-                for (const lineId of targetItemIds) {
-                  const item = projectedState.items[lineId];
-                  if (item) {
-                    const nonFulAllocs = item.allocations.filter(
-                      (id) =>
-                        projectedState.allocations[id]?.type !==
-                        AllocationType.Fulfillment,
-                    );
-                    deltas.push({
-                      action: DeltaActionType.ModifyItemAllocations,
-                      lineId,
-                      beforeAllocations: item.allocations,
-                      afterAllocations: [...nonFulAllocs, ...targetAllocIds],
-                    });
-                  }
-                }
-                useVCSStore.getState().commitDeltas(deltas, "pos-ui");
-                toast.success(
-                  `Fulfillment updated for ${fulfillmentAllocationItems.length} items`,
-                );
-                setSelectedLineIds(new Set());
-              }
-            } else if (selection.type === "custom" && selection.customConfig) {
-              const c = selection.customConfig;
-              const newFulId = generateAllocationId(AllocationType.Fulfillment);
-              const newFulAlloc: FulfillmentAllocation = {
-                allocationId: newFulId,
-                type: AllocationType.Fulfillment,
-                method: c.method,
-                time: {
-                  type: c.timeType,
-                  calculatedAt: c.calculatedAt,
-                },
-                fulfillmentMetadata: {
-                  destinationLabel: c.destinationLabel,
-                  destinationId: c.destinationId,
-                },
-              };
-              const targetItemIds = fulfillmentAllocationItems.map(
-                (i) => i.lineId,
-              );
-              const deltas: Delta[] = [
-                {
-                  action: DeltaActionType.DeclareAllocation,
-                  allocation: newFulAlloc,
-                },
-              ];
-              for (const lineId of targetItemIds) {
-                const item = projectedState.items[lineId];
-                if (item) {
-                  const nonFulAllocs = item.allocations.filter(
-                    (id) =>
-                      projectedState.allocations[id]?.type !==
-                      AllocationType.Fulfillment,
-                  );
-                  deltas.push({
-                    action: DeltaActionType.ModifyItemAllocations,
-                    lineId,
-                    beforeAllocations: item.allocations,
-                    afterAllocations: [...nonFulAllocs, newFulId],
-                  });
-                }
-              }
-              useVCSStore.getState().commitDeltas(deltas, "pos-ui");
-              toast.success(
-                `Fulfillment updated for ${fulfillmentAllocationItems.length} items`,
-              );
-              setSelectedLineIds(new Set());
-            }
-          } else {
-            // global context
-            if (selection.type === "config") {
-              selectFulfillmentConfig(
-                selection.configId!,
-                mode as ConfigUpdateMode,
-              );
-              toast.success("Default fulfillment updated");
-            } else if (selection.type === "custom" && selection.customConfig) {
-              const c = selection.customConfig;
-              const correlationId = `custom-fulfillment-${Date.now()}`;
-              const newFulId = generateAllocationId("custom-fulfillment");
-              const newFulAlloc: FulfillmentAllocation = {
-                allocationId: newFulId,
-                correlationId,
-                type: AllocationType.Fulfillment,
-                method: c.method,
-                time: {
-                  type: c.timeType,
-                  calculatedAt: c.calculatedAt,
-                },
-                fulfillmentMetadata: {
-                  destinationLabel: c.destinationLabel,
-                  destinationId: c.destinationId,
-                },
-              };
-              const deltas: Delta[] = [
-                {
-                  action: DeltaActionType.DeclareAllocation,
-                  allocation: newFulAlloc,
-                },
-              ];
-              useVCSStore.getState().commitDeltas(deltas, "pos-ui");
-              selectFulfillmentConfig(correlationId, mode as ConfigUpdateMode);
-              toast.success("Default fulfillment updated to custom settings");
-            }
-          }
-        }}
-      />
-
-      <AddGuestDialog open={addGuestOpen} onOpenChange={setAddGuestOpen} />
-      <GuestPickerDialog
-        open={guestPickerOpen}
-        onOpenChange={setGuestPickerOpen}
+        resolveGuestName={resolveGuestName}
         selectedPerson={selectedPerson}
-        onSelectPerson={setSelectedPerson}
-        onEditGuest={(g: any) => {
-          setGuestToEdit(g);
-          setEditGuestOpen(true);
-        }}
-        onOpenAddGuest={handleOpenAddGuestDialog}
+        floorConfigs={floorConfigs}
+        setSelectedLineIds={setSelectedLineIds}
+        defaultPaymentMethod={defaultPaymentMethod}
+        defaultPaymentAllocId={defaultPaymentAllocId}
+        activePaymentConfigId={activePaymentConfigId}
+        activeFulfillmentConfigId={activeFulfillmentConfigId}
       />
-      <EditGuestDialog
-        open={editGuestOpen}
-        onOpenChange={setEditGuestOpen}
-        guestToEdit={guestToEdit}
+      <PosGuestDialogs
+        dialogs={baseDialogs}
+        actions={terminalActions}
+        selectedPerson={selectedPerson}
+        setSelectedPerson={setSelectedPerson}
       />
-
-      <NoteDialog
-        open={noteDialogOpen}
-        onOpenChange={setNoteDialogOpen}
-        noteItem={noteItem}
-        isComboChildItem={isComboChildItem}
-        onSave={handleSaveNote}
+      <PosChoiceDialogs
+        dialogs={baseDialogs}
+        qtyDialogs={qtyDialogs}
+        catalogData={catalogData}
+        guestChoiceOptions={guestChoiceOptions}
+        selectedLineIds={selectedLineIds}
+        setSelectedLineIds={setSelectedLineIds}
       />
-
-      <ModifierAddDialog
-        open={modifierAddOpen}
-        onOpenChange={setModifierAddOpen}
-        itemName={
-          modifierAddItem
-            ? modifierAddItem.name
-            : `${selectedLineIds.size} selected items`
-        }
-        modifiers={
-          modifierAddItem ? singleItemCompatibleModifiers : compatibleModifiers
-        }
-        onAdd={(sku, defaultState) => {
-          if (modifierAddItem)
-            addModifier(modifierAddItem.lineId, sku, defaultState);
-          else addGroupModifier(Array.from(selectedLineIds), sku, defaultState);
-        }}
+      <PosQtyDialogs
+        dialogs={qtyDialogs}
+        actions={terminalActions}
+        selectedItemsLength={selectedItems.length}
+        firstSelectedQty={selectedItems.length === 1 ? selectedItems[0].qty : null}
+        maxSelectedQty={maxSelectedQty}
       />
-      <NumberPadDialog
-        open={qtyPadOpen}
-        onOpenChange={setQtyPadOpen}
-        title="Set Quantity"
-        description="Enter the quantity to apply to all selected items."
-        confirmLabel="Set Qty"
-        initialValue={selectedItems.length === 1 ? selectedItems[0].qty : null}
-        min={1}
-        onConfirm={handleSetBulkQty}
-      />
-      <SplitQtyDialog
-        open={splitQtyDialogOpen}
-        onOpenChange={setSplitQtyDialogOpen}
-        maxQty={maxSelectedQty}
-        onConfirm={handleSplitQty}
-      />
-      <ChoiceDialog
-        open={!!swapChoiceState}
-        onOpenChange={(open) => {
-          if (!open) setSwapChoiceState(null);
-        }}
-        title={`Swap ${slotName}`}
-        description="Select an alternative option to swap for this slot."
-        options={swapOptions}
-        extraToggle={{
-          label: "Retain compatible modifiers (e.g. extra cheese)",
-          checked: retainModifiersDuringSwap,
-          onCheckedChange: setRetainModifiersDuringSwap,
-        }}
-        onChoose={(option) => {
-          if (swapChoiceState) {
-            const [optionSku, modifierSku] = option.id.split(":");
-            swapComboChoice(
-              swapChoiceState.lineId,
-              swapChoiceState.parentLineId,
-              optionSku,
-              modifierSku || undefined,
-              retainModifiersDuringSwap,
-            );
-            setSwapChoiceState(null);
-            toast.success("Combo choice updated");
-          }
-        }}
-      />
-      <ChoiceDialog
-        open={dupMoveDialogOpen}
-        onOpenChange={setDupMoveDialogOpen}
-        title="Duplicate and Move"
-        description="Choose a guest to duplicate the selected items to."
-        searchPlaceholder="Search guests..."
-        options={guestChoiceOptions}
-        onChoose={(option) => {
-          const newIds = duplicateAndReassignItems(Array.from(selectedLineIds), option.id);
-          if (newIds && newIds.length > 0) {
-            setSelectedLineIds(new Set(newIds));
-          } else {
-            setSelectedLineIds(new Set());
-          }
-          setDupMoveDialogOpen(false);
-          toast.success(
-            `Selected items duplicated and moved to ${option.label}`,
-          );
-        }}
-      />
-
-      <ChoiceDialog
-        open={removeModDialogOpen}
-        onOpenChange={setRemoveModDialogOpen}
-        title="Remove Modifier"
-        description="Choose a modifier to remove from all selected items."
-        searchPlaceholder="Search modifiers..."
-        options={removeModChoiceOptions}
-        onChoose={(option) => {
-          removeGroupModifier(Array.from(selectedLineIds), option.id);
-          toast.success(`Removed modifier ${option.label} in bulk`);
-        }}
-      />
-
-      <GroupNoteDialog
-        open={groupNoteOpen}
-        onOpenChange={setGroupNoteOpen}
-        onSave={handleSaveGroupNote}
-        selectedCount={groupNoteLineIds.length}
-      />
-
-      <BranchManagerDialog
-        open={isBranchManagerOpen}
-        onOpenChange={setIsBranchManagerOpen}
-        branches={branches}
-        activeBranch={activeBranch()}
+      <PosBranchDialogs
+        dialogs={branchDialogs}
+        actions={terminalActions}
+        activeBranch={currentBranchName}
         viewingHash={viewingHash}
         serverName={orderContext?.serverName || "default"}
-        onCheckout={(branch) => {
-          checkoutBranch(branch);
-          toast.success(`Switched to "${branch}"`);
-        }}
-        onConfigure={(branch) => {
-          setIsBranchManagerOpen(false);
-          setBranchToConfig(branch);
-          setIsBranchConfigOpen(true);
-        }}
-        onCreateBranch={handleCreateBranch}
-        onOpenMerge={() => {
-          setIsBranchManagerOpen(false);
-          setIsMergeOpen(true);
-        }}
-      />
-      <BranchConfigDialog
-        open={isBranchConfigOpen}
-        onOpenChange={setIsBranchConfigOpen}
-        branchName={branchToConfig || ""}
-        currentType={
-          branchToConfig
-            ? branches[branchToConfig]?.type || BranchType.Parallel
-            : BranchType.Parallel
-        }
-        currentLabel={
-          branchToConfig ? branches[branchToConfig]?.label || "" : ""
-        }
-        existingBranches={Object.keys(branches)}
-        onSave={handleSaveBranchConfig}
-      />
-      <MergeBranchDialog
-        open={isMergeOpen}
-        onOpenChange={setIsMergeOpen}
-        branches={branches}
-        activeBranch={activeBranch()}
         resolveGuestName={resolveGuestName}
-        isAlreadyMerged={(sourceBranch, targetBranch) => {
-          const sourceHead = branches[sourceBranch]?.headHash;
-          const targetHead = branches[targetBranch]?.headHash;
-          if (!sourceHead || !targetHead) return false;
-          return useVCSStore
-            .getState()
-            .engine.isAncestorOf(sourceHead, targetHead);
-        }}
-        onPreview={previewMerge}
-        onCommit={(sourceBranches, targetBranch, resolutionDeltas) => {
-          commitMerge(sourceBranches, targetBranch, resolutionDeltas);
-          if (targetBranch === "main") {
-            checkoutBranch("main");
-            toast.success("Order confirmed on main and ready for checkout");
-          }
-        }}
+      />
+      <PosMiscDialogs
+        dialogs={baseDialogs}
+        actions={terminalActions}
+        catalogData={catalogData}
+        orderContext={orderContext}
+        isComboChildItem={isComboChildItem}
+        selectedLineIdsSize={selectedLineIds.size}
+        selectedLineIdsArray={Array.from(selectedLineIds)}
       />
     </TooltipProvider>
   );
