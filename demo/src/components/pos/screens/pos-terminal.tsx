@@ -22,6 +22,9 @@ import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
 import React, { useCallback } from "react";
 
+import { usePostTerminalGuests } from "@/components/pos/screens/hooks/use-post-terminal-guests";
+import { usePostTerminalSelection } from "@/components/pos/screens/hooks/use-post-terminal-selection";
+
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
 import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
@@ -158,43 +161,26 @@ export function POSTerminalScreen({
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
-  const allocationsState = useVCSStore((s) => s.projectedState.allocations);
-  const getGuests = useVCSStore((s) => s.guests);
-  const storeGuests = React.useMemo(
-    () => getGuests(),
-    [getGuests, allocationsState],
-  );
+  const currentBranchName = activeBranch();
 
-  const guests: Guest[] = React.useMemo(() => {
-    return storeGuests.map((g, idx) => ({
-      id: g.id,
-      number: idx + 1,
-      alias: g.name,
-    }));
-  }, [storeGuests]);
-
-  const resolveGuestName = useCallback(
-    (idOrName: string): string => {
-      if (idOrName.includes(",")) {
-        return idOrName
-          .split(",")
-          .map((item) => item.trim())
-          .map((id) => {
-            const g = storeGuests.find((g) => g.id === id);
-            return g ? g.name : id;
-          })
-          .join(" + ");
-      }
-      const g = storeGuests.find((g) => g.id === idOrName);
-      return g ? g.name : idOrName;
-    },
-    [storeGuests],
-  );
-
-  const guestStrings = React.useMemo(
-    () => storeGuests.map((g) => g.name),
-    [storeGuests],
-  );
+  const {
+    storeGuests,
+    guests,
+    resolveGuestName,
+    guestStrings,
+    selectedPerson,
+    setSelectedPerson,
+    guestChoiceOptions,
+    selectedGuestCount,
+    selectedGuestLabel,
+    selectedGuestDescription,
+    visibleAssignees,
+    setVisibleAssignees,
+    visiblePayers,
+    setVisiblePayers,
+    guestFilterOp,
+    setGuestFilterOp,
+  } = usePostTerminalGuests(projectedState.allocations, defaultAssignmentAllocId);
 
   const resolvedAllocations = React.useMemo(() => {
     const resolved: Record<string, AllocationBlock> = {};
@@ -207,29 +193,6 @@ export function POSTerminalScreen({
     }
     return resolved;
   }, [projectedState.allocations, resolveGuestName]);
-
-  const [selectedLineIds, setSelectedLineIds] = React.useState<Set<string>>(
-    new Set(),
-  );
-  const checklistRef = React.useRef<HTMLDivElement | null>(null);
-  const bulkActionsBarRef = React.useRef<HTMLDivElement | null>(null);
-
-  const handleSelectToggle = useCallback((lineId: string) => {
-    setSelectedLineIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(lineId)) next.delete(lineId);
-      else next.add(lineId);
-      return next;
-    });
-  }, []);
-
-  // Dropdown key states
-  const [selectedPerson, setSelectedPerson] = React.useState("");
-  React.useEffect(() => {
-    if (!selectedPerson && storeGuests.length > 0) {
-      setSelectedPerson(defaultAssignmentAllocId || storeGuests[0].id);
-    }
-  }, [storeGuests, selectedPerson, defaultAssignmentAllocId]);
 
   const [addGuestOpen, setAddGuestOpen] = React.useState(false);
   const [editGuestOpen, setEditGuestOpen] = React.useState(false);
@@ -252,8 +215,6 @@ export function POSTerminalScreen({
     ViewMode
     >(ViewMode.Simple);
   const [hideCanceled, setHideCanceled] = React.useState(false);
-
-  const [guestFilterOp, setGuestFilterOp] = React.useState<"AND" | "OR">("OR");
 
   const hasCollapsedItems = collapsedItems.size > 0;
   const handleToggleCollapse = React.useCallback((lineId: string) => {
@@ -340,53 +301,6 @@ export function POSTerminalScreen({
     },
     [storeGuests],
   );
-
-  const [visibleAssignees, setVisibleAssignees] = React.useState<Set<string>>(
-    new Set(storeGuests.map((g) => g.id)),
-  );
-  const [visiblePayers, setVisiblePayers] = React.useState<Set<string>>(
-    new Set(storeGuests.map((g) => g.id)),
-  );
-  const prevGuestIds = React.useRef<Set<string>>(new Set(storeGuests.map((g) => g.id)));
-
-  React.useEffect(() => {
-    const currentIds = new Set(storeGuests.map((g) => g.id));
-    setVisibleAssignees((prev) => {
-      const next = new Set(prev);
-      let changed = false;
-      for (const id of currentIds) {
-        if (!prevGuestIds.current.has(id)) {
-          next.add(id);
-          changed = true;
-        }
-      }
-      for (const id of prev) {
-        if (!currentIds.has(id)) {
-          next.delete(id);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-    setVisiblePayers((prev) => {
-      const next = new Set(prev);
-      let changed = false;
-      for (const id of currentIds) {
-        if (!prevGuestIds.current.has(id)) {
-          next.add(id);
-          changed = true;
-        }
-      }
-      for (const id of prev) {
-        if (!currentIds.has(id)) {
-          next.delete(id);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-    prevGuestIds.current = currentIds;
-  }, [storeGuests]);
 
   const [newBranchFromHistoryName, setNewBranchFromHistoryName] =
     React.useState("");
@@ -613,6 +527,20 @@ export function POSTerminalScreen({
     guestFilterOp,
   ]);
 
+  const {
+    selectedLineIds,
+    setSelectedLineIds,
+    handleSelectToggle,
+    checklistRef,
+    bulkActionsBarRef,
+  } = usePostTerminalSelection(
+    filteredRootItems,
+    visibleAssignees,
+    visiblePayers,
+    currentBranchName,
+    viewingHash,
+  );
+
   const canceledCount = React.useMemo(() => {
     let count = 0;
     const countCanceled = (item: ProjectedLineItem) => {
@@ -659,55 +587,6 @@ export function POSTerminalScreen({
     visiblePayers,
     guestFilterOp,
   ]);
-
-  React.useEffect(() => {
-    setSelectedLineIds((prev) => {
-      const next = new Set<string>();
-      for (const item of filteredRootItems) {
-        if (prev.has(item.lineId)) next.add(item.lineId);
-      }
-      return next.size !== prev.size ? next : prev;
-    });
-  }, [filteredRootItems]);
-  React.useEffect(() => {
-    setSelectedLineIds(new Set());
-  }, [visibleAssignees, visiblePayers]);
-  const currentBranchName = activeBranch();
-  React.useEffect(() => {
-    setSelectedLineIds(new Set());
-  }, [currentBranchName, viewingHash]);
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (selectedLineIds.size === 0) return;
-      const target = e.target as HTMLElement;
-      if (!target) return;
-
-      // Ignore clicks on elements that have been detached from the DOM (e.g., closing a dropdown)
-      if (!document.body.contains(target)) return;
-
-      if (
-        checklistRef.current?.contains(target) ||
-        bulkActionsBarRef.current?.contains(target)
-      )
-        return;
-      if (
-        target.closest("[data-radix-portal]") ||
-        target.closest("[data-radix-popper-content-wrapper]") ||
-        target.closest('[role="listbox"]') ||
-        target.closest('[role="combobox"]') ||
-        target.closest('[role="dialog"]') ||
-        target.closest('[role="menu"]') ||
-        target.closest(".bg-popover") ||
-        target.closest(".radix-select-content")
-      )
-        return;
-      setSelectedLineIds(new Set());
-    };
-    document.addEventListener("click", handleClickOutside, true);
-    return () => {
-      document.removeEventListener("click", handleClickOutside, true);
-    };
-  }, [selectedLineIds]);
 
   const selectedItems = React.useMemo(
     () => rootItems.filter((item) => selectedLineIds.has(item.lineId)),
@@ -1005,16 +884,6 @@ export function POSTerminalScreen({
     },
     [attachNoteToOrder],
   );
-  const guestChoiceOptions = React.useMemo(
-    () =>
-      storeGuests.map((guest) => ({
-        id: guest.id,
-        label: guest.name,
-        description:
-          guest.id === storeGuests[0]?.id ? "Primary guest" : "Guest",
-      })),
-    [storeGuests],
-  );
   const removeModChoiceOptions = React.useMemo(
     () =>
       activeModifiersOnSelected.map((mod) => ({
@@ -1023,15 +892,6 @@ export function POSTerminalScreen({
         description: mod.sku,
       })),
     [activeModifiersOnSelected],
-  );
-  const selectedGuestCount = storeGuests.length;
-  const selectedGuestLabel = getUniqueGuestLabel(
-    resolveGuestName(selectedPerson),
-    guestStrings,
-  );
-  const selectedGuestDescription = React.useMemo(
-    () => (selectedPerson === storeGuests[0]?.id ? "Primary guest" : "Guest"),
-    [storeGuests, selectedPerson],
   );
   const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
     setAllocConfigItem((prev) => (prev === item ? null : item));
