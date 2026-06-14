@@ -15,6 +15,7 @@ import type {
   AllocationBlock,
   CatalogItemEntry,
   ProjectedLineItem,
+  PaymentAllocation,
 } from "@/lib/vcs/types";
 import { AllocationType, CatalogItemType, ItemStatus } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
@@ -79,7 +80,25 @@ export function LineItemNode({
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
-  const assignee = getAssigneeFromItem(item, allocations, guests);
+
+  const rawAllocations = useVCSStore.getState().projectedState.allocations;
+  const assigneeId = getAssigneeFromItem(item, rawAllocations, guests);
+
+  const paymentAllocs = item.allocations
+    .map((id) => allocations[id])
+    .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+
+  const rawPaymentAllocs = item.allocations
+    .map((id) => rawAllocations[id])
+    .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+  const payerId = rawPaymentAllocs.length > 0 ? rawPaymentAllocs[0].payer : assigneeId;
+
+  const assignAlloc = item.allocations
+    .map((id) => allocations[id])
+    .find((a) => a?.type === AllocationType.Assignment) as any;
+  const assigneeName = assignAlloc ? assignAlloc.entity : "Guest";
+  const payerName = paymentAllocs.length > 0 ? paymentAllocs[0].payer : assigneeName;
+
   const isCanceled = item.status === ItemStatus.Canceled;
   const isPending = item.status === ItemStatus.Pending;
   const isChanged = item.status === ItemStatus.Changed;
@@ -164,12 +183,23 @@ export function LineItemNode({
                   />
                 )}
                 {!isModifier && !isCanceled && (
-                  <div
-                    className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(
-                      assignee,
-                      guests,
-                    )}`}
-                  />
+                  <div 
+                    className="flex -space-x-1 shrink-0 items-center mr-1"
+                    title={`Assignee: ${assigneeName || "Guest"}\nPayer: ${paymentAllocs.length > 1 ? "Multiple (Split)" : (payerName || "Guest")}`}
+                  >
+                    <div
+                      className={`w-2.5 h-2.5 rounded-full border border-background z-10 ${getGuestColor(
+                        assigneeId,
+                        guests,
+                      )}`}
+                    />
+                    <div
+                      className={`w-2.5 h-2.5 rounded-full border border-background ${getGuestColor(
+                        payerId,
+                        guests,
+                      )}`}
+                    />
+                  </div>
                 )}
                 {item.children.some((child) => child.name !== "") ? (
                   <button
