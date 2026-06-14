@@ -13,6 +13,7 @@ import {
   type FulfillmentAllocation,
   type NoteAllocation,
   AllocationType,
+  TimeBlockType,
 } from "@/lib/vcs/types";
 import { type Guest, getPatchedAllocations } from "@/lib/pos/ui-utils";
 
@@ -88,7 +89,7 @@ export function AllocationBadges({
         if (alloc.type === AllocationType.Fulfillment) {
           const fulAlloc = alloc as FulfillmentAllocation;
           const isImmediate =
-            fulAlloc.time.type === "immediate" || !fulAlloc.time.calculatedAt;
+            fulAlloc.time.type === TimeBlockType.Immediate || !fulAlloc.time.calculatedAt;
           const displayLabel = isImmediate
             ? `${fulAlloc.method} (On Confirmation)`
             : `${fulAlloc.method} @ ${formatFulfillmentTime(fulAlloc.time.calculatedAt!, initiatedAt)}`;

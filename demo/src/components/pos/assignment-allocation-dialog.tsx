@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { User, Plus, X } from "lucide-react";
-import type {
-  ProjectedLineItem,
-  AllocationBlock,
-  AssignmentAllocation,
+import {
+  type ProjectedLineItem,
+  type AllocationBlock,
+  type AssignmentAllocation,
+  AllocationType,
 } from "@/lib/vcs/types";
 import { AllocationContext } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
@@ -50,7 +51,8 @@ export function AssignmentAllocationDialog({
     if (items.length === 0) return null;
     for (const id of items[0].allocations) {
       const a = allocations[id];
-      if (a?.type === "assignment") return a as AssignmentAllocation;
+      if (a?.type === AllocationType.Assignment)
+        return a as AssignmentAllocation;
     }
     return null;
   }, [items, allocations]);

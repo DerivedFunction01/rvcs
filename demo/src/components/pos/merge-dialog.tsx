@@ -65,7 +65,7 @@ import type {
   PaymentAllocation,
   FulfillmentAllocation,
 } from "@/lib/vcs/types";
-import { MergeConflictType, SquashType, DeltaActionType, AllocationType } from "@/lib/vcs/types";
+import { MergeConflictType, SquashType, DeltaActionType, AllocationType, TimeBlockType } from "@/lib/vcs/types";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
@@ -388,11 +388,11 @@ function formatAllocationBlock(
       : "";
     let timePart = "";
     if (ful.time) {
-      if (ful.time.type === "immediate") {
+      if (ful.time.type === TimeBlockType.Immediate) {
         timePart = " (On Confirmation)";
-      } else if (ful.time.type === "scheduled" && ful.time.calculatedAt) {
+      } else if (ful.time.type === TimeBlockType.Scheduled && ful.time.calculatedAt) {
         timePart = ` (Scheduled @ ${formatFulfillmentTime(ful.time.calculatedAt, initiatedAt)})`;
-      } else if (ful.time.type === "deferred" && ful.time.calculatedAt) {
+      } else if (ful.time.type === TimeBlockType.Deferred && ful.time.calculatedAt) {
         timePart = ` (Deferred @ ${formatFulfillmentTime(ful.time.calculatedAt, initiatedAt)})`;
       }
     }

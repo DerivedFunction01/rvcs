@@ -738,7 +738,7 @@ function POSTerminalInner({
       const destLabel = alloc.fulfillmentMetadata.destinationLabel
         ? ` (${alloc.fulfillmentMetadata.destinationLabel})`
         : "";
-      if (alloc.time.type === "immediate" || !alloc.time.calculatedAt)
+      if (alloc.time.type === TimeBlockType.Immediate || !alloc.time.calculatedAt)
         return `${methodLabel}${destLabel} (Immediate)`;
       return `${methodLabel}${destLabel} @ ${formatFulfillmentTime(alloc.time.calculatedAt, orderContext?.initiatedAt)}`;
     }
@@ -803,7 +803,7 @@ function POSTerminalInner({
     ) => {
       updateFulfillmentAllocation(lineId, timeType, calculatedAt);
       toast.success(
-        timeType === "immediate"
+        timeType === TimeBlockType.Immediate
           ? "Fulfillment scheduled: on confirmation"
           : `Fulfillment scheduled for ${formatFulfillmentTime(calculatedAt!, orderContext?.initiatedAt)}`,
       );

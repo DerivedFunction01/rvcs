@@ -97,10 +97,14 @@ export function FulfillmentAllocationDialog({
 
   // Custom configuration states
   const [method, setMethod] = useState<string>("walk-in");
-  const [timeType, setTimeType] = useState<TimeBlockType>(TimeBlockType.Immediate);
+  const [timeType, setTimeType] = useState<TimeBlockType>(
+    TimeBlockType.Immediate,
+  );
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
-  
-  const [destType, setDestType] = useState<"table" | "guest" | "custom">("guest");
+
+  const [destType, setDestType] = useState<"table" | "guest" | "custom">(
+    "guest",
+  );
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [customDestLabel, setCustomDestLabel] = useState<string>("");
@@ -275,7 +279,7 @@ export function FulfillmentAllocationDialog({
 
         const destLabel = f.fulfillmentMetadata.destinationLabel || "Guest";
         const timeLabel =
-          f.time.type === "immediate" || !f.time.calculatedAt
+          f.time.type === TimeBlockType.Immediate || !f.time.calculatedAt
             ? "Immediate"
             : formatFulfillmentTime(f.time.calculatedAt);
 
@@ -338,7 +342,7 @@ export function FulfillmentAllocationDialog({
       methodLabel,
       destLabel: alloc.fulfillmentMetadata.destinationLabel || "Guest",
       timeLabel:
-        alloc.time.type === "immediate" || !alloc.time.calculatedAt
+        alloc.time.type === TimeBlockType.Immediate || !alloc.time.calculatedAt
           ? "Immediate"
           : formatFulfillmentTime(alloc.time.calculatedAt),
       icon:
@@ -361,7 +365,7 @@ export function FulfillmentAllocationDialog({
       id = selectedTableId;
     } else if (destType === "guest") {
       const g = guests.find((x) => x.id === selectedGuestId);
-      label = g ? (g.alias || `Guest ${g.number}`) : "Guest";
+      label = g ? g.alias || `Guest ${g.number}` : "Guest";
       id = selectedGuestId;
     } else {
       label = customDestLabel.trim() || "Guest Address";
@@ -369,7 +373,14 @@ export function FulfillmentAllocationDialog({
     }
 
     return { label, id };
-  }, [destType, allTables, selectedTableId, guests, selectedGuestId, customDestLabel]);
+  }, [
+    destType,
+    allTables,
+    selectedTableId,
+    guests,
+    selectedGuestId,
+    customDestLabel,
+  ]);
 
   // Save changes handler
   const handleSelectConfig = (configId: string) => {
@@ -385,7 +396,7 @@ export function FulfillmentAllocationDialog({
     const customConfig = {
       method,
       timeType,
-      calculatedAt: timeType === "immediate" ? null : calculatedAt,
+      calculatedAt: timeType === TimeBlockType.Immediate ? null : calculatedAt,
       destinationLabel: resolvedDestination.label,
       destinationId: resolvedDestination.id,
     };
@@ -393,7 +404,10 @@ export function FulfillmentAllocationDialog({
     if (context === AllocationContext.Global) {
       setPendingSelection({ type: "custom", customConfig });
     } else {
-      onApplyFulfillmentConfig({ type: "custom", customConfig }, "change-existing");
+      onApplyFulfillmentConfig(
+        { type: "custom", customConfig },
+        "change-existing",
+      );
       onOpenChange(false);
     }
   };
@@ -401,8 +415,14 @@ export function FulfillmentAllocationDialog({
   const handleConfirmPending = (mode: "change-existing" | "new-only") => {
     if (!pendingSelection) return;
     if (pendingSelection.type === "config" && pendingSelection.configId) {
-      onApplyFulfillmentConfig({ type: "config", configId: pendingSelection.configId }, mode);
-    } else if (pendingSelection.type === "custom" && pendingSelection.customConfig) {
+      onApplyFulfillmentConfig(
+        { type: "config", configId: pendingSelection.configId },
+        mode,
+      );
+    } else if (
+      pendingSelection.type === "custom" &&
+      pendingSelection.customConfig
+    ) {
       onApplyFulfillmentConfig(
         { type: "custom", customConfig: pendingSelection.customConfig },
         mode,
@@ -413,8 +433,9 @@ export function FulfillmentAllocationDialog({
 
   // Find affected items list for global change warning
   const affectedItems = useMemo(() => {
-    if (context !== AllocationContext.Global || !activeFulfillmentConfigId) return [];
-    
+    if (context !== AllocationContext.Global || !activeFulfillmentConfigId)
+      return [];
+
     // Find all old allocations associated with active configuration ID
     const oldAllocs = Object.values(allocations).filter(
       (a) =>
@@ -457,7 +478,8 @@ export function FulfillmentAllocationDialog({
                 Apply Default Fulfillment
               </h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Do you want to switch all existing items in the order to this configuration, or set it as default for new items only?
+                Do you want to switch all existing items in the order to this
+                configuration, or set it as default for new items only?
               </p>
 
               {affectedItems.length > 0 ? (
@@ -467,16 +489,22 @@ export function FulfillmentAllocationDialog({
                   </div>
                   <div className="max-h-24 overflow-y-auto space-y-1 bg-background/50 p-2 rounded border border-emerald-100/30 text-xs font-mono">
                     {affectedItems.map((item) => (
-                      <div key={item.lineId} className="flex justify-between items-center text-muted-foreground">
+                      <div
+                        key={item.lineId}
+                        className="flex justify-between items-center text-muted-foreground"
+                      >
                         <span className="truncate">{item.name}</span>
-                        <span className="shrink-0 text-[10px]">qty {item.qty}</span>
+                        <span className="shrink-0 text-[10px]">
+                          qty {item.qty}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="text-[11px] text-muted-foreground pt-1.5 italic border-t border-emerald-100 dark:border-emerald-900/40">
-                  No existing items will be affected (none are currently using the default configuration).
+                  No existing items will be affected (none are currently using
+                  the default configuration).
                 </div>
               )}
             </div>
@@ -510,7 +538,9 @@ export function FulfillmentAllocationDialog({
           /* 2. Custom Configurator View */
           <div className="space-y-4 py-2 animate-in fade-in duration-150">
             <div className="flex items-center justify-between pb-1 border-b">
-              <span className="text-sm font-semibold">Custom Fulfillment Details</span>
+              <span className="text-sm font-semibold">
+                Custom Fulfillment Details
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -557,9 +587,9 @@ export function FulfillmentAllocationDialog({
               </label>
               <div className="flex gap-2">
                 {[
-                  { id: "immediate", label: "Immediate" },
-                  { id: "scheduled", label: "Scheduled" },
-                  { id: "deferred", label: "Deferred" },
+                  { id: TimeBlockType.Immediate, label: "Immediate" },
+                  { id: TimeBlockType.Scheduled, label: "Scheduled" },
+                  { id: TimeBlockType.Deferred, label: "Deferred" },
                 ].map((item) => {
                   const active = timeType === item.id;
                   return (
@@ -568,9 +598,14 @@ export function FulfillmentAllocationDialog({
                       variant={active ? "default" : "outline"}
                       className={`flex-1 h-8 text-xs ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
                       onClick={() => {
-                        setTimeType(item.id as any);
-                        if (item.id === "scheduled" && !calculatedAt) {
-                          setCalculatedAt(new Date(Date.now() + 60 * 60 * 1000).toISOString());
+                        setTimeType(item.id);
+                        if (
+                          item.id === TimeBlockType.Scheduled &&
+                          !calculatedAt
+                        ) {
+                          setCalculatedAt(
+                            new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                          );
                         }
                       }}
                     >
@@ -580,7 +615,7 @@ export function FulfillmentAllocationDialog({
                 })}
               </div>
 
-              {timeType === "scheduled" && (
+              {timeType === TimeBlockType.Scheduled && (
                 <div className="mt-2 rounded-lg border p-3 bg-muted/10">
                   <input
                     type="datetime-local"
@@ -628,10 +663,14 @@ export function FulfillmentAllocationDialog({
               <div className="mt-2 rounded-lg border p-3 bg-muted/10 space-y-2">
                 {destType === "guest" && (
                   <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Select Guest</span>
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      Select Guest
+                    </span>
                     <select
                       value={selectedGuestId || ""}
-                      onChange={(e) => setSelectedGuestId(e.target.value || null)}
+                      onChange={(e) =>
+                        setSelectedGuestId(e.target.value || null)
+                      }
                       className="w-full bg-background border rounded px-3 py-1.5 text-xs focus-visible:outline-none"
                     >
                       {guests.map((g) => (
@@ -639,17 +678,23 @@ export function FulfillmentAllocationDialog({
                           {g.alias || `Guest ${g.number}`}
                         </option>
                       ))}
-                      {guests.length === 0 && <option value="">No guests defined</option>}
+                      {guests.length === 0 && (
+                        <option value="">No guests defined</option>
+                      )}
                     </select>
                   </div>
                 )}
 
                 {destType === "table" && (
                   <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Select Table</span>
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      Select Table
+                    </span>
                     <select
                       value={selectedTableId || ""}
-                      onChange={(e) => setSelectedTableId(e.target.value || null)}
+                      onChange={(e) =>
+                        setSelectedTableId(e.target.value || null)
+                      }
                       className="w-full bg-background border rounded px-3 py-1.5 text-xs focus-visible:outline-none"
                     >
                       {allTables.map((t) => (
@@ -657,14 +702,18 @@ export function FulfillmentAllocationDialog({
                           {t.label}
                         </option>
                       ))}
-                      {allTables.length === 0 && <option value="">No tables on floor plan</option>}
+                      {allTables.length === 0 && (
+                        <option value="">No tables on floor plan</option>
+                      )}
                     </select>
                   </div>
                 )}
 
                 {destType === "custom" && (
                   <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Custom Destination / Instructions</span>
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                      Custom Destination / Instructions
+                    </span>
                     <Input
                       placeholder="e.g. 123 Main St, curbside spot #3..."
                       value={customDestLabel}
@@ -689,7 +738,9 @@ export function FulfillmentAllocationDialog({
                 onClick={handleApplyCustom}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {context === AllocationContext.Global ? "Apply default..." : "Apply to Items"}
+                {context === AllocationContext.Global
+                  ? "Apply default..."
+                  : "Apply to Items"}
               </Button>
             </DialogFooter>
           </div>
@@ -708,7 +759,8 @@ export function FulfillmentAllocationDialog({
                       Active Default Configuration
                     </span>
                     <h4 className="text-sm font-bold truncate text-foreground leading-snug">
-                      {activeConfigDetails.methodLabel} to {activeConfigDetails.destLabel}
+                      {activeConfigDetails.methodLabel} to{" "}
+                      {activeConfigDetails.destLabel}
                     </h4>
                     <span className="text-[10px] text-muted-foreground">
                       Timing: {activeConfigDetails.timeLabel}
@@ -768,13 +820,17 @@ export function FulfillmentAllocationDialog({
                             : "bg-card"
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}>
+                        <div
+                          className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
+                        >
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1 flex flex-col">
                           <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1">
                             {choice.label}
-                            {isActive && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                            {isActive && (
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            )}
                           </span>
                           <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate">
                             {choice.description}
@@ -810,13 +866,17 @@ export function FulfillmentAllocationDialog({
                             : "bg-card"
                         }`}
                       >
-                        <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}>
+                        <div
+                          className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
+                        >
                           <Icon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0 flex-1 flex flex-col">
                           <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1 font-mono">
                             {choice.label}
-                            {isActive && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                            {isActive && (
+                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            )}
                           </span>
                           <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate font-mono">
                             {choice.description}
@@ -827,7 +887,8 @@ export function FulfillmentAllocationDialog({
                   })}
                   {filteredSavedConfigs.length === 0 && (
                     <div className="text-xs text-muted-foreground italic py-4 text-center col-span-2 border rounded-lg bg-muted/5 border-dashed">
-                      No custom fulfillment configurations saved in the order history.
+                      No custom fulfillment configurations saved in the order
+                      history.
                     </div>
                   )}
                 </div>
