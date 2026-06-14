@@ -135,6 +135,18 @@ export function LineItemNode({
   );
 
   const catalogEntry = catalog[item.sku];
+
+  console.log(`[LineItemNode Tracer] SKU: ${item.sku}`, {
+    catalogEntry: catalogEntry,
+    itemQty: item.qty,
+    itemInlineQty: item.inlineQty,
+    catalogEntryExists: !!catalogEntry,
+    inlineQtyType: catalogEntry?.inlineQtyType,
+    inlineQtyLabel: catalogEntry?.inlineQtyLabel,
+    inlineQtyUnit: catalogEntry?.inlineQtyUnit,
+    inlineQtyPricePerUnit: catalogEntry?.inlineQtyPricePerUnit,
+  });
+
   const hasInlineQty =
     catalogEntry?.inlineQtyType && catalogEntry.inlineQtyType !== "none";
   const inlineStep = catalogEntry?.inlineQtyType === "float" ? 0.05 : 1;

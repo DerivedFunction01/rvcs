@@ -711,6 +711,7 @@ async function main() {
       inlineQtyType: (item as any).inlineQtyType || null,
       inlineQtyLabel: (item as any).inlineQtyLabel || null,
       inlineQtyUnit: (item as any).inlineQtyUnit || null,
+      inlineQtyPricePerUnit: (item as any).inlineQtyPricePerUnit ?? false,
       active: true,
     };
 

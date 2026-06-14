@@ -37,10 +37,10 @@ export async function GET() {
       comboChoices: JSON.parse(item.comboChoices || "[]") as any[],
       sizeGroupId: item.sizeGroupId,
       appliedSizeGroupId: item.appliedSizeGroupId,
-      inlineQtyType: (item as any).inlineQtyType,
-      inlineQtyLabel: (item as any).inlineQtyLabel,
-      inlineQtyUnit: (item as any).inlineQtyUnit,
-      inlineQtyPricePerUnit: (item as any).inlineQtyPricePerUnit ?? false,
+      inlineQtyType: item.inlineQtyType,
+      inlineQtyLabel: item.inlineQtyLabel,
+      inlineQtyUnit: item.inlineQtyUnit,
+      inlineQtyPricePerUnit: item.inlineQtyPricePerUnit ?? false,
       appliedSizeGroup: item.appliedSizeGroup
         ? {
             id: item.appliedSizeGroup.id,
@@ -122,10 +122,10 @@ export async function POST(request: Request) {
         dietaryFlags: JSON.stringify(item.dietaryFlags || []),
         allergens: JSON.stringify(item.allergens || []),
         brand: item.brand || "",
-        inlineQtyType: item.inlineQtyType || null,
-        inlineQtyLabel: item.inlineQtyLabel || null,
-        inlineQtyUnit: item.inlineQtyUnit || null,
-        inlineQtyPricePerUnit: item.inlineQtyPricePerUnit || false,
+        inlineQtyType: item.inlineQtyType ?? null,
+        inlineQtyLabel: item.inlineQtyLabel ?? null,
+        inlineQtyUnit: item.inlineQtyUnit ?? null,
+        inlineQtyPricePerUnit: item.inlineQtyPricePerUnit ?? false,
       };
 
       await db.catalogItem.upsert({
