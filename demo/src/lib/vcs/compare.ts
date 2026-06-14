@@ -5,6 +5,7 @@ import {
   PaymentAllocation,
   FulfillmentAllocation,
   AllocationType,
+  DeltaActionType,
 } from "./types";
 
 function getAllocationBlock(
@@ -89,13 +90,13 @@ export function areDeltasIdentical(
   if (deltaA.action !== deltaB.action) return false;
 
   switch (deltaA.action) {
-    case "declare_allocation": {
+    case DeltaActionType.DeclareAllocation: {
       return areAllocationsFunctionallyIdentical(
         (deltaA as any).allocation,
         (deltaB as any).allocation,
       );
     }
-    case "add_item": {
+    case DeltaActionType.AddItem: {
       const dA = deltaA as any;
       const dB = deltaB as any;
       return (
@@ -110,12 +111,12 @@ export function areDeltasIdentical(
         )
       );
     }
-    case "remove_item": {
+    case DeltaActionType.RemoveItem: {
       const dA = deltaA as any;
       const dB = deltaB as any;
       return dA.lineId === dB.lineId && dA.qty === dB.qty;
     }
-    case "modify_sku": {
+    case DeltaActionType.ModifySku: {
       const dA = deltaA as any;
       const dB = deltaB as any;
       return (
@@ -124,7 +125,7 @@ export function areDeltasIdentical(
         dA.afterSku === dB.afterSku
       );
     }
-    case "modify_qty": {
+    case DeltaActionType.ModifyQty: {
       const dA = deltaA as any;
       const dB = deltaB as any;
       return (
@@ -133,7 +134,7 @@ export function areDeltasIdentical(
         dA.afterQty === dB.afterQty
       );
     }
-    case "modify_modifier_state": {
+    case DeltaActionType.ModifyModifierState: {
       const dA = deltaA as any;
       const dB = deltaB as any;
       return (
@@ -142,7 +143,7 @@ export function areDeltasIdentical(
         dA.afterState === dB.afterState
       );
     }
-    case "modify_item_allocations": {
+    case DeltaActionType.ModifyItemAllocations: {
       const dA = deltaA as any;
       const dB = deltaB as any;
       return (
@@ -159,7 +160,7 @@ export function areDeltasIdentical(
         )
       );
     }
-    case "batch_by_filter": {
+    case DeltaActionType.BatchByFilter: {
       return JSON.stringify(deltaA) === JSON.stringify(deltaB);
     }
     default:
