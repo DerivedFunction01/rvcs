@@ -18,7 +18,7 @@ import { PosAllocationDialogs } from "@/components/pos/screens/dialogs/pos-alloc
 import { PosBranchDialogs } from "@/components/pos/screens/dialogs/pos-branch-dialogs";
 import { PosChoiceDialogs } from "@/components/pos/screens/dialogs/pos-choice-dialogs";
 import { PosGuestDialogs } from "@/components/pos/screens/dialogs/pos-guest-dialogs";
-import { PosMiscDialogs } from "@/components/pos/screens/dialogs/pos-misc-dialogs";
+import { PosOtherDialogs } from "@/components/pos/screens/dialogs/pos-other-dialogs";
 
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
@@ -778,7 +778,7 @@ export function POSTerminalScreen({
         serverName={orderContext?.serverName || "default"}
         resolveGuestName={resolveGuestName}
       />
-      <PosMiscDialogs
+      <PosOtherDialogs
         dialogs={baseDialogs}
         actions={terminalActions}
         catalogData={catalogData}

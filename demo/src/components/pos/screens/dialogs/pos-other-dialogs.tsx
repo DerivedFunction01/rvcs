@@ -10,7 +10,7 @@ import type { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-
 import type { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
 import type { usePostTerminalCatalog } from "@/components/pos/screens/hooks/use-post-terminal-catalog";
 
-export function PosMiscDialogs({
+export function PosOtherDialogs({
   dialogs,
   actions,
   catalogData,
