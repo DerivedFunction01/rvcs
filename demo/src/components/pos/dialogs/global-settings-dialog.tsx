@@ -45,12 +45,12 @@ export function GlobalSettingsDialog({
               value={defaultPrefs.detailLevel} 
               onValueChange={(val) => updateDefaultPreferences({ detailLevel: val as ViewMode })}
             >
-              <SelectTrigger id="detail-level" className="w-[140px] h-8 text-xs">
+              <SelectTrigger id="detail-level" className="w-35 h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ViewMode.Simple}>Simple</SelectItem>
-                <SelectItem value={ViewMode.Detailed}>Detailed</SelectItem>
+                <SelectItem value={ViewMode.Balanced}>Balanced</SelectItem>
                 <SelectItem value={ViewMode.Full}>Full</SelectItem>
               </SelectContent>
             </Select>
