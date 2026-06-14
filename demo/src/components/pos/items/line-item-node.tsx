@@ -168,6 +168,7 @@ export function LineItemNode({
   const inlinePricePerUnit = catalogEntry?.inlineQtyPricePerUnit;
   const inlineQtyPricePerUnitShowPer =
     catalogEntry?.inlineQtyPricePerUnitShowPer ?? true;
+  const inlineQtyMainQtyLocked = catalogEntry?.inlineQtyMainQtyLocked ?? false;
   const sizeGroup = catalogEntry?.appliedSizeGroup;
   const sizeOptions = sizeGroup?.options || [];
 
@@ -270,7 +271,7 @@ export function LineItemNode({
                 ) : (
                   <div className="w-4 h-4 -ml-0.5 -mr-1 shrink-0" />
                 )}
-                {isRoot && !isCanceled ? (
+                {isRoot && !isCanceled && !inlineQtyMainQtyLocked ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
                     <Button
                       variant="ghost"
@@ -314,6 +315,10 @@ export function LineItemNode({
                       <Plus className="w-2.5 h-2.5" />
                     </Button>
                   </div>
+                ) : isRoot && !isCanceled && inlineQtyMainQtyLocked ? (
+                  <span className="text-[10px] text-muted-foreground font-mono font-semibold min-w-2.5 text-center select-none">
+                    {item.qty}
+                  </span>
                 ) : isRoot && isCanceled ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-destructive/10 border-destructive/20 shrink-0">
                     <span className="text-[10px] text-destructive font-mono font-semibold min-w-2.5 px-2 text-center select-none">

@@ -43,6 +43,9 @@ export async function GET() {
       inlineQtyLabel: item.inlineQtyLabel,
       inlineQtyUnit: item.inlineQtyUnit,
       inlineQtyPricePerUnit: item.inlineQtyPricePerUnit ?? false,
+      inlineQtyPricePerUnitShowPer:
+        item.inlineQtyPricePerUnitShowPer ?? true,
+      inlineQtyMainQtyLocked: item.inlineQtyMainQtyLocked ?? false,
       appliedSizeGroup: item.appliedSizeGroup
         ? {
             id: item.appliedSizeGroup.id,
@@ -107,6 +110,7 @@ export async function POST(request: Request) {
       inlineQtyUnit?: string;
       inlineQtyPricePerUnit?: boolean;
       inlineQtyPricePerUnitShowPer?: boolean;
+      inlineQtyMainQtyLocked?: boolean;
     }>;
 
     if (!Array.isArray(items)) {
@@ -131,6 +135,7 @@ export async function POST(request: Request) {
         inlineQtyPricePerUnit: item.inlineQtyPricePerUnit ?? false,
         inlineQtyPricePerUnitShowPer:
           item.inlineQtyPricePerUnitShowPer ?? true,
+        inlineQtyMainQtyLocked: item.inlineQtyMainQtyLocked ?? false,
       };
 
       await db.catalogItem.upsert({

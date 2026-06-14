@@ -40,6 +40,7 @@ model CatalogItem {
   inlineQtyUnit                    String?
   inlineQtyPricePerUnit            Boolean   @default(false)
   inlineQtyPricePerUnitShowPer     Boolean   @default(true)
+  inlineQtyMainQtyLocked           Boolean   @default(false)
   createdAt                        DateTime  @default(now())
 
   // A size option is just a modifier CatalogItem that belongs to a size group
