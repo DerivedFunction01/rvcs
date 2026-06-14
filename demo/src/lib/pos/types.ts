@@ -1,7 +1,7 @@
 export enum OrderType {
-  WalkIn = "walk-in",
-  Pickup = "pickup",
-  Delivery = "delivery",
+  WalkIn = "Walk-In",
+  Pickup = "Pickup",
+  Delivery = "Delivery",
 }
 
 export interface OrderContext {

@@ -552,26 +552,28 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
 
       // Default fulfillment allocations for each order type
-      const fulfillmentMethods = ["walk-in", "pickup", "delivery"];
-      const activeFulfillmentGroupId = `group-default-${orderContext.orderType || "walk-in"}`;
+      const fulfillmentMethods = Object.values(OrderType);
+      const activeFulfillmentGroupId = `group-default-${(
+        orderContext.orderType || OrderType.WalkIn
+      ).toLowerCase()}`;
 
       for (const method of fulfillmentMethods) {
         const fulAllocId = generateAllocationId(
-          `default-fulfillment-${method}`,
+          `default-fulfillment-${method.toLowerCase()}`,
         );
-        const correlationId = `group-default-${method}`;
+        const correlationId = `group-default-${method.toLowerCase()}`;
 
         let destLabel = "Guest";
         let destId: string | null = null;
 
-        if (method === "walk-in") {
+        if (method === OrderType.WalkIn) {
           destLabel = orderContext.tableConfigId
             ? `Table ${orderContext.tableConfigId}`
             : orderContext.customerFields?.name || "Guest";
           destId = orderContext.tableConfigId || null;
-        } else if (method === "pickup") {
+        } else if (method === OrderType.Pickup) {
           destLabel = orderContext.customerFields?.name || "Guest";
-        } else if (method === "delivery") {
+        } else if (method === OrderType.Delivery) {
           destLabel =
             orderContext.customerFields?.address ||
             orderContext.customerFields?.name ||

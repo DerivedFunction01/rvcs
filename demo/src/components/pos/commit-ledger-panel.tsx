@@ -20,8 +20,16 @@ import {
   Lightbulb,
   ChevronsUpDown,
   Eraser,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { buildCommitGraph } from "@/lib/vcs/graph";
 import { DeltaActionType } from "@/lib/vcs/types";
 import { HistoryOpType } from "@/lib/pos/types";
 import { getBranchColorInfo } from "@/lib/pos/ui-utils";
@@ -45,6 +53,28 @@ export function CommitLedgerPanel(props: any) {
     engine,
     confirmedHash,
   } = props;
+
+  const [selectedBranches, setSelectedBranches] =
+    React.useState<Set<string> | null>(null);
+
+  const uniqueBranches = React.useMemo<string[]>(() => {
+    return Array.from(new Set(log.map((c: any) => c.branch as string)));
+  }, [log]);
+
+  const filteredLog = React.useMemo(() => {
+    if (!selectedBranches) return log;
+    return log.filter((c: any) => selectedBranches.has(c.branch));
+  }, [log, selectedBranches]);
+
+  const localGraphData = React.useMemo(() => {
+    return buildCommitGraph(
+      filteredLog,
+      activeBranch,
+      engine.getMainActiveBranch(),
+      expandedCommits,
+      branches,
+    );
+  }, [filteredLog, activeBranch, engine, expandedCommits, branches]);
 
   return (
     <aside
@@ -89,8 +119,86 @@ export function CommitLedgerPanel(props: any) {
               Ledger
             </h2>
             <div className="flex items-center gap-1">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                    title="Filter branches"
+                  >
+                    <Filter className="w-3.5 h-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-2" align="end">
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between font-semibold px-1 py-0.5 border-b pb-1.5">
+                      <span>Filter Branches</span>
+                      <div className="flex gap-1.5">
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-[10px] font-semibold text-primary"
+                          onClick={() => setSelectedBranches(null)}
+                        >
+                          All
+                        </Button>
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 text-[10px] font-semibold text-primary"
+                          onClick={() =>
+                            setSelectedBranches(new Set([activeBranch]))
+                          }
+                        >
+                          Current
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {uniqueBranches.map((br) => {
+                        const isChecked =
+                          !selectedBranches || selectedBranches.has(br);
+                        return (
+                          <label
+                            key={br}
+                            className="flex items-center gap-2 px-1 py-1 rounded hover:bg-accent cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                setSelectedBranches((prev) => {
+                                  const next = new Set<string>(
+                                    prev || uniqueBranches,
+                                  );
+                                  if (checked) {
+                                    next.add(br);
+                                  } else {
+                                    if (next.size > 1) {
+                                      next.delete(br);
+                                    } else {
+                                      toast.warning(
+                                        "At least one branch must be selected.",
+                                      );
+                                    }
+                                  }
+                                  if (next.size === uniqueBranches.length) {
+                                    return null;
+                                  }
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span className="truncate">
+                              {branches[br]?.label || br}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                {log.length}
+                {filteredLog.length}
               </Badge>
               <Button
                 variant="ghost"
@@ -125,23 +233,23 @@ export function CommitLedgerPanel(props: any) {
             </div>
           )}
           <ScrollArea className="flex-1 min-h-0">
-            {log.length === 0 ? (
+            {filteredLog.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground/50">
                 <GitCommitHorizontal className="w-8 h-8 mx-auto mb-2" />
-                <p className="text-xs">No commits yet</p>
+                <p className="text-xs">No commits found</p>
               </div>
             ) : (
               <div className="relative flex min-h-full">
                 <div
-                  style={{ width: graphData.width }}
+                  style={{ width: localGraphData.width }}
                   className="relative shrink-0 select-none overflow-hidden"
                 >
                   <svg
-                    width={graphData.width}
-                    height={graphData.height}
+                    width={localGraphData.width}
+                    height={localGraphData.height}
                     className="absolute top-0 left-0"
                   >
-                    {graphData.lines.map((line: any) => (
+                    {localGraphData.lines.map((line: any) => (
                       <g key={line.id}>
                         {line.isMain && (
                           <line
@@ -167,7 +275,7 @@ export function CommitLedgerPanel(props: any) {
                         />
                       </g>
                     ))}
-                    {graphData.nodes.map((node: any) => {
+                    {localGraphData.nodes.map((node: any) => {
                       const isActive =
                         viewingHash === node.commitHash ||
                         (viewingHash === null && node.commitHash === headHash);
@@ -197,12 +305,12 @@ export function CommitLedgerPanel(props: any) {
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0 pr-2">
-                  {log.map((commit: any, idx: number) => {
+                  {filteredLog.map((commit: any, idx: number) => {
                     const isActive =
                       viewingHash === commit.commitHash ||
                       (viewingHash === null && commit.commitHash === headHash);
                     const isExpanded = expandedCommits.has(commit.commitHash);
-                    const node = graphData.nodes[idx];
+                    const node = localGraphData.nodes[idx];
                     const isHead = commit.commitHash === headHash;
                     const isConfirmed = !!(
                       confirmedHash &&
