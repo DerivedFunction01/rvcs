@@ -15,13 +15,14 @@ import { PaymentAllocationDialog } from "@/components/pos/dialogs/payment-alloca
 import { SplitQtyDialog } from "@/components/pos/dialogs/split-qty-dialog";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
-import React, { useCallback } from "react";
+import React from "react";
 
 import { usePostTerminalGuests } from "@/components/pos/screens/hooks/use-post-terminal-guests";
 import { usePostTerminalSelection } from "@/components/pos/screens/hooks/use-post-terminal-selection";
 import { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
 import { usePostTerminalCatalog } from "@/components/pos/screens/hooks/use-post-terminal-catalog";
 import { usePostTerminalConfigs } from "@/components/pos/screens/hooks/use-post-terminal-configs";
+import { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
 
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
@@ -47,21 +48,12 @@ import {
   AllocationContext,
   ConfigUpdateMode,
   type FloorConfig,
-  HistoryOpType,
-  OrderType,
   type OrderTypeConfig,
   PaymentUpdateMode,
-  SplitQtyType,
   ViewMode,
 } from "@/lib/pos/types";
-import {
-  type Guest,
-  getAssigneeFromItem,
-  getUniqueGuestLabel,
-} from "@/lib/pos/ui-utils";
 import { generateAllocationId } from "@/lib/vcs/id";
 import {
-  type AllocationBlock,
   AllocationType,
   BranchType,
   type Delta,
@@ -69,10 +61,7 @@ import {
   type FulfillmentAllocation,
   ItemStatus,
   type PaymentAllocation,
-  PaymentStrategyType,
   type ProjectedLineItem,
-  SquashType,
-  TimeBlockType,
 } from "@/lib/vcs/types";
 import {
   ChevronDown,
@@ -86,13 +75,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatFulfillmentTime } from "@/lib/pos/utils";
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────
 
 export function POSTerminalScreen({
   floorConfigs,
-  orderTypes,
 }: {
   floorConfigs: FloorConfig[];
   orderTypes: OrderTypeConfig[];
@@ -102,32 +89,20 @@ export function POSTerminalScreen({
     projectedState,
     viewingHash,
     catalog,
-    catalogLoaded,
     activeBranch,
     commitLog,
     headHash,
-    addItemWithDefaults,
     addModifier,
     removeItem,
-    mimicOrder,
-    createBranch,
     checkoutBranch,
     viewRevision,
-    setMainActiveBranch,
     mainActiveBranch,
-    updateBranchConfig,
-    renameBranch,
     orderContext,
-    resetOrder,
     defaultPaymentMethod,
     defaultPaymentAllocId,
     defaultAssignmentAllocId,
     changeDefaultPayment,
-    splitItemPayment,
-    reassignItem,
     updateFulfillmentAllocation,
-    resetItemPaymentToDefault,
-    switchItemPayment,
     swapComboChoice,
     activePaymentConfigId,
     activeFulfillmentConfigId,
@@ -138,21 +113,12 @@ export function POSTerminalScreen({
     duplicateAndReassignItems,
     removeItems,
     modifyItemsQty,
-    setItemsQty,
     reassignItems,
     groupItemsPaymentConfig,
-    groupItemsFulfillmentConfig,
     addGroupModifier,
     removeGroupModifier,
     previewMerge,
     commitMerge,
-    addGuestPaymentAllocation,
-    squashPendingCommits,
-    resetToCommit,
-    addGroupNote,
-    removeGroupNote,
-    cleanupStaleNotes,
-    attachNoteToOrder,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
@@ -163,7 +129,6 @@ export function POSTerminalScreen({
     storeGuests,
     guests,
     resolveGuestName,
-    guestStrings,
     selectedPerson,
     setSelectedPerson,
     guestChoiceOptions,
@@ -214,7 +179,6 @@ export function POSTerminalScreen({
     groupNoteOpen,
     setGroupNoteOpen,
     groupNoteLineIds,
-    setGroupNoteLineIds,
     historyOpDialog,
     setHistoryOpDialog,
     customerDialogOpen,
@@ -258,7 +222,6 @@ export function POSTerminalScreen({
     noteDialogOpen,
     setNoteDialogOpen,
     noteItem,
-    setNoteItem,
     handleOpenCustomerDialog,
     handleOpenModifierDialog,
     handleOpenSwapDialog,
@@ -310,65 +273,6 @@ export function POSTerminalScreen({
     }
   }, [hasCollapsedItems, projectedState.items]);
 
-  const handleConfirmHistoryOp = React.useCallback(
-    (squashType?: SquashType) => {
-      if (!historyOpDialog) return;
-      try {
-        if (historyOpDialog.type === HistoryOpType.Squash) {
-          squashPendingCommits(
-            historyOpDialog.targetHash,
-            squashType || SquashType.Light,
-          );
-          toast.success(
-            squashType === SquashType.Full
-              ? "Commits squashed to a single commit"
-              : "Net-zero items removed from pending history",
-          );
-        } else if (historyOpDialog.type === HistoryOpType.Reset) {
-          resetToCommit(historyOpDialog.targetHash);
-          toast.success("Branch reset to selected commit");
-        }
-      } catch (e) {
-        toast.error((e as Error).message);
-      } finally {
-        setHistoryOpDialog(null);
-      }
-    },
-    [historyOpDialog, squashPendingCommits, resetToCommit],
-  );
-
-  const handleSaveCustomerFields = React.useCallback(
-    (fields: Record<string, string>) => {
-      useVCSStore.getState().updateOrderContext({ customerFields: fields });
-      const newNameRaw = fields.name?.trim();
-      if (newNameRaw) {
-        const primaryGuest = storeGuests[0];
-        if (primaryGuest && primaryGuest.name !== newNameRaw) {
-          useVCSStore.getState().updateGuest(primaryGuest.id, newNameRaw);
-        }
-      }
-      toast.success("Customer info updated");
-    },
-    [storeGuests],
-  );
-
-  const handleSaveBranchConfig = useCallback(
-    (newName: string, type: BranchType, label: string) => {
-      if (!branchToConfig) return;
-      try {
-        if (newName !== branchToConfig) {
-          renameBranch(branchToConfig, newName);
-          toast.success(`Branch "${branchToConfig}" renamed to "${newName}"`);
-        }
-        updateBranchConfig(newName, { type, label });
-        toast.success(`Branch configuration saved`);
-      } catch (e) {
-        toast.error((e as Error).message);
-      }
-    },
-    [branchToConfig, renameBranch, updateBranchConfig],
-  );
-
   const [expandedCommits, setExpandedCommits] = React.useState<Set<string>>(
     new Set(),
   );
@@ -388,42 +292,6 @@ export function POSTerminalScreen({
     const parentEntry = catalog[parent.sku];
     return !!parentEntry?.comboChoices;
   }, [noteItem, projectedState.items, catalog]);
-
-  const handleSaveNote = React.useCallback(
-    (text: string, linkToComboBase: boolean) => {
-      if (!noteItem || !text.trim()) return;
-      if (noteItem.sku === "custom_note") {
-        useVCSStore
-          .getState()
-          .modifyModifierState(
-            noteItem.lineId,
-            noteItem.selectedModifierState,
-            text.trim(),
-          );
-        toast.success("Note updated");
-      } else {
-        const parentId =
-          linkToComboBase && noteItem.parentLineId
-            ? noteItem.parentLineId
-            : noteItem.lineId;
-        useVCSStore
-          .getState()
-          .addModifier(parentId, "custom_note", text.trim());
-        toast.success("Note added");
-      }
-      setNoteDialogOpen(false);
-    },
-    [noteItem],
-  );
-
-  // ─── Guest Management ──────────────────────────────────────────────────
-  const handleAddGuestFromDialog = useCallback((name: string): string => {
-    const trimmed = name.trim();
-    if (!trimmed) return "";
-    const guestId = useVCSStore.getState().addGuest(trimmed);
-    toast.success(`${trimmed} added to the order`);
-    return guestId;
-  }, []);
 
   // ─── Derived State ──────────────────────────────────────────────────────
 
@@ -595,154 +463,42 @@ export function POSTerminalScreen({
   );
   const isViewingHistory = viewingHash !== null && viewingHash !== headHash();
 
-  // ─── Handlers ────────────────────────────────────────────────────────────
-  const handleAddItem = useCallback(
-    (sku: string) => {
-      addItemWithDefaults(sku, 1, selectedPerson);
-      toast.success(`Added to ${resolveGuestName(selectedPerson)}'s order`);
-    },
-    [addItemWithDefaults, selectedPerson, resolveGuestName],
-  );
-  const handleReassign = useCallback(
-    (lineId: string, newAssigneeIds: string) => {
-      const names = newAssigneeIds
-        .split(",")
-        .map((id) => {
-          const g = storeGuests.find((g) => g.id === id.trim());
-          return g ? g.name : id.trim();
-        })
-        .join(" + ");
-      reassignItem(lineId, newAssigneeIds);
-      toast.success(`Reassigned to ${names}`);
-    },
-    [reassignItem, storeGuests],
-  );
-  const handleUpdateFulfillment = useCallback(
-    (lineId: string, timeType: TimeBlockType, calculatedAt: string | null) => {
-      updateFulfillmentAllocation(lineId, timeType, calculatedAt);
-      toast.success(
-        timeType === TimeBlockType.Immediate
-          ? "Fulfillment scheduled: on confirmation"
-          : `Fulfillment scheduled for ${formatFulfillmentTime(calculatedAt!, orderContext?.initiatedAt)}`,
-      );
-    },
-    [updateFulfillmentAllocation, orderContext?.initiatedAt],
-  );
-  const handleSplitPayment = useCallback(
-    (
-      lineId: string,
-      splits: Array<{
-        entity: string;
-        strategyType: PaymentStrategyType;
-        value: number;
-        method?: string | null;
-      }>,
-      mode: PaymentUpdateMode = PaymentUpdateMode.Group,
-    ) => {
-      splitItemPayment(
-        lineId,
-        splits.map((s) => ({ ...s, entity: s.entity })),
-        mode,
-      );
-      const splitName = [...splits]
-        .sort((a, b) => b.value - a.value)
-        .map(
-          (s) =>
-            `${s.entity} ${s.strategyType === PaymentStrategyType.Remaining ? "rem" : s.strategyType === PaymentStrategyType.Percentage ? `${Math.round(s.value * 100)}%` : `$${s.value}`}`,
-        )
-        .join(" / ");
-      toast.success(`Payment split: ${splitName}`);
-    },
-    [splitItemPayment],
-  );
-  const handleResetToDefault = useCallback(
-    (lineId: string) => {
-      resetItemPaymentToDefault(lineId);
-      toast.success(`Payment reset to ${defaultPaymentMethod}`);
-    },
-    [resetItemPaymentToDefault, defaultPaymentMethod],
-  );
-  const handleSetBulkQty = useCallback(
-    (qty: number) => {
-      if (selectedLineIds.size > 0) {
-        setItemsQty(Array.from(selectedLineIds), qty);
-        toast.success(`Set quantity to ${qty}`);
-      }
-    },
-    [selectedLineIds, setItemsQty],
-  );
-
-  const handleSplitQty = useCallback(
-    (type: SplitQtyType, value: number) => {
-      const newLineIds = useVCSStore.getState().splitItemsQty(
-        Array.from(selectedLineIds),
-        type,
-        value
-      );
-      setSelectedLineIds(new Set(newLineIds));
-      toast.success("Items split successfully");
-    },
-    [selectedLineIds]
-  );
-
-  const handleSaveGroupNote = useCallback(
-    (text: string) => {
-      addGroupNote(groupNoteLineIds, text);
-      setSelectedLineIds(new Set());
-    },
-    [addGroupNote, groupNoteLineIds],
-  );
-
-  const handleRemoveNoteFromItems = useCallback(
-    (lineIds: string[], noteId: string) => {
-      removeGroupNote(lineIds, noteId);
-    },
-    [removeGroupNote],
-  );
-
-  const handleCleanupStaleNotes = useCallback(
-    (noteIds: string[]) => {
-      cleanupStaleNotes(noteIds);
-    },
-    [cleanupStaleNotes],
-  );
-
-  const handleAttachNoteToOrder = useCallback(
-    (noteId: string, attached: boolean) => {
-      attachNoteToOrder(noteId, attached);
-    },
-    [attachNoteToOrder],
-  );
-  const handleCreateBranch = useCallback(
-    (name: string, startFromEmpty: boolean) => {
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      try {
-        let fromHash = viewingHash;
-        if (startFromEmpty) {
-          const fullLog = useVCSStore.getState().commitLog();
-          fromHash =
-            (
-              fullLog.find((c) => c.authorId === "system-init") ||
-              fullLog[fullLog.length - 1]
-            )?.commitHash || null;
-        }
-        createBranch(trimmed, fromHash);
-        toast.success(
-          `Branch "${trimmed}" created${startFromEmpty ? " from empty root" : fromHash ? ` at commit ${fromHash.substring(0, 7)}` : ""}`,
-        );
-      } catch (e) {
-        toast.error((e as Error).message);
-      }
-    },
-    [createBranch, viewingHash],
-  );
-  const handleResetOrder = useCallback(() => {
-    resetOrder();
-    setShowResetConfirm(false);
-    setAddGuestOpen(false);
-    toast.success("Order reset — ready for a new order");
-  }, [resetOrder]);
+  const {
+    handleConfirmHistoryOp,
+    handleSaveCustomerFields,
+    handleSaveBranchConfig,
+    handleSaveNote,
+    handleAddGuestFromDialog,
+    handleAddItem,
+    handleReassign,
+    handleSplitPayment,
+    handleResetToDefault,
+    handleSetBulkQty,
+    handleSplitQty,
+    handleSaveGroupNote,
+    handleRemoveNoteFromItems,
+    handleCleanupStaleNotes,
+    handleAttachNoteToOrder,
+    handleCreateBranch,
+    handleResetOrder,
+  } = usePostTerminalActions({
+    selectedPerson,
+    resolveGuestName,
+    storeGuests,
+    orderContext,
+    defaultPaymentMethod,
+    selectedLineIds,
+    setSelectedLineIds,
+    groupNoteLineIds,
+    viewingHash,
+    historyOpDialog,
+    setHistoryOpDialog,
+    branchToConfig,
+    noteItem,
+    setNoteDialogOpen,
+    setShowResetConfirm,
+    setAddGuestOpen,
+  });
 
   return (
     <TooltipProvider delayDuration={200}>
