@@ -32,6 +32,7 @@ import {
 import { CustomerEditDialog } from "@/components/pos/customer-edit-dialog";
 import { CatalogPanel } from "@/components/pos/catalog-panel";
 import { ActiveCheckPanel } from "@/components/pos/active-check-panel";
+import { ActiveCheckActionFilterBar } from "@/components/pos/active-check-action-filter-bar";
 import { CommitLedgerPanel } from "@/components/pos/commit-ledger-panel";
 import { GroupNotesPanel } from "@/components/pos/group-notes-panel";
 import { GroupNoteDialog } from "@/components/pos/group-note-dialog";
@@ -1180,7 +1181,22 @@ function POSTerminalInner({
           <OrderContextBanner
             context={orderContext}
             onEditClick={handleOpenCustomerDialog}
-          />
+          >
+            <ActiveCheckActionFilterBar
+              activeBranch={activeBranch()}
+              isViewingHistory={isViewingHistory}
+              guests={guests}
+              visibleGuests={visibleGuests}
+              setVisibleGuests={setVisibleGuests}
+              toggleAllCollapsed={toggleAllCollapsed}
+              hasCollapsedItems={hasCollapsedItems}
+              hideCanceled={hideCanceled}
+              setHideCanceled={setHideCanceled}
+              canceledCount={canceledCount}
+              detailLevel={detailLevel}
+              setDetailLevel={setDetailLevel}
+            />
+          </OrderContextBanner>
         )}
 
         {/* ─── Customer Info Edit Dialog ──────────────────────────────── */}

@@ -2855,6 +2855,17 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           if (store.catalogLoaded) {
             newEngine.setCatalog(Object.values(store.catalog));
           }
+          if (repo.orderContext) {
+            const context = repo.orderContext as any;
+            if (context.orderType) {
+              const matchedEnum = Object.values(OrderType).find(
+                (val) => val.toLowerCase() === context.orderType.toLowerCase()
+              );
+              if (matchedEnum) {
+                context.orderType = matchedEnum;
+              }
+            }
+          }
           // If persisted repo has orderContext, consider it initialized
           const hasOrderContext = !!repo.orderContext;
 

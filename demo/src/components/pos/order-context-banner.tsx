@@ -15,6 +15,7 @@ import { OrderType } from "@/lib/pos/types";
 export function OrderContextBanner({
   context,
   onEditClick,
+  children,
 }: {
   context: {
     orderType: OrderType;
@@ -23,6 +24,7 @@ export function OrderContextBanner({
     estimatedTimeLabel?: string | null;
   };
   onEditClick?: () => void;
+  children?: React.ReactNode;
 }) {
   const TypeIcon = ORDER_TYPE_ICONS[context.orderType] ?? ShoppingCart;
 
@@ -86,6 +88,9 @@ export function OrderContextBanner({
         )}
         <UserPlus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary transition-colors" />
       </button>
+
+      {/* ── Custom content/action/filter bar ── */}
+      {children}
 
       {context.estimatedTimeLabel && (
         <div className="ml-auto flex items-center gap-1 text-muted-foreground">
