@@ -52,7 +52,7 @@ import {
   getAssigneeFromItem,
 } from "@/lib/pos/ui-utils";
 import { OrderContextBanner } from "@/components/pos/order-context-banner";
-import type { FloorConfig, OrderTypeConfig } from "@/lib/pos/types";
+import { type FloorConfig, type OrderTypeConfig, PaymentUpdateMode, ConfigUpdateMode, AllocationContext } from "@/lib/pos/types";
 import { generateAllocationId } from "@/lib/vcs/id";
 import {
   type ProjectedLineItem,
@@ -389,21 +389,21 @@ function POSTerminalInner({
   const [assignmentAllocationOpen, setAssignmentAllocationOpen] =
     React.useState(false);
   const [assignmentAllocationContext, setAssignmentAllocationContext] =
-    React.useState<"item" | "group">("item");
+    React.useState<AllocationContext>(AllocationContext.Item);
   const [assignmentAllocationItems, setAssignmentAllocationItems] = React.useState<
     ProjectedLineItem[]
   >([]);
   const [paymentAllocationOpen, setPaymentAllocationOpen] =
     React.useState(false);
   const [paymentAllocationContext, setPaymentAllocationContext] =
-    React.useState<"item" | "group" | "header">("item");
+    React.useState<AllocationContext>(AllocationContext.Item);
   const [paymentAllocationItems, setPaymentAllocationItems] = React.useState<
     ProjectedLineItem[]
   >([]);
   const [fulfillmentAllocationOpen, setFulfillmentAllocationOpen] =
     React.useState(false);
   const [fulfillmentAllocationContext, setFulfillmentAllocationContext] =
-    React.useState<"item" | "group" | "global">("item");
+    React.useState<AllocationContext>(AllocationContext.Item);
   const [fulfillmentAllocationItems, setFulfillmentAllocationItems] =
     React.useState<ProjectedLineItem[]>([]);
   const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
@@ -819,7 +819,7 @@ function POSTerminalInner({
         value: number;
         method?: string | null;
       }>,
-      mode: "group" | "item" = "group",
+      mode: PaymentUpdateMode  = PaymentUpdateMode.Group,
     ) => {
       splitItemPayment(
         lineId,
@@ -830,7 +830,7 @@ function POSTerminalInner({
         .sort((a, b) => b.value - a.value)
         .map(
           (s) =>
-            `${s.entity} ${s.strategyType === "remaining" ? "rem" : s.strategyType === "percentage" ? `${Math.round(s.value * 100)}%` : `$${s.value}`}`,
+            `${s.entity} ${s.strategyType === PaymentStrategyType.Remaining ? "rem" : s.strategyType === PaymentStrategyType.Percentage ? `${Math.round(s.value * 100)}%` : `$${s.value}`}`,
         )
         .join(" / ");
       toast.success(`Payment split: ${splitName}`);
@@ -1105,7 +1105,7 @@ function POSTerminalInner({
               className="h-7 text-xs gap-1.5 px-2.5 max-w-52.5"
               onClick={() => {
                 setPaymentAllocationItems([]);
-                setPaymentAllocationContext("header");
+                setPaymentAllocationContext(AllocationContext.Header);
                 setPaymentAllocationOpen(true);
               }}
               title="Configure order default payment"
@@ -1120,7 +1120,7 @@ function POSTerminalInner({
               className="h-7 text-xs gap-1.5 px-2.5 max-w-52.5"
               onClick={() => {
                 setFulfillmentAllocationItems([]);
-                setFulfillmentAllocationContext("global");
+                setFulfillmentAllocationContext(AllocationContext.Global);
                 setFulfillmentAllocationOpen(true);
               }}
               title="Configure order default fulfillment"
@@ -1306,17 +1306,17 @@ function POSTerminalInner({
         onResetToDefault={handleResetToDefault}
         onTriggerAssignmentAllocation={(item) => {
           setAssignmentAllocationItems([item]);
-          setAssignmentAllocationContext("item");
+                setAssignmentAllocationContext(AllocationContext.Item);
           setAssignmentAllocationOpen(true);
         }}
         onTriggerPaymentAllocation={(item) => {
           setPaymentAllocationItems([item]);
-          setPaymentAllocationContext("item");
+                setPaymentAllocationContext(AllocationContext.Item);
           setPaymentAllocationOpen(true);
         }}
         onTriggerFulfillmentAllocation={(item) => {
           setFulfillmentAllocationItems([item]);
-          setFulfillmentAllocationContext("item");
+                setFulfillmentAllocationContext(AllocationContext.Item);
           setFulfillmentAllocationOpen(true);
         }}
         initiatedAt={orderContext?.initiatedAt}
@@ -1330,7 +1330,7 @@ function POSTerminalInner({
         allocations={projectedState.allocations}
         guests={guests}
         onApplyConfig={(guestIds) => {
-          if (assignmentAllocationContext === "item") {
+                if (assignmentAllocationContext === AllocationContext.Item) {
             handleReassign(assignmentAllocationItems[0].lineId, guestIds);
           } else {
             reassignItems(
@@ -1363,13 +1363,13 @@ function POSTerminalInner({
         selectedGuestName={resolveGuestName(selectedPerson)}
         allItems={Object.values(projectedState.items)}
         onApplyConfig={(configIdOrMethod, mode) => {
-          if (paymentAllocationContext === "item") {
+                if (paymentAllocationContext === AllocationContext.Item) {
             groupItemsPaymentConfig(
               [paymentAllocationItems[0].lineId],
               configIdOrMethod,
             );
             toast.success("Payment config updated for item");
-          } else if (paymentAllocationContext === "group") {
+                } else if (paymentAllocationContext === AllocationContext.Group) {
             groupItemsPaymentConfig(
               paymentAllocationItems.map((i) => i.lineId),
               configIdOrMethod,
@@ -1382,12 +1382,12 @@ function POSTerminalInner({
             if (configIdOrMethod.startsWith("group-default-")) {
               changeDefaultPayment(
                 configIdOrMethod.replace("group-default-", ""),
-                mode as "change-existing" | "new-only",
+                      mode as ConfigUpdateMode,
               );
             } else {
               selectPaymentConfig(
                 configIdOrMethod,
-                mode as "change-existing" | "new-only",
+                      mode as ConfigUpdateMode,
               );
             }
             let targetName = configIdOrMethod.startsWith("group-default-")
@@ -1409,7 +1409,7 @@ function POSTerminalInner({
                 targetName = "Selected Config";
               }
             }
-            if (mode === "change-existing") {
+                  if (mode === ConfigUpdateMode.ChangeExisting) {
               toast.success(`All items switched to ${targetName}`);
             } else {
               toast.success(`Default set to ${targetName} for new items`);
@@ -1417,13 +1417,13 @@ function POSTerminalInner({
           }
         }}
         onApplyCustomSplit={(splits, mode) => {
-          if (paymentAllocationContext === "item") {
+                if (paymentAllocationContext === AllocationContext.Item) {
             handleSplitPayment(
               paymentAllocationItems[0].lineId,
               splits,
-              mode as "group" | "item",
+                    mode as PaymentUpdateMode,
             );
-          } else if (paymentAllocationContext === "group") {
+                } else if (paymentAllocationContext === AllocationContext.Group) {
             const corrId = createTableSplitConfig(splits);
             groupItemsPaymentConfig(
               paymentAllocationItems.map((i) => i.lineId),
@@ -1435,8 +1435,8 @@ function POSTerminalInner({
             setSelectedLineIds(new Set());
           } else {
             const corrId = createTableSplitConfig(splits);
-            selectPaymentConfig(corrId, mode as "change-existing" | "new-only");
-            if (mode === "change-existing")
+                  selectPaymentConfig(corrId, mode as ConfigUpdateMode);
+                  if (mode === ConfigUpdateMode.ChangeExisting)
               toast.success("Custom split applied to all existing items");
             else toast.success("Custom split set as default for new items");
           }
@@ -1454,7 +1454,7 @@ function POSTerminalInner({
         floorConfigs={floorConfigs}
         guests={guests}
         onApplyFulfillmentConfig={(selection, mode) => {
-          if (fulfillmentAllocationContext === "item") {
+                if (fulfillmentAllocationContext === AllocationContext.Item) {
             if (selection.type === "config") {
               const matchedAllocs = Object.values(
                 projectedState.allocations,
@@ -1499,7 +1499,7 @@ function POSTerminalInner({
               );
               toast.success("Fulfillment updated for item");
             }
-          } else if (fulfillmentAllocationContext === "group") {
+                } else if (fulfillmentAllocationContext === AllocationContext.Group) {
             if (selection.type === "config") {
               const matchedAllocs = Object.values(
                 projectedState.allocations,
@@ -1584,7 +1584,7 @@ function POSTerminalInner({
             if (selection.type === "config") {
               selectFulfillmentConfig(
                 selection.configId!,
-                mode as "change-existing" | "new-only",
+                      mode as ConfigUpdateMode,
               );
               toast.success("Default fulfillment updated");
             } else if (selection.type === "custom" && selection.customConfig) {
@@ -1611,7 +1611,7 @@ function POSTerminalInner({
               useVCSStore.getState().commitDeltas(deltas, "pos-ui");
               selectFulfillmentConfig(
                 correlationId,
-                mode as "change-existing" | "new-only",
+                      mode as ConfigUpdateMode,
               );
               toast.success("Default fulfillment updated to custom settings");
             }

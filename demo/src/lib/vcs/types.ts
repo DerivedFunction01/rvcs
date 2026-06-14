@@ -160,32 +160,34 @@ export interface ModifyItemQtyDelta {
 
 // ─── Filter & Batch System ─────────────────────────────────────────────────────
 
-export type FilterProperty =
-  | "name"
-  | "sku"
-  | "payer"
-  | "assignee"
-  | "fulfillment_method"
-  | "sku_category"
-  | "tax_status"
-  | "price"
-  | "quantity"
-  | "popularity_index"
-  | "dietary_flags"
-  | "allergens"
-  | "brand";
+export enum FilterProperty {
+  Name = "name",
+  Sku = "sku",
+  Payer = "payer",
+  Assignee = "assignee",
+  FulfillmentMethod = "fulfillment_method",
+  SkuCategory = "sku_category",
+  TaxStatus = "tax_status",
+  Price = "price",
+  Quantity = "quantity",
+  PopularityIndex = "popularity_index",
+  DietaryFlags = "dietary_flags",
+  Allergens = "allergens",
+  Brand = "brand",
+}
 
-export type FilterOperator =
-  | "equals"
-  | "not_equals"
-  | "in_set"
-  | "not_in_set"
-  | "greater_than"
-  | "greater_than_or_equal"
-  | "less_than"
-  | "less_than_or_equal"
-  | "like"
-  | "not_like";
+export enum FilterOperator {
+  Equals = "equals",
+  NotEquals = "not_equals",
+  InSet = "in_set",
+  NotInSet = "not_in_set",
+  GreaterThan = "greater_than",
+  GreaterThanOrEqual = "greater_than_or_equal",
+  LessThan = "less_than",
+  LessThanOrEqual = "less_than_or_equal",
+  Like = "like",
+  NotLike = "not_like",
+}
 
 export interface FilterRule {
   property: FilterProperty;
@@ -193,24 +195,31 @@ export interface FilterRule {
   value: string | number | string[];
 }
 
+export enum MutationType {
+  BatchModifyAllocations = "batch_modify_allocations",
+  BatchRemoveItems = "batch_remove_items",
+  BatchModifySku = "batch_modify_sku",
+  BatchDuplicateAndReallocate = "batch_duplicate_and_reallocate",
+}
+
 // Batch mutation templates
 export interface BatchModifyAllocations {
-  mutationType: "batch_modify_allocations";
+  mutationType: MutationType.BatchModifyAllocations;
   targetAllocationType: AllocationType;
   patchAllocation: AllocationBlock;
 }
 
 export interface BatchRemoveItems {
-  mutationType: "batch_remove_items";
+  mutationType: MutationType.BatchRemoveItems;
 }
 
 export interface BatchModifySku {
-  mutationType: "batch_modify_sku";
+  mutationType: MutationType.BatchModifySku;
   afterSku: string;
 }
 
 export interface BatchDuplicateAndReallocate {
-  mutationType: "batch_duplicate_and_reallocate";
+  mutationType: MutationType.BatchDuplicateAndReallocate;
   patchAllocations: AllocationBlock[];
 }
 

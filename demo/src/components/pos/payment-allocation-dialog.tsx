@@ -36,11 +36,12 @@ import {
   PaymentStrategyType,
   ProjectedLineItem,
 } from "@/lib/vcs/types";
+import { PaymentUpdateMode, ConfigUpdateMode, AllocationContext } from "@/lib/pos/types";
 
 interface PaymentAllocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  context: "item" | "group" | "header";
+  context: AllocationContext;
   items: ProjectedLineItem[]; // 1 item for "item", multiple for "group", empty for "header"
   allocations: Record<string, AllocationBlock>;
   defaultPaymentAllocId: string | null;
@@ -52,7 +53,7 @@ interface PaymentAllocationDialogProps {
 
   onApplyConfig: (
     configIdOrMethod: string,
-    mode: "item" | "group" | "change-existing" | "new-only",
+    mode: PaymentUpdateMode | ConfigUpdateMode,
   ) => void;
 
   onApplyCustomSplit: (
@@ -62,7 +63,7 @@ interface PaymentAllocationDialogProps {
       value: number;
       method?: string | null;
     }>,
-    mode: "item" | "group" | "change-existing" | "new-only",
+    mode: PaymentUpdateMode | ConfigUpdateMode,
   ) => void;
 }
 
@@ -102,7 +103,7 @@ export function PaymentAllocationDialog({
 
   // Compute total price of items in context
   const totalContextPrice = useMemo(() => {
-    if (context === "header") return undefined;
+    if (context === AllocationContext.Header) return undefined;
     return items.reduce((sum, item) => sum + item.totalPrice, 0);
   }, [context, items]);
 
@@ -394,18 +395,18 @@ export function PaymentAllocationDialog({
 
   // Handle choice selection
   const handleSelectConfig = (choiceId: string) => {
-    if (context === "header") {
+    if (context === AllocationContext.Header) {
       // Transition to switch confirmation
       setPendingSelection({
         type: "config",
         configIdOrMethod: choiceId,
       });
-    } else if (context === "item") {
-      onApplyConfig(choiceId, "item");
+    } else if (context === AllocationContext.Item) {
+      onApplyConfig(choiceId, PaymentUpdateMode.Item);
       onOpenChange(false);
     } else {
       // group context
-      onApplyConfig(choiceId, "group");
+      onApplyConfig(choiceId, PaymentUpdateMode.Group);
       onOpenChange(false);
     }
   };
@@ -415,7 +416,7 @@ export function PaymentAllocationDialog({
 
   // Apply custom split logic
   const handleSaveCustomSplit = (
-    mode: "item" | "group" | "change-existing" | "new-only",
+    mode: PaymentUpdateMode | ConfigUpdateMode,
   ) => {
     if (!isValidSplit) return;
     const mappedSplits = splits.map((s) => ({
@@ -429,18 +430,18 @@ export function PaymentAllocationDialog({
   };
 
   const handleCustomSplitClick = () => {
-    if (context === "header") {
+    if (context === AllocationContext.Header) {
       setPendingSelection({
         type: "custom",
         customSplits: splits,
       });
-    } else if (context === "group") {
-      handleSaveCustomSplit("group");
+    } else if (context === AllocationContext.Group) {
+      handleSaveCustomSplit(PaymentUpdateMode.Group);
     }
   };
 
   // Header Switch choice final application
-  const handleApplyHeaderChoice = (mode: "change-existing" | "new-only") => {
+  const handleApplyHeaderChoice = (mode: ConfigUpdateMode) => {
     if (!pendingSelection) return;
     if (
       pendingSelection.type === "config" &&
@@ -464,7 +465,7 @@ export function PaymentAllocationDialog({
 
   // Render context header info
   const renderHeaderDetails = () => {
-    if (context === "item" && items[0]) {
+    if (context === AllocationContext.Item && items[0]) {
       return (
         <div className="rounded-lg border bg-muted/30 p-2.5 mb-2.5 flex items-center justify-between text-xs">
           <div>
@@ -481,7 +482,7 @@ export function PaymentAllocationDialog({
         </div>
       );
     }
-    if (context === "group") {
+    if (context === AllocationContext.Group) {
       return (
         <div className="rounded-lg border bg-muted/30 p-2.5 mb-2.5 flex items-center justify-between text-xs">
           <div>
@@ -504,14 +505,14 @@ export function PaymentAllocationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <CreditCard className="w-5 h-5 text-primary shrink-0" />
-            {context === "header"
+            {context === AllocationContext.Header
               ? "Order Default Payment Configuration"
-              : context === "group"
+              : context === AllocationContext.Group
                 ? "Allocate Payment (Bulk)"
                 : "Allocate Payment"}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {context === "header"
+            {context === AllocationContext.Header
               ? "Configure the default payment allocation for new items on the order."
               : "Set payment configuration or create custom splits for the selected item(s)."}
           </DialogDescription>
@@ -575,13 +576,13 @@ export function PaymentAllocationDialog({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => handleApplyHeaderChoice("new-only")}
+                onClick={() => handleApplyHeaderChoice(ConfigUpdateMode.NewOnly)}
               >
                 New Items Only
               </Button>
               <Button
                 size="sm"
-                onClick={() => handleApplyHeaderChoice("change-existing")}
+                onClick={() => handleApplyHeaderChoice(ConfigUpdateMode.ChangeExisting)}
                 className="gap-1"
               >
                 Apply to Affected Items
@@ -625,20 +626,20 @@ export function PaymentAllocationDialog({
               </Button>
 
               <div className="flex gap-2">
-                {context === "item" ? (
+                {context === AllocationContext.Item ? (
                   <>
                     <Button
                       variant="secondary"
                       size="sm"
                       disabled={!isValidSplit}
-                      onClick={() => handleSaveCustomSplit("item")}
+                      onClick={() => handleSaveCustomSplit(PaymentUpdateMode.Item)}
                     >
                       Apply to Item Only
                     </Button>
                     <Button
                       size="sm"
                       disabled={!isValidSplit}
-                      onClick={() => handleSaveCustomSplit("group")}
+                      onClick={() => handleSaveCustomSplit(PaymentUpdateMode.Group)}
                     >
                       Update Entire Group
                     </Button>
@@ -649,7 +650,7 @@ export function PaymentAllocationDialog({
                     disabled={!isValidSplit}
                     onClick={handleCustomSplitClick}
                   >
-                    {context === "header" ? "Continue..." : "Apply to Selected"}
+                    {context === AllocationContext.Header ? "Continue..." : "Apply to Selected"}
                   </Button>
                 )}
               </div>

@@ -70,6 +70,13 @@ export enum ConfigUpdateMode {
   NewOnly = "new-only",
 }
 
+export enum AllocationContext {
+  Item = "item",
+  Group = "group",
+  Header = "header",
+  Global = "global",
+}
+
 export interface FloorObjectBase {
   id: string;
   kind: FloorObjectKind;

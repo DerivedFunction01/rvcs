@@ -289,7 +289,7 @@ export function AllocationConfigDialog({
                 </div>
                 <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0">
                   {(payAlloc.paymentStrategy.strategyType as string) ===
-                  "percentage"
+                  PaymentStrategyType.Percentage
                     ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
                     : (payAlloc.paymentStrategy.strategyType as string) ===
                           "fixed_item" ||

@@ -184,7 +184,7 @@ export function AssignmentAllocationDialog({
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
               {guests.map((g) => {
                 const guestLabel = g.alias || `Guest ${g.number}`;
                 const isSelected = selectedIds.includes(g.id);
