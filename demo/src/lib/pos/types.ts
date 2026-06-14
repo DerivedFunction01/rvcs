@@ -130,3 +130,9 @@ export interface FloorConfig {
   name: string;
   objects: FloorObject[];
 }
+
+export enum ViewMode {
+  Simple = "simple",
+  Balanced = "balanced",
+  Full = "full",
+}

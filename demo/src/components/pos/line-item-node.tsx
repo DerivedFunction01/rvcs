@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AllocationBadges } from "./allocation-badges";
+import { ViewMode } from "@/lib/pos/types";
 
 export function LineItemNode({
   item,
@@ -50,7 +51,7 @@ export function LineItemNode({
   isCollapsed,
   onToggleCollapse,
   collapsedItems,
-  detailLevel = "balanced",
+  detailLevel = ViewMode.Simple,
   hideCanceled = false,
 }: {
   item: ProjectedLineItem;
@@ -73,7 +74,7 @@ export function LineItemNode({
   isCollapsed?: boolean;
   onToggleCollapse?: (lineId: string) => void;
   collapsedItems?: Set<string>;
-  detailLevel?: "simple" | "balanced" | "full";
+  detailLevel?: ViewMode;
   hideCanceled: boolean;
 }) {
   const isRoot = !item.parentLineId;

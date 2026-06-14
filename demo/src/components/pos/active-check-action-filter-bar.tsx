@@ -11,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ViewMode } from "@/lib/pos/types";
 import { GUEST_PALETTE } from "@/lib/pos/ui-utils";
 import { ChevronsUpDown, Clock, Layers, LayoutList, User } from "lucide-react";
 
@@ -25,8 +26,8 @@ interface ActiveCheckActionFilterBarProps {
   hideCanceled: boolean;
   setHideCanceled: (hide: boolean) => void;
   canceledCount: number;
-  detailLevel: "simple" | "balanced" | "full";
-  setDetailLevel: (level: "simple" | "balanced" | "full") => void;
+  detailLevel: ViewMode;
+  setDetailLevel: (level: ViewMode) => void;
 }
 
 export function ActiveCheckActionFilterBar({
@@ -167,7 +168,7 @@ export function ActiveCheckActionFilterBar({
             {hideCanceled && canceledCount > 0 && (
               <Badge
                 variant="destructive"
-                className="absolute -top-1 -right-1 h-3.5 min-w-[14px] flex items-center justify-center px-0.5 text-[7px] border-background"
+                className="absolute -top-1 -right-1 h-3.5 min-w-3.5 flex items-center justify-center px-0.5 text-[7px] border-background"
               >
                 {canceledCount}
               </Badge>
@@ -179,7 +180,7 @@ export function ActiveCheckActionFilterBar({
             <p className="font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1 text-[10px]">
               Item Detail Level
             </p>
-            {(["simple", "balanced", "full"] as const).map((level) => (
+            {(Object.values(ViewMode)).map((level) => (
               <button
                 key={level}
                 onClick={() => setDetailLevel(level)}

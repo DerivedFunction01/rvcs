@@ -50,6 +50,7 @@ import {
   OrderType,
   type OrderTypeConfig,
   PaymentUpdateMode,
+  ViewMode,
 } from "@/lib/pos/types";
 import {
   type Guest,
@@ -246,8 +247,8 @@ function POSTerminalInner({
     new Set(),
   );
   const [detailLevel, setDetailLevel] = React.useState<
-    "simple" | "balanced" | "full"
-    >("simple");
+    ViewMode
+    >(ViewMode.Simple);
   const [hideCanceled, setHideCanceled] = React.useState(false);
 
   const hasCollapsedItems = collapsedItems.size > 0;
