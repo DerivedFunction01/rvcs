@@ -27,7 +27,7 @@ import type {
   AllocationBlock,
   CatalogItemEntry,
 } from "@/lib/vcs/types";
-import { AllocationType } from "@/lib/vcs/types";
+import { AllocationType, CatalogItemType } from "@/lib/vcs/types";
 import {
   type Guest,
   getGuestColor,
@@ -418,7 +418,7 @@ export function LineItemNode({
               ) : null}
               {!isCanceled && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {(isRoot || catalogEntry?.type === "item") &&
+                  {(isRoot || catalogEntry?.type === CatalogItemType.Item) &&
                     filteredModifiers.length > 0 && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -440,7 +440,7 @@ export function LineItemNode({
                       </Tooltip>
                     )}
                   {(isRoot ||
-                    catalogEntry?.type === "item" ||
+                    catalogEntry?.type === CatalogItemType.Item ||
                     item.sku === "custom_note") && (
                     <Tooltip>
                       <TooltipTrigger asChild>

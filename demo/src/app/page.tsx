@@ -72,6 +72,7 @@ import {
   PaymentStrategyType,
   DeltaActionType,
   AllocationType,
+  CatalogItemType,
 } from "@/lib/vcs/types";
 import {
   GitCommitHorizontal,
@@ -499,10 +500,10 @@ function POSTerminalInner({
 
   // ─── Derived State ──────────────────────────────────────────────────────
   const catalogItems = Object.values(catalog).filter(
-    (i) => i.active && i.type === "item" && i.category !== "combo-slot",
+    (i) => i.active && i.type === CatalogItemType.Item && i.category !== "combo-slot",
   );
   const modifierItems = Object.values(catalog).filter(
-    (i) => i.active && i.type === "modifier",
+    (i) => i.active && i.type === CatalogItemType.Modifier,
   );
   const groupedCatalog = catalogItems.reduce<
     Record<string, typeof catalogItems>
@@ -630,7 +631,7 @@ function POSTerminalInner({
     const activeModifierSkus = new Set<string>();
     for (const item of selectedItems) {
       for (const child of item.children) {
-        if (catalog[child.sku]?.type === "modifier")
+        if (catalog[child.sku]?.type === CatalogItemType.Modifier)
           activeModifierSkus.add(child.sku);
       }
     }

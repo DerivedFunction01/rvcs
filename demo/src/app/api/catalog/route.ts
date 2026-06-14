@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { CatalogItemType } from "@/lib/vcs/types";
 
 // ─── GET /api/catalog ─────────────────────────────────────────────────────────
 // Returns the active product catalog. The VCS Engine caches this locally.
@@ -28,7 +29,7 @@ export async function GET() {
       name: item.name,
       basePrice: item.basePrice,
       category: item.category,
-      type: item.type as "item" | "modifier" | "discount",
+      type: item.type as CatalogItemType,
       dietaryFlags: JSON.parse(item.dietaryFlags) as string[],
       allergens: JSON.parse(item.allergens) as string[],
       brand: item.brand,
@@ -46,7 +47,7 @@ export async function GET() {
               name: opt.name,
               basePrice: opt.basePrice,
               category: opt.category,
-              type: opt.type as "item" | "modifier" | "discount",
+              type: opt.type as CatalogItemType,
               dietaryFlags: JSON.parse(opt.dietaryFlags) as string[],
               allergens: JSON.parse(opt.allergens) as string[],
               brand: opt.brand,
