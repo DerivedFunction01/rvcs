@@ -31,6 +31,7 @@ import {
   BringToFront,
   Equal,
   Pencil,
+  RotateCcw,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -307,6 +308,17 @@ export function ActiveCheckPanel(props: any) {
                 onChange={(e) => setQtyStep(e.target.value === "" ? "" : Number(e.target.value))}
                 className="w-14 h-7 text-[11px] px-2 text-center"
               />
+              {qtyStep !== 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 bg-background border shadow-sm hover:bg-accent shrink-0"
+                  onClick={() => setQtyStep(1)}
+                  title="Reset to 1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
