@@ -14,6 +14,7 @@ import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
 import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
 import { OrderInitScreen } from "@/components/pos/order-init-screen";
 import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dialog";
+import { SplitQtyDialog } from "@/components/pos/split-qty-dialog";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
@@ -50,6 +51,7 @@ import {
   OrderType,
   type OrderTypeConfig,
   PaymentUpdateMode,
+  SplitQtyType,
   ViewMode,
 } from "@/lib/pos/types";
 import {
@@ -239,6 +241,7 @@ function POSTerminalInner({
   const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] =
     React.useState(true);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
+  const [splitQtyDialogOpen, setSplitQtyDialogOpen] = React.useState(false);
   const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
   const [groupNoteOpen, setGroupNoteOpen] = React.useState(false);
@@ -250,6 +253,8 @@ function POSTerminalInner({
     ViewMode
     >(ViewMode.Simple);
   const [hideCanceled, setHideCanceled] = React.useState(false);
+
+  const [guestFilterOp, setGuestFilterOp] = React.useState<"AND" | "OR">("OR");
 
   const hasCollapsedItems = collapsedItems.size > 0;
   const handleToggleCollapse = React.useCallback((lineId: string) => {
@@ -337,15 +342,51 @@ function POSTerminalInner({
     [storeGuests],
   );
 
-  const [visibleGuests, setVisibleGuests] = React.useState<Set<string>>(
+  const [visibleAssignees, setVisibleAssignees] = React.useState<Set<string>>(
     new Set(storeGuests.map((g) => g.id)),
   );
+  const [visiblePayers, setVisiblePayers] = React.useState<Set<string>>(
+    new Set(storeGuests.map((g) => g.id)),
+  );
+  const prevGuestIds = React.useRef<Set<string>>(new Set(storeGuests.map((g) => g.id)));
+
   React.useEffect(() => {
-    setVisibleGuests((prev) => {
-      const next = new Set<string>();
-      for (const g of storeGuests) next.add(g.id);
-      return next;
+    const currentIds = new Set(storeGuests.map((g) => g.id));
+    setVisibleAssignees((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of currentIds) {
+        if (!prevGuestIds.current.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      }
+      for (const id of prev) {
+        if (!currentIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
+    setVisiblePayers((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const id of currentIds) {
+        if (!prevGuestIds.current.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      }
+      for (const id of prev) {
+        if (!currentIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    prevGuestIds.current = currentIds;
   }, [storeGuests]);
 
   const [newBranchFromHistoryName, setNewBranchFromHistoryName] =
@@ -537,20 +578,40 @@ function POSTerminalInner({
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
       if (hideCanceled && item.status === ItemStatus.Canceled) return false;
-      const assignee = getAssigneeFromItem(
-        item,
-        projectedState.allocations,
-        guests,
-      );
-      const parts = assignee.split(",").map((p) => p.trim());
-      return parts.some((p) => visibleGuests.has(p));
+
+      const rawAssignAlloc = item.allocations
+        .map((id) => projectedState.allocations[id])
+        .find((a) => a?.type === AllocationType.Assignment) as any;
+      const assigneeId = rawAssignAlloc ? rawAssignAlloc.allocationId : (guests[0]?.id || "Guest");
+
+      const rawPaymentAllocs = item.allocations
+        .map((id) => projectedState.allocations[id])
+        .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+      const payerIds = rawPaymentAllocs.length > 0
+        ? rawPaymentAllocs.map((a) => {
+            const rawPayer = a.payer;
+            const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
+            return matchedPayer ? matchedPayer.id : rawPayer;
+          })
+        : [assigneeId];
+
+      const matchesAssignee = visibleAssignees.has(assigneeId);
+      const matchesPayer = payerIds.some((id) => visiblePayers.has(id));
+
+      if (guestFilterOp === "AND") {
+        return matchesAssignee && matchesPayer;
+      } else {
+        return matchesAssignee || matchesPayer;
+      }
     });
   }, [
     rootItems,
-    visibleGuests,
+    visibleAssignees,
+    visiblePayers,
     projectedState.allocations,
     guests,
     hideCanceled,
+    guestFilterOp,
   ]);
 
   const canceledCount = React.useMemo(() => {
@@ -560,18 +621,45 @@ function POSTerminalInner({
       else item.children.forEach(countCanceled);
     };
     for (const item of rootItems) {
-      const assignee = getAssigneeFromItem(
-        item,
-        projectedState.allocations,
-        guests,
-      );
-      const parts = assignee.split(",").map((p) => p.trim());
-      if (parts.some((p) => visibleGuests.has(p))) {
+      const rawAssignAlloc = item.allocations
+        .map((id) => projectedState.allocations[id])
+        .find((a) => a?.type === AllocationType.Assignment) as any;
+      const assigneeId = rawAssignAlloc ? rawAssignAlloc.allocationId : (guests[0]?.id || "Guest");
+
+      const rawPaymentAllocs = item.allocations
+        .map((id) => projectedState.allocations[id])
+        .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+      const payerIds = rawPaymentAllocs.length > 0
+        ? rawPaymentAllocs.map((a) => {
+            const rawPayer = a.payer;
+            const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
+            return matchedPayer ? matchedPayer.id : rawPayer;
+          })
+        : [assigneeId];
+
+      const matchesAssignee = visibleAssignees.has(assigneeId);
+      const matchesPayer = payerIds.some((id) => visiblePayers.has(id));
+
+      let show = false;
+      if (guestFilterOp === "AND") {
+        show = matchesAssignee && matchesPayer;
+      } else {
+        show = matchesAssignee || matchesPayer;
+      }
+
+      if (show) {
         countCanceled(item);
       }
     }
     return count;
-  }, [rootItems, projectedState.allocations, storeGuests, visibleGuests]);
+  }, [
+    rootItems,
+    projectedState.allocations,
+    guests,
+    visibleAssignees,
+    visiblePayers,
+    guestFilterOp,
+  ]);
 
   React.useEffect(() => {
     setSelectedLineIds((prev) => {
@@ -584,7 +672,7 @@ function POSTerminalInner({
   }, [filteredRootItems]);
   React.useEffect(() => {
     setSelectedLineIds(new Set());
-  }, [visibleGuests]);
+  }, [visibleAssignees, visiblePayers]);
   const currentBranchName = activeBranch();
   React.useEffect(() => {
     setSelectedLineIds(new Set());
@@ -621,6 +709,9 @@ function POSTerminalInner({
     () => rootItems.filter((item) => selectedLineIds.has(item.lineId)),
     [rootItems, selectedLineIds],
   );
+  const maxSelectedQty = React.useMemo(() => {
+    return selectedItems.reduce((max, item) => Math.max(max, item.qty), 0);
+  }, [selectedItems]);
   const compatibleModifiers = React.useMemo(() => {
     if (selectedItems.length === 0) return [];
     let commonSkus = catalog[selectedItems[0].sku]?.allowedModifiers || [];
@@ -862,6 +953,19 @@ function POSTerminalInner({
       }
     },
     [selectedLineIds, setItemsQty],
+  );
+
+  const handleSplitQty = useCallback(
+    (type: SplitQtyType, value: number) => {
+      const newLineIds = useVCSStore.getState().splitItemsQty(
+        Array.from(selectedLineIds),
+        type,
+        value
+      );
+      setSelectedLineIds(new Set(newLineIds));
+      toast.success("Items split successfully");
+    },
+    [selectedLineIds]
   );
 
   const handleOpenGroupNoteDialog = useCallback((lineIds: string[]) => {
@@ -1186,8 +1290,10 @@ function POSTerminalInner({
               activeBranch={activeBranch()}
               isViewingHistory={isViewingHistory}
               guests={guests}
-              visibleGuests={visibleGuests}
-              setVisibleGuests={setVisibleGuests}
+            visibleAssignees={visibleAssignees}
+            setVisibleAssignees={setVisibleAssignees}
+            visiblePayers={visiblePayers}
+            setVisiblePayers={setVisiblePayers}
               toggleAllCollapsed={toggleAllCollapsed}
               hasCollapsedItems={hasCollapsedItems}
               hideCanceled={hideCanceled}
@@ -1195,6 +1301,8 @@ function POSTerminalInner({
               canceledCount={canceledCount}
               detailLevel={detailLevel}
               setDetailLevel={setDetailLevel}
+            guestFilterOp={guestFilterOp}
+            setGuestFilterOp={setGuestFilterOp}
             />
           </OrderContextBanner>
         )}
@@ -1225,8 +1333,6 @@ function POSTerminalInner({
             projectedState={projectedState}
             guests={guests}
             resolveGuestName={resolveGuestName}
-            visibleGuests={visibleGuests}
-            setVisibleGuests={setVisibleGuests}
             toggleAllCollapsed={toggleAllCollapsed}
             hasCollapsedItems={hasCollapsedItems}
             hideCanceled={hideCanceled}
@@ -1253,6 +1359,7 @@ function POSTerminalInner({
             bulkActionsBarRef={bulkActionsBarRef}
             modifyItemsQty={modifyItemsQty}
             setQtyPadOpen={setQtyPadOpen}
+            setSplitQtyDialogOpen={setSplitQtyDialogOpen}
             duplicateItems={duplicateItems}
             setDupMoveDialogOpen={setDupMoveDialogOpen}
             removeItems={removeItems}
@@ -1697,9 +1804,15 @@ function POSTerminalInner({
         title="Set Quantity"
         description="Enter the quantity to apply to all selected items."
         confirmLabel="Set Qty"
-        initialValue={null}
+        initialValue={selectedItems.length === 1 ? selectedItems[0].qty : null}
         min={1}
         onConfirm={handleSetBulkQty}
+      />
+      <SplitQtyDialog
+        open={splitQtyDialogOpen}
+        onOpenChange={setSplitQtyDialogOpen}
+        maxQty={maxSelectedQty}
+        onConfirm={handleSplitQty}
       />
       <ChoiceDialog
         open={!!swapChoiceState}

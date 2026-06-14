@@ -19,8 +19,10 @@ interface ActiveCheckActionFilterBarProps {
   activeBranch: string;
   isViewingHistory: boolean;
   guests: any[];
-  visibleGuests: Set<string>;
-  setVisibleGuests: (guests: Set<string>) => void;
+  visibleAssignees: Set<string>;
+  setVisibleAssignees: (guests: Set<string>) => void;
+  visiblePayers: Set<string>;
+  setVisiblePayers: (guests: Set<string>) => void;
   toggleAllCollapsed: () => void;
   hasCollapsedItems: boolean;
   hideCanceled: boolean;
@@ -28,14 +30,18 @@ interface ActiveCheckActionFilterBarProps {
   canceledCount: number;
   detailLevel: ViewMode;
   setDetailLevel: (level: ViewMode) => void;
+  guestFilterOp: "AND" | "OR";
+  setGuestFilterOp: (v: "AND" | "OR") => void;
 }
 
 export function ActiveCheckActionFilterBar({
   activeBranch,
   isViewingHistory,
   guests,
-  visibleGuests,
-  setVisibleGuests,
+  visibleAssignees,
+  setVisibleAssignees,
+  visiblePayers,
+  setVisiblePayers,
   toggleAllCollapsed,
   hasCollapsedItems,
   hideCanceled,
@@ -43,6 +49,8 @@ export function ActiveCheckActionFilterBar({
   canceledCount,
   detailLevel,
   setDetailLevel,
+  guestFilterOp,
+  setGuestFilterOp,
 }: ActiveCheckActionFilterBarProps) {
   return (
     <div className="flex items-center gap-2 pl-4 border-l border-primary/10">
@@ -70,49 +78,47 @@ export function ActiveCheckActionFilterBar({
           >
             <User className="w-3 h-3 text-muted-foreground" />
             <span>
-              {visibleGuests.size === guests.length
+            {(visibleAssignees.size === guests.length && visiblePayers.size === guests.length)
                 ? "All Guests"
-                : visibleGuests.size === 0
-                  ? "No Guests"
-                  : `${visibleGuests.size}/${guests.length} Guests`}
+              : "Filtered Guests"}
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-3" align="start">
+      <PopoverContent className="w-72 p-3" align="start">
           <div className="space-y-3">
+          {/* Assignees Section */}
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
-                Filter Guests
+                Assignees
               </span>
               <div className="flex gap-2">
                 <Button
                   variant="link"
                   className="h-auto p-0 text-[10px] font-semibold text-primary"
-                  onClick={() =>
-                    setVisibleGuests(new Set(guests.map((g) => g.id)))
-                  }
+                  onClick={() => setVisibleAssignees(new Set(guests.map((g) => g.id)))}
                 >
-                  Select All
+                  All
                 </Button>
                 <Button
                   variant="link"
                   className="h-auto p-0 text-[10px] font-semibold text-destructive"
-                  onClick={() => setVisibleGuests(new Set())}
+                  onClick={() => setVisibleAssignees(new Set())}
                 >
-                  Clear All
+                  Clear
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-1">
               {guests.map((g, idx) => {
-                const isVisible = visibleGuests.has(g.id);
+                const isVisible = visibleAssignees.has(g.id);
                 return (
                   <button
-                    key={g.id}
+                    key={`a-${g.id}`}
                     onClick={() =>
-                      setVisibleGuests(
+                      setVisibleAssignees(
                         (() => {
-                          const next = new Set(visibleGuests);
+                          const next = new Set(visibleAssignees);
                           if (next.has(g.id)) next.delete(g.id);
                           else next.add(g.id);
                           return next;
@@ -136,6 +142,91 @@ export function ActiveCheckActionFilterBar({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Payers Section */}
+          <div className="space-y-1.5 border-t pt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
+                Payers
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-[10px] font-semibold text-primary"
+                  onClick={() => setVisiblePayers(new Set(guests.map((g) => g.id)))}
+                >
+                  All
+                </Button>
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-[10px] font-semibold text-destructive"
+                  onClick={() => setVisiblePayers(new Set())}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-1">
+              {guests.map((g, idx) => {
+                const isVisible = visiblePayers.has(g.id);
+                return (
+                  <button
+                    key={`p-${g.id}`}
+                    onClick={() =>
+                      setVisiblePayers(
+                        (() => {
+                          const next = new Set(visiblePayers);
+                          if (next.has(g.id)) next.delete(g.id);
+                          else next.add(g.id);
+                          return next;
+                        })(),
+                      )
+                    }
+                    className={`flex items-center gap-1.5 px-2 py-1 border rounded-lg text-left text-xs transition-all ${
+                      isVisible
+                        ? "border-primary bg-primary/5 font-medium"
+                        : "border-border bg-card opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        GUEST_PALETTE[idx % GUEST_PALETTE.length]
+                      }`}
+                    />
+                    <span className="truncate flex-1">
+                      {g.alias || `Guest ${g.number}`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Join Logic */}
+          <div className="flex items-center justify-between border-t pt-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider select-none">
+              Combination
+            </span>
+            <div className="flex bg-background border rounded-md p-0.5">
+              <Button
+                variant={guestFilterOp === "OR" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-5 text-[10px] px-2 py-0"
+                onClick={() => setGuestFilterOp("OR")}
+              >
+                ANY
+              </Button>
+              <Button
+                variant={guestFilterOp === "AND" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-5 text-[10px] px-2 py-0"
+                onClick={() => setGuestFilterOp("AND")}
+              >
+                ALL (AND)
+              </Button>
+            </div>
             </div>
           </div>
         </PopoverContent>

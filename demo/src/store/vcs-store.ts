@@ -40,6 +40,7 @@ import {
   OrderType,
   PaymentUpdateMode,
   ConfigUpdateMode,
+  SplitQtyType,
 } from "@/lib/pos/types";
 import { generateAllocationId, generateLineId } from "@/lib/vcs/id";
 import { generateDraftBranchName } from "@/lib/pos/id";
@@ -356,6 +357,7 @@ interface VCSStore {
   removeItems: (lineIds: string[]) => void;
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
+  splitItemsQty: (lineIds: string[], type: SplitQtyType, value: number) => string[];
   reassignItems: (lineIds: string[], newAssigneeIdOrName: string) => void;
   groupItemsPaymentConfig: (lineIds: string[], targetId: string) => void;
   groupItemsFulfillmentConfig: (lineIds: string[], targetId: string) => void;
@@ -2349,6 +2351,58 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (deltas.length > 0) {
         store.commitDeltas(deltas, "pos-ui");
       }
+    },
+
+    splitItemsQty: (lineIds, type, value) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+      const newLineIds: string[] = [];
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item) {
+          let splitQty = 0;
+          if (type === SplitQtyType.Amount) {
+            splitQty = Math.min(item.qty, value);
+          } else {
+            splitQty = Math.max(1, Math.ceil(item.qty * (value / 100)));
+            splitQty = Math.min(item.qty, splitQty);
+          }
+
+          if (splitQty > 0) {
+            const remQty = item.qty - splitQty;
+            const cloneDeltas: Delta[] = [];
+            buildCloneDeltas(item, null, 1, cloneDeltas, { overrideRootQty: splitQty });
+            
+            if (cloneDeltas.length > 0) {
+              const addedRootDelta = cloneDeltas[0] as Extract<Delta, { action: DeltaActionType.AddItem }>;
+              newLineIds.push(addedRootDelta.lineId);
+              deltas.push(...cloneDeltas);
+            }
+
+            if (remQty <= 0) {
+              deltas.push({
+                action: DeltaActionType.RemoveItem,
+                lineId,
+                qty: item.qty,
+              });
+            } else {
+              deltas.push({
+                action: DeltaActionType.ModifyQty,
+                lineId,
+                beforeQty: item.qty,
+                afterQty: remQty,
+              });
+            }
+          }
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+      return newLineIds;
     },
 
     reassignItems: (lineIds, newAssigneeIdOrName) => {

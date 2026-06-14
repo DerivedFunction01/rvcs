@@ -25,7 +25,10 @@ import {
   ShoppingCart,
   Trash2,
   User,
+  Split,
   XCircle,
+  BringToFront,
+  Equal,
 } from "lucide-react";
 
 export function ActiveCheckPanel(props: any) {
@@ -65,6 +68,7 @@ export function ActiveCheckPanel(props: any) {
     bulkActionsBarRef,
     modifyItemsQty,
     setQtyPadOpen,
+    setSplitQtyDialogOpen,
     duplicateItems,
     setDupMoveDialogOpen,
     removeItems,
@@ -294,7 +298,7 @@ export function ActiveCheckPanel(props: any) {
                   modifyItemsQty(Array.from(selectedLineIds), -1);
                 }}
               >
-                <Minus className="w-3.5 h-3.5 mr-1" />- 1
+                <Minus className="w-3.5 h-3.5 mr-1" /> 1
               </Button>
               <Button
                 variant="ghost"
@@ -304,7 +308,7 @@ export function ActiveCheckPanel(props: any) {
                   modifyItemsQty(Array.from(selectedLineIds), 1);
                 }}
               >
-                <Plus className="w-3.5 h-3.5 mr-1" />+ 1
+                <Plus className="w-3.5 h-3.5 mr-1" /> 1
               </Button>
               <Button
                 variant="ghost"
@@ -312,7 +316,17 @@ export function ActiveCheckPanel(props: any) {
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => setQtyPadOpen(true)}
               >
+                <Equal className="w-3.5 h-3.5 mr-1" />
                 Set Qty
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                onClick={() => setSplitQtyDialogOpen(true)}
+              >
+                <Split className="w-3.5 h-3.5 mr-1" />
+                Split Qty
               </Button>
             </div>
             <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
@@ -334,7 +348,8 @@ export function ActiveCheckPanel(props: any) {
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => setDupMoveDialogOpen(true)}
               >
-                Dup & Move
+                <BringToFront className="w-3.5 h-3.5 mr-1" />
+                Duplicate & Move
               </Button>
               <Button
                 variant="destructive"

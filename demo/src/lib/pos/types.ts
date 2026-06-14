@@ -136,3 +136,8 @@ export enum ViewMode {
   Balanced = "balanced",
   Full = "full",
 }
+
+export enum SplitQtyType {
+  Amount = "amount",
+  Percentage = "percentage",
+}

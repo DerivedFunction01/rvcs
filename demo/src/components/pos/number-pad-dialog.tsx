@@ -23,6 +23,10 @@ interface NumberPadDialogProps {
   min?: number;
   max?: number;
   onConfirm: (value: number) => void;
+  placeholder?: string;
+  extraContent?: React.ReactNode;
+  resetDependency?: any;
+  icon?: React.ReactNode;
 }
 
 export function NumberPadDialog({
@@ -35,6 +39,10 @@ export function NumberPadDialog({
   min = 0,
   max = Number.MAX_SAFE_INTEGER,
   onConfirm,
+  placeholder,
+  extraContent,
+  resetDependency,
+  icon,
 }: NumberPadDialogProps) {
   const [value, setValue] = useState("");
 
@@ -48,6 +56,14 @@ export function NumberPadDialog({
       setValue(normalizedInitialValue);
     }
   }, [open, normalizedInitialValue]);
+
+  const prevResetDep = React.useRef(resetDependency);
+  React.useEffect(() => {
+    if (open && resetDependency !== prevResetDep.current) {
+      setValue("");
+      prevResetDep.current = resetDependency;
+    }
+  }, [open, resetDependency]);
 
   const parsed = value === "" ? null : Number.parseInt(value, 10);
   const clamped =
@@ -79,19 +95,20 @@ export function NumberPadDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ArrowLeft className="w-5 h-5 text-primary" />
+            {icon || <ArrowLeft className="w-5 h-5 text-primary" />}
             {title}
           </DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
         <div className="space-y-3">
+          {extraContent}
           <Input
             value={value}
             readOnly
             inputMode="numeric"
             className="h-12 text-center text-2xl font-mono tracking-wider"
-            placeholder={String(min)}
+            placeholder={placeholder ?? String(min)}
           />
 
           <div className="grid grid-cols-3 gap-2">
