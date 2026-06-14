@@ -221,6 +221,28 @@ function detectConflict(
     };
   }
 
+  // modify_qty vs modify_inline_qty on same lineId (Semantic intent warning)
+  if (
+    (deltaA.action === DeltaActionType.ModifyQty &&
+      deltaB.action === DeltaActionType.ModifyInlineQty &&
+      deltaA.lineId === deltaB.lineId) ||
+    (deltaA.action === DeltaActionType.ModifyInlineQty &&
+      deltaB.action === DeltaActionType.ModifyQty &&
+      deltaA.lineId === deltaB.lineId)
+  ) {
+    const lineId = (deltaA as { lineId: string }).lineId;
+    return {
+      id,
+      type: MergeConflictType.ModifyQtyModifyInlineQty,
+      lineId,
+      branchA,
+      branchB,
+      deltaA,
+      deltaB,
+      resolution: null,
+    };
+  }
+
   // modify_item_allocations + modify_item_allocations on same lineId
   if (
     deltaA.action === DeltaActionType.ModifyItemAllocations &&

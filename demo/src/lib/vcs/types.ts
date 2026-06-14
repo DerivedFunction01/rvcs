@@ -427,6 +427,7 @@ export enum MergeConflictType {
   ModifySkuSku = "modify_sku_sku",
   ModifyQtyQty = "modify_qty_qty",
   ModifyInlineQtyInlineQty = "modify_inline_qty_inline_qty",
+  ModifyQtyModifyInlineQty = "modify_qty_modify_inline_qty",
   AllocAlloc = "alloc_alloc",
   ModifyAllocAlloc = "modify_alloc_alloc",
 }

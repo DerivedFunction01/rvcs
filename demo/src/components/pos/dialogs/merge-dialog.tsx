@@ -108,6 +108,18 @@ function conflictLabel(c: MergeConflict): string {
       return `Allocation edited on both branches (id: ${c.allocationId?.slice(0, 8)})`;
     case MergeConflictType.ModifyAllocAlloc:
       return `Allocations changed differently (lineId: ${c.lineId?.slice(0, 8)})`;
+    case MergeConflictType.RemoveModifyQty:
+      return `Item removed vs quantity changed (lineId: ${c.lineId?.slice(0, 8)})`;
+    case MergeConflictType.RemoveModifyInlineQty:
+      return `Item removed vs inline count/measurement changed (lineId: ${c.lineId?.slice(0, 8)})`;
+    case MergeConflictType.ModifyQtyQty:
+      return `Quantity changed to different values (lineId: ${c.lineId?.slice(0, 8)})`;
+    case MergeConflictType.ModifyInlineQtyInlineQty:
+      return `Inline count/measurement changed to different values (lineId: ${c.lineId?.slice(0, 8)})`;
+    case MergeConflictType.ModifyQtyModifyInlineQty:
+      return `Semantic warning: Quantity and inline count/measurement both modified (lineId: ${c.lineId?.slice(0, 8)})`;
+    default:
+      return `Conflict detected (lineId: ${c.lineId?.slice(0, 8)})`;
   }
 }
 
@@ -123,6 +135,10 @@ function deltaDescription(delta: Delta, branch: string): string {
       return `Reallocate item`;
     case DeltaActionType.DeclareAllocation:
       return `Update allocation`;
+    case DeltaActionType.ModifyQty:
+      return `Quantity → ${delta.afterQty}`;
+    case DeltaActionType.ModifyInlineQty:
+      return `Measurement → ${delta.afterInlineQty}`;
     default:
       return delta.action;
   }
@@ -165,10 +181,29 @@ function ConflictCard({
   onChange: (id: string, resolution: string) => void;
   autoMergedState?: ProjectedState;
 }) {
-  const options = [
-    { branch: conflict.branchA, delta: conflict.deltaA },
-    { branch: conflict.branchB, delta: conflict.deltaB },
-  ];
+  const isSemanticWarning = conflict.type === MergeConflictType.ModifyQtyModifyInlineQty;
+
+  const options = [];
+
+  if (isSemanticWarning) {
+    options.push({
+      branch: "both",
+      label: "Acknowledge & Keep Both",
+      description: "Allow both count and measurement changes to compound naturally.",
+    });
+  }
+
+  options.push({
+    branch: conflict.branchA,
+    label: isSemanticWarning ? `Revert ${conflict.branchB} and Keep ${conflict.branchA}` : conflict.branchA,
+    description: deltaDescription(conflict.deltaA, conflict.branchA),
+  });
+
+  options.push({
+    branch: conflict.branchB,
+    label: isSemanticWarning ? `Revert ${conflict.branchA} and Keep ${conflict.branchB}` : conflict.branchB,
+    description: deltaDescription(conflict.deltaB, conflict.branchB),
+  });
 
   const isAutoResolved = areDeltasIdentical(
     conflict.deltaA,
@@ -215,7 +250,7 @@ function ConflictCard({
       </div>
 
       <div className="space-y-1.5">
-        {options.map(({ branch, delta }) => {
+        {options.map(({ branch, label, description }) => {
           const isSelected = conflict.resolution === branch;
           return (
             <button
@@ -243,10 +278,10 @@ function ConflictCard({
                 <span
                   className={`text-[10px] font-semibold font-mono ${isSelected ? "text-emerald-700 dark:text-emerald-300" : "text-muted-foreground"}`}
                 >
-                  {branch}
+                  {label}
                 </span>
                 <p className="text-[10px] text-foreground/80 truncate">
-                  {deltaDescription(delta, branch)}
+                  {description}
                 </p>
               </div>
             </button>
@@ -492,6 +527,23 @@ function formatDeltaDetails(
           <div>
             <span className="text-muted-foreground">After:</span>{" "}
             {delta.afterQty}
+          </div>
+        </div>
+      );
+    }
+    case DeltaActionType.ModifyInlineQty: {
+      return (
+        <div className="space-y-1 text-foreground/90">
+          <div className="font-semibold text-amber-600 dark:text-amber-400">
+            Modify Measurement
+          </div>
+          <div>
+            <span className="text-muted-foreground">Before:</span>{" "}
+            {delta.beforeInlineQty ?? 1}
+          </div>
+          <div>
+            <span className="text-muted-foreground">After:</span>{" "}
+            {delta.afterInlineQty}
           </div>
         </div>
       );
@@ -756,6 +808,18 @@ function renderIncomingChangeBadges(
       );
       break;
     }
+    case DeltaActionType.ModifyInlineQty: {
+      badges.push(
+        <Badge
+          key="inline-qty"
+          variant="secondary"
+          className="flex items-center gap-1 bg-cyan-50 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-300 border-cyan-200/60 dark:border-cyan-800/40 text-[10px] py-0.5 px-2"
+        >
+          Measurement: {delta.beforeInlineQty ?? 1} ➔ {delta.afterInlineQty}
+        </Badge>,
+      );
+      break;
+    }
     case DeltaActionType.ModifyModifierState: {
       badges.push(
         <Badge
@@ -1005,13 +1069,20 @@ function ConflictsDialog({
                       Incoming changes (accepted)
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {renderIncomingChangeBadges(
-                        activeConflict.resolution === activeConflict.branchA
-                          ? activeConflict.deltaA
-                          : activeConflict.deltaB,
-                        autoMergedState,
-                        catalog,
-                        initiatedAt,
+                      {activeConflict.resolution === "both" ? (
+                        <>
+                          {renderIncomingChangeBadges(activeConflict.deltaA, autoMergedState, catalog, initiatedAt)}
+                          {renderIncomingChangeBadges(activeConflict.deltaB, autoMergedState, catalog, initiatedAt)}
+                        </>
+                      ) : (
+                        renderIncomingChangeBadges(
+                          activeConflict.resolution === activeConflict.branchA
+                            ? activeConflict.deltaA
+                            : activeConflict.deltaB,
+                          autoMergedState,
+                          catalog,
+                          initiatedAt,
+                        )
                       )}
                     </div>
                   </div>
@@ -1941,9 +2012,29 @@ export function MergeBranchDialog({
   const handleCommit = () => {
     if (!preview) return;
     setIsCommitting(true);
-    const resolutionDeltas: Delta[] = conflicts
-      .filter((c) => c.resolution !== null)
-      .map((c) => (c.resolution === c.branchA ? c.deltaA : c.deltaB));
+    
+    const resolutionDeltas: Delta[] = [];
+    for (const c of conflicts) {
+      if (!c.resolution || c.resolution === "both") continue;
+
+      if (c.type === MergeConflictType.ModifyQtyModifyInlineQty) {
+        const revertDelta = c.resolution === c.branchA ? c.deltaB : c.deltaA;
+        if (revertDelta.action === DeltaActionType.ModifyInlineQty) {
+          resolutionDeltas.push({
+            ...revertDelta,
+            afterInlineQty: revertDelta.beforeInlineQty ?? 1,
+          } as Delta);
+        } else if (revertDelta.action === DeltaActionType.ModifyQty) {
+          resolutionDeltas.push({
+            ...revertDelta,
+            afterQty: revertDelta.beforeQty,
+          } as Delta);
+        }
+      } else {
+        resolutionDeltas.push(c.resolution === c.branchA ? c.deltaA : c.deltaB);
+      }
+    }
+
     try {
       // Squash each source branch's pending commits before merging
       if (squashBeforeMerge !== "none") {
