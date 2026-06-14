@@ -36,6 +36,7 @@ import {
   ProjectedLineItem,
   TimeBlockType,
 } from "@/lib/vcs/types";
+import { AllocationContext } from "@/lib/pos/types";
 import type { FloorConfig } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
 import { formatFulfillmentTime } from "@/lib/pos/utils";
@@ -43,7 +44,7 @@ import { formatFulfillmentTime } from "@/lib/pos/utils";
 interface FulfillmentAllocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  context: "item" | "group" | "global";
+  context: AllocationContext;
   items: ProjectedLineItem[];
   allocations: Record<string, AllocationBlock>;
   activeFulfillmentConfigId: string | null;
@@ -126,7 +127,7 @@ export function FulfillmentAllocationDialog({
 
       // Try to read active settings to prepopulate customize view
       let target: FulfillmentAllocation | null = null;
-      if (context === "global") {
+      if (context === AllocationContext.Global) {
         if (activeFulfillmentConfigId) {
           const alloc = Object.values(allocations).find(
             (a) =>
@@ -372,7 +373,7 @@ export function FulfillmentAllocationDialog({
 
   // Save changes handler
   const handleSelectConfig = (configId: string) => {
-    if (context === "global") {
+    if (context === AllocationContext.Global) {
       setPendingSelection({ type: "config", configId });
     } else {
       onApplyFulfillmentConfig({ type: "config", configId });
@@ -389,7 +390,7 @@ export function FulfillmentAllocationDialog({
       destinationId: resolvedDestination.id,
     };
 
-    if (context === "global") {
+    if (context === AllocationContext.Global) {
       setPendingSelection({ type: "custom", customConfig });
     } else {
       onApplyFulfillmentConfig({ type: "custom", customConfig }, "change-existing");
@@ -412,7 +413,7 @@ export function FulfillmentAllocationDialog({
 
   // Find affected items list for global change warning
   const affectedItems = useMemo(() => {
-    if (context !== "global" || !activeFulfillmentConfigId) return [];
+    if (context !== AllocationContext.Global || !activeFulfillmentConfigId) return [];
     
     // Find all old allocations associated with active configuration ID
     const oldAllocs = Object.values(allocations).filter(
@@ -434,14 +435,14 @@ export function FulfillmentAllocationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Clock className="w-5 h-5 text-emerald-600 shrink-0" />
-            {context === "global"
+            {context === AllocationContext.Global
               ? "Default Fulfillment Settings"
-              : context === "group"
+              : context === AllocationContext.Group
                 ? "Fulfillment (Bulk)"
                 : AllocationType.Fulfillment}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {context === "global"
+            {context === AllocationContext.Global
               ? "Set default fulfillment methods, timing, and destinations for new order items."
               : "Set fulfillment details for the selected items."}
           </DialogDescription>
@@ -688,7 +689,7 @@ export function FulfillmentAllocationDialog({
                 onClick={handleApplyCustom}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {context === "global" ? "Apply default..." : "Apply to Items"}
+                {context === AllocationContext.Global ? "Apply default..." : "Apply to Items"}
               </Button>
             </DialogFooter>
           </div>

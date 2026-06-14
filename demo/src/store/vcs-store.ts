@@ -29,6 +29,9 @@ import {
   NoteAttachmentScope,
   RepoContextType,
   CatalogItemType,
+  FilterProperty,
+  FilterOperator,
+  MutationType,
 } from "@/lib/vcs/types";
 import type { ResolvedChargeRule } from "@/lib/pos/financials";
 import { evaluateBusinessRules, type RenderedCheck } from "@/lib/pos/evaluate";
@@ -1840,7 +1843,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     groupItemAllocation: (
       lineId: string,
       targetAllocId: string,
-      allocType: "assignment",
+      allocType: AllocationType.Assignment,
     ) => {
       const store = get();
       const state = store.projectedState;
@@ -2391,7 +2394,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const deltas: Delta[] = [];
 
       const allPayAllocs = Object.values(state.allocations).filter(
-        (a): a is PaymentAllocation => a.type === "payment",
+        (a): a is PaymentAllocation => a.type === AllocationType.Payment,
       );
 
       const splitAllocs = allPayAllocs.filter(
@@ -2409,7 +2412,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           const nonPaymentAllocs = item.allocations.filter(
-            (id) => state.allocations[id]?.type !== "payment",
+            (id) => state.allocations[id]?.type !== AllocationType.Payment,
           );
           const newAllocations = [...nonPaymentAllocs, ...targetAllocIds];
 
@@ -2622,13 +2625,13 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             baseRevisionId: headHash,
             filters: [
               {
-                property: "assignee",
-                operator: "equals",
+                property: FilterProperty.Assignee,
+                operator: FilterOperator.Equals,
                 value: sourceAssignee,
               },
             ],
             templateMutation: {
-              mutationType: "batch_duplicate_and_reallocate",
+              mutationType: MutationType.BatchDuplicateAndReallocate,
               patchAllocations: [assignmentAlloc, paymentAlloc],
             },
           },
@@ -2848,13 +2851,13 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           if (initCommit) {
             for (const delta of initCommit.deltas) {
               if (delta.action === DeltaActionType.DeclareAllocation) {
-                if (delta.allocation.type === "assignment") {
+                if (delta.allocation.type === AllocationType.Assignment) {
                   defaultAssignmentAllocId = delta.allocation.allocationId;
-                } else if (delta.allocation.type === "payment") {
+                } else if (delta.allocation.type === AllocationType.Payment) {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
-                } else if (delta.allocation.type === "fulfillment") {
+                } else if (delta.allocation.type === AllocationType.Fulfillment) {
                   activeFulfillmentConfigId = delta.allocation.allocationId;
                 }
               }
@@ -2871,19 +2874,19 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             for (const delta of firstCommit.deltas) {
               if (delta.action === DeltaActionType.DeclareAllocation) {
                 if (
-                  delta.allocation.type === "assignment" &&
+                  delta.allocation.type === AllocationType.Assignment &&
                   !defaultAssignmentAllocId
                 ) {
                   defaultAssignmentAllocId = delta.allocation.allocationId;
                 } else if (
-                  delta.allocation.type === "payment" &&
+                  delta.allocation.type === AllocationType.Payment &&
                   !defaultPaymentAllocId
                 ) {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
                 } else if (
-                  delta.allocation.type === "fulfillment" &&
+                  delta.allocation.type === AllocationType.Fulfillment &&
                   !activeFulfillmentConfigId
                 ) {
                   activeFulfillmentConfigId = delta.allocation.allocationId;
@@ -2901,7 +2904,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             const lastItem = items[items.length - 1];
             const itemPayAllocs = lastItem.allocations
               .map((id) => currentProj.allocations[id])
-              .filter((a) => a?.type === "payment") as PaymentAllocation[];
+              .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
             if (itemPayAllocs.length > 0) {
               activePaymentConfigId =
                 itemPayAllocs[0].correlationId || itemPayAllocs[0].allocationId;
@@ -2910,7 +2913,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             const itemFulAllocs = lastItem.allocations
               .map((id) => currentProj.allocations[id])
               .filter(
-                (a) => a?.type === "fulfillment",
+                (a) => a?.type === AllocationType.Fulfillment,
               ) as FulfillmentAllocation[];
             if (itemFulAllocs.length > 0) {
               activeFulfillmentConfigId =

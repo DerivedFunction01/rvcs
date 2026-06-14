@@ -1,16 +1,17 @@
 import type { AllocationBlock, PaymentAllocation } from "@/lib/vcs/types";
+import { AllocationType, PaymentStrategyType } from "@/lib/vcs/types";
 
 export function getPaymentAllocDisplayName(
   alloc: AllocationBlock,
   allAllocations: Record<string, AllocationBlock>,
 ): string {
-  if (alloc.type !== "payment") return "";
+  if (alloc.type !== AllocationType.Payment) return "";
   const pay = alloc as PaymentAllocation;
 
   const siblings = pay.correlationId
     ? Object.values(allAllocations).filter(
         (a) =>
-          a.type === "payment" &&
+          a.type === AllocationType.Payment &&
           a.correlationId === pay.correlationId &&
           a.allocationId !== alloc.allocationId,
       )
@@ -18,9 +19,9 @@ export function getPaymentAllocDisplayName(
 
   const formatStrategy = (sp: PaymentAllocation) => {
     const strat = sp.paymentStrategy;
-    if (strat?.strategyType === "fixed") {
+    if (strat?.strategyType === PaymentStrategyType.Fixed) {
       return `${sp.payer} $${(strat.value ?? 0).toFixed(2)}`;
-    } else if (strat?.strategyType === "remaining") {
+    } else if (strat?.strategyType === PaymentStrategyType.Remaining) {
       return `${sp.payer} remaining`;
     } else {
       const pct = Math.round((strat?.value ?? 1) * 100);
@@ -39,7 +40,7 @@ export function getPaymentAllocDisplayName(
   }
 
   const strat = pay.paymentStrategy;
-  if (strat && strat.strategyType !== "percentage") {
+  if (strat && strat.strategyType !== PaymentStrategyType.Percentage) {
     return formatStrategy(pay);
   }
 
@@ -50,7 +51,7 @@ export function getPaymentAllocDisplayName(
 }
 
 export function getAssignmentAllocDisplayName(alloc: AllocationBlock): string {
-  if (alloc.type !== "assignment") return "";
+  if (alloc.type !== AllocationType.Assignment) return "";
   return (alloc as { entity: string }).entity || "unassigned";
 }
 

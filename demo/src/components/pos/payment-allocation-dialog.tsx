@@ -35,6 +35,7 @@ import {
   PaymentAllocation,
   PaymentStrategyType,
   ProjectedLineItem,
+  AllocationType,
 } from "@/lib/vcs/types";
 import { PaymentUpdateMode, ConfigUpdateMode, AllocationContext } from "@/lib/pos/types";
 
@@ -122,7 +123,7 @@ export function PaymentAllocationDialog({
     return Object.values(allocations)
       .filter(
         (a) =>
-          a.type === "payment" &&
+          a.type === AllocationType.Payment &&
           (a.allocationId === resolvedActiveId ||
             a.correlationId === resolvedActiveId),
       )
@@ -165,7 +166,7 @@ export function PaymentAllocationDialog({
     const seenMethods = new Set<string>();
 
     for (const alloc of Object.values(allocations)) {
-      if (alloc.type !== "payment") continue;
+      if (alloc.type !== AllocationType.Payment) continue;
       const pay = alloc as PaymentAllocation;
       if (pay.payer === selectedGuest && pay.correlationId) {
         const method = pay.method || "cash";
@@ -246,7 +247,7 @@ export function PaymentAllocationDialog({
     const seenMethods = new Set<string>();
 
     for (const alloc of Object.values(allocations)) {
-      if (alloc.type !== "payment") continue;
+      if (alloc.type !== AllocationType.Payment) continue;
       const pay = alloc as PaymentAllocation;
       if (pay.payer === activeGuestName && pay.correlationId) {
         const method = pay.method || "cash";
@@ -346,7 +347,7 @@ export function PaymentAllocationDialog({
     (configId: string) => {
       const matchedAllocs = Object.values(allocations).filter(
         (a) =>
-          a.type === "payment" &&
+          a.type === AllocationType.Payment &&
           (a.allocationId === configId || a.correlationId === configId),
       ) as PaymentAllocation[];
 

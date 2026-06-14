@@ -40,7 +40,7 @@ export function AllocationBadges({
         const alloc = allocations[id];
         if (!alloc) return null;
 
-        if (alloc.type === "assignment") {
+        if (alloc.type === AllocationType.Assignment) {
           const entity = getAssignmentAllocDisplayName(alloc);
           return (
             <Badge
@@ -53,7 +53,7 @@ export function AllocationBadges({
             </Badge>
           );
         }
-        if (alloc.type === "payment") {
+        if (alloc.type === AllocationType.Payment) {
           const payAlloc = alloc as PaymentAllocation;
           const paymentGroupId =
             payAlloc.correlationId || payAlloc.allocationId;
@@ -67,7 +67,7 @@ export function AllocationBadges({
           const siblings = payAlloc.correlationId
             ? Object.values(patchedAllocs).filter(
                 (a) =>
-                  a.type === "payment" &&
+                  a.type === AllocationType.Payment &&
                   a.correlationId === payAlloc.correlationId &&
                   a.allocationId !== payAlloc.allocationId,
               )
@@ -103,7 +103,7 @@ export function AllocationBadges({
             </Badge>
           );
         }
-        if (alloc.type === "note") {
+        if (alloc.type === AllocationType.Note) {
           const noteAlloc = alloc as NoteAllocation;
           return (
             <Badge

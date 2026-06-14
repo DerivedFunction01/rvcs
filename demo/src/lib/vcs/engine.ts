@@ -26,6 +26,9 @@ import {
   AllocationType,
   TimeBlockType,
   CatalogItemType,
+  FilterProperty,
+  FilterOperator,
+  MutationType,
 } from "./types";
 import { projectState } from "./reducer";
 import { generateCommitHash, generateLineId, generateAllocationId } from "./id";
@@ -584,13 +587,13 @@ export class VCSEngine {
           baseRevisionId: headHash,
           filters: [
             {
-              property: "assignee",
-              operator: "equals",
+              property: FilterProperty.Assignee,
+              operator: FilterOperator.Equals,
               value: params.sourceAssignee,
             },
           ],
           templateMutation: {
-            mutationType: "batch_duplicate_and_reallocate",
+            mutationType: MutationType.BatchDuplicateAndReallocate,
             patchAllocations: [assignmentAlloc, paymentAlloc],
           },
         },

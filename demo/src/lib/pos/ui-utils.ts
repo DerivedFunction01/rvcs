@@ -1,6 +1,7 @@
 import { Store, PackageCheck, Truck } from "lucide-react";
 import React from "react";
 import type { AllocationBlock, PaymentAllocation, ProjectedLineItem } from "@/lib/vcs/types";
+import { AllocationType, PaymentStrategyType } from "@/lib/vcs/types";
 
 export interface Guest {
   id: string; // Stable identifier (e.g. "__vcs_guest_1__", "__vcs_guest_2__")
@@ -50,7 +51,6 @@ export function getUniqueGuestLabel(name: string, allGuests: string[]): string {
   if (/^(guest|table|chair|seat|__vcs_guest_)\b/i.test(name)) return name;
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return name;
-
   const firstName = parts[0];
   const rest = parts.slice(1).join(" ");
 
@@ -78,13 +78,13 @@ export function getPatchedAllocations(
 ): Record<string, AllocationBlock> {
   const patched: Record<string, AllocationBlock> = {};
   for (const [id, alloc] of Object.entries(allocations)) {
-    if (alloc.type === "payment") {
+    if (alloc.type === AllocationType.Payment) {
       const p = alloc as PaymentAllocation;
       const stratType = p.paymentStrategy.strategyType as string;
-      if (stratType === "fixed_item" || stratType === "fixed_global") {
+      if (stratType === PaymentStrategyType.FixedItem || stratType === PaymentStrategyType.FixedGlobal) {
         patched[id] = {
           ...p,
-          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" },
+          paymentStrategy: { ...p.paymentStrategy, strategyType: PaymentStrategyType.Fixed },
         } as any;
         continue;
       }
@@ -102,7 +102,7 @@ export function getAssigneeFromItem(
   let assignee = "";
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
-    if (alloc?.type === "assignment") {
+    if (alloc?.type === AllocationType.Assignment) {
       assignee = (alloc as { entity: string }).entity;
       break;
     }

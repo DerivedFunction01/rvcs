@@ -27,6 +27,7 @@ import type {
   AllocationBlock,
   CatalogItemEntry,
 } from "@/lib/vcs/types";
+import { AllocationType } from "@/lib/vcs/types";
 import {
   type Guest,
   getGuestColor,
@@ -86,10 +87,10 @@ export function LineItemNode({
   const isChanged = item.status === "changed";
   const isConfirmed = item.status === "confirmed";
   const hasSplitPayment =
-    item.allocations.filter((id) => allocations[id]?.type === "payment")
+    item.allocations.filter((id) => allocations[id]?.type === AllocationType.Payment)
       .length > 1;
   const hasNonDefaultPayment = item.allocations.some(
-    (id) => allocations[id]?.type === "payment" && id !== defaultPaymentAllocId,
+    (id) => allocations[id]?.type === AllocationType.Payment && id !== defaultPaymentAllocId,
   );
 
   const catalogEntry = useVCSStore.getState().catalog[item.sku];

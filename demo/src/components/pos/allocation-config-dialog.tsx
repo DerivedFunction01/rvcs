@@ -38,6 +38,8 @@ import {
   type ProjectedLineItem,
   type AssignmentAllocation,
   AllocationType,
+  PaymentStrategyType,
+  TimeBlockType,
 } from "@/lib/vcs/types";
 import {
   getPaymentAllocDisplayName,
@@ -67,13 +69,19 @@ function getPatchedAllocations(
 ): Record<string, AllocationBlock> {
   const patched: Record<string, AllocationBlock> = {};
   for (const [id, alloc] of Object.entries(allocations)) {
-    if (alloc.type === "payment") {
+    if (alloc.type === AllocationType.Payment) {
       const p = alloc as PaymentAllocation;
       const stratType = p.paymentStrategy.strategyType as string;
-      if (stratType === "fixed_item" || stratType === "fixed_global") {
+      if (
+        stratType === PaymentStrategyType.FixedItem ||
+        stratType === PaymentStrategyType.FixedGlobal
+      ) {
         patched[id] = {
           ...p,
-          paymentStrategy: { ...p.paymentStrategy, strategyType: "fixed" },
+          paymentStrategy: {
+            ...p.paymentStrategy,
+            strategyType: PaymentStrategyType.Fixed,
+          },
         } as any;
         continue;
       }
@@ -94,6 +102,7 @@ export function AllocationConfigDialog({
   onTriggerAssignmentAllocation,
   onTriggerPaymentAllocation,
   onTriggerFulfillmentAllocation,
+  onTriggerFulfillmentAllocation: onTriggerFulfillmentAllocationProp, // unused alias to keep diff simple
   initiatedAt,
 }: AllocationConfigDialogProps) {
   // Current item's assignment info
@@ -101,7 +110,8 @@ export function AllocationConfigDialog({
     if (!item) return null;
     for (const id of item.allocations) {
       const a = allocations[id];
-      if (a?.type === "assignment") return a as AssignmentAllocation;
+      if (a?.type === AllocationType.Assignment)
+        return a as AssignmentAllocation;
     }
     return null;
   }, [item, allocations]);
@@ -114,14 +124,17 @@ export function AllocationConfigDialog({
     if (!item) return [];
     return item.allocations
       .map((id) => allocations[id])
-      .filter((a): a is PaymentAllocation => a?.type === "payment");
+      .filter(
+        (a): a is PaymentAllocation => a?.type === AllocationType.Payment,
+      );
   }, [item, allocations]);
 
   const currentFulfillment = useMemo(() => {
     if (!item) return null;
     for (const id of item.allocations) {
       const a = allocations[id];
-      if (a?.type === AllocationType.Fulfillment) return a as FulfillmentAllocation;
+      if (a?.type === AllocationType.Fulfillment)
+        return a as FulfillmentAllocation;
     }
     return null;
   }, [item, allocations]);
@@ -204,7 +217,7 @@ export function AllocationConfigDialog({
               variant="secondary"
               className="text-[10px] h-4 px-1.5 font-medium bg-emerald-50 text-emerald-600 border-none dark:bg-emerald-950/20 dark:text-emerald-400"
             >
-              {currentFulfillment?.time.type === "immediate" ||
+              {currentFulfillment?.time.type === TimeBlockType.Immediate ||
               !currentFulfillment
                 ? "Immediate"
                 : currentFulfillment.time.type.toUpperCase()}
@@ -212,7 +225,7 @@ export function AllocationConfigDialog({
           </div>
 
           {currentFulfillment &&
-            currentFulfillment.time.type !== "immediate" &&
+            currentFulfillment.time.type !== TimeBlockType.Immediate &&
             currentFulfillment.time.calculatedAt && (
               <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium px-1">
                 <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -268,7 +281,7 @@ export function AllocationConfigDialog({
                     const siblings = payAlloc.correlationId
                       ? Object.values(allocations).filter(
                           (a) =>
-                            a.type === "payment" &&
+                            a.type === AllocationType.Payment &&
                             a.correlationId === payAlloc.correlationId &&
                             a.allocationId !== payAlloc.allocationId,
                         )
@@ -292,12 +305,12 @@ export function AllocationConfigDialog({
                   PaymentStrategyType.Percentage
                     ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
                     : (payAlloc.paymentStrategy.strategyType as string) ===
-                          "fixed_item" ||
+                          PaymentStrategyType.FixedItem ||
                         (payAlloc.paymentStrategy.strategyType as string) ===
-                          "fixed"
+                          PaymentStrategyType.Fixed
                       ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
                       : (payAlloc.paymentStrategy.strategyType as string) ===
-                          "fixed_global"
+                          PaymentStrategyType.FixedGlobal
                         ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)} total`
                         : "remaining"}
                 </span>
@@ -308,7 +321,9 @@ export function AllocationConfigDialog({
           {(() => {
             if (!correlationId) return null;
             const groupAllocs = Object.values(allocations).filter(
-              (a) => a.type === "payment" && a.correlationId === correlationId,
+              (a) =>
+                a.type === AllocationType.Payment &&
+                a.correlationId === correlationId,
             );
             if (groupAllocs.length <= 1) return null;
             return (

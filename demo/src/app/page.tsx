@@ -196,9 +196,9 @@ function POSTerminalInner({
   const resolvedAllocations = React.useMemo(() => {
     const resolved: Record<string, AllocationBlock> = {};
     for (const [id, alloc] of Object.entries(projectedState.allocations)) {
-      if (alloc.type === "assignment")
+      if (alloc.type === AllocationType.Assignment)
         resolved[id] = { ...alloc, entity: resolveGuestName(alloc.entity) };
-      else if (alloc.type === "payment")
+      else if (alloc.type === AllocationType.Payment)
         resolved[id] = { ...alloc, payer: resolveGuestName(alloc.payer) };
       else resolved[id] = alloc;
     }
@@ -642,7 +642,7 @@ function POSTerminalInner({
     const singlePayers = new Map<string, PaymentAllocation>();
     const splitGroups = new Map<string, PaymentAllocation[]>();
     for (const alloc of Object.values(allocations)) {
-      if (alloc.type === "payment") {
+      if (alloc.type === AllocationType.Payment) {
         const pay = alloc as PaymentAllocation;
         const isReferenced = referencedIds.has(alloc.allocationId);
         const isActive =
@@ -695,7 +695,7 @@ function POSTerminalInner({
     const allocations = projectedState.allocations;
     const activeAlloc = Object.values(allocations).find(
       (a) =>
-        a.type === "payment" &&
+        a.type === AllocationType.Payment &&
         (a.allocationId === activePaymentConfigId ||
           a.correlationId === activePaymentConfigId),
     );
@@ -704,7 +704,7 @@ function POSTerminalInner({
       const siblings = activeAlloc.correlationId
         ? Object.values(patchedAllocs).filter(
             (a) =>
-              a.type === "payment" &&
+              a.type === AllocationType.Payment &&
               a.correlationId === activeAlloc.correlationId &&
               a.allocationId !== activeAlloc.allocationId,
           )
@@ -1398,7 +1398,7 @@ function POSTerminalInner({
                 projectedState.allocations,
               ).find(
                 (a) =>
-                  a.type === "payment" &&
+                  a.type === AllocationType.Payment &&
                   ((a as PaymentAllocation).allocationId === configIdOrMethod ||
                     (a as PaymentAllocation).correlationId ===
                       configIdOrMethod),

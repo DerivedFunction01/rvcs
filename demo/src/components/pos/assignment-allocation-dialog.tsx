@@ -18,13 +18,14 @@ import type {
   AllocationBlock,
   AssignmentAllocation,
 } from "@/lib/vcs/types";
+import { AllocationContext } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
 import { toast } from "sonner";
 
 interface AssignmentAllocationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  context: "item" | "group";
+  context: AllocationContext;
   items: ProjectedLineItem[];
   allocations: Record<string, AllocationBlock>;
   guests: Guest[];
@@ -117,18 +118,18 @@ export function AssignmentAllocationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-primary" />
-            {context === "group"
+            {context === AllocationContext.Group
               ? "Group Guest Assignment"
               : "Guest Assignment"}
           </DialogTitle>
           <DialogDescription>
-            {context === "group"
+            {context === AllocationContext.Group
               ? `Assign guests to the ${items.length} selected items.`
               : `Assign guests to ${items[0].name}.`}
           </DialogDescription>
         </DialogHeader>
 
-        {context === "item" && (
+        {context === AllocationContext.Item && (
           <div className="rounded-lg border bg-muted/30 p-3 flex items-center justify-between">
             <div>
               <div className="font-medium text-sm">{items[0].name}</div>

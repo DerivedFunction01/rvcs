@@ -14,18 +14,19 @@ import {
 } from "@/components/ui/select";
 import { Trash2, Plus, X } from "lucide-react";
 import { useVCSStore } from "@/store/vcs-store";
+import { PaymentStrategyType } from "@/lib/vcs/types";
 
 export interface PaymentSplitEntry {
   entity: string;
-  strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
+  strategyType: PaymentStrategyType;
   value: number;
   method?: string | null;
 }
 
 export function validateSplit(splits: PaymentSplitEntry[], itemTotalPrice?: number) {
-  const totalPercentage = splits.filter(s => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0);
-  const totalFixedItem = splits.filter(s => s.strategyType === "fixed_item").reduce((sum, s) => sum + s.value, 0);
-  const totalFixedGlobal = splits.filter(s => s.strategyType === "fixed_global").reduce((sum, s) => sum + s.value, 0);
+  const totalPercentage = splits.filter(s => s.strategyType === PaymentStrategyType.Percentage).reduce((sum, s) => sum + s.value, 0);
+  const totalFixedItem = splits.filter(s => s.strategyType === PaymentStrategyType.FixedItem).reduce((sum, s) => sum + s.value, 0);
+  const totalFixedGlobal = splits.filter(s => s.strategyType === PaymentStrategyType.FixedGlobal).reduce((sum, s) => sum + s.value, 0);
 
   if (splits.length < 1) return false;
   if (itemTotalPrice !== undefined) {
@@ -54,22 +55,22 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
   const [showNewGuestInput, setShowNewGuestInput] = useState(false);
 
-  const [quickAddStrategy, setQuickAddStrategy] = useState<PaymentSplitEntry["strategyType"]>("percentage");
+  const [quickAddStrategy, setQuickAddStrategy] = useState<PaymentStrategyType>(PaymentStrategyType.Percentage);
   const [quickAddMethod, setQuickAddMethod] = useState<string>("any");
   const [quickAddValue, setQuickAddValue] = useState<string>("");
 
   const totalPercentage = useMemo(
-    () => splits.filter(s => s.strategyType === "percentage").reduce((sum, s) => sum + s.value, 0),
+    () => splits.filter(s => s.strategyType === PaymentStrategyType.Percentage).reduce((sum, s) => sum + s.value, 0),
     [splits]
   );
 
   const totalFixed = useMemo(
-    () => splits.filter(s => s.strategyType === "fixed_item" || s.strategyType === "fixed_global").reduce((sum, s) => sum + s.value, 0),
+    () => splits.filter(s => s.strategyType === PaymentStrategyType.FixedItem || s.strategyType === PaymentStrategyType.FixedGlobal).reduce((sum, s) => sum + s.value, 0),
     [splits]
   );
 
   const hasRemaining = useMemo(
-    () => splits.some(s => s.strategyType === "remaining"),
+    () => splits.some(s => s.strategyType === PaymentStrategyType.Remaining),
     [splits]
   );
 
@@ -81,7 +82,7 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
     const base = Math.floor(100 / n);
     const updated = splits.map((s) => ({
       ...s,
-      strategyType: "percentage" as const,
+      strategyType: PaymentStrategyType.Percentage,
       value: base,
     }));
     const remainder = 100 - base * n;
@@ -95,10 +96,10 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
     if (splits.some((s) => s.entity.toLowerCase() === trimmed.toLowerCase())) return;
 
     let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
-    const isAutoPercent = quickAddStrategy === "percentage" && valueToUse === null;
+    const isAutoPercent = quickAddStrategy === PaymentStrategyType.Percentage && valueToUse === null;
 
     if (valueToUse === null) {
-      valueToUse = quickAddStrategy === "remaining" ? 0 : 0;
+      valueToUse = quickAddStrategy === PaymentStrategyType.Remaining ? 0 : 0;
     }
 
     const n = splits.length + 1;
@@ -109,7 +110,7 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
       method: quickAddMethod === "any" ? null : quickAddMethod 
     }];
 
-    if (isAutoPercent && newSplits.every(s => s.strategyType === "percentage")) {
+    if (isAutoPercent && newSplits.every(s => s.strategyType === PaymentStrategyType.Percentage)) {
       const base = Math.floor(100 / n);
       newSplits.forEach((s) => {
         s.value = base;
@@ -126,10 +127,10 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
     if (available.length === 0) return;
 
     let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
-    const isAutoPercent = quickAddStrategy === "percentage" && valueToUse === null;
+    const isAutoPercent = quickAddStrategy === PaymentStrategyType.Percentage && valueToUse === null;
 
     if (valueToUse === null) {
-      valueToUse = quickAddStrategy === "remaining" ? 0 : 0;
+      valueToUse = quickAddStrategy === PaymentStrategyType.Remaining ? 0 : 0;
     }
 
     const n = splits.length + available.length;
@@ -141,7 +142,7 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
     }));
 
     const newSplits = [...splits, ...addedSplits];
-    if (isAutoPercent && newSplits.every(s => s.strategyType === "percentage")) {
+    if (isAutoPercent && newSplits.every(s => s.strategyType === PaymentStrategyType.Percentage)) {
       const base = Math.floor(100 / n);
       newSplits.forEach((s) => {
         s.value = base;
@@ -157,7 +158,7 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
     (index: number) => {
       if (splits.length <= 1) return;
       const newSplits = splits.filter((_, i) => i !== index);
-      const allPercentage = newSplits.every(s => s.strategyType === "percentage");
+      const allPercentage = newSplits.every(s => s.strategyType === PaymentStrategyType.Percentage);
       if (allPercentage) {
         const base = Math.floor(100 / newSplits.length);
         newSplits.forEach((s) => {
@@ -180,12 +181,12 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
     [splits, onChange]
   );
 
-  const handleSplitTypeChange = (index: number, type: "percentage" | "fixed_item" | "fixed_global" | "remaining") => {
+  const handleSplitTypeChange = (index: number, type: PaymentStrategyType) => {
     const updated = [...splits];
     updated[index] = {
       ...updated[index],
       strategyType: type,
-      value: type === "remaining" ? 0 : type === "percentage" ? 50 : 5,
+      value: type === PaymentStrategyType.Remaining ? 0 : type === PaymentStrategyType.Percentage ? 50 : 5,
     };
     onChange(updated);
   };
@@ -212,10 +213,10 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
     if (splits.some((s) => s.entity.toLowerCase() === name.toLowerCase())) return;
     
     let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
-    const isAutoPercent = quickAddStrategy === "percentage" && valueToUse === null;
+    const isAutoPercent = quickAddStrategy === PaymentStrategyType.Percentage && valueToUse === null;
 
     if (valueToUse === null) {
-      valueToUse = quickAddStrategy === "remaining" ? 0 : 0;
+      valueToUse = quickAddStrategy === PaymentStrategyType.Remaining ? 0 : 0;
     }
 
     const n = splits.length + 1;
@@ -228,7 +229,7 @@ export function SplitEditor({ splits, onChange, itemTotalPrice }: SplitEditorPro
         method: quickAddMethod === "any" ? null : quickAddMethod 
       },
     ];
-    if (isAutoPercent && newSplits.every((s) => s.strategyType === "percentage")) {
+    if (isAutoPercent && newSplits.every((s) => s.strategyType === PaymentStrategyType.Percentage)) {
       const base = Math.floor(100 / n);
       newSplits.forEach((s) => { s.value = base; });
       const remainder = 100 - base * n;

@@ -355,10 +355,10 @@ function formatAllocationBlock(
   initiatedAt: string | undefined,
   allAllocations?: Record<string, AllocationBlock>,
 ): string {
-  if (alloc.type === "assignment") {
+  if (alloc.type === AllocationType.Assignment) {
     return `Assignee: ${alloc.entity}`;
   }
-  if (alloc.type === "payment") {
+  if (alloc.type === AllocationType.Payment) {
     const pay = alloc as PaymentAllocation;
     if (allAllocations) {
       return getPaymentAllocDisplayName(pay, allAllocations);
@@ -646,7 +646,7 @@ function renderIncomingChangeBadges(
         delta.allocations.forEach((id, idx) => {
           const block = getAllocationBlock(id, state);
           if (block) {
-            if (block.type === "assignment") {
+            if (block.type === AllocationType.Assignment) {
               badges.push(
                 <Badge
                   key={`alloc-assign-${idx}`}
@@ -657,7 +657,7 @@ function renderIncomingChangeBadges(
                   Assignee: {block.entity}
                 </Badge>,
               );
-            } else if (block.type === "payment") {
+            } else if (block.type === AllocationType.Payment) {
               const display = getPaymentAllocDisplayName(
                 block,
                 state?.allocations || {},
@@ -782,7 +782,7 @@ function renderIncomingChangeBadges(
       added.forEach((id, idx) => {
         const block = getAllocationBlock(id, state);
         if (block) {
-          if (block.type === "assignment") {
+          if (block.type === AllocationType.Assignment) {
             badges.push(
               <Badge
                 key={`add-assign-${idx}`}
@@ -793,7 +793,7 @@ function renderIncomingChangeBadges(
                 Assign: {block.entity}
               </Badge>,
             );
-          } else if (block.type === "payment") {
+          } else if (block.type === AllocationType.Payment) {
             const display = getPaymentAllocDisplayName(
               block,
               state?.allocations || {},
@@ -858,7 +858,7 @@ function renderIncomingChangeBadges(
     }
     case DeltaActionType.DeclareAllocation: {
       const block = delta.allocation;
-      if (block.type === "assignment") {
+      if (block.type === AllocationType.Assignment) {
         badges.push(
           <Badge
             key="decl-assign"
@@ -869,7 +869,7 @@ function renderIncomingChangeBadges(
             Declare Assignee: {block.entity}
           </Badge>,
         );
-      } else if (block.type === "payment") {
+      } else if (block.type === AllocationType.Payment) {
         const display = getPaymentAllocDisplayName(
           block,
           state?.allocations || {},
