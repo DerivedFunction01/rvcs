@@ -41,7 +41,12 @@ interface FloorRow {
     radiusY: number | null;
     points: string | null;
   }>;
-  links: Array<{ tableId: string; chairId: string; tableLabel?: string; chairLabel?: string }>;
+  links: Array<{
+    tableId: string;
+    chairId: string;
+    tableLabel?: string;
+    chairLabel?: string;
+  }>;
 }
 
 const DEFAULT_CONFIG = {
@@ -147,16 +152,115 @@ function defaultFloorSeed() {
       name: "Main Floor",
       sortOrder: 0,
       objects: [
-        { kind: "wall", label: "North Wall", displayName: null, shape: "rectangle", x: 4, y: 0.5, width: 8, height: 1, rotation: 0 },
-        { kind: "deadspace", label: "Entry", displayName: "Entry", shape: "rectangle", x: 0.5, y: 1.5, width: 1, height: 1, rotation: 0 },
-        { kind: "table", label: "Table 1", displayName: "Table 1", shape: "rectangle", x: 3, y: 1.5, width: 2, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 1 Chair 1", displayName: "C1", shape: "rectangle", x: 2.5, y: 2.5, width: 1, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 1 Chair 2", displayName: "C2", shape: "rectangle", x: 3.5, y: 2.5, width: 1, height: 1, rotation: 0 },
-        { kind: "table", label: "Table 2", displayName: "Table 2", shape: "circle", x: 6, y: 2, radius: 1, rotation: 0 },
-        { kind: "chair", label: "Table 2 Chair 1", displayName: "C1", shape: "rectangle", x: 5.5, y: 3.5, width: 1, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 2 Chair 2", displayName: "C2", shape: "rectangle", x: 6.5, y: 3.5, width: 1, height: 1, rotation: 0 },
-        { kind: "chair", label: "Table 2 Chair 3", displayName: "C3", shape: "rectangle", x: 6.5, y: 2.5, width: 1, height: 1, rotation: 0 },
-        { kind: "wall", label: "South Wall", displayName: null, shape: "rectangle", x: 4, y: 4.5, width: 8, height: 1, rotation: 0 },
+        {
+          kind: "wall",
+          label: "North Wall",
+          displayName: null,
+          shape: "rectangle",
+          x: 4,
+          y: 0.5,
+          width: 8,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "deadspace",
+          label: "Entry",
+          displayName: "Entry",
+          shape: "rectangle",
+          x: 0.5,
+          y: 1.5,
+          width: 1,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "table",
+          label: "Table 1",
+          displayName: "Table 1",
+          shape: "rectangle",
+          x: 3,
+          y: 1.5,
+          width: 2,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "chair",
+          label: "Table 1 Chair 1",
+          displayName: "C1",
+          shape: "rectangle",
+          x: 2.5,
+          y: 2.5,
+          width: 1,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "chair",
+          label: "Table 1 Chair 2",
+          displayName: "C2",
+          shape: "rectangle",
+          x: 3.5,
+          y: 2.5,
+          width: 1,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "table",
+          label: "Table 2",
+          displayName: "Table 2",
+          shape: "circle",
+          x: 6,
+          y: 2,
+          radius: 1,
+          rotation: 0,
+        },
+        {
+          kind: "chair",
+          label: "Table 2 Chair 1",
+          displayName: "C1",
+          shape: "rectangle",
+          x: 5.5,
+          y: 3.5,
+          width: 1,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "chair",
+          label: "Table 2 Chair 2",
+          displayName: "C2",
+          shape: "rectangle",
+          x: 6.5,
+          y: 3.5,
+          width: 1,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "chair",
+          label: "Table 2 Chair 3",
+          displayName: "C3",
+          shape: "rectangle",
+          x: 6.5,
+          y: 2.5,
+          width: 1,
+          height: 1,
+          rotation: 0,
+        },
+        {
+          kind: "wall",
+          label: "South Wall",
+          displayName: null,
+          shape: "rectangle",
+          x: 4,
+          y: 4.5,
+          width: 8,
+          height: 1,
+          rotation: 0,
+        },
       ],
       links: [
         { tableLabel: "Table 1", chairLabel: "Table 1 Chair 1" },
@@ -170,30 +274,50 @@ function defaultFloorSeed() {
 }
 
 async function ensureDefaultFloors(posConfigId: string) {
-  const prisma = db as typeof db & { floor: any; floorObject: any; tableChairLink: any };
+  const prisma = db as typeof db & {
+    floor: any;
+    floorObject: any;
+    tableChairLink: any;
+  };
   const existingFloors = await prisma.floor.findMany({
     where: { posConfigId },
     include: { objects: true },
   });
 
-  const needsReseed = existingFloors.length === 0 || existingFloors.some((f: any) => f.objects.length === 0 || f.objects.some((o: any) => !o.type || !o.name || o.rotation === undefined || o.rotation === null));
+  const needsReseed =
+    existingFloors.length === 0 ||
+    existingFloors.some(
+      (f: any) =>
+        f.objects.length === 0 ||
+        f.objects.some(
+          (o: any) =>
+            !o.type ||
+            !o.name ||
+            o.rotation === undefined ||
+            o.rotation === null,
+        ),
+    );
 
   if (!needsReseed) return;
 
   if (existingFloors.length > 0) {
     const floorIds = existingFloors.map((f: any) => f.id);
-    const objectIds = existingFloors.flatMap((f: any) => f.objects.map((o: any) => o.id));
-    
+    const objectIds = existingFloors.flatMap((f: any) =>
+      f.objects.map((o: any) => o.id),
+    );
+
     if (objectIds.length > 0) {
       await prisma.tableChairLink.deleteMany({
-        where: { OR: [ { tableId: { in: objectIds } }, { chairId: { in: objectIds } } ] }
+        where: {
+          OR: [{ tableId: { in: objectIds } }, { chairId: { in: objectIds } }],
+        },
       });
       await prisma.floorObject.deleteMany({
-        where: { floorId: { in: floorIds } }
+        where: { floorId: { in: floorIds } },
       });
     }
     await prisma.floor.deleteMany({
-      where: { id: { in: floorIds } }
+      where: { id: { in: floorIds } },
     });
   }
 
@@ -213,26 +337,31 @@ async function ensureDefaultFloors(posConfigId: string) {
           floorId: floor.id,
           type: object.kind,
           name: object.label || "Unnamed",
-          displayName: 'displayName' in object ? object.displayName : null,
-          zIndex: 'zIndex' in object ? (object as any).zIndex : null,
+          displayName: "displayName" in object ? object.displayName : null,
+          zIndex: "zIndex" in object ? (object as any).zIndex : null,
           shapeType: object.shape,
           x: object.x,
           y: object.y,
           rotation: object.rotation,
-          width: 'width' in object ? object.width : null,
-          height: 'height' in object ? object.height : null,
-          radius: 'radius' in object ? object.radius : null,
-          radiusX: 'radiusX' in object ? object.radiusX : null,
-          radiusY: 'radiusY' in object ? object.radiusY : null,
-          points: 'points' in object ? JSON.stringify(object.points) : null,
+          width: "width" in object ? object.width : null,
+          height: "height" in object ? object.height : null,
+          radius: "radius" in object ? object.radius : null,
+          radiusX: "radiusX" in object ? object.radiusX : null,
+          radiusY: "radiusY" in object ? object.radiusY : null,
+          points: "points" in object ? JSON.stringify(object.points) : null,
         },
       });
-      if (created.name) objectMap.set(created.name, { id: created.id, label: created.name });
+      if (created.name)
+        objectMap.set(created.name, { id: created.id, label: created.name });
     }
 
     for (const link of floorSeed.links) {
-      const table = link.tableLabel ? objectMap.get(link.tableLabel) : undefined;
-      const chair = link.chairLabel ? objectMap.get(link.chairLabel) : undefined;
+      const table = link.tableLabel
+        ? objectMap.get(link.tableLabel)
+        : undefined;
+      const chair = link.chairLabel
+        ? objectMap.get(link.chairLabel)
+        : undefined;
       if (!table || !chair) continue;
       await prisma.tableChairLink.create({
         data: {
@@ -244,30 +373,36 @@ async function ensureDefaultFloors(posConfigId: string) {
   }
 }
 
-async function readFloorConfigs(posConfigId: string): Promise<Array<{
-  id: string;
-  name: string;
-  objects: Array<{
+async function readFloorConfigs(posConfigId: string): Promise<
+  Array<{
     id: string;
-    kind: "table" | "chair" | "wall" | "deadspace";
-    shape?: "circle" | "ellipse" | "rectangle" | "triangle" | "polygon";
-    label?: string;
-    x: number;
-    y: number;
-    rotation: number;
-    width?: number;
-    height?: number;
-    radius?: number;
-    radiusX?: number;
-    radiusY?: number;
-    points?: Array<[number, number]>;
-    guestNames?: string[];
-    linkedChairIds?: string[];
-    chairLabels?: string[];
-    tableId?: string | null;
-  }>;
-}>> {
-  const prisma = db as typeof db & { floor: any; floorObject: any; tableChairLink: any };
+    name: string;
+    objects: Array<{
+      id: string;
+      kind: "table" | "chair" | "wall" | "deadspace";
+      shape?: "circle" | "ellipse" | "rectangle" | "triangle" | "polygon";
+      label?: string;
+      x: number;
+      y: number;
+      rotation: number;
+      width?: number;
+      height?: number;
+      radius?: number;
+      radiusX?: number;
+      radiusY?: number;
+      points?: Array<[number, number]>;
+      guestNames?: string[];
+      linkedChairIds?: string[];
+      chairLabels?: string[];
+      tableId?: string | null;
+    }>;
+  }>
+> {
+  const prisma = db as typeof db & {
+    floor: any;
+    floorObject: any;
+    tableChairLink: any;
+  };
   const floors: FloorRow[] = await prisma.floor.findMany({
     where: { posConfigId },
     orderBy: { sortOrder: "asc" },
@@ -285,15 +420,31 @@ async function readFloorConfigs(posConfigId: string): Promise<Array<{
 
   return floors.map((floor) => {
     const objects = floor.objects.map((object) => {
-      const matchingLinks = links.filter((link: { tableId: string; chairId: string }) => link.tableId === object.id);
-      const linkedChairIds = matchingLinks.map((link: { chairId: string }) => link.chairId);
-      const chairLabels = matchingLinks.map((link: { chair: { name: string | null } }) => link.chair.name || "");
-      const reverseLink = links.find((link: { chairId: string; tableId: string }) => link.chairId === object.id);
+      const matchingLinks = links.filter(
+        (link: { tableId: string; chairId: string }) =>
+          link.tableId === object.id,
+      );
+      const linkedChairIds = matchingLinks.map(
+        (link: { chairId: string }) => link.chairId,
+      );
+      const chairLabels = matchingLinks.map(
+        (link: { chair: { name: string | null } }) => link.chair.name || "",
+      );
+      const reverseLink = links.find(
+        (link: { chairId: string; tableId: string }) =>
+          link.chairId === object.id,
+      );
 
       return {
         id: object.id,
         kind: object.type as "table" | "chair" | "wall" | "deadspace",
-        shape: (object.shapeType as "circle" | "ellipse" | "rectangle" | "triangle" | "polygon") || undefined,
+        shape:
+          (object.shapeType as
+            | "circle"
+            | "ellipse"
+            | "rectangle"
+            | "triangle"
+            | "polygon") || undefined,
         label: object.name || undefined,
         displayName: object.displayName || undefined,
         zIndex: object.zIndex ?? undefined,
@@ -308,11 +459,14 @@ async function readFloorConfigs(posConfigId: string): Promise<Array<{
         points: object.points ? JSON.parse(object.points) : undefined,
         guestNames:
           object.type === "table"
-            ? chairLabels.map((label) => `Guest ${label.split(" ").pop() || "1"}`)
+            ? chairLabels.map(
+                (label) => `Guest ${label.split(" ").pop() || "1"}`,
+              )
             : undefined,
         linkedChairIds: object.type === "table" ? linkedChairIds : undefined,
         chairLabels: object.type === "table" ? chairLabels : undefined,
-        tableId: object.type === "chair" ? reverseLink?.tableId ?? null : undefined,
+        tableId:
+          object.type === "chair" ? (reverseLink?.tableId ?? null) : undefined,
       };
     });
 
@@ -347,7 +501,8 @@ export async function GET() {
 
     const parsed = JSON.parse(config.config);
     const orderTypes = (parsed.orderTypes ?? parsed) as OrderTypeConfigDto[];
-    const defaultPaymentMethod = (parsed.defaultPaymentMethod ?? "cash") as string;
+    const defaultPaymentMethod = (parsed.defaultPaymentMethod ??
+      "cash") as string;
     const floorConfigs = await readFloorConfigs(config.id);
 
     return NextResponse.json({
@@ -360,7 +515,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error("POS config fetch error:", error);
-    return NextResponse.json({ error: "Failed to fetch POS config" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch POS config" },
+      { status: 500 },
+    );
   }
 }
 
@@ -375,7 +533,10 @@ export async function POST(request: Request) {
     };
 
     if (!orderTypes || !Array.isArray(orderTypes)) {
-      return NextResponse.json({ error: "orderTypes array required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "orderTypes array required" },
+        { status: 400 },
+      );
     }
 
     const configKey = key || "default";
@@ -413,6 +574,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("POS config upsert error:", error);
-    return NextResponse.json({ error: "Failed to save POS config" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save POS config" },
+      { status: 500 },
+    );
   }
 }
