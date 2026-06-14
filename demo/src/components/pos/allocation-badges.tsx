@@ -7,11 +7,12 @@ import {
   getAssignmentAllocDisplayName,
   formatFulfillmentTime,
 } from "@/lib/pos/utils";
-import type {
-  AllocationBlock,
-  PaymentAllocation,
-  FulfillmentAllocation,
-  NoteAllocation,
+import {
+  type AllocationBlock,
+  type PaymentAllocation,
+  type FulfillmentAllocation,
+  type NoteAllocation,
+  AllocationType,
 } from "@/lib/vcs/types";
 import { type Guest, getPatchedAllocations } from "@/lib/pos/ui-utils";
 

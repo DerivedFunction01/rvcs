@@ -65,6 +65,7 @@ import {
   TimeBlockType,
   PaymentStrategyType,
   DeltaActionType,
+  AllocationType,
 } from "@/lib/vcs/types";
 import {
   GitCommitHorizontal,

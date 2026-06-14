@@ -50,7 +50,7 @@ export function getPaymentAllocDisplayName(
 }
 
 export function getAssignmentAllocDisplayName(alloc: AllocationBlock): string {
-  if (alloc.type !== AllocationType.Assignment) return "";
+  if (alloc.type !== "assignment") return "";
   return (alloc as { entity: string }).entity || "unassigned";
 }
 

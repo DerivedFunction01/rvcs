@@ -31,12 +31,13 @@ import {
   Calendar,
   Clock,
 } from "lucide-react";
-import type {
-  AllocationBlock,
-  PaymentAllocation,
-  FulfillmentAllocation,
-  ProjectedLineItem,
-  AssignmentAllocation,
+import {
+  type AllocationBlock,
+  type PaymentAllocation,
+  type FulfillmentAllocation,
+  type ProjectedLineItem,
+  type AssignmentAllocation,
+  AllocationType,
 } from "@/lib/vcs/types";
 import {
   getPaymentAllocDisplayName,

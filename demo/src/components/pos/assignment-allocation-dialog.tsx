@@ -49,7 +49,7 @@ export function AssignmentAllocationDialog({
     if (items.length === 0) return null;
     for (const id of items[0].allocations) {
       const a = allocations[id];
-      if (a?.type === AllocationType.Assignment) return a as AssignmentAllocation;
+      if (a?.type === "assignment") return a as AssignmentAllocation;
     }
     return null;
   }, [items, allocations]);
