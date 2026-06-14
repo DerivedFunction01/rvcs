@@ -4,6 +4,7 @@ import type {
   AllocationBlock,
   PaymentAllocation,
   FulfillmentAllocation,
+  AllocationType,
 } from "./types";
 
 function getAllocationBlock(
@@ -18,10 +19,10 @@ function areAllocationsFunctionallyIdentical(
   allocB: AllocationBlock,
 ): boolean {
   if (allocA.type !== allocB.type) return false;
-  if (allocA.type === "assignment") {
+  if (allocA.type === AllocationType.Assignment) {
     return allocA.entity === (allocB as any).entity;
   }
-  if (allocA.type === "payment") {
+  if (allocA.type === AllocationType.Payment) {
     const pA = allocA as PaymentAllocation;
     const pB = allocB as PaymentAllocation;
     return (
@@ -33,7 +34,7 @@ function areAllocationsFunctionallyIdentical(
       pA.timeOfPayment?.calculatedAt === pB.timeOfPayment?.calculatedAt
     );
   }
-  if (allocA.type === "fulfillment") {
+  if (allocA.type === AllocationType.Fulfillment) {
     const fA = allocA as FulfillmentAllocation;
     const fB = allocB as FulfillmentAllocation;
     return (

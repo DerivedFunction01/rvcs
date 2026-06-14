@@ -4,20 +4,34 @@
 
 // ─── Allocation System (First-Class Decoupled Contracts) ────────────────────────
 
-export type AllocationType = "assignment" | "payment" | "fulfillment" | "note";
+export enum AllocationType {
+  Assignment = "assignment",
+  Payment = "payment",
+  Fulfillment = "fulfillment",
+  Note = "note",
+}
+
+export enum TimeBlockType {
+  Immediate = "immediate",
+  Scheduled = "scheduled",
+  Deferred = "deferred",
+}
 
 export interface TimeBlock {
-  type: "immediate" | "scheduled" | "deferred";
+  type: TimeBlockType;
   calculatedAt: string | null;
 }
 
+export enum PaymentStrategyType {
+  Percentage = "percentage",
+  Fixed = "fixed",
+  Remaining = "remaining",
+  FixedItem = "fixed_item",
+  FixedGlobal = "fixed_global",
+}
+
 export interface PaymentStrategy {
-  strategyType:
-    | "percentage"
-    | "fixed"
-    | "remaining"
-    | "fixed_item"
-    | "fixed_global";
+  strategyType: PaymentStrategyType;
   value: number | null;
 }
 
@@ -30,7 +44,7 @@ export interface FulfillmentMetadata {
 export interface AssignmentAllocation {
   allocationId: string;
   correlationId?: string | null;
-  type: "assignment";
+  type: AllocationType.Assignment;
   entity: string;
   hidden?: boolean;
 }
@@ -38,7 +52,7 @@ export interface AssignmentAllocation {
 export interface PaymentAllocation {
   allocationId: string;
   correlationId?: string | null;
-  type: "payment";
+  type: AllocationType.Payment;
   payer: string;
   method: string | null;
   paymentStrategy: PaymentStrategy;
@@ -49,7 +63,7 @@ export interface PaymentAllocation {
 export interface FulfillmentAllocation {
   allocationId: string;
   correlationId?: string | null;
-  type: "fulfillment";
+  type: AllocationType.Fulfillment;
   method: string;
   time: TimeBlock;
   fulfillmentMetadata: FulfillmentMetadata;
@@ -59,7 +73,7 @@ export interface FulfillmentAllocation {
 export interface NoteAllocation {
   allocationId: string;
   correlationId?: string | null;
-  type: "note";
+  type: AllocationType.Note;
   text: string;
   attachedTo?: "order" | null;
   hidden?: boolean;
@@ -233,6 +247,13 @@ export interface VCSCommit {
   deltas: Delta[];
 }
 
+export enum ItemStatus {
+  Pending = "pending",
+  Confirmed = "confirmed",
+  Canceled = "canceled",
+  Changed = "changed",
+}
+
 // ─── Projected State (Computed, Never Stored) ─────────────────────────────────
 
 export interface ProjectedLineItem {
@@ -247,7 +268,7 @@ export interface ProjectedLineItem {
   allocations: string[]; // Referenced allocation IDs
   children: ProjectedLineItem[];
   selectedModifierState?: string;
-  status: "pending" | "confirmed" | "canceled" | "changed";
+  status: ItemStatus;
 }
 
 export interface PersonBreakdown {

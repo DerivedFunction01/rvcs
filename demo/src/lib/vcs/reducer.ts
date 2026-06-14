@@ -20,6 +20,9 @@ import {
   BatchModifySku,
   DeltaActionType,
   PaymentAllocation,
+  PaymentStrategyType,
+  AllocationType,
+  ItemStatus,
 } from "./types";
 import { deriveCloneId, generateAllocationId } from "./id";
 
@@ -111,7 +114,7 @@ function resolveFilterValue(
       // Check assignment allocations linked to this item
       for (const allocId of item.allocations) {
         const alloc = allocations[allocId];
-        if (alloc && alloc.type === "assignment") {
+        if (alloc && alloc.type === AllocationType.Assignment) {
           return (alloc as { entity: string }).entity;
         }
       }
@@ -120,7 +123,7 @@ function resolveFilterValue(
     case "payer": {
       for (const allocId of item.allocations) {
         const alloc = allocations[allocId];
-        if (alloc && alloc.type === "payment") {
+        if (alloc && alloc.type === AllocationType.Payment) {
           return (alloc as { payer: string }).payer;
         }
       }
@@ -129,7 +132,7 @@ function resolveFilterValue(
     case "fulfillment_method": {
       for (const allocId of item.allocations) {
         const alloc = allocations[allocId];
-        if (alloc && alloc.type === "fulfillment") {
+        if (alloc && alloc.type === AllocationType.Fulfillment) {
           return (alloc as { method: string }).method;
         }
       }
@@ -711,15 +714,15 @@ function buildProjectedState(
   const roots: ProjectedLineItem[] = [];
 
   for (const item of Object.values(items)) {
-    let status: "pending" | "confirmed" | "canceled" | "changed" = "pending";
+    let status: ItemStatus = ItemStatus.Pending;
     if (item.qty === 0 && item.canceledQty > 0) {
-      status = "canceled";
+      status = ItemStatus.Canceled;
     } else if (!item.isConfirmed) {
-      status = "pending";
+      status = ItemStatus.Pending;
     } else if (item.hasPendingChanges) {
-      status = "changed";
+      status = ItemStatus.Changed;
     } else {
-      status = "confirmed";
+      status = ItemStatus.Confirmed;
     }
 
     itemMap[item.lineId] = {
@@ -807,9 +810,9 @@ function buildProjectedState(
   // Initialize personMap with ALL unique assignees and payers present in allocations
   const people = new Set<string>();
   for (const alloc of Object.values(allocations)) {
-    if (alloc.type === "assignment" && alloc.entity) {
+    if (alloc.type === AllocationType.Assignment && alloc.entity) {
       people.add(alloc.entity);
-    } else if (alloc.type === "payment" && alloc.payer) {
+    } else if (alloc.type === AllocationType.Payment && alloc.payer) {
       people.add(alloc.payer);
     }
   }
@@ -824,9 +827,9 @@ function buildProjectedState(
 
   const globalFixedBalances = new Map<string, number>();
   for (const alloc of Object.values(allocations)) {
-    if (alloc.type === "payment") {
+    if (alloc.type === AllocationType.Payment) {
       const payAlloc = alloc as PaymentAllocation;
-      if (payAlloc.paymentStrategy?.strategyType === "fixed_global") {
+      if (payAlloc.paymentStrategy?.strategyType === PaymentStrategyType.FixedGlobal) {
         globalFixedBalances.set(
           alloc.allocationId,
           payAlloc.paymentStrategy.value ?? 0,
@@ -847,7 +850,7 @@ function buildProjectedState(
 
     const paymentAllocs = root.allocations
       .map((id) => allocations[id])
-      .filter((a): a is PaymentAllocation => a?.type === "payment");
+      .filter((a): a is PaymentAllocation => a?.type === AllocationType.Payment);
 
     if (paymentAllocs.length === 0) {
       // No payment allocations: assignee pays the full amount
@@ -870,8 +873,8 @@ function buildProjectedState(
       // 1. Fixed payment strategies (item)
       const fixedItemAllocs = paymentAllocs.filter(
         (a) =>
-          a.paymentStrategy?.strategyType === "fixed_item" ||
-          a.paymentStrategy?.strategyType === "fixed",
+          a.paymentStrategy?.strategyType === PaymentStrategyType.FixedItem ||
+          a.paymentStrategy?.strategyType === PaymentStrategyType.Fixed,
       );
       for (const alloc of fixedItemAllocs) {
         const val = alloc.paymentStrategy.value ?? 0;
@@ -882,7 +885,7 @@ function buildProjectedState(
 
       // 1.5 Fixed payment strategies (global)
       const fixedGlobalAllocs = paymentAllocs.filter(
-        (a) => a.paymentStrategy?.strategyType === "fixed_global",
+        (a) => a.paymentStrategy?.strategyType === PaymentStrategyType.FixedGlobal,
       );
       for (const alloc of fixedGlobalAllocs) {
         const balance = globalFixedBalances.get(alloc.allocationId) ?? 0;
@@ -898,7 +901,7 @@ function buildProjectedState(
 
       // 2. Percentage payment strategies
       const pctAllocs = paymentAllocs.filter(
-        (a) => a.paymentStrategy?.strategyType === "percentage",
+        (a) => a.paymentStrategy?.strategyType === PaymentStrategyType.Percentage,
       );
       for (const alloc of pctAllocs) {
         const val = alloc.paymentStrategy.value ?? 1.0;
@@ -912,7 +915,7 @@ function buildProjectedState(
 
       // 3. Remaining payment strategies
       const remAllocs = paymentAllocs.filter(
-        (a) => a.paymentStrategy?.strategyType === "remaining",
+        (a) => a.paymentStrategy?.strategyType === PaymentStrategyType.Remaining,
       );
       if (remAllocs.length > 0) {
         const share = remaining / remAllocs.length;
@@ -997,7 +1000,7 @@ function scaleTreeQuantities(item: ProjectedLineItem): void {
     child.totalPrice = child.basePrice * child.qty;
 
     if (child.qty === 0 && child.canceledQty > 0) {
-      child.status = "canceled";
+      child.status = ItemStatus.Canceled;
     }
 
     scaleTreeQuantities(child);
@@ -1010,7 +1013,7 @@ function getAssignee(
 ): string | null {
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
-    if (alloc && alloc.type === "assignment") {
+    if (alloc && alloc.type === AllocationType.Assignment) {
       return (alloc as { entity: string }).entity;
     }
   }
@@ -1023,7 +1026,7 @@ function getPaymentMethod(
 ): string | null {
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
-    if (alloc && alloc.type === "payment") {
+    if (alloc && alloc.type === AllocationType.Payment) {
       return (alloc as { method: string | null }).method;
     }
   }

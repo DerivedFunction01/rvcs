@@ -29,10 +29,12 @@ import {
   HelpCircle,
   ArrowRight,
 } from "lucide-react";
-import type {
+import {
   AllocationBlock,
+  AllocationType,
   FulfillmentAllocation,
   ProjectedLineItem,
+  TimeBlockType,
 } from "@/lib/vcs/types";
 import type { FloorConfig } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
@@ -54,7 +56,7 @@ interface FulfillmentAllocationDialogProps {
       configId?: string;
       customConfig?: {
         method: string;
-        timeType: "immediate" | "scheduled" | "deferred";
+        timeType: TimeBlockType;
         calculatedAt: string | null;
         destinationLabel: string;
         destinationId: string | null;
@@ -94,7 +96,7 @@ export function FulfillmentAllocationDialog({
 
   // Custom configuration states
   const [method, setMethod] = useState<string>("walk-in");
-  const [timeType, setTimeType] = useState<"immediate" | "scheduled" | "deferred">("immediate");
+  const [timeType, setTimeType] = useState<TimeBlockType>(TimeBlockType.Immediate);
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
   
   const [destType, setDestType] = useState<"table" | "guest" | "custom">("guest");
@@ -108,7 +110,7 @@ export function FulfillmentAllocationDialog({
     configId?: string;
     customConfig?: {
       method: string;
-      timeType: "immediate" | "scheduled" | "deferred";
+      timeType: TimeBlockType;
       calculatedAt: string | null;
       destinationLabel: string;
       destinationId: string | null;
@@ -128,7 +130,7 @@ export function FulfillmentAllocationDialog({
         if (activeFulfillmentConfigId) {
           const alloc = Object.values(allocations).find(
             (a) =>
-              a.type === "fulfillment" &&
+              a.type === AllocationType.Fulfillment &&
               (a.allocationId === activeFulfillmentConfigId ||
                 a.correlationId === activeFulfillmentConfigId),
           );
@@ -137,7 +139,7 @@ export function FulfillmentAllocationDialog({
       } else if (items.length > 0) {
         for (const id of items[0].allocations) {
           const alloc = allocations[id];
-          if (alloc?.type === "fulfillment") {
+          if (alloc?.type === AllocationType.Fulfillment) {
             target = alloc as FulfillmentAllocation;
             break;
           }
@@ -163,7 +165,7 @@ export function FulfillmentAllocationDialog({
         }
       } else {
         setMethod("walk-in");
-        setTimeType("immediate");
+        setTimeType(TimeBlockType.Immediate);
         setCalculatedAt(null);
         setDestType("guest");
         setSelectedGuestId(guests[0]?.id || null);
@@ -252,7 +254,7 @@ export function FulfillmentAllocationDialog({
     const seen = new Set<string>();
 
     for (const alloc of Object.values(allocations)) {
-      if (alloc.type === "fulfillment") {
+      if (alloc.type === AllocationType.Fulfillment) {
         const f = alloc as FulfillmentAllocation;
         const isDefault = f.correlationId?.startsWith("group-default-");
         if (isDefault) continue;
@@ -314,7 +316,7 @@ export function FulfillmentAllocationDialog({
     if (!activeFulfillmentConfigId) return null;
     const alloc = Object.values(allocations).find(
       (a) =>
-        a.type === "fulfillment" &&
+        a.type === AllocationType.Fulfillment &&
         (a.allocationId === activeFulfillmentConfigId ||
           a.correlationId === activeFulfillmentConfigId),
     ) as FulfillmentAllocation | undefined;
@@ -415,7 +417,7 @@ export function FulfillmentAllocationDialog({
     // Find all old allocations associated with active configuration ID
     const oldAllocs = Object.values(allocations).filter(
       (a) =>
-        a.type === "fulfillment" &&
+        a.type === AllocationType.Fulfillment &&
         (a.allocationId === activeFulfillmentConfigId ||
           a.correlationId === activeFulfillmentConfigId),
     );
@@ -436,7 +438,7 @@ export function FulfillmentAllocationDialog({
               ? "Default Fulfillment Settings"
               : context === "group"
                 ? "Fulfillment (Bulk)"
-                : "Fulfillment"}
+                : AllocationType.Fulfillment}
           </DialogTitle>
           <DialogDescription className="text-xs">
             {context === "global"

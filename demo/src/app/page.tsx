@@ -54,12 +54,17 @@ import {
 import { OrderContextBanner } from "@/components/pos/order-context-banner";
 import type { FloorConfig, OrderTypeConfig } from "@/lib/pos/types";
 import { generateAllocationId } from "@/lib/vcs/id";
-import type {
-  ProjectedLineItem,
-  Delta,
-  AllocationBlock,
-  PaymentAllocation,
-  FulfillmentAllocation,
+import {
+  type ProjectedLineItem,
+  type Delta,
+  type AllocationBlock,
+  type PaymentAllocation,
+  type FulfillmentAllocation,
+  BranchType,
+  SquashType,
+  TimeBlockType,
+  PaymentStrategyType,
+  DeltaActionType,
 } from "@/lib/vcs/types";
 import {
   GitCommitHorizontal,
@@ -284,13 +289,13 @@ function POSTerminalInner({
   const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
 
   const handleConfirmHistoryOp = React.useCallback(
-    (squashType?: "light" | "full") => {
+    (squashType?: SquashType) => {
       if (!historyOpDialog) return;
       try {
         if (historyOpDialog.type === "squash") {
           squashPendingCommits(
             historyOpDialog.targetHash,
-            squashType || "light",
+            squashType || SquashType.Light,
           );
           toast.success(
             squashType === "full"
@@ -350,7 +355,7 @@ function POSTerminalInner({
   const [isMergeOpen, setIsMergeOpen] = React.useState(false);
 
   const handleSaveBranchConfig = useCallback(
-    (newName: string, type: "parallel" | "hypothetical", label: string) => {
+    (newName: string, type: BranchType, label: string) => {
       if (!branchToConfig) return;
       try {
         if (newName !== branchToConfig) {
@@ -717,7 +722,7 @@ function POSTerminalInner({
     if (!activeId) return "On Confirmation";
     const alloc = Object.values(projectedState.allocations).find(
       (a) =>
-        a.type === "fulfillment" &&
+        a.type === AllocationType.Fulfillment &&
         (a.allocationId === activeId || a.correlationId === activeId),
     ) as FulfillmentAllocation | undefined;
     if (alloc) {
@@ -792,7 +797,7 @@ function POSTerminalInner({
   const handleUpdateFulfillment = useCallback(
     (
       lineId: string,
-      timeType: "immediate" | "scheduled" | "deferred",
+      timeType: TimeBlockType,
       calculatedAt: string | null,
     ) => {
       updateFulfillmentAllocation(lineId, timeType, calculatedAt);
@@ -809,11 +814,7 @@ function POSTerminalInner({
       lineId: string,
       splits: Array<{
         entity: string;
-        strategyType:
-          | "percentage"
-          | "fixed_item"
-          | "fixed_global"
-          | "remaining";
+        strategyType: PaymentStrategyType;
         value: number;
         method?: string | null;
       }>,
@@ -1458,7 +1459,7 @@ function POSTerminalInner({
                 projectedState.allocations,
               ).filter(
                 (a): a is FulfillmentAllocation =>
-                  a.type === "fulfillment" &&
+                  a.type === AllocationType.Fulfillment &&
                   (a.allocationId === selection.configId ||
                     a.correlationId === selection.configId),
               );
@@ -1469,12 +1470,12 @@ function POSTerminalInner({
                 if (item) {
                   const nonFulAllocs = item.allocations.filter(
                     (id) =>
-                      projectedState.allocations[id]?.type !== "fulfillment",
+                      projectedState.allocations[id]?.type !== AllocationType.Fulfillment,
                   );
                   useVCSStore.getState().commitDeltas(
                     [
                       {
-                        action: "modify_item_allocations",
+                        action: DeltaActionType.ModifyItemAllocations,
                         lineId: item.lineId,
                         beforeAllocations: item.allocations,
                         afterAllocations: [...nonFulAllocs, ...targetAllocIds],
@@ -1503,7 +1504,7 @@ function POSTerminalInner({
                 projectedState.allocations,
               ).filter(
                 (a): a is FulfillmentAllocation =>
-                  a.type === "fulfillment" &&
+                  a.type === AllocationType.Fulfillment &&
                   (a.allocationId === selection.configId ||
                     a.correlationId === selection.configId),
               );
@@ -1518,10 +1519,10 @@ function POSTerminalInner({
                   if (item) {
                     const nonFulAllocs = item.allocations.filter(
                       (id) =>
-                        projectedState.allocations[id]?.type !== "fulfillment",
+                        projectedState.allocations[id]?.type !== AllocationType.Fulfillment,
                     );
                     deltas.push({
-                      action: "modify_item_allocations",
+                      action: DeltaActionType.ModifyItemAllocations,
                       lineId,
                       beforeAllocations: item.allocations,
                       afterAllocations: [...nonFulAllocs, ...targetAllocIds],
@@ -1536,10 +1537,10 @@ function POSTerminalInner({
               }
             } else if (selection.type === "custom" && selection.customConfig) {
               const c = selection.customConfig;
-              const newFulId = generateAllocationId("fulfillment");
+              const newFulId = generateAllocationId(AllocationType.Fulfillment);
               const newFulAlloc: FulfillmentAllocation = {
                 allocationId: newFulId,
-                type: "fulfillment",
+                type: AllocationType.Fulfillment,
                 method: c.method,
                 time: {
                   type: c.timeType,
@@ -1554,17 +1555,17 @@ function POSTerminalInner({
                 (i) => i.lineId,
               );
               const deltas: Delta[] = [
-                { action: "declare_allocation", allocation: newFulAlloc },
+                { action: DeltaActionType.DeclareAllocation, allocation: newFulAlloc },
               ];
               for (const lineId of targetItemIds) {
                 const item = projectedState.items[lineId];
                 if (item) {
                   const nonFulAllocs = item.allocations.filter(
                     (id) =>
-                      projectedState.allocations[id]?.type !== "fulfillment",
+                      projectedState.allocations[id]?.type !== AllocationType.Fulfillment,
                   );
                   deltas.push({
-                    action: "modify_item_allocations",
+                    action: DeltaActionType.ModifyItemAllocations,
                     lineId,
                     beforeAllocations: item.allocations,
                     afterAllocations: [...nonFulAllocs, newFulId],
@@ -1592,7 +1593,7 @@ function POSTerminalInner({
               const newFulAlloc: FulfillmentAllocation = {
                 allocationId: newFulId,
                 correlationId,
-                type: "fulfillment",
+                type: AllocationType.Fulfillment,
                 method: c.method,
                 time: {
                   type: c.timeType,
@@ -1604,7 +1605,7 @@ function POSTerminalInner({
                 },
               };
               const deltas: Delta[] = [
-                { action: "declare_allocation", allocation: newFulAlloc },
+                { action: DeltaActionType.DeclareAllocation, allocation: newFulAlloc },
               ];
               useVCSStore.getState().commitDeltas(deltas, "pos-ui");
               selectFulfillmentConfig(
@@ -1766,8 +1767,8 @@ function POSTerminalInner({
         branchName={branchToConfig || ""}
         currentType={
           branchToConfig
-            ? branches[branchToConfig]?.type || "parallel"
-            : "parallel"
+            ? branches[branchToConfig]?.type || BranchType.Parallel
+            : BranchType.Parallel
         }
         currentLabel={
           branchToConfig ? branches[branchToConfig]?.label || "" : ""

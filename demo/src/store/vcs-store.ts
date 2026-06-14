@@ -17,8 +17,9 @@ import type {
   AllocationBlock,
   ProjectedLineItem,
   MergePreview,
+  PaymentStrategy,
 } from "@/lib/vcs/types";
-import { BranchType, SquashType, DeltaActionType } from "@/lib/vcs/types";
+import { BranchType, SquashType, DeltaActionType, PaymentStrategyType, AllocationType, TimeBlockType, ItemStatus } from "@/lib/vcs/types";
 import type { ResolvedChargeRule } from "@/lib/pos/financials";
 import { evaluateBusinessRules, type RenderedCheck } from "@/lib/pos/evaluate";
 import type { OrderContext } from "@/lib/pos/types";
@@ -83,7 +84,7 @@ function buildCloneDeltas(
   });
 
   for (const child of projItem.children) {
-    if (child.status !== "canceled") {
+    if (child.status !== ItemStatus.Canceled) {
       buildCloneDeltas(child, newLineId, projItem.qty, deltas);
     }
   }
@@ -219,7 +220,7 @@ interface VCSStore {
   createTableSplitConfig: (
     splits: Array<{
       entity: string;
-      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
+      strategyType: PaymentStrategyType;
       value: number;
       method?: string | null;
     }>,
@@ -236,7 +237,7 @@ interface VCSStore {
     lineId: string,
     splits: Array<{
       entity: string;
-      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
+      strategyType: PaymentStrategyType;
       value: number; // decimal for percentage (e.g. 0.6), absolute value for fixed, 0 for remaining
       method?: string | null;
     }>,
@@ -253,7 +254,7 @@ interface VCSStore {
    */
   updateFulfillmentAllocation: (
     lineId: string,
-    timeType: "immediate" | "scheduled" | "deferred",
+    timeType: TimeBlockType,
     calculatedAt: string | null,
     customMethod?: string,
     customDestLabel?: string,
@@ -292,7 +293,7 @@ interface VCSStore {
   groupItemAllocation: (
     lineId: string,
     targetAllocId: string,
-    allocType: "assignment",
+    allocType: AllocationType.Assignment,
   ) => void;
 
   /**
@@ -454,7 +455,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         projectedState: evaluateBusinessRules(store.engine.projectCurrent(), rules, store.catalog),
       });
     },
-    
+
     loadIconConfigs: (configs) => {
       const map: Record<string, IconConfig> = {};
       for (const c of configs) {
@@ -479,7 +480,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       const assignmentAlloc: AssignmentAllocation = {
         allocationId: assignAllocId,
-        type: "assignment",
+        type: AllocationType.Assignment,
         entity: customerName,
       };
 
@@ -501,12 +502,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const paymentAlloc: PaymentAllocation = {
           allocationId: payAllocId,
           correlationId,
-          type: "payment",
+          type: AllocationType.Payment,
           payer: customerName,
           method: m,
-          paymentStrategy: { strategyType: "percentage", value: 1.0 },
+          paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
           timeOfPayment: {
-            type: "immediate",
+            type: TimeBlockType.Immediate,
             calculatedAt: new Date().toISOString(),
           },
         };
@@ -539,10 +540,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const defaultFulfillment: FulfillmentAllocation = {
           allocationId: fulAllocId,
           correlationId,
-          type: "fulfillment",
+          type: AllocationType.Fulfillment,
           method,
           time: {
-            type: "immediate",
+            type: TimeBlockType.Immediate,
             calculatedAt: null,
           },
           fulfillmentMetadata: {
@@ -664,7 +665,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = get().projectedState;
       const guestsList: Array<{ id: string; name: string }> = [];
       for (const alloc of Object.values(state.allocations)) {
-        if (alloc.type === "assignment" && !alloc.hidden) {
+        if (alloc.type === AllocationType.Assignment && !alloc.hidden) {
           guestsList.push({ id: alloc.allocationId, name: alloc.entity });
         }
       }
@@ -676,7 +677,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const allocId = generateAllocationId("guest");
       const assignmentAlloc: AssignmentAllocation = {
         allocationId: allocId,
-        type: "assignment",
+        type: AllocationType.Assignment,
         entity: name,
       };
       const paymentMethods = ["cash", "visa", "mastercard", "amex"];
@@ -688,12 +689,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const paymentAlloc: PaymentAllocation = {
           allocationId: payAllocId,
           correlationId,
-          type: "payment",
+          type: AllocationType.Payment,
           payer: name,
           method: m,
-          paymentStrategy: { strategyType: "percentage", value: 1.0 },
+          paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
           timeOfPayment: {
-            type: "immediate",
+            type: TimeBlockType.Immediate,
             calculatedAt: new Date().toISOString(),
           },
         };
@@ -707,7 +708,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     updateGuest: (id: string, name: string) => {
       const store = get();
       const alloc = store.projectedState.allocations[id];
-      if (alloc && alloc.type === "assignment") {
+      if (alloc && alloc.type === AllocationType.Assignment) {
         const updatedAlloc: AssignmentAllocation = {
           ...alloc,
           entity: name,
@@ -721,7 +722,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     hideGuest: (id: string) => {
       const store = get();
       const alloc = store.projectedState.allocations[id];
-      if (alloc && alloc.type === "assignment") {
+      if (alloc && alloc.type === AllocationType.Assignment) {
         const updatedAlloc: AssignmentAllocation = { ...alloc, hidden: true };
         store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: updatedAlloc }]);
         set({ projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog) });
@@ -741,12 +742,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const state = store.projectedState;
       let guestName = guestIdOrName;
-      
+
       const alloc = state.allocations[guestIdOrName];
-      if (alloc && alloc.type === "assignment") {
+      if (alloc && alloc.type === AllocationType.Assignment) {
         guestName = alloc.entity;
       }
-      
+
       // Sanitize guest name to a safe prefix (lowercase, alphanumeric + dash)
       const sanitized =
         guestName
@@ -768,12 +769,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const paymentAlloc: PaymentAllocation = {
           allocationId: payAllocId,
           correlationId,
-          type: "payment",
+          type: AllocationType.Payment,
           payer: guestName,
           method: m,
-          paymentStrategy: { strategyType: "percentage", value: 1.0 },
+          paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
           timeOfPayment: {
-            type: "immediate",
+            type: TimeBlockType.Immediate,
             calculatedAt: new Date().toISOString(),
           },
         };
@@ -804,14 +805,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       if (assigneeIdOrName) {
         const targetAlloc = state.allocations[assigneeIdOrName];
-        if (targetAlloc && targetAlloc.type === "assignment") {
+        if (targetAlloc && targetAlloc.type === AllocationType.Assignment) {
           assignId = assigneeIdOrName;
         } else {
           const defaultName = store.orderContext?.customerFields.name || "Guest";
           if (assigneeIdOrName !== defaultName) {
             const existingByName = Object.values(state.allocations).find(
               (a) =>
-                a.type === "assignment" &&
+                a.type === AllocationType.Assignment &&
                 (a as AssignmentAllocation).entity === assigneeIdOrName,
             );
             if (existingByName) {
@@ -820,7 +821,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               const newAssignId = generateAllocationId("assign");
               const newAssignAlloc: AssignmentAllocation = {
                 allocationId: newAssignId,
-                type: "assignment",
+                type: AllocationType.Assignment,
                 entity: assigneeIdOrName,
               };
               store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
@@ -833,7 +834,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // Find all allocations that match the activePaymentConfigId (either allocationId or correlationId)
       const payAllocs = Object.values(state.allocations).filter(
         (a): a is PaymentAllocation =>
-          a.type === "payment" &&
+          a.type === AllocationType.Payment &&
           (a.allocationId === configId ||
             (a.correlationId !== null && a.correlationId === configId)),
       );
@@ -844,7 +845,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let activeFulfillmentId = store.activeFulfillmentConfigId;
       if (!activeFulfillmentId) {
         const fallbackFul = Object.values(state.allocations).find(
-          (a) => a.type === "fulfillment",
+          (a) => a.type === AllocationType.Fulfillment,
         );
         if (fallbackFul) {
           activeFulfillmentId = fallbackFul.allocationId;
@@ -854,7 +855,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (activeFulfillmentId) {
         const fulAllocs = Object.values(state.allocations).filter(
           (a): a is FulfillmentAllocation =>
-            a.type === "fulfillment" &&
+            a.type === AllocationType.Fulfillment &&
             (a.allocationId === activeFulfillmentId ||
               (a.correlationId !== null &&
                 a.correlationId === activeFulfillmentId)),
@@ -929,11 +930,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     addGroupNote: (lineIds, text) => {
       const store = get();
       const noteId = `note-${generateAllocationId()}`;
-      
+
       store.engine.commitSystem([
         {
           action: DeltaActionType.DeclareAllocation,
-          allocation: { allocationId: noteId, type: "note", text: text.trim() },
+          allocation: { allocationId: noteId, type: AllocationType.Note, text: text.trim() },
         },
       ], "pos-ui");
 
@@ -1004,7 +1005,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     attachNoteToOrder: (noteId, attached) => {
       const store = get();
       const currentAlloc = store.projectedState.allocations[noteId];
-      if (!currentAlloc || currentAlloc.type !== "note") return;
+      if (!currentAlloc || currentAlloc.type !== AllocationType.Note) return;
 
       const updatedAlloc = {
         ...currentAlloc,
@@ -1065,7 +1066,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // Get allocations of the old config
       const oldPayAllocs = Object.values(state.allocations).filter(
         (a): a is PaymentAllocation =>
-          a.type === "payment" &&
+          a.type === AllocationType.Payment &&
           (a.allocationId === currentConfigId ||
             (a.correlationId !== null && a.correlationId === currentConfigId)),
       );
@@ -1074,7 +1075,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // Get allocations of the new config
       const newPayAllocs = Object.values(state.allocations).filter(
         (a): a is PaymentAllocation =>
-          a.type === "payment" &&
+          a.type === AllocationType.Payment &&
           (a.allocationId === newConfigId ||
             (a.correlationId !== null && a.correlationId === newConfigId)),
       );
@@ -1127,7 +1128,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       if (!currentConfigId) {
         const fallbackFul = Object.values(state.allocations).find(
-          (a) => a.type === "fulfillment",
+          (a) => a.type === AllocationType.Fulfillment,
         );
         if (fallbackFul) {
           currentConfigId = fallbackFul.allocationId;
@@ -1138,7 +1139,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         // Get allocations of the old config
         const oldFulAllocs = Object.values(state.allocations).filter(
           (a): a is FulfillmentAllocation =>
-            a.type === "fulfillment" &&
+            a.type === AllocationType.Fulfillment &&
             (a.allocationId === currentConfigId ||
               (a.correlationId !== null &&
                 a.correlationId === currentConfigId)),
@@ -1148,7 +1149,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         // Get allocations of the new config
         const newFulAllocs = Object.values(state.allocations).filter(
           (a): a is FulfillmentAllocation =>
-            a.type === "fulfillment" &&
+            a.type === AllocationType.Fulfillment &&
             (a.allocationId === newConfigId ||
               (a.correlationId !== null && a.correlationId === newConfigId)),
         );
@@ -1187,11 +1188,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     createTableSplitConfig: (
       splits: Array<{
         entity: string;
-        strategyType:
-          | "percentage"
-          | "fixed_item"
-          | "fixed_global"
-          | "remaining";
+        strategyType: PaymentStrategyType;
         value: number;
         method?: string | null;
       }>,
@@ -1204,20 +1201,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const resolvedSplits = splits.map(s => {
         let entityName = s.entity;
         const alloc = state.allocations[s.entity];
-        if (alloc && alloc.type === "assignment") {
+        if (alloc && alloc.type === AllocationType.Assignment) {
           entityName = alloc.entity;
         }
         return { ...s, entity: entityName };
       });
 
       // Check if we need to auto-add a remaining allocator
-      const hasRemaining = resolvedSplits.some((s) => s.strategyType === "remaining");
+      const hasRemaining = resolvedSplits.some((s) => s.strategyType === PaymentStrategyType.Remaining);
       const totalPct = resolvedSplits
-        .filter((s) => s.strategyType === "percentage")
+        .filter((s) => s.strategyType === PaymentStrategyType.Percentage)
         .reduce((sum, s) => sum + s.value, 0);
       const hasFixed = resolvedSplits.some(
         (s) =>
-          s.strategyType === "fixed_item" || s.strategyType === "fixed_global",
+          s.strategyType === PaymentStrategyType.FixedItem || s.strategyType === PaymentStrategyType.FixedGlobal,
       );
 
       const finalSplits = [...resolvedSplits];
@@ -1230,7 +1227,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
         finalSplits.push({
           entity: remEntity,
-          strategyType: "remaining",
+          strategyType: PaymentStrategyType.Remaining,
           value: 0,
         });
       }
@@ -1240,21 +1237,21 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           finalSplits.map((s) => ({
             entity: s.entity,
             percentage:
-              s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
+              s.strategyType === PaymentStrategyType.Percentage ? Math.round(s.value * 100) : 0,
           })),
         ) + `-${Date.now().toString().slice(-4)}`;
 
       const newPayAllocs: PaymentAllocation[] = finalSplits.map((split) => ({
         allocationId: generateAllocationId("split-pay"),
-        type: "payment" as const,
+        type: AllocationType.Payment,
         payer: split.entity,
         method: split.method || method,
         paymentStrategy: {
-          strategyType: split.strategyType as any,
-          value: split.strategyType === "remaining" ? null : split.value,
+          strategyType: split.strategyType,
+          value: split.strategyType === PaymentStrategyType.Remaining ? null : split.value,
         },
         timeOfPayment: {
-          type: "immediate" as const,
+          type: TimeBlockType.Immediate,
           calculatedAt: new Date().toISOString(),
         },
         correlationId,
@@ -1278,10 +1275,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       splits: Array<{
         entity: string;
         strategyType:
-          | "percentage"
-          | "fixed_item"
-          | "fixed_global"
-          | "remaining";
+        PaymentStrategyType;
         value: number;
         method?: string | null;
       }>,
@@ -1297,20 +1291,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const resolvedSplits = splits.map(s => {
         let entityName = s.entity;
         const alloc = state.allocations[s.entity];
-        if (alloc && alloc.type === "assignment") {
+        if (alloc && alloc.type === AllocationType.Assignment) {
           entityName = alloc.entity;
         }
         return { ...s, entity: entityName };
       });
 
       // Check if we need to auto-add a remaining allocator
-      const hasRemaining = resolvedSplits.some((s) => s.strategyType === "remaining");
+      const hasRemaining = resolvedSplits.some((s) => s.strategyType === PaymentStrategyType.Remaining);
       const totalPct = resolvedSplits
-        .filter((s) => s.strategyType === "percentage")
+        .filter((s) => s.strategyType === PaymentStrategyType.Percentage)
         .reduce((sum, s) => sum + s.value, 0);
       const hasFixed = resolvedSplits.some(
         (s) =>
-          s.strategyType === "fixed_item" || s.strategyType === "fixed_global",
+          s.strategyType === PaymentStrategyType.FixedItem || s.strategyType === PaymentStrategyType.FixedGlobal,
       );
 
       const finalSplits = [...resolvedSplits];
@@ -1323,7 +1317,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
         finalSplits.push({
           entity: remEntity,
-          strategyType: "remaining",
+          strategyType: PaymentStrategyType.Remaining,
           value: 0,
         });
       }
@@ -1331,7 +1325,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // Check if this item is already on a custom split correlation ID (to edit the group ID in place)
       const currentPayAllocs = item.allocations
         .map((id) => state.allocations[id])
-        .filter((a) => a?.type === "payment") as PaymentAllocation[];
+        .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
 
       const existingCorrelationId = currentPayAllocs.find(
         (a) => a.correlationId && !a.correlationId.startsWith("group-default-"),
@@ -1342,22 +1336,22 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           finalSplits.map((s) => ({
             entity: s.entity,
             percentage:
-              s.strategyType === "percentage" ? Math.round(s.value * 100) : 0,
+              s.strategyType === PaymentStrategyType.Percentage ? Math.round(s.value * 100) : 0,
           })),
         ) + `-${Date.now().toString().slice(-4)}`;
 
       // Create new payment allocations
       const newPayAllocs: PaymentAllocation[] = finalSplits.map((split) => ({
         allocationId: generateAllocationId("split-pay"),
-        type: "payment" as const,
+        type: AllocationType.Payment,
         payer: split.entity,
         method: split.method || null,
         paymentStrategy: {
-          strategyType: split.strategyType as any,
-          value: split.strategyType === "remaining" ? null : split.value,
+          strategyType: split.strategyType,
+          value: split.strategyType === PaymentStrategyType.Remaining ? null : split.value,
         },
         timeOfPayment: {
-          type: "immediate" as const,
+          type: TimeBlockType.Immediate,
           calculatedAt: new Date().toISOString(),
         },
         correlationId,
@@ -1366,20 +1360,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // Find all payment allocation IDs in the old group
       const oldPayIds = existingCorrelationId
         ? Object.values(state.allocations)
-            .filter(
-              (a): a is PaymentAllocation =>
-                a.type === "payment" &&
-                a.correlationId === existingCorrelationId,
-            )
-            .map((a) => a.allocationId)
+          .filter(
+            (a): a is PaymentAllocation =>
+              a.type === AllocationType.Payment &&
+              a.correlationId === existingCorrelationId,
+          )
+          .map((a) => a.allocationId)
         : currentPayAllocs.map((a) => a.allocationId);
 
       // Find items to update based on the mode
       const itemsToUpdate =
         mode === "group"
           ? Object.values(state.items).filter((i) =>
-              i.allocations.some((id) => oldPayIds.includes(id)),
-            )
+            i.allocations.some((id) => oldPayIds.includes(id)),
+          )
           : [item];
 
       store.engine.commitSystem(
@@ -1428,9 +1422,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let targetAssignId = newAssigneeIdOrName;
       const targetAlloc = state.allocations[newAssigneeIdOrName];
 
-      if (!targetAlloc || targetAlloc.type !== "assignment") {
+      if (!targetAlloc || targetAlloc.type !== AllocationType.Assignment) {
         const existingByName = Object.values(state.allocations).find(
-          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === newAssigneeIdOrName
+          (a) => a.type === AllocationType.Assignment && (a as AssignmentAllocation).entity === newAssigneeIdOrName
         );
         if (existingByName) {
           targetAssignId = existingByName.allocationId;
@@ -1438,7 +1432,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           targetAssignId = generateAllocationId("assign");
           const newAssignAlloc: AssignmentAllocation = {
             allocationId: targetAssignId,
-            type: "assignment",
+            type: AllocationType.Assignment,
             entity: newAssigneeIdOrName,
           };
           store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
@@ -1447,7 +1441,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Find current assignment alloc
       const currentAssignAllocId = item.allocations.find(
-        (id) => state.allocations[id]?.type === "assignment",
+        (id) => state.allocations[id]?.type === AllocationType.Assignment,
       );
 
       const newAllocations = item.allocations.map((id) =>
@@ -1469,7 +1463,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     updateFulfillmentAllocation: (
       lineId: string,
-      timeType: "immediate" | "scheduled" | "deferred",
+      timeType: TimeBlockType,
       calculatedAt: string | null,
       customMethod?: string,
       customDestLabel?: string,
@@ -1491,14 +1485,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Find current fulfillment alloc
       const currentFulAllocId = item.allocations.find(
-        (id) => state.allocations[id]?.type === "fulfillment",
+        (id) => state.allocations[id]?.type === AllocationType.Fulfillment,
       );
 
       // Create new fulfillment allocation
-      const newFulAllocId = generateAllocationId("fulfillment");
+      const newFulAllocId = generateAllocationId(AllocationType.Fulfillment);
       const newFulAlloc: FulfillmentAllocation = {
         allocationId: newFulAllocId,
-        type: "fulfillment",
+        type: AllocationType.Fulfillment,
         method,
         time: {
           type: timeType,
@@ -1548,7 +1542,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       let payer = payerIdOrName;
       const targetAlloc = state.allocations[payerIdOrName];
-      if (targetAlloc && targetAlloc.type === "assignment") {
+      if (targetAlloc && targetAlloc.type === AllocationType.Assignment) {
         payer = targetAlloc.entity;
       }
 
@@ -1556,12 +1550,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const newPayAllocId = generateAllocationId("item-pay");
       const newPaymentAlloc: PaymentAllocation = {
         allocationId: newPayAllocId,
-        type: "payment",
+        type: AllocationType.Payment,
         payer,
         method: newMethod,
-        paymentStrategy: { strategyType: "percentage", value: 1.0 },
+        paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
         timeOfPayment: {
-          type: "immediate",
+          type: TimeBlockType.Immediate,
           calculatedAt: new Date().toISOString(),
         },
       };
@@ -1569,26 +1563,26 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // Find old payment group
       const currentPayAllocs = item.allocations
         .map((id) => state.allocations[id])
-        .filter((a) => a?.type === "payment") as PaymentAllocation[];
+        .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
 
       const existingCorrelationId = currentPayAllocs.find(
         (a) => a.correlationId,
       )?.correlationId;
       const oldPayIds = existingCorrelationId
         ? Object.values(state.allocations)
-            .filter(
-              (a): a is PaymentAllocation =>
-                a.type === "payment" &&
-                a.correlationId === existingCorrelationId,
-            )
-            .map((a) => a.allocationId)
+          .filter(
+            (a): a is PaymentAllocation =>
+              a.type === AllocationType.Payment &&
+              a.correlationId === existingCorrelationId,
+          )
+          .map((a) => a.allocationId)
         : currentPayAllocs.map((a) => a.allocationId);
 
       const itemsToUpdate =
         mode === "group"
           ? Object.values(state.items).filter((i) =>
-              i.allocations.some((id) => oldPayIds.includes(id)),
-            )
+            i.allocations.some((id) => oldPayIds.includes(id)),
+          )
           : [item];
 
       store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newPaymentAlloc }], "pos-ui");
@@ -1619,7 +1613,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Remove all payment allocations and replace with default
       const nonPaymentAllocs = item.allocations.filter(
-        (id) => state.allocations[id]?.type !== "payment",
+        (id) => state.allocations[id]?.type !== AllocationType.Payment,
       );
 
       const newAllocations = [...nonPaymentAllocs, defaultPayId];
@@ -1701,7 +1695,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Find all payment allocations in the projected state
       const allPayAllocs = Object.values(state.allocations).filter(
-        (a): a is PaymentAllocation => a.type === "payment",
+        (a): a is PaymentAllocation => a.type === AllocationType.Payment,
       );
 
       // Check if targetId matches any correlationId
@@ -1718,7 +1712,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       // Filter out current payment allocations from this item
       const nonPaymentAllocs = item.allocations.filter(
-        (id) => state.allocations[id]?.type !== "payment",
+        (id) => state.allocations[id]?.type !== AllocationType.Payment,
       );
 
       // Append target payment allocation IDs
@@ -1923,7 +1917,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (item && item.status === "confirmed" && afterQty > beforeQty) {
         const change = afterQty - beforeQty;
         const deltas: Delta[] = [];
-        
+
         buildCloneDeltas(item, null, 1, deltas, { overrideRootQty: change });
         store.commitDeltas(deltas, "pos-ui");
       } else {
@@ -1976,9 +1970,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let targetAssignId = targetGuestIdOrName;
       const targetAlloc = state.allocations[targetGuestIdOrName];
 
-      if (!targetAlloc || targetAlloc.type !== "assignment") {
+      if (!targetAlloc || targetAlloc.type !== AllocationType.Assignment) {
         const existingByName = Object.values(state.allocations).find(
-          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === targetGuestIdOrName
+          (a) => a.type === AllocationType.Assignment && (a as AssignmentAllocation).entity === targetGuestIdOrName
         );
         if (existingByName) {
           targetAssignId = existingByName.allocationId;
@@ -1986,7 +1980,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           targetAssignId = generateAllocationId("assign");
           const newAssignAlloc: AssignmentAllocation = {
             allocationId: targetAssignId,
-            type: "assignment",
+            type: AllocationType.Assignment,
             entity: targetGuestIdOrName,
           };
           store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
@@ -1997,7 +1991,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           const currentAssignAllocId = item.allocations.find(
-            (id) => state.allocations[id]?.type === "assignment",
+            (id) => state.allocations[id]?.type === AllocationType.Assignment,
           );
           const rootAllocations = currentAssignAllocId
             ? item.allocations.map((id) => (id === currentAssignAllocId ? targetAssignId : id))
@@ -2111,9 +2105,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let targetAssignId = newAssigneeIdOrName;
       const targetAlloc = state.allocations[newAssigneeIdOrName];
 
-      if (!targetAlloc || targetAlloc.type !== "assignment") {
+      if (!targetAlloc || targetAlloc.type !== AllocationType.Assignment) {
         const existingByName = Object.values(state.allocations).find(
-          (a) => a.type === "assignment" && (a as AssignmentAllocation).entity === newAssigneeIdOrName
+          (a) => a.type === AllocationType.Assignment && (a as AssignmentAllocation).entity === newAssigneeIdOrName
         );
         if (existingByName) {
           targetAssignId = existingByName.allocationId;
@@ -2121,7 +2115,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           targetAssignId = generateAllocationId("assign");
           const newAssignAlloc: AssignmentAllocation = {
             allocationId: targetAssignId,
-            type: "assignment",
+            type: AllocationType.Assignment,
             entity: newAssigneeIdOrName,
           };
           store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newAssignAlloc }], "pos-ui");
@@ -2132,7 +2126,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           const currentAssignAllocId = item.allocations.find(
-            (id) => state.allocations[id]?.type === "assignment",
+            (id) => state.allocations[id]?.type === AllocationType.Assignment,
           );
 
           const newAllocations = item.allocations.map((id) =>
@@ -2204,7 +2198,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const deltas: Delta[] = [];
 
       const allFulAllocs = Object.values(state.allocations).filter(
-        (a): a is FulfillmentAllocation => a.type === "fulfillment",
+        (a): a is FulfillmentAllocation => a.type === AllocationType.Fulfillment,
       );
 
       const matchedAllocs = allFulAllocs.filter(
@@ -2222,7 +2216,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           const nonFulfillmentAllocs = item.allocations.filter(
-            (id) => state.allocations[id]?.type !== "fulfillment",
+            (id) => state.allocations[id]?.type !== AllocationType.Fulfillment,
           );
           const newAllocations = [...nonFulfillmentAllocs, ...targetAllocIds];
 
@@ -2338,31 +2332,31 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let targetPayer = targetPayerIdOrName;
 
       const sourceAlloc = state.allocations[sourceAssigneeIdOrName];
-      if (sourceAlloc && sourceAlloc.type === "assignment") sourceAssignee = sourceAlloc.entity;
+      if (sourceAlloc && sourceAlloc.type === AllocationType.Assignment) sourceAssignee = sourceAlloc.entity;
 
       const targetAlloc = state.allocations[targetAssigneeIdOrName];
-      if (targetAlloc && targetAlloc.type === "assignment") targetAssignee = targetAlloc.entity;
+      if (targetAlloc && targetAlloc.type === AllocationType.Assignment) targetAssignee = targetAlloc.entity;
 
       const payerAlloc = state.allocations[targetPayerIdOrName];
-      if (payerAlloc && payerAlloc.type === "assignment") targetPayer = payerAlloc.entity;
+      if (payerAlloc && payerAlloc.type === AllocationType.Assignment) targetPayer = payerAlloc.entity;
 
       const assignAllocId = generateAllocationId("assign");
       const payAllocId = generateAllocationId("pay");
 
       const assignmentAlloc: AssignmentAllocation = {
         allocationId: assignAllocId,
-        type: "assignment",
+        type: AllocationType.Assignment,
         entity: targetAssignee,
       };
 
       const paymentAlloc: PaymentAllocation = {
         allocationId: payAllocId,
-        type: "payment",
+        type: AllocationType.Payment,
         payer: targetPayer,
         method: paymentMethod,
-        paymentStrategy: { strategyType: "percentage", value: 1.0 },
+        paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
         timeOfPayment: {
-          type: "immediate",
+          type: TimeBlockType.Immediate,
           calculatedAt: new Date().toISOString(),
         },
       };
@@ -2566,7 +2560,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
-                } else if (delta.allocation.type === "fulfillment") {
+                } else if (delta.allocation.type === AllocationType.Fulfillment) {
                   activeFulfillmentConfigId = delta.allocation.allocationId;
                 }
               }
@@ -2595,7 +2589,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
                 } else if (
-                  delta.allocation.type === "fulfillment" &&
+                  delta.allocation.type === AllocationType.Fulfillment &&
                   !activeFulfillmentConfigId
                 ) {
                   activeFulfillmentConfigId = delta.allocation.allocationId;
@@ -2622,7 +2616,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             const itemFulAllocs = lastItem.allocations
               .map((id) => currentProj.allocations[id])
               .filter(
-                (a) => a?.type === "fulfillment",
+                (a) => a?.type === AllocationType.Fulfillment,
               ) as FulfillmentAllocation[];
             if (itemFulAllocs.length > 0) {
               activeFulfillmentConfigId =

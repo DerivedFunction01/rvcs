@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Lock, ChevronsUpDown, Eraser } from "lucide-react";
 import { SQUASH_DESCRIPTIONS } from "@/lib/pos/utils";
+import { SquashType } from "@/lib/vcs/types";
 
 export function HistoryOpDialog({
   open,
@@ -13,13 +14,13 @@ export function HistoryOpDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   operation: { type: "squash" | "reset"; targetHash: string; label: string; description: string } | null;
-  onConfirm: (squashType?: "light" | "full") => void;
+  onConfirm: (squashType?: SquashType) => void;
 }) {
-  const [squashType, setSquashType] = useState<"light" | "full">("light");
+  const [squashType, setSquashType] = useState<SquashType>(SquashType.Light);
 
   useEffect(() => {
     if (open) {
-      setSquashType("light");
+      setSquashType(SquashType.Light);
     }
   }, [open]);
 
@@ -44,9 +45,9 @@ export function HistoryOpDialog({
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setSquashType("light")}
+                onClick={() => setSquashType(SquashType.Light)}
                 className={`p-3 rounded-lg border text-left text-xs transition-all space-y-1.5 ${
-                  squashType === "light"
+                  squashType === SquashType.Light
                     ? "border-sky-500 bg-sky-500/5 font-medium shadow-sm"
                     : "border-border bg-card opacity-70 hover:opacity-100"
                 }`}
@@ -59,9 +60,9 @@ export function HistoryOpDialog({
 
               <button
                 type="button"
-                onClick={() => setSquashType("full")}
+                onClick={() => setSquashType(SquashType.Full)}
                 className={`p-3 rounded-lg border text-left text-xs transition-all space-y-1.5 ${
-                  squashType === "full"
+                  squashType === SquashType.Full
                     ? "border-sky-500 bg-sky-500/5 font-medium shadow-sm"
                     : "border-border bg-card opacity-70 hover:opacity-100"
                 }`}
@@ -89,7 +90,7 @@ export function HistoryOpDialog({
             onClick={() => onConfirm(operation?.type === "squash" ? squashType : undefined)}
           >
             {operation?.type === "squash"
-              ? squashType === "light"
+              ? squashType === SquashType.Light
                 ? `Apply ${SQUASH_DESCRIPTIONS.light.label}`
                 : `Apply ${SQUASH_DESCRIPTIONS.full.label}`
               : "Reset Branch"}

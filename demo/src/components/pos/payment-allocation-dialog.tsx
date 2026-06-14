@@ -30,9 +30,10 @@ import {
 } from "lucide-react";
 import { SplitEditor, PaymentSplitEntry, validateSplit } from "./split-editor";
 import { useVCSStore } from "@/store/vcs-store";
-import type {
+import {
   AllocationBlock,
   PaymentAllocation,
+  PaymentStrategyType,
   ProjectedLineItem,
 } from "@/lib/vcs/types";
 
@@ -57,7 +58,7 @@ interface PaymentAllocationDialogProps {
   onApplyCustomSplit: (
     splits: Array<{
       entity: string;
-      strategyType: "percentage" | "fixed_item" | "fixed_global" | "remaining";
+      strategyType: PaymentStrategyType;
       value: number;
       method?: string | null;
     }>,
@@ -352,23 +353,12 @@ export function PaymentAllocationDialog({
         const loadedSplits: PaymentSplitEntry[] = matchedAllocs.map((a) => {
           const strat = a.paymentStrategy;
           let strategyType:
-            | "percentage"
-            | "fixed_item"
-            | "fixed_global"
-            | "remaining" = "percentage";
-          const rawType = strat.strategyType as string;
-          if (rawType === "fixed" || rawType === "fixed_item") {
-            strategyType = "fixed_item";
-          } else if (rawType === "fixed_global") {
-            strategyType = "fixed_global";
-          } else if (rawType === "remaining") {
-            strategyType = "remaining";
-          } else if (rawType === "percentage") {
-            strategyType = "percentage";
-          }
-
+            PaymentStrategyType = PaymentStrategyType.Percentage
+          const rawType = strat.strategyType;
+          if (rawType === PaymentStrategyType.Fixed)
+            strategyType = PaymentStrategyType.FixedItem;
           const val =
-            strategyType === "percentage"
+            strategyType === PaymentStrategyType.Percentage
               ? (strat.value ?? 1) * 100
               : (strat.value ?? 0);
           return {
@@ -391,7 +381,7 @@ export function PaymentAllocationDialog({
       setSplits([
         {
           entity: guests[0],
-          strategyType: "percentage",
+          strategyType: PaymentStrategyType.Percentage,
           value: 100,
           method: null,
         },
@@ -431,7 +421,7 @@ export function PaymentAllocationDialog({
     const mappedSplits = splits.map((s) => ({
       entity: s.entity,
       strategyType: s.strategyType,
-      value: s.strategyType === "percentage" ? s.value / 100 : s.value,
+      value: s.strategyType === PaymentStrategyType.Percentage ? s.value / 100 : s.value,
       method: s.method,
     }));
     onApplyCustomSplit(mappedSplits, mode);
@@ -464,7 +454,7 @@ export function PaymentAllocationDialog({
       const mappedSplits = pendingSelection.customSplits.map((s) => ({
         entity: s.entity,
         strategyType: s.strategyType,
-        value: s.strategyType === "percentage" ? s.value / 100 : s.value,
+        value: s.strategyType === PaymentStrategyType.Percentage ? s.value / 100 : s.value,
         method: s.method,
       }));
       onApplyCustomSplit(mappedSplits, mode);
@@ -693,11 +683,10 @@ export function PaymentAllocationDialog({
                     <button
                       key={choice.id}
                       onClick={() => handleSelectConfig(choice.id)}
-                      className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
-                        isActive
+                      className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${isActive
                           ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                           : "bg-card"
-                      }`}
+                        }`}
                     >
                       <div className="flex w-full items-start justify-between gap-1.5">
                         <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
@@ -767,7 +756,7 @@ export function PaymentAllocationDialog({
 
             <div className="min-h-[220px] max-h-[45vh] overflow-y-auto pr-1">
               {filteredSavedSplits.length === 0 &&
-              filteredSavedSingles.length === 0 ? (
+                filteredSavedSingles.length === 0 ? (
                 <div className="py-12 text-center text-xs text-muted-foreground">
                   No saved configurations. Create a custom split above.
                 </div>
@@ -785,11 +774,10 @@ export function PaymentAllocationDialog({
                             <div
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${
-                                isActive
+                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
                                 <div className="flex w-full items-start justify-between gap-2">
@@ -855,11 +843,10 @@ export function PaymentAllocationDialog({
                             <div
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${
-                                isActive
+                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
                                 <div className="flex w-full items-start justify-between gap-2">
@@ -951,8 +938,8 @@ export function PaymentAllocationDialog({
 
             <div className="min-h-[220px] max-h-[45vh] overflow-y-auto pr-1">
               {filteredPrimaryDefaults.length === 0 &&
-              filteredActiveGuestMethods.length === 0 &&
-              filteredOtherGuests.length === 0 ? (
+                filteredActiveGuestMethods.length === 0 &&
+                filteredOtherGuests.length === 0 ? (
                 <div className="py-12 text-center text-xs text-muted-foreground">
                   No matching payment methods or guests found.
                 </div>
@@ -974,11 +961,10 @@ export function PaymentAllocationDialog({
                             <button
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
-                                isActive
+                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex w-full items-start justify-between gap-1.5">
                                 <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
@@ -1011,11 +997,10 @@ export function PaymentAllocationDialog({
                             <button
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
-                                isActive
+                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex w-full items-start justify-between gap-1.5">
                                 <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">

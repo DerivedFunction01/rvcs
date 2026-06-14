@@ -22,6 +22,9 @@ import {
   DeltaActionType,
   MergeConflictType,
   SquashType,
+  PaymentStrategyType,
+  AllocationType,
+  TimeBlockType,
 } from "./types";
 import { projectState } from "./reducer";
 import { generateCommitHash, generateLineId, generateAllocationId } from "./id";
@@ -460,18 +463,18 @@ export class VCSEngine {
 
     const assignmentAlloc: AssignmentAllocation = {
       allocationId: assignAllocId,
-      type: "assignment",
+      type: AllocationType.Assignment,
       entity: params.assignee,
     };
 
     const paymentAlloc: PaymentAllocation = {
       allocationId: payAllocId,
-      type: "payment",
+      type: AllocationType.Payment,
       payer: params.payer,
       method: params.paymentMethod,
-      paymentStrategy: { strategyType: "percentage", value: 1.0 },
+      paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
       timeOfPayment: {
-        type: "immediate",
+        type: TimeBlockType.Immediate,
         calculatedAt: new Date().toISOString(),
       },
     };
@@ -555,18 +558,18 @@ export class VCSEngine {
 
     const assignmentAlloc: AssignmentAllocation = {
       allocationId: assignAllocId,
-      type: "assignment",
+      type: AllocationType.Assignment,
       entity: params.targetAssignee,
     };
 
     const paymentAlloc: PaymentAllocation = {
       allocationId: payAllocId,
-      type: "payment",
+      type: AllocationType.Payment,
       payer: params.targetPayer,
       method: params.paymentMethod,
-      paymentStrategy: { strategyType: "percentage", value: 1.0 },
+      paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
       timeOfPayment: {
-        type: "immediate",
+        type: TimeBlockType.Immediate,
         calculatedAt: new Date().toISOString(),
       },
     };

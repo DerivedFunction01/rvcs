@@ -120,7 +120,7 @@ export function AllocationConfigDialog({
     if (!item) return null;
     for (const id of item.allocations) {
       const a = allocations[id];
-      if (a?.type === "fulfillment") return a as FulfillmentAllocation;
+      if (a?.type === AllocationType.Fulfillment) return a as FulfillmentAllocation;
     }
     return null;
   }, [item, allocations]);

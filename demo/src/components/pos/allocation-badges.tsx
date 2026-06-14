@@ -84,7 +84,7 @@ export function AllocationBadges({
             </Badge>
           );
         }
-        if (alloc.type === "fulfillment") {
+        if (alloc.type === AllocationType.Fulfillment) {
           const fulAlloc = alloc as FulfillmentAllocation;
           const isImmediate =
             fulAlloc.time.type === "immediate" || !fulAlloc.time.calculatedAt;

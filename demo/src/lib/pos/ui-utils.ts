@@ -102,7 +102,7 @@ export function getAssigneeFromItem(
   let assignee = "";
   for (const allocId of item.allocations) {
     const alloc = allocations[allocId];
-    if (alloc?.type === "assignment") {
+    if (alloc?.type === AllocationType.Assignment) {
       assignee = (alloc as { entity: string }).entity;
       break;
     }

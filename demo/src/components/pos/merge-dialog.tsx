@@ -65,7 +65,7 @@ import type {
   PaymentAllocation,
   FulfillmentAllocation,
 } from "@/lib/vcs/types";
-import { MergeConflictType, SquashType, DeltaActionType } from "@/lib/vcs/types";
+import { MergeConflictType, SquashType, DeltaActionType, AllocationType } from "@/lib/vcs/types";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
@@ -378,11 +378,11 @@ function formatAllocationBlock(
     }
     return `Pay: ${pay.payer}${methodPart}${strategyPart}`;
   }
-  if (alloc.type === "fulfillment") {
+  if (alloc.type === AllocationType.Fulfillment) {
     const ful = alloc as FulfillmentAllocation;
     const methodPart = ful.method
       ? `Fulfillment (${ful.method})`
-      : "Fulfillment";
+      : AllocationType.Fulfillment;
     const destPart = ful.fulfillmentMetadata?.destinationLabel
       ? ` to ${ful.fulfillmentMetadata.destinationLabel}`
       : "";
@@ -672,7 +672,7 @@ function renderIncomingChangeBadges(
                   {display}
                 </Badge>,
               );
-            } else if (block.type === "fulfillment") {
+            } else if (block.type === AllocationType.Fulfillment) {
               const display = formatAllocationBlock(
                 block,
                 initiatedAt,
@@ -808,7 +808,7 @@ function renderIncomingChangeBadges(
                 Payment: {display}
               </Badge>,
             );
-          } else if (block.type === "fulfillment") {
+          } else if (block.type === AllocationType.Fulfillment) {
             const display = formatAllocationBlock(
               block,
               initiatedAt,
@@ -884,7 +884,7 @@ function renderIncomingChangeBadges(
             Declare Payment: {display}
           </Badge>,
         );
-      } else if (block.type === "fulfillment") {
+      } else if (block.type === AllocationType.Fulfillment) {
         const display = formatAllocationBlock(
           block,
           initiatedAt,
