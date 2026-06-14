@@ -82,21 +82,30 @@ export function LineItemNode({
   const isModifier = item.basePrice === 0 || item.parentLineId;
 
   const rawAllocations = useVCSStore.getState().projectedState.allocations;
-  const assigneeId = getAssigneeFromItem(item, rawAllocations, guests);
 
-  const paymentAllocs = item.allocations
-    .map((id) => allocations[id])
-    .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+  const rawAssignAlloc = item.allocations
+    .map((id) => rawAllocations[id])
+    .find((a) => a?.type === AllocationType.Assignment) as any;
+  const assigneeId = rawAssignAlloc ? rawAssignAlloc.allocationId : (guests[0]?.id || "Guest");
 
   const rawPaymentAllocs = item.allocations
     .map((id) => rawAllocations[id])
     .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
-  const payerId = rawPaymentAllocs.length > 0 ? rawPaymentAllocs[0].payer : assigneeId;
+  let payerId = assigneeId;
+  if (rawPaymentAllocs.length > 0) {
+    const rawPayer = rawPaymentAllocs[0].payer;
+    const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
+    payerId = matchedPayer ? matchedPayer.id : rawPayer;
+  }
 
   const assignAlloc = item.allocations
     .map((id) => allocations[id])
     .find((a) => a?.type === AllocationType.Assignment) as any;
   const assigneeName = assignAlloc ? assignAlloc.entity : "Guest";
+
+  const paymentAllocs = item.allocations
+    .map((id) => allocations[id])
+    .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
   const payerName = paymentAllocs.length > 0 ? paymentAllocs[0].payer : assigneeName;
 
   const isCanceled = item.status === ItemStatus.Canceled;
