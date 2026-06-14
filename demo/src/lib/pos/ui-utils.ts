@@ -16,7 +16,7 @@ export interface Guest {
   description?: string; // Optional custom description/details
 }
 
-export const PAYMENT_METHODS = ["cash", "visa", "mastercard", "amex"];
+export const PAYMENT_METHODS = ["Cash", "Visa", "Mastercard", "AMEX"];
 
 export const ORDER_TYPE_ICONS: Record<string, React.ElementType> = {
   [OrderType.WalkIn]: Store,
