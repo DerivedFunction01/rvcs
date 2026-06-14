@@ -50,6 +50,7 @@ import {
 } from "@/lib/pos/utils";
 import { projectState } from "@/lib/vcs/reducer";
 import { toast } from "sonner";
+import { PAYMENT_METHODS } from "@/lib/pos/ui-utils";
 
 // ─── Storage Key ──────────────────────────────────────────────────────────────
 
@@ -517,7 +518,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         },
       ];
 
-      const paymentMethods = ["cash", "visa", "mastercard", "amex"];
+      const paymentMethods = PAYMENT_METHODS;
       const activePayGroupId = `group-default-${defaultPaymentMethod}`;
       let mainPayAllocId = "";
 
@@ -728,7 +729,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         type: AllocationType.Assignment,
         entity: name,
       };
-      const paymentMethods = ["cash", "visa", "mastercard", "amex"];
+      const paymentMethods = PAYMENT_METHODS;
       const sanitized =
         name
           .toLowerCase()
@@ -847,7 +848,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "") || "guest";
 
-      const paymentMethods = ["cash", "visa", "mastercard", "amex"];
+      const paymentMethods = PAYMENT_METHODS;
       const activeMethod = store.defaultPaymentMethod;
       let activeCorrelationId = "";
 

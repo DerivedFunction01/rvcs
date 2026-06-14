@@ -38,6 +38,7 @@ import {
   AllocationType,
 } from "@/lib/vcs/types";
 import { PaymentUpdateMode, ConfigUpdateMode, AllocationContext } from "@/lib/pos/types";
+import { PAYMENT_METHODS } from "@/lib/pos/ui-utils";
 
 interface PaymentAllocationDialogProps {
   open: boolean;
@@ -108,7 +109,6 @@ export function PaymentAllocationDialog({
     return items.reduce((sum, item) => sum + item.totalPrice, 0);
   }, [context, items]);
 
-  const PAYMENT_METHODS = ["cash", "visa", "mastercard", "amex"];
 
   // Helper to get active ID, fallback to global default method if activePaymentConfigId is null
   const resolvedActiveId = useMemo(() => {
