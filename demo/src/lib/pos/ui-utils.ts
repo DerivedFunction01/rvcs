@@ -41,6 +41,16 @@ export const GUEST_PALETTE = [
   "bg-teal-500",
   "bg-orange-500",
   "bg-indigo-500",
+  "bg-fuchsia-500",
+  "bg-lime-500",
+  "bg-cyan-500",
+  "bg-pink-500",
+  "bg-yellow-500",
+  "bg-blue-500",
+  "bg-purple-500",
+  "bg-red-500",
+  "bg-green-500",
+  "bg-slate-500",
 ];
 
 export function getGuestColor(name: string, guests: Guest[]): string {
