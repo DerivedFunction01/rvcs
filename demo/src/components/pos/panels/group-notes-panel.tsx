@@ -164,7 +164,7 @@ export function GroupNotesPanel({
                       key={note.allocationId}
                       className="bg-background/85 dark:bg-card/50 p-2 rounded border border-amber-200 dark:border-amber-900/45 text-xs space-y-1.5 shadow-sm"
                     >
-                      <div className="font-medium text-foreground pr-4 break-words">
+                      <div className="font-medium text-foreground pr-4 wrap-break-word">
                         "{note.text}"
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -181,7 +181,7 @@ export function GroupNotesPanel({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-5 text-[9px] px-1.5 py-0 bg-background hover:bg-accent border-amber-200 dark:border-amber-900 text-destructive hover:text-destructive hover:bg-destructive/10 font-medium"
+                          className="h-5 text-[9px] px-1.5 py-0 bg-background hover:bg-accent border-amber-200 dark:border-amber-900 text-destructive hover:text-destructive font-medium"
                           onClick={() =>
                             onCleanupStaleNotes([note.allocationId])
                           }

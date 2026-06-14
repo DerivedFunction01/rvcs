@@ -1,20 +1,20 @@
 "use client";
 
-import { AllocationConfigDialog } from "@/components/pos/allocation-config-dialog";
-import { AssignmentAllocationDialog } from "@/components/pos/assignment-allocation-dialog";
-import { BranchConfigDialog } from "@/components/pos/branch-config-dialog";
-import { BranchManagerDialog } from "@/components/pos/branch-manager-dialog";
+import { AllocationConfigDialog } from "@/components/pos/dialogs/allocation-config-dialog";
+import { AssignmentAllocationDialog } from "@/components/pos/dialogs/assignment-allocation-dialog";
+import { BranchConfigDialog } from "@/components/pos/dialogs/branch-config-dialog";
+import { BranchManagerDialog } from "@/components/pos/dialogs/branch-manager-dialog";
 import {
   ChoiceDialog,
   type ChoiceDialogOption,
-} from "@/components/pos/choice-dialog";
-import { FulfillmentAllocationDialog } from "@/components/pos/fulfillment-allocation-dialog";
-import { MergeBranchDialog } from "@/components/pos/merge-dialog";
-import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
-import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
-import { OrderInitScreen } from "@/components/pos/order-init-screen";
-import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dialog";
-import { SplitQtyDialog } from "@/components/pos/split-qty-dialog";
+} from "@/components/pos/dialogs/choice-dialog";
+import { FulfillmentAllocationDialog } from "@/components/pos/dialogs/fulfillment-allocation-dialog";
+import { MergeBranchDialog } from "@/components/pos/dialogs/merge-dialog";
+import { ModifierAddDialog } from "@/components/pos/dialogs/modifier-add-dialog";
+import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
+import { OrderInitScreen } from "@/components/pos/screens/order-init-screen";
+import { PaymentAllocationDialog } from "@/components/pos/dialogs/payment-allocation-dialog";
+import { SplitQtyDialog } from "@/components/pos/dialogs/split-qty-dialog";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
@@ -23,22 +23,22 @@ import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
 import React, { useCallback } from "react";
 
-import { ActiveCheckActionFilterBar } from "@/components/pos/active-check-action-filter-bar";
-import { ActiveCheckPanel } from "@/components/pos/active-check-panel";
-import { CatalogPanel } from "@/components/pos/catalog-panel";
-import { CommitLedgerPanel } from "@/components/pos/commit-ledger-panel";
-import { CustomerEditDialog } from "@/components/pos/customer-edit-dialog";
-import { GroupNoteDialog } from "@/components/pos/group-note-dialog";
-import { GroupNotesPanel } from "@/components/pos/group-notes-panel";
+import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
+import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
+import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
+import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
+import { CustomerEditDialog } from "@/components/pos/dialogs/customer-edit-dialog";
+import { GroupNoteDialog } from "@/components/pos/dialogs/group-note-dialog";
+import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
 import {
   AddGuestDialog,
   EditGuestDialog,
   GuestPickerDialog,
-} from "@/components/pos/guest-dialogs";
-import { HistoryOpDialog } from "@/components/pos/history-op-dialog";
-import { NoteDialog } from "@/components/pos/note-dialog";
+} from "@/components/pos/dialogs/guest-dialogs";
+import { HistoryOpDialog } from "@/components/pos/dialogs/history-op-dialog";
+import { NoteDialog } from "@/components/pos/dialogs/note-dialog";
 
-import { OrderContextBanner } from "@/components/pos/order-context-banner";
+import { OrderContextBanner } from "@/components/pos/bars/order-context-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator as SeparatorUI } from "@/components/ui/separator";

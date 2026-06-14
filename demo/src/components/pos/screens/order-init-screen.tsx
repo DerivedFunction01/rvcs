@@ -1,7 +1,7 @@
 "use client";
 
-import { CustomerFieldInput } from "@/components/pos/customer-fields";
-import { CustomerSearchDialog } from "@/components/pos/customer-search-dialog";
+import { CustomerFieldInput } from "@/components/pos/fields/customer-fields";
+import { CustomerSearchDialog } from "@/components/pos/dialogs/customer-search-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -689,10 +689,10 @@ export function OrderInitScreen({
                       <Grid2x2 className="w-3.5 h-3.5" />
                       {selectedFloor.name}
                     </div>
-                    <div className="relative rounded-lg border bg-background overflow-hidden flex items-center justify-center min-h-[300px] p-4">
+                    <div className="relative rounded-lg border bg-background overflow-hidden flex items-center justify-center min-h-75 p-4">
                       <svg
                         viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
-                        className="w-full h-full max-h-[600px]"
+                        className="w-full h-full max-h-150"
                       >
                         {sortedObjects.map((object) => {
                           const selected = object

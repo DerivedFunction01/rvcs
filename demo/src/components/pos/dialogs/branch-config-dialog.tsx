@@ -76,7 +76,7 @@ export function BranchConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-120">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitBranch className="w-5 h-5 text-primary" />
@@ -161,7 +161,7 @@ export function BranchConfigDialog({
                   onClick={() => setType(BranchType.Parallel)}
                   className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
                     type === BranchType.Parallel
-                      ? "border-emerald-500 bg-emerald-500/[0.04] shadow-xs"
+                      ? "border-emerald-500 bg-emerald-500/4 shadow-xs"
                       : "border-border hover:border-muted-foreground/30 bg-background"
                   }`}
                 >
@@ -189,7 +189,7 @@ export function BranchConfigDialog({
                   onClick={() => setType(BranchType.Hypothetical)}
                   className={`flex flex-col items-start text-left p-3 rounded-xl border-2 transition-all cursor-pointer ${
                     type === BranchType.Hypothetical
-                      ? "border-amber-500 bg-amber-500/[0.04] shadow-xs"
+                      ? "border-amber-500 bg-amber-500/4 shadow-xs"
                       : "border-border hover:border-muted-foreground/30 bg-background"
                   }`}
                 >

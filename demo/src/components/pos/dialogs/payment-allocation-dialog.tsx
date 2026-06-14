@@ -694,7 +694,7 @@ export function PaymentAllocationDialog({
               </div>
             </div>
 
-            <div className="min-h-[220px] max-h-[45vh] overflow-y-auto pr-1">
+            <div className="min-h-55 max-h-[45vh] overflow-y-auto pr-1">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-1">
                 {guestMethods.map((choice) => {
                   const isActive = choice.id === resolvedActiveId;
@@ -774,7 +774,7 @@ export function PaymentAllocationDialog({
               Create Custom Split / Payer...
             </Button>
 
-            <div className="min-h-[220px] max-h-[45vh] overflow-y-auto pr-1">
+            <div className="min-h-55 max-h-[45vh] overflow-y-auto pr-1">
               {filteredSavedSplits.length === 0 &&
               filteredSavedSingles.length === 0 ? (
                 <div className="py-12 text-center text-xs text-muted-foreground">
@@ -958,7 +958,7 @@ export function PaymentAllocationDialog({
               />
             </div>
 
-            <div className="min-h-[220px] max-h-[45vh] overflow-y-auto pr-1">
+            <div className="min-h-55 max-h-[45vh] overflow-y-auto pr-1">
               {filteredPrimaryDefaults.length === 0 &&
               filteredActiveGuestMethods.length === 0 &&
               filteredOtherGuests.length === 0 ? (

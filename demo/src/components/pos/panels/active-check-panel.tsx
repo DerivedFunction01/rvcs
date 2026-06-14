@@ -1,4 +1,4 @@
-import { LineItemNode } from "@/components/pos/line-item-node";
+import { LineItemNode } from "@/components/pos/items/line-item-node";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";

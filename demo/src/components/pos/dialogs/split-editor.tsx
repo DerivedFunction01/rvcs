@@ -343,7 +343,7 @@ export function SplitEditor({
               value={split.entity}
               onValueChange={(val) => handleEntityChange(idx, val)}
             >
-              <SelectTrigger className="h-7 text-xs font-semibold text-foreground border-none shadow-none bg-transparent hover:bg-accent/40 p-1 flex-1 min-w-[80px] justify-between gap-1 focus:ring-0">
+              <SelectTrigger className="h-7 text-xs font-semibold text-foreground border-none shadow-none bg-transparent hover:bg-accent/40 p-1 flex-1 min-w-20 justify-between gap-1 focus:ring-0">
                 <SelectValue placeholder={split.entity} />
               </SelectTrigger>
               <SelectContent>

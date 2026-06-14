@@ -57,7 +57,7 @@ export function CustomerFieldInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          className={`min-h-[80px] ${hasError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+          className={`min-h-20 ${hasError ? "border-destructive focus-visible:ring-destructive" : ""}`}
         />
       ) : (
         <Input
