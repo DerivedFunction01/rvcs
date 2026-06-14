@@ -521,6 +521,19 @@ function POSTerminalInner({
   const rootItems = Object.values(projectedState.items).filter(
     (i) => !i.parentLineId,
   );
+
+  const prevRootItemCount = React.useRef(rootItems.length);
+  React.useEffect(() => {
+    // Only scroll to the bottom if an item was added
+    if (rootItems.length > prevRootItemCount.current) {
+      checklistRef.current?.scrollTo({
+        top: checklistRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+    prevRootItemCount.current = rootItems.length;
+  }, [rootItems.length]);
+
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
       if (hideCanceled && item.status === ItemStatus.Canceled) return false;
