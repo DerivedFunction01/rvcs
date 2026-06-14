@@ -40,6 +40,12 @@ export function PosOtherDialogs({
       .filter(Boolean);
   }, [dialogs.modifierAddItem, selectedLineIdsArray, store.projectedState.items]);
 
+  const existingNotes = React.useMemo(() => {
+    return Object.values(store.projectedState.allocations)
+      .filter((a) => a.type === "note")
+      .map((a) => ({ id: a.allocationId, text: (a as any).text }));
+  }, [store.projectedState.allocations]);
+
   return (
     <>
       <CustomerEditDialog
@@ -110,7 +116,24 @@ export function PosOtherDialogs({
         open={dialogs.groupNoteOpen}
         onOpenChange={dialogs.setGroupNoteOpen}
         onSave={actions.handleSaveGroupNote}
+        onLinkExisting={(noteId) => {
+          const deltas: Delta[] = [];
+          for (const lineId of dialogs.groupNoteLineIds) {
+            const item = store.projectedState.items[lineId];
+            if (item && !item.allocations.includes(noteId)) {
+              deltas.push({
+                action: DeltaActionType.ModifyItemAllocations,
+                lineId,
+                beforeAllocations: item.allocations,
+                afterAllocations: [...item.allocations, noteId],
+              });
+            }
+          }
+          if (deltas.length > 0) store.commitDeltas(deltas, "pos-ui");
+          toast.success("Linked note to selected items");
+        }}
         selectedCount={dialogs.groupNoteLineIds.length}
+        existingNotes={existingNotes}
       />
     </>
   );

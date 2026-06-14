@@ -30,6 +30,7 @@ import {
   XCircle,
   BringToFront,
   Equal,
+  Pencil,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -44,16 +45,8 @@ export function ActiveCheckPanel(props: any) {
     projectedState,
     guests,
     resolveGuestName,
-    visibleGuests,
-    setVisibleGuests,
-    toggleAllCollapsed,
-    hasCollapsedItems,
     hideCanceled,
-    setHideCanceled,
-    canceledCount,
     detailLevel,
-    setDetailLevel,
-    selectedPerson,
     filteredRootItems,
     resolvedAllocations,
     defaultPaymentAllocId,
@@ -89,7 +82,6 @@ export function ActiveCheckPanel(props: any) {
     setModifierAddItem,
     setModifierAddOpen,
     activeModifiersOnSelected,
-    setRemoveModDialogOpen,
     onGroupNoteOpen,
   } = props;
 
@@ -455,29 +447,17 @@ export function ActiveCheckPanel(props: any) {
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
                   Mods
                 </span>
-                {compatibleModifiers.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-primary hover:bg-primary/5 gap-1"
-                    onClick={() => {
-                      setModifierAddItem(null);
-                      setModifierAddOpen(true);
-                    }}
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add
-                  </Button>
-                )}
-                {activeModifiersOnSelected.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-destructive hover:bg-destructive/5 gap-1"
-                    onClick={() => setRemoveModDialogOpen(true)}
-                  >
-                    <Minus className="w-3.5 h-3.5" /> Remove
-                  </Button>
-                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-primary hover:bg-primary/5 gap-1"
+                  onClick={() => {
+                    setModifierAddItem(null);
+                    setModifierAddOpen(true);
+                  }}
+                >
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </Button>
               </div>
             )}
           </div>
