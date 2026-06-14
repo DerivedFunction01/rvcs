@@ -58,6 +58,7 @@ function detectConflict(
     const identical =
       deltaA.sku === deltaB.sku &&
       deltaA.qty === deltaB.qty &&
+      deltaA.inlineQty === deltaB.inlineQty &&
       deltaA.parentLineId === deltaB.parentLineId &&
       deltaA.selectedModifierState === deltaB.selectedModifierState &&
       JSON.stringify([...deltaA.allocations].sort()) ===

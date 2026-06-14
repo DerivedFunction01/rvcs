@@ -150,6 +150,7 @@ interface InternalLineItem {
   parentLineId: string | null;
   sku: string;
   qty: number;
+  inlineQty?: number;
   canceledQty: number;
   allocations: string[];
   selectedOptions?: string[];
@@ -200,7 +201,10 @@ export function projectState(
     const systemPath = getCommitPath(log, systemHash);
     for (const commit of systemPath) {
       for (const delta of commit.deltas) {
-        if (delta.action === DeltaActionType.DeclareAllocation || delta.action === DeltaActionType.UndeclareAllocation) {
+        if (
+          delta.action === DeltaActionType.DeclareAllocation ||
+          delta.action === DeltaActionType.UndeclareAllocation
+        ) {
           applyDelta(
             items,
             allocations,
@@ -209,7 +213,7 @@ export function projectState(
             catalog,
             commit.commitHash,
             new Set(), // system commits don't use confirmation logic
-            systemHash
+            systemHash,
           );
         }
       }
@@ -237,7 +241,7 @@ export function projectState(
           catalog,
           commit.commitHash,
           confirmedAncestors,
-          systemHash
+          systemHash,
         );
       }
     }
@@ -290,6 +294,7 @@ function applyDelta(
         parentLineId: delta.parentLineId,
         sku: delta.sku,
         qty: delta.qty,
+        inlineQty: delta.inlineQty ?? 1,
         canceledQty: 0,
         allocations: [...delta.allocations],
         selectedModifierState: delta.selectedModifierState,
@@ -364,6 +369,20 @@ function applyDelta(
       break;
     }
 
+    case DeltaActionType.ModifyInlineQty: {
+      const item = items[delta.lineId];
+      if (item) {
+        const currentInline = item.inlineQty ?? 1;
+        const beforeInline = delta.beforeInlineQty ?? 1;
+        if (currentInline === beforeInline) {
+          item.inlineQty = delta.afterInlineQty;
+          if (!isConfirmedDelta && item.isConfirmed)
+            item.hasPendingChanges = true;
+        }
+      }
+      break;
+    }
+
     case DeltaActionType.BatchByFilter:
       applyBatchByFilter(
         items,
@@ -390,7 +409,13 @@ function applyBatchByFilter(
   systemHash: string | null,
 ): void {
   // Project state at the base_revision_id for deterministic filtering
-  const baseState = projectState(fullLog, delta.baseRevisionId, systemHash, catalog, null);
+  const baseState = projectState(
+    fullLog,
+    delta.baseRevisionId,
+    systemHash,
+    catalog,
+    null,
+  );
   const baseItems = Object.values(baseState.items);
 
   // Find matching items
@@ -732,8 +757,9 @@ function buildProjectedState(
       name: item.resolvedName,
       basePrice: item.resolvedPrice,
       qty: item.qty,
+      inlineQty: item.inlineQty ?? 1,
       canceledQty: item.canceledQty,
-      totalPrice: item.resolvedPrice * item.qty,
+      totalPrice: item.resolvedPrice * item.qty * (item.inlineQty ?? 1),
       allocations: item.allocations,
       selectedModifierState: item.selectedModifierState,
       status,
@@ -829,7 +855,10 @@ function buildProjectedState(
   for (const alloc of Object.values(allocations)) {
     if (alloc.type === AllocationType.Payment) {
       const payAlloc = alloc as PaymentAllocation;
-      if (payAlloc.paymentStrategy?.strategyType === PaymentStrategyType.FixedGlobal) {
+      if (
+        payAlloc.paymentStrategy?.strategyType ===
+        PaymentStrategyType.FixedGlobal
+      ) {
         globalFixedBalances.set(
           alloc.allocationId,
           payAlloc.paymentStrategy.value ?? 0,
@@ -850,7 +879,9 @@ function buildProjectedState(
 
     const paymentAllocs = root.allocations
       .map((id) => allocations[id])
-      .filter((a): a is PaymentAllocation => a?.type === AllocationType.Payment);
+      .filter(
+        (a): a is PaymentAllocation => a?.type === AllocationType.Payment,
+      );
 
     if (paymentAllocs.length === 0) {
       // No payment allocations: assignee pays the full amount
@@ -885,7 +916,8 @@ function buildProjectedState(
 
       // 1.5 Fixed payment strategies (global)
       const fixedGlobalAllocs = paymentAllocs.filter(
-        (a) => a.paymentStrategy?.strategyType === PaymentStrategyType.FixedGlobal,
+        (a) =>
+          a.paymentStrategy?.strategyType === PaymentStrategyType.FixedGlobal,
       );
       for (const alloc of fixedGlobalAllocs) {
         const balance = globalFixedBalances.get(alloc.allocationId) ?? 0;
@@ -901,7 +933,8 @@ function buildProjectedState(
 
       // 2. Percentage payment strategies
       const pctAllocs = paymentAllocs.filter(
-        (a) => a.paymentStrategy?.strategyType === PaymentStrategyType.Percentage,
+        (a) =>
+          a.paymentStrategy?.strategyType === PaymentStrategyType.Percentage,
       );
       for (const alloc of pctAllocs) {
         const val = alloc.paymentStrategy.value ?? 1.0;
@@ -915,7 +948,8 @@ function buildProjectedState(
 
       // 3. Remaining payment strategies
       const remAllocs = paymentAllocs.filter(
-        (a) => a.paymentStrategy?.strategyType === PaymentStrategyType.Remaining,
+        (a) =>
+          a.paymentStrategy?.strategyType === PaymentStrategyType.Remaining,
       );
       if (remAllocs.length > 0) {
         const share = remaining / remAllocs.length;
@@ -997,7 +1031,7 @@ function scaleTreeQuantities(item: ProjectedLineItem): void {
 
     child.qty = totalActive;
     child.canceledQty = totalRaw * totalParent - totalActive;
-    child.totalPrice = child.basePrice * child.qty;
+    child.totalPrice = child.basePrice * child.qty * (child.inlineQty ?? 1);
 
     if (child.qty === 0 && child.canceledQty > 0) {
       child.status = ItemStatus.Canceled;

@@ -102,6 +102,7 @@ export function areDeltasIdentical(
       return (
         dA.sku === dB.sku &&
         dA.qty === dB.qty &&
+        dA.inlineQty === dB.inlineQty &&
         dA.parentLineId === dB.parentLineId &&
         dA.selectedModifierState === dB.selectedModifierState &&
         areAllocListsFunctionallyIdentical(
@@ -132,6 +133,15 @@ export function areDeltasIdentical(
         dA.lineId === dB.lineId &&
         dA.beforeQty === dB.beforeQty &&
         dA.afterQty === dB.afterQty
+      );
+    }
+    case DeltaActionType.ModifyInlineQty: {
+      const dA = deltaA as any;
+      const dB = deltaB as any;
+      return (
+        dA.lineId === dB.lineId &&
+        dA.beforeInlineQty === dB.beforeInlineQty &&
+        dA.afterInlineQty === dB.afterInlineQty
       );
     }
     case DeltaActionType.ModifyModifierState: {

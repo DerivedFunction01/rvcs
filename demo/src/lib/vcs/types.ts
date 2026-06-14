@@ -101,6 +101,7 @@ export enum DeltaActionType {
   ModifySku = "modify_sku",
   ModifyModifierState = "modify_modifier_state",
   ModifyQty = "modify_qty",
+  ModifyInlineQty = "modify_inline_qty",
   BatchByFilter = "batch_by_filter",
 }
 
@@ -120,6 +121,7 @@ export interface AddItemDelta {
   parentLineId: string | null;
   sku: string;
   qty: number;
+  inlineQty?: number;
   allocations: string[]; // Flat array of allocation_id references
   selectedModifierState?: string; // Selected modifier state value (e.g. "EXTRA")
 }
@@ -156,6 +158,13 @@ export interface ModifyItemQtyDelta {
   lineId: string;
   beforeQty: number;
   afterQty: number;
+}
+
+export interface ModifyInlineQtyDelta {
+  action: DeltaActionType.ModifyInlineQty;
+  lineId: string;
+  beforeInlineQty?: number;
+  afterInlineQty: number;
 }
 
 // ─── Filter & Batch System ─────────────────────────────────────────────────────
@@ -246,6 +255,7 @@ export type Delta =
   | ModifySkuDelta
   | ModifyModifierStateDelta
   | ModifyItemQtyDelta
+  | ModifyInlineQtyDelta
   | BatchByFilterDelta;
 
 // ─── Commit Envelope ───────────────────────────────────────────────────────────
@@ -277,8 +287,9 @@ export interface ProjectedLineItem {
   name: string; // Late-bound from catalog
   basePrice: number; // Late-bound from catalog
   qty: number;
+  inlineQty?: number;
   canceledQty: number;
-  totalPrice: number; // Computed: basePrice * qty
+  totalPrice: number; // Computed: basePrice * qty * inlineQty
   allocations: string[]; // Referenced allocation IDs
   children: ProjectedLineItem[];
   selectedModifierState?: string;
@@ -378,6 +389,7 @@ export interface CatalogItemEntry {
   allowedStates?: ModifierStateOption[];
   allowedModifiers?: string[];
   chargeTags?: SkuChargeTagEntry[]; // resolved from SkuChargeTag — empty = use GENERAL rules
+  inlineQtyType?: "int" | "float" | "none" | null;
 }
 
 // ─── VCS Repository (The "Repo") ──────────────────────────────────────────────

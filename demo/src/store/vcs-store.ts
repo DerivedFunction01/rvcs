@@ -102,6 +102,7 @@ function buildCloneDeltas(
     parentLineId: newParentId,
     sku: projItem.sku,
     qty: rawQty,
+    inlineQty: projItem.inlineQty,
     allocations,
     selectedModifierState: projItem.selectedModifierState,
   });
@@ -334,6 +335,11 @@ interface VCSStore {
   ) => void;
   removeItem: (lineId: string) => void;
   modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
+  modifyItemInlineQty: (
+    lineId: string,
+    beforeInlineQty: number,
+    afterInlineQty: number,
+  ) => void;
   duplicateItem: (lineId: string) => string | undefined;
   modifyItemSku: (lineId: string, beforeSku: string, afterSku: string) => void;
   modifyModifierState: (
@@ -357,7 +363,11 @@ interface VCSStore {
   removeItems: (lineIds: string[]) => void;
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
-  splitItemsQty: (lineIds: string[], type: SplitQtyType, value: number) => string[];
+  splitItemsQty: (
+    lineIds: string[],
+    type: SplitQtyType,
+    value: number,
+  ) => string[];
   reassignItems: (lineIds: string[], newAssigneeIdOrName: string) => void;
   groupItemsPaymentConfig: (lineIds: string[], targetId: string) => void;
   groupItemsFulfillmentConfig: (lineIds: string[], targetId: string) => void;
@@ -504,7 +514,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const matchedEnum = Object.values(OrderType).find(
           (val) =>
             val.toLowerCase().replace(/[^a-z0-9]/g, "") ===
-            orderContext.orderType.toLowerCase().replace(/[^a-z0-9]/g, "")
+            orderContext.orderType.toLowerCase().replace(/[^a-z0-9]/g, ""),
         );
         if (matchedEnum) {
           orderContext.orderType = matchedEnum;
@@ -2165,6 +2175,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
     },
 
+    modifyItemInlineQty: (lineId, beforeInlineQty, afterInlineQty) => {
+      get().commitDeltas(
+        [
+          {
+            action: DeltaActionType.ModifyInlineQty,
+            lineId,
+            beforeInlineQty,
+            afterInlineQty,
+          },
+        ],
+        "pos-ui",
+      );
+    },
+
     duplicateItem: (lineId) => {
       const store = get();
       const state = store.projectedState;
@@ -2175,7 +2199,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       buildCloneDeltas(item, null, 1, deltas);
       store.commitDeltas(deltas, "pos-ui");
-      const addRootDelta = deltas.find(d => d.action === DeltaActionType.AddItem && d.parentLineId === null) as any;
+      const addRootDelta = deltas.find(
+        (d) => d.action === DeltaActionType.AddItem && d.parentLineId === null,
+      ) as any;
       return addRootDelta?.lineId;
     },
 
@@ -2190,7 +2216,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         if (item) {
           const cloneDeltas: Delta[] = [];
           buildCloneDeltas(item, null, 1, cloneDeltas);
-          const addRootDelta = cloneDeltas.find((d) => d.action === DeltaActionType.AddItem && d.parentLineId === null) as any;
+          const addRootDelta = cloneDeltas.find(
+            (d) =>
+              d.action === DeltaActionType.AddItem && d.parentLineId === null,
+          ) as any;
           if (addRootDelta) newLineIds.push(addRootDelta.lineId);
           deltas.push(...cloneDeltas);
         }
@@ -2250,7 +2279,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
           const cloneDeltas: Delta[] = [];
           buildCloneDeltas(item, null, 1, cloneDeltas, { rootAllocations });
-          const addRootDelta = cloneDeltas.find((d) => d.action === DeltaActionType.AddItem && d.parentLineId === null) as any;
+          const addRootDelta = cloneDeltas.find(
+            (d) =>
+              d.action === DeltaActionType.AddItem && d.parentLineId === null,
+          ) as any;
           if (addRootDelta) newLineIds.push(addRootDelta.lineId);
           deltas.push(...cloneDeltas);
         }
@@ -2387,10 +2419,15 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           if (splitQty > 0) {
             const remQty = item.qty - splitQty;
             const cloneDeltas: Delta[] = [];
-            buildCloneDeltas(item, null, 1, cloneDeltas, { overrideRootQty: splitQty });
-            
+            buildCloneDeltas(item, null, 1, cloneDeltas, {
+              overrideRootQty: splitQty,
+            });
+
             if (cloneDeltas.length > 0) {
-              const addedRootDelta = cloneDeltas[0] as Extract<Delta, { action: DeltaActionType.AddItem }>;
+              const addedRootDelta = cloneDeltas[0] as Extract<
+                Delta,
+                { action: DeltaActionType.AddItem }
+              >;
               newLineIds.push(addedRootDelta.lineId);
               deltas.push(...cloneDeltas);
             }
@@ -2943,7 +2980,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               const matchedEnum = Object.values(OrderType).find(
                 (val) =>
                   val.toLowerCase().replace(/[^a-z0-9]/g, "") ===
-                  context.orderType.toLowerCase().replace(/[^a-z0-9]/g, "")
+                  context.orderType.toLowerCase().replace(/[^a-z0-9]/g, ""),
               );
               if (matchedEnum) {
                 context.orderType = matchedEnum;
@@ -2968,8 +3005,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                   defaultAssignmentAllocId = delta.allocation.allocationId;
                 } else if (delta.allocation.type === AllocationType.Payment) {
                   defaultPaymentAllocId = delta.allocation.allocationId;
-                  defaultPaymentMethod =
-                    ((delta.allocation as PaymentAllocation).method || "cash").toLowerCase();
+                  defaultPaymentMethod = (
+                    (delta.allocation as PaymentAllocation).method || "cash"
+                  ).toLowerCase();
                 } else if (
                   delta.allocation.type === AllocationType.Fulfillment
                 ) {
@@ -2998,8 +3036,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                   !defaultPaymentAllocId
                 ) {
                   defaultPaymentAllocId = delta.allocation.allocationId;
-                  defaultPaymentMethod =
-                    ((delta.allocation as PaymentAllocation).method || "cash").toLowerCase();
+                  defaultPaymentMethod = (
+                    (delta.allocation as PaymentAllocation).method || "cash"
+                  ).toLowerCase();
                 } else if (
                   delta.allocation.type === AllocationType.Fulfillment &&
                   !activeFulfillmentConfigId
