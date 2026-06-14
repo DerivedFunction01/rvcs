@@ -38,6 +38,8 @@ export async function GET() {
       sizeGroupId: item.sizeGroupId,
       appliedSizeGroupId: item.appliedSizeGroupId,
       inlineQtyType: (item as any).inlineQtyType,
+      inlineQtyLabel: (item as any).inlineQtyLabel,
+      inlineQtyUnit: (item as any).inlineQtyUnit,
       appliedSizeGroup: item.appliedSizeGroup
         ? {
             id: item.appliedSizeGroup.id,
@@ -98,6 +100,8 @@ export async function POST(request: Request) {
       allergens?: string[];
       brand?: string;
       inlineQtyType?: string;
+      inlineQtyLabel?: string;
+      inlineQtyUnit?: string;
     }>;
 
     if (!Array.isArray(items)) {
@@ -117,6 +121,8 @@ export async function POST(request: Request) {
         allergens: JSON.stringify(item.allergens || []),
         brand: item.brand || "",
         inlineQtyType: item.inlineQtyType || null,
+        inlineQtyLabel: item.inlineQtyLabel || null,
+        inlineQtyUnit: item.inlineQtyUnit || null,
       };
 
       await db.catalogItem.upsert({

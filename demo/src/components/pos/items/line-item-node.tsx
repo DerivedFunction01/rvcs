@@ -86,7 +86,9 @@ export function LineItemNode({
   const isModifier = item.basePrice === 0 || item.parentLineId;
   const step = qtyStep || 1;
 
-  const rawAllocations = useVCSStore.getState().projectedState.allocations;
+  const catalog = useVCSStore((state) => state.catalog);
+  const projectedState = useVCSStore((state) => state.projectedState);
+  const rawAllocations = projectedState.allocations;
 
   const rawAssignAlloc = item.allocations
     .map((id) => rawAllocations[id])
@@ -132,10 +134,14 @@ export function LineItemNode({
       id !== defaultPaymentAllocId,
   );
 
-  const catalogEntry = useVCSStore.getState().catalog[item.sku];
+  const catalogEntry = catalog[item.sku];
   const hasInlineQty =
     catalogEntry?.inlineQtyType && catalogEntry.inlineQtyType !== "none";
   const inlineStep = catalogEntry?.inlineQtyType === "float" ? 0.5 : 1;
+  const inlineQtyLabel = catalogEntry?.inlineQtyLabel ?? "Qty";
+  const inlineQtyUnit =
+    catalogEntry?.inlineQtyUnit ??
+    (catalogEntry?.inlineQtyType === "float" ? "lbs" : "");
   const sizeGroup = catalogEntry?.appliedSizeGroup;
   const sizeOptions = sizeGroup?.options || [];
 
@@ -145,7 +151,7 @@ export function LineItemNode({
   );
 
   const activeSizeChild = item.children.find((child) => {
-    const childEntry = useVCSStore.getState().catalog[child.sku];
+    const childEntry = catalog[child.sku];
     return childEntry && childEntry.sizeGroupId === sizeGroup?.id;
   });
   const activeSku = activeSizeChild?.sku;
@@ -154,11 +160,9 @@ export function LineItemNode({
   const showAllocations = detailLevel !== "simple";
 
   const parentItem = item.parentLineId
-    ? useVCSStore.getState().projectedState.items[item.parentLineId]
+    ? projectedState.items[item.parentLineId]
     : null;
-  const parentCatalogEntry = parentItem
-    ? useVCSStore.getState().catalog[parentItem.sku]
-    : null;
+  const parentCatalogEntry = parentItem ? catalog[parentItem.sku] : null;
   const comboChoiceEntry = parentCatalogEntry?.comboChoices?.find(
     (choice) => choice.optionSku === item.sku,
   );
@@ -295,69 +299,15 @@ export function LineItemNode({
                     x{isCanceled ? item.canceledQty : item.qty}
                   </span>
                 )}
-
-                {hasInlineQty && !isCanceled && (
-                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-primary/10 border-primary/20 shrink-0 mx-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-background text-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const currentInline = item.inlineQty ?? 1;
-                        if (currentInline > inlineStep) {
-                          const nextInline =
-                            Math.round((currentInline - inlineStep) * 100) /
-                            100;
-                          useVCSStore
-                            .getState()
-                            .modifyItemInlineQty(
-                              item.lineId,
-                              currentInline,
-                              nextInline,
-                            );
-                        }
-                      }}
-                    >
-                      <Minus className="w-2.5 h-2.5" />
-                    </Button>
-                    <span className="text-[10px] text-primary font-mono font-semibold min-w-2.5 text-center select-none">
-                      {item.inlineQty ?? 1}
-                      {catalogEntry?.inlineQtyType === "float" ? " lbs" : "x"}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-background text-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const currentInline = item.inlineQty ?? 1;
-                        const nextInline =
-                          Math.round((currentInline + inlineStep) * 100) / 100;
-                        useVCSStore
-                          .getState()
-                          .modifyItemInlineQty(
-                            item.lineId,
-                            currentInline,
-                            nextInline,
-                          );
-                      }}
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                    </Button>
-                  </div>
-                )}
                 <span
                   className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"} ${isCanceled ? "line-through opacity-50" : ""}`}
                 >
+                  {item.name}
                   {item.inlineQty && item.inlineQty !== 1 ? (
-                    <span className="font-semibold text-primary/80 mr-1">
-                      {catalogEntry?.inlineQtyType === "float"
-                        ? `${item.inlineQty} lbs`
-                        : `${item.inlineQty}x`}
+                    <span className="font-semibold text-primary/80 ml-1">
+                      @{item.inlineQty} {inlineQtyUnit}
                     </span>
                   ) : null}
-                  {item.name}
                 </span>
                 {isComboChoice && !isCanceled && (
                   <Button
@@ -478,6 +428,64 @@ export function LineItemNode({
                     </div>
                   </div>
                 )}
+
+              {hasInlineQty && !isCanceled && (
+                <div className="flex items-center gap-1 mt-2">
+                  <span className="text-[10px] text-muted-foreground mr-1">
+                    {inlineQtyLabel}:
+                  </span>
+                  <div className="flex items-center rounded border p-0.5 bg-muted/20 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 p-0 hover:bg-background"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const currentInline = item.inlineQty ?? 1;
+                        if (currentInline > inlineStep) {
+                          const nextInline =
+                            Math.round((currentInline - inlineStep) * 100) /
+                            100;
+                          useVCSStore
+                            .getState()
+                            .modifyItemInlineQty(
+                              item.lineId,
+                              currentInline,
+                              nextInline,
+                            );
+                        }
+                      }}
+                    >
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <span className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1">
+                      {item.inlineQty ?? 1}
+                      {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 p-0 hover:bg-background"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const currentInline = item.inlineQty ?? 1;
+                        const nextInline =
+                          Math.round((currentInline + inlineStep) * 100) / 100;
+                        useVCSStore
+                          .getState()
+                          .modifyItemInlineQty(
+                            item.lineId,
+                            currentInline,
+                            nextInline,
+                          );
+                      }}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {!isRoot &&
                 catalogEntry &&
                 !isCanceled &&

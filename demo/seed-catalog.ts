@@ -466,6 +466,8 @@ const SEED_DATA = [
     allergens: ["dairy"],
     brand: "",
     inlineQtyType: "int",
+    inlineQtyLabel: "Slices",
+    inlineQtyUnit: "pcs",
   },
   {
     sku: "sku-avocado-mod",
@@ -487,6 +489,8 @@ const SEED_DATA = [
     allergens: ["pork"],
     brand: "",
     inlineQtyType: "int",
+    inlineQtyLabel: "Slices",
+    inlineQtyUnit: "pcs",
   },
   {
     sku: "MOD-GLUTEN-FREE",
@@ -652,6 +656,8 @@ const SEED_DATA = [
     allergens: [],
     brand: "AppleFarms",
     inlineQtyType: "int",
+    inlineQtyLabel: "Count",
+    inlineQtyUnit: "each",
   },
   {
     sku: "SKU-GROCERY-CABBAGE",
@@ -663,6 +669,8 @@ const SEED_DATA = [
     allergens: [],
     brand: "LocalGrow",
     inlineQtyType: "float",
+    inlineQtyLabel: "Weight",
+    inlineQtyUnit: "lbs",
   },
 ];
 
@@ -698,6 +706,8 @@ async function main() {
         ? JSON.stringify((item as any).comboChoices)
         : "[]",
       inlineQtyType: (item as any).inlineQtyType || null,
+      inlineQtyLabel: (item as any).inlineQtyLabel || null,
+      inlineQtyUnit: (item as any).inlineQtyUnit || null,
       active: true,
     };
 

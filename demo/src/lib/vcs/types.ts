@@ -390,6 +390,8 @@ export interface CatalogItemEntry {
   allowedModifiers?: string[];
   chargeTags?: SkuChargeTagEntry[]; // resolved from SkuChargeTag — empty = use GENERAL rules
   inlineQtyType?: "int" | "float" | "none" | null;
+  inlineQtyLabel?: string | null;
+  inlineQtyUnit?: string | null;
 }
 
 // ─── VCS Repository (The "Repo") ──────────────────────────────────────────────
