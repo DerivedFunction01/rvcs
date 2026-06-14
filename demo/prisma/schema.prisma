@@ -38,6 +38,7 @@ model CatalogItem {
   inlineQtyType                    String?
   inlineQtyLabel                   String?
   inlineQtyUnit                    String?
+  inlineQtyIncrement               Float?    @default(1.0)
   inlineQtyPricePerUnit            Boolean   @default(false)
   inlineQtyPricePerUnitShowPer     Boolean   @default(true)
   inlineQtyMainQtyLocked           Boolean   @default(false)

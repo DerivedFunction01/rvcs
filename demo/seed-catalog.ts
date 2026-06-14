@@ -659,6 +659,7 @@ const SEED_DATA = [
     inlineQtyType: "int",
     inlineQtyLabel: "Count",
     inlineQtyUnit: "each",
+    inlineQtyIncrement: 1,
     inlineQtyPricePerUnit: true,
     inlineQtyPricePerUnitShowPer: false,
     inlineQtyMainQtyLocked: true,
@@ -675,6 +676,7 @@ const SEED_DATA = [
     inlineQtyType: "float",
     inlineQtyLabel: "Weight",
     inlineQtyUnit: "lbs",
+    inlineQtyIncrement: 0.05,
     inlineQtyPricePerUnit: true,
   },
 ];
@@ -713,7 +715,10 @@ async function main() {
       inlineQtyType: (item as any).inlineQtyType || null,
       inlineQtyLabel: (item as any).inlineQtyLabel || null,
       inlineQtyUnit: (item as any).inlineQtyUnit || null,
+      inlineQtyIncrement: (item as any).inlineQtyIncrement ?? 1,
       inlineQtyPricePerUnit: (item as any).inlineQtyPricePerUnit ?? false,
+      inlineQtyPricePerUnitShowPer:
+        (item as any).inlineQtyPricePerUnitShowPer ?? true,
       inlineQtyMainQtyLocked: (item as any).inlineQtyMainQtyLocked ?? false,
       active: true,
     };

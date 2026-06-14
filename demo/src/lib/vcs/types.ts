@@ -392,6 +392,7 @@ export interface CatalogItemEntry {
   inlineQtyType?: "int" | "float" | "none" | null;
   inlineQtyLabel?: string | null;
   inlineQtyUnit?: string | null;
+  inlineQtyIncrement?: number | null;
   inlineQtyPricePerUnit?: boolean | null;
   inlineQtyPricePerUnitShowPer?: boolean | null;
   inlineQtyMainQtyLocked?: boolean | null;

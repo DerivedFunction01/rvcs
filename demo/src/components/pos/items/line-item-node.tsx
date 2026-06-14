@@ -149,7 +149,9 @@ export function LineItemNode({
 
   const hasInlineQty =
     catalogEntry?.inlineQtyType && catalogEntry.inlineQtyType !== "none";
-  const inlineStep = catalogEntry?.inlineQtyType === "float" ? 0.05 : 1;
+  const inlineStep =
+    catalogEntry?.inlineQtyIncrement ??
+    (catalogEntry?.inlineQtyType === "float" ? 0.05 : 1);
   const inlineQtyLabel =
     catalogEntry?.inlineQtyLabel ??
     (catalogEntry?.inlineQtyType === "int"
@@ -165,6 +167,19 @@ export function LineItemNode({
     catalogEntry?.inlineQtyType === "int"
       ? inlineQtyLabel.toLowerCase()
       : inlineQtyUnit || inlineQtyLabel.toLowerCase();
+  const precision = (() => {
+    const increment = inlineStep;
+    if (!Number.isFinite(increment)) return 0;
+    const text = increment.toString();
+    if (text.includes("e-")) {
+      const match = text.match(/e-(\d+)$/);
+      return match ? Number(match[1]) : 0;
+    }
+    const decimals = text.split(".")[1];
+    return decimals ? decimals.length : 0;
+  })();
+  const formatInlineQty = (value: number) =>
+    precision > 0 ? value.toFixed(precision) : `${Math.round(value)}`;
   const inlinePricePerUnit = catalogEntry?.inlineQtyPricePerUnit;
   const inlineQtyPricePerUnitShowPer =
     catalogEntry?.inlineQtyPricePerUnitShowPer ?? true;
@@ -343,7 +358,7 @@ export function LineItemNode({
                   ) : null}
                   {item.inlineQty && item.inlineQty !== 1 ? (
                     <span className="font-semibold text-primary/80 ml-1">
-                      ({item.inlineQty} {inlineQtyDisplayUnit})
+                      ({formatInlineQty(item.inlineQty)} {inlineQtyDisplayUnit})
                     </span>
                   ) : null}
                 </span>
@@ -497,7 +512,7 @@ export function LineItemNode({
                       <Minus className="w-3 h-3" />
                     </Button>
                     <span className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1">
-                      {item.inlineQty ?? 1}
+                      {formatInlineQty(item.inlineQty ?? 1)}
                       {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
                     </span>
                     <Button
