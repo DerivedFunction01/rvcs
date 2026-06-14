@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { CatalogItemType } from "@/lib/vcs/types";
+import { NextResponse } from "next/server";
 
 // ─── GET /api/catalog ─────────────────────────────────────────────────────────
 // Returns the active product catalog. The VCS Engine caches this locally.
