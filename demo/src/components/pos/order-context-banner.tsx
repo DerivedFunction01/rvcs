@@ -26,7 +26,12 @@ export function OrderContextBanner({
   onEditClick?: () => void;
   children?: React.ReactNode;
 }) {
-  const TypeIcon = ORDER_TYPE_ICONS[context.orderType] ?? ShoppingCart;
+  const matchedIconKey = Object.keys(ORDER_TYPE_ICONS).find(
+    (k) =>
+      k.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+      context.orderType?.toLowerCase().replace(/[^a-z0-9]/g, "")
+  );
+  const TypeIcon = (matchedIconKey ? ORDER_TYPE_ICONS[matchedIconKey] : null) ?? ShoppingCart;
 
   return (
     <div className="px-6 py-2 bg-primary/5 border-b flex items-center gap-4 text-xs shrink-0">

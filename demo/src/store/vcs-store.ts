@@ -494,6 +494,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     // ─── Order Init/Reset ───────────────────────────────────────────────────
 
     initRepo: (orderContext: OrderContext, defaultPaymentMethod: string) => {
+      if (orderContext && orderContext.orderType) {
+        const matchedEnum = Object.values(OrderType).find(
+          (val) =>
+            val.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+            orderContext.orderType.toLowerCase().replace(/[^a-z0-9]/g, "")
+        );
+        if (matchedEnum) {
+          orderContext.orderType = matchedEnum;
+        }
+      }
       const repo = createFreshRepo(orderContext);
       const newEngine = new VCSEngine(repo);
       // Restore catalog if already loaded
@@ -2859,7 +2869,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             const context = repo.orderContext as any;
             if (context.orderType) {
               const matchedEnum = Object.values(OrderType).find(
-                (val) => val.toLowerCase() === context.orderType.toLowerCase()
+                (val) =>
+                  val.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+                  context.orderType.toLowerCase().replace(/[^a-z0-9]/g, "")
               );
               if (matchedEnum) {
                 context.orderType = matchedEnum;
