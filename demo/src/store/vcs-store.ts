@@ -715,6 +715,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const guestsList: Array<{ id: string; name: string }> = [];
       for (const alloc of Object.values(state.allocations)) {
         if (alloc.type === AllocationType.Assignment && !alloc.hidden) {
+          if (alloc.allocationId.startsWith("alloc-assign-")) {
+            continue;
+          }
           guestsList.push({ id: alloc.allocationId, name: alloc.entity });
         }
       }
@@ -2119,7 +2122,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const item = state.items[lineId];
 
-      if (item && item.status === ItemStatus.Confirmed && afterQty > beforeQty) {
+      if (
+        item &&
+        item.status === ItemStatus.Confirmed &&
+        afterQty > beforeQty
+      ) {
         const change = afterQty - beforeQty;
         const deltas: Delta[] = [];
 
@@ -2266,7 +2273,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               lineId,
               qty: item.qty,
             });
-          } else if (item.status === ItemStatus.Confirmed && targetQty > item.qty) {
+          } else if (
+            item.status === ItemStatus.Confirmed &&
+            targetQty > item.qty
+          ) {
             const change = targetQty - item.qty;
             buildCloneDeltas(item, null, 1, deltas, {
               overrideRootQty: change,
@@ -2301,7 +2311,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               lineId,
               qty: item.qty,
             });
-          } else if (item.status === ItemStatus.Confirmed && targetQty > item.qty) {
+          } else if (
+            item.status === ItemStatus.Confirmed &&
+            targetQty > item.qty
+          ) {
             const change = targetQty - item.qty;
             buildCloneDeltas(item, null, 1, deltas, {
               overrideRootQty: change,
@@ -2860,7 +2873,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
-                } else if (delta.allocation.type === AllocationType.Fulfillment) {
+                } else if (
+                  delta.allocation.type === AllocationType.Fulfillment
+                ) {
                   activeFulfillmentConfigId = delta.allocation.allocationId;
                 }
               }
@@ -2907,7 +2922,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             const lastItem = items[items.length - 1];
             const itemPayAllocs = lastItem.allocations
               .map((id) => currentProj.allocations[id])
-              .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+              .filter(
+                (a) => a?.type === AllocationType.Payment,
+              ) as PaymentAllocation[];
             if (itemPayAllocs.length > 0) {
               activePaymentConfigId =
                 itemPayAllocs[0].correlationId || itemPayAllocs[0].allocationId;

@@ -803,7 +803,7 @@ function POSTerminalInner({
           return g ? g.name : id.trim();
         })
         .join(" + ");
-      reassignItem(lineId, names);
+      reassignItem(lineId, newAssigneeIds);
       toast.success(`Reassigned to ${names}`);
     },
     [reassignItem, storeGuests],

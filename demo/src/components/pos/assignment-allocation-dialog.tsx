@@ -64,9 +64,13 @@ export function AssignmentAllocationDialog({
       setShowAddGuestInput(false);
       setNewGuestInputName("");
       if (currentAssignment) {
-        setSelectedIds(
-          currentAssignment.entity.split(",").map((s) => s.trim()),
-        );
+        if (currentAssignment.allocationId.startsWith("alloc-assign-")) {
+          setSelectedIds(
+            currentAssignment.entity.split(",").map((s) => s.trim()),
+          );
+        } else {
+          setSelectedIds([currentAssignment.allocationId]);
+        }
       } else {
         setSelectedIds([]);
       }
