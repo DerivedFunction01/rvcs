@@ -120,6 +120,50 @@ function detectConflict(
     };
   }
 
+  // remove_item vs modify_qty on same lineId
+  if (
+    (deltaA.action === DeltaActionType.RemoveItem &&
+      deltaB.action === DeltaActionType.ModifyQty &&
+      deltaA.lineId === deltaB.lineId) ||
+    (deltaA.action === DeltaActionType.ModifyQty &&
+      deltaB.action === DeltaActionType.RemoveItem &&
+      deltaA.lineId === deltaB.lineId)
+  ) {
+    const lineId = (deltaA as { lineId: string }).lineId;
+    return {
+      id,
+      type: MergeConflictType.RemoveModifyQty,
+      lineId,
+      branchA,
+      branchB,
+      deltaA,
+      deltaB,
+      resolution: null,
+    };
+  }
+
+  // remove_item vs modify_inline_qty on same lineId
+  if (
+    (deltaA.action === DeltaActionType.RemoveItem &&
+      deltaB.action === DeltaActionType.ModifyInlineQty &&
+      deltaA.lineId === deltaB.lineId) ||
+    (deltaA.action === DeltaActionType.ModifyInlineQty &&
+      deltaB.action === DeltaActionType.RemoveItem &&
+      deltaA.lineId === deltaB.lineId)
+  ) {
+    const lineId = (deltaA as { lineId: string }).lineId;
+    return {
+      id,
+      type: MergeConflictType.RemoveModifyInlineQty,
+      lineId,
+      branchA,
+      branchB,
+      deltaA,
+      deltaB,
+      resolution: null,
+    };
+  }
+
   // modify_sku + modify_sku on same lineId → only conflict if different SKUs
   if (
     deltaA.action === DeltaActionType.ModifySku &&
@@ -130,6 +174,44 @@ function detectConflict(
     return {
       id,
       type: MergeConflictType.ModifySkuSku,
+      lineId: deltaA.lineId,
+      branchA,
+      branchB,
+      deltaA,
+      deltaB,
+      resolution: null,
+    };
+  }
+
+  // modify_qty + modify_qty on same lineId
+  if (
+    deltaA.action === DeltaActionType.ModifyQty &&
+    deltaB.action === DeltaActionType.ModifyQty &&
+    deltaA.lineId === deltaB.lineId &&
+    deltaA.afterQty !== deltaB.afterQty
+  ) {
+    return {
+      id,
+      type: MergeConflictType.ModifyQtyQty,
+      lineId: deltaA.lineId,
+      branchA,
+      branchB,
+      deltaA,
+      deltaB,
+      resolution: null,
+    };
+  }
+
+  // modify_inline_qty + modify_inline_qty on same lineId
+  if (
+    deltaA.action === DeltaActionType.ModifyInlineQty &&
+    deltaB.action === DeltaActionType.ModifyInlineQty &&
+    deltaA.lineId === deltaB.lineId &&
+    deltaA.afterInlineQty !== deltaB.afterInlineQty
+  ) {
+    return {
+      id,
+      type: MergeConflictType.ModifyInlineQtyInlineQty,
       lineId: deltaA.lineId,
       branchA,
       branchB,
@@ -957,6 +1039,7 @@ export class VCSEngine {
     const deadLineIds = new Set<string>();
     const createdWithinRange = new Set<string>();
     const finalQtyMap = new Map<string, number>();
+    const finalInlineQtyMap = new Map<string, number>();
 
     // We bypass optimization if there's a batch mutation, as it relies on
     // deterministic state evaluation at a specific historical point.
@@ -973,6 +1056,7 @@ export class VCSEngine {
           parentMap.set(d.lineId, d.parentLineId);
           finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) + d.qty);
           finalQtyMap.set(d.lineId, (finalQtyMap.get(d.lineId) || 0) + d.qty);
+          finalInlineQtyMap.set(d.lineId, d.inlineQty ?? 1);
         } else if (d.action === DeltaActionType.RemoveItem) {
           if (createdLineIds.has(d.lineId)) {
             finalQty.set(d.lineId, (finalQty.get(d.lineId) || 0) - d.qty);
@@ -983,6 +1067,8 @@ export class VCSEngine {
             finalQty.set(d.lineId, d.afterQty);
           }
           finalQtyMap.set(d.lineId, d.afterQty);
+        } else if (d.action === DeltaActionType.ModifyInlineQty) {
+          finalInlineQtyMap.set(d.lineId, d.afterInlineQty);
         }
       }
 
@@ -1011,9 +1097,14 @@ export class VCSEngine {
     if (type === SquashType.Full) {
       const optimizedDeltas: Delta[] = [];
       const lastModifyQtyDeltaMap = new Map<string, Delta>();
+      const lastModifyInlineQtyDeltaMap = new Map<string, Delta>();
+      
       for (const d of allDeltas) {
         if (d.action === DeltaActionType.ModifyQty) {
           lastModifyQtyDeltaMap.set(d.lineId, d);
+        }
+        if (d.action === DeltaActionType.ModifyInlineQty) {
+          lastModifyInlineQtyDeltaMap.set(d.lineId, d);
         }
       }
 
@@ -1023,7 +1114,8 @@ export class VCSEngine {
         }
         if (d.action === DeltaActionType.AddItem) {
           const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
-          optimizedDeltas.push({ ...d, qty: finalQty });
+          const finalInlineQty = finalInlineQtyMap.get(d.lineId) ?? d.inlineQty ?? 1;
+          optimizedDeltas.push({ ...d, qty: finalQty, inlineQty: finalInlineQty });
           continue;
         }
         if (d.action === DeltaActionType.ModifyQty) {
@@ -1031,6 +1123,15 @@ export class VCSEngine {
             continue;
           }
           if (lastModifyQtyDeltaMap.get(d.lineId) === d) {
+            optimizedDeltas.push(d);
+          }
+          continue;
+        }
+        if (d.action === DeltaActionType.ModifyInlineQty) {
+          if (createdWithinRange.has(d.lineId)) {
+            continue;
+          }
+          if (lastModifyInlineQtyDeltaMap.get(d.lineId) === d) {
             optimizedDeltas.push(d);
           }
           continue;
@@ -1069,10 +1170,15 @@ export class VCSEngine {
     } else {
       // Find the last commit containing a modify_qty delta for each lineId
       const lastModifyQtyCommitMap = new Map<string, VCSCommit>();
+      const lastModifyInlineQtyCommitMap = new Map<string, VCSCommit>();
+      
       for (const c of rangeCommits) {
         for (const d of c.deltas) {
           if (d.action === DeltaActionType.ModifyQty) {
             lastModifyQtyCommitMap.set(d.lineId, c);
+          }
+          if (d.action === DeltaActionType.ModifyInlineQty) {
+            lastModifyInlineQtyCommitMap.set(d.lineId, c);
           }
         }
       }
@@ -1090,9 +1196,11 @@ export class VCSEngine {
 
           if (d.action === DeltaActionType.AddItem) {
             const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
+            const finalInlineQty = finalInlineQtyMap.get(d.lineId) ?? d.inlineQty ?? 1;
             filteredDeltas.push({
               ...d,
               qty: finalQty,
+              inlineQty: finalInlineQty,
             });
             continue;
           }
@@ -1102,6 +1210,18 @@ export class VCSEngine {
               continue;
             }
             if (lastModifyQtyCommitMap.get(d.lineId) === c) {
+              filteredDeltas.push(d);
+            } else {
+              continue;
+            }
+            continue;
+          }
+
+          if (d.action === DeltaActionType.ModifyInlineQty) {
+            if (createdWithinRange.has(d.lineId)) {
+              continue;
+            }
+            if (lastModifyInlineQtyCommitMap.get(d.lineId) === c) {
               filteredDeltas.push(d);
             } else {
               continue;
