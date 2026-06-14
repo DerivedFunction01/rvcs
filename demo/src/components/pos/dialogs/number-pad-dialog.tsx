@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { AlertTriangle, ArrowLeft, Delete, RotateCcw } from "lucide-react";
 import React, { useMemo, useState } from "react";
+import { usePreferencesStore } from "@/store/preferences-store";
 
 function snapQty(qty: number, increment: number): number {
   if (qty <= 0) return 0;
@@ -54,11 +55,18 @@ export function NumberPadDialog({
   icon,
 }: NumberPadDialogProps) {
   const [value, setValue] = useState("");
+  const { defaultPrefs } = usePreferencesStore();
+  const useCommaDecimal = defaultPrefs?.useCommaDecimal ?? false;
+  const decimalChar = useCommaDecimal ? "," : ".";
 
   const normalizedInitialValue = useMemo(() => {
     if (initialValue === null || Number.isNaN(initialValue)) return "";
-    return String(Math.max(min, Math.min(max, initialValue)));
-  }, [initialValue, min, max]);
+    let str = String(Math.max(min, Math.min(max, initialValue)));
+    if (useCommaDecimal) {
+      str = str.replace(".", ",");
+    }
+    return str;
+  }, [initialValue, min, max, useCommaDecimal]);
 
   React.useEffect(() => {
     if (open) {
@@ -74,7 +82,8 @@ export function NumberPadDialog({
     }
   }, [open, resetDependency]);
 
-  const parsed = value === "" || value === "." ? null : Number.parseFloat(value);
+  const normalizedValueForParsing = value.replace(",", ".");
+  const parsed = value === "" || value === decimalChar ? null : Number.parseFloat(normalizedValueForParsing);
   let clamped =
     parsed === null || Number.isNaN(parsed)
       ? null
@@ -90,8 +99,8 @@ export function NumberPadDialog({
 
   const appendDigit = (digit: string) => {
     setValue((prev) => {
-      if (digit === "." && prev.includes(".")) return prev;
-      if (digit === "." && prev === "") return "0.";
+      if (digit === decimalChar && prev.includes(decimalChar)) return prev;
+      if (digit === decimalChar && prev === "") return `0${decimalChar}`;
       const next = `${prev}${digit}`.replace(/^0+(?=\d)/, "");
       return next;
     });
@@ -111,7 +120,25 @@ export function NumberPadDialog({
         if (!nextOpen) setValue("");
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onKeyDown={(e) => {
+          if (/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+            appendDigit(e.key);
+          } else if (e.key === decimalChar) {
+            e.preventDefault();
+            appendDigit(decimalChar);
+          } else if (e.key === "Backspace" || e.key === "Delete") {
+            e.preventDefault();
+            setValue((prev) => prev.slice(0, -1));
+          } else if (e.key === "Enter") {
+            if (e.target instanceof HTMLButtonElement) return;
+            e.preventDefault();
+            if (clamped !== null || value === "") handleConfirm();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {icon || <ArrowLeft className="w-5 h-5 text-primary" />}
@@ -128,7 +155,7 @@ export function NumberPadDialog({
               readOnly
               inputMode="decimal"
               className="h-12 text-center text-2xl font-mono tracking-wider flex-1"
-              placeholder={placeholder ?? String(min)}
+              placeholder={placeholder ?? String(min).replace(".", decimalChar)}
             />
             <Button
               variant="outline"
@@ -143,7 +170,7 @@ export function NumberPadDialog({
             <div className="text-[11px] text-amber-600 dark:text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md flex items-center gap-2 font-medium">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>
-                Will be adjusted to <strong className="font-mono text-xs">{snapped}</strong> (increment of {increment}).
+                Will be adjusted to <strong className="font-mono text-xs">{String(snapped).replace(".", decimalChar)}</strong> (increment of {increment}).
               </span>
             </div>
           )}
@@ -162,9 +189,9 @@ export function NumberPadDialog({
             <Button
               variant="outline"
               className="h-12 text-lg font-semibold"
-              onClick={() => appendDigit(".")}
+              onClick={() => appendDigit(decimalChar)}
             >
-              .
+              {decimalChar}
             </Button>
             <Button
               variant="outline"

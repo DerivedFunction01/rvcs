@@ -90,6 +90,17 @@ export function GlobalSettingsDialog({
               onCheckedChange={(checked) => updateDefaultPreferences({ isCompactMode: !!checked })}
             />
           </div>
+          
+          <div className="flex items-center justify-between">
+            <label htmlFor="use-comma-decimal" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+              Use Comma for Decimal
+            </label>
+            <Checkbox 
+              id="use-comma-decimal" 
+              checked={defaultPrefs.useCommaDecimal}
+              onCheckedChange={(checked) => updateDefaultPreferences({ useCommaDecimal: !!checked })}
+            />
+          </div>
         </div>
         
         <DialogFooter>
