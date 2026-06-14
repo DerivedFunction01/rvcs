@@ -493,7 +493,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     // ─── Order Init/Reset ───────────────────────────────────────────────────
 
-    initRepo: (orderContext: OrderContext, defaultPaymentMethod: string) => {
+    initRepo: (orderContext: OrderContext, rawDefaultPaymentMethod: string) => {
+      let defaultPaymentMethod = rawDefaultPaymentMethod.toLowerCase();
+      if (!PAYMENT_METHODS.includes(defaultPaymentMethod)) {
+        defaultPaymentMethod = PAYMENT_METHODS[0] || "cash";
+      }
       if (orderContext && orderContext.orderType) {
         const matchedEnum = Object.values(OrderType).find(
           (val) =>
@@ -2897,7 +2901,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                 } else if (delta.allocation.type === AllocationType.Payment) {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
-                    (delta.allocation as PaymentAllocation).method || "cash";
+                    ((delta.allocation as PaymentAllocation).method || "cash").toLowerCase();
                 } else if (
                   delta.allocation.type === AllocationType.Fulfillment
                 ) {
@@ -2927,7 +2931,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                 ) {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
-                    (delta.allocation as PaymentAllocation).method || "cash";
+                    ((delta.allocation as PaymentAllocation).method || "cash").toLowerCase();
                 } else if (
                   delta.allocation.type === AllocationType.Fulfillment &&
                   !activeFulfillmentConfigId

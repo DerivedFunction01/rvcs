@@ -1862,7 +1862,7 @@ export default function POSTerminal() {
       .then((data) => {
         if (data.label) setStoreLabel(data.label);
         if (data.defaultPaymentMethod)
-          setDefaultPaymentFromConfig(data.defaultPaymentMethod);
+          setDefaultPaymentFromConfig(data.defaultPaymentMethod.toLowerCase());
         if (data.orderTypes) setOrderTypes(data.orderTypes);
         if (data.floorConfigs) setFloorConfigs(data.floorConfigs);
       })
