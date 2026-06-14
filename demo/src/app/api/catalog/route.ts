@@ -106,6 +106,7 @@ export async function POST(request: Request) {
       inlineQtyLabel?: string;
       inlineQtyUnit?: string;
       inlineQtyPricePerUnit?: boolean;
+      inlineQtyPricePerUnitShowPer?: boolean;
     }>;
 
     if (!Array.isArray(items)) {
@@ -128,6 +129,8 @@ export async function POST(request: Request) {
         inlineQtyLabel: item.inlineQtyLabel ?? null,
         inlineQtyUnit: item.inlineQtyUnit ?? null,
         inlineQtyPricePerUnit: item.inlineQtyPricePerUnit ?? false,
+        inlineQtyPricePerUnitShowPer:
+          item.inlineQtyPricePerUnitShowPer ?? true,
       };
 
       await db.catalogItem.upsert({

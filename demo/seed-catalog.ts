@@ -660,6 +660,7 @@ const SEED_DATA = [
     inlineQtyLabel: "Count",
     inlineQtyUnit: "each",
     inlineQtyPricePerUnit: true,
+    inlineQtyPricePerUnitShowPer: false,
   },
   {
     sku: "SKU-GROCERY-CABBAGE",

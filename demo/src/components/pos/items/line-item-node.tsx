@@ -161,7 +161,13 @@ export function LineItemNode({
     catalogEntry?.inlineQtyUnit ??
     (catalogEntry?.inlineQtyType === "float" ? "units" : "");
   const inlineQtyRateUnit = inlineQtyUnit || inlineQtyLabel.toLowerCase();
+  const inlineQtyDisplayUnit =
+    catalogEntry?.inlineQtyType === "int"
+      ? inlineQtyLabel.toLowerCase()
+      : inlineQtyUnit || inlineQtyLabel.toLowerCase();
   const inlinePricePerUnit = catalogEntry?.inlineQtyPricePerUnit;
+  const inlineQtyPricePerUnitShowPer =
+    catalogEntry?.inlineQtyPricePerUnitShowPer ?? true;
   const sizeGroup = catalogEntry?.appliedSizeGroup;
   const sizeOptions = sizeGroup?.options || [];
 
@@ -327,12 +333,12 @@ export function LineItemNode({
                   catalogEntry?.basePrice !== undefined ? (
                     <span className="font-semibold text-muted-foreground text-xs ml-2">
                       @
-                      {`$${catalogEntry.basePrice.toFixed(2)} per ${inlineQtyRateUnit}`}
+                      {`$${catalogEntry.basePrice.toFixed(2)}${inlineQtyRateUnit ? inlineQtyPricePerUnitShowPer ? ` per ${inlineQtyRateUnit}` : ` ${inlineQtyRateUnit}` : ""}`}
                     </span>
                   ) : null}
                   {item.inlineQty && item.inlineQty !== 1 ? (
                     <span className="font-semibold text-primary/80 ml-1">
-                      ({item.inlineQty} {inlineQtyUnit})
+                      ({item.inlineQty} {inlineQtyDisplayUnit})
                     </span>
                   ) : null}
                 </span>
