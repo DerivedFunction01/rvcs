@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { User, Phone, MapPin, Settings2 } from "lucide-react";
+import { OrderType } from "@/lib/pos/types";
 
 interface CustomerEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  orderType: string | undefined;
+  orderType: OrderType | undefined;
   customerFields: Record<string, string>;
   onSave: (fields: Record<string, string>) => void;
 }
@@ -43,8 +44,8 @@ export function CustomerEditDialog({
     const phone = (editedFields.phone || "").trim();
     const address = (editedFields.address || "").trim();
 
-    const isPickup = orderType === "pickup";
-    const isDelivery = orderType === "delivery";
+    const isPickup = orderType === OrderType.Pickup;
+    const isDelivery = orderType === OrderType.Delivery;
 
     if (!name) {
       nextErrors.name = "Name is required";
@@ -116,7 +117,7 @@ export function CustomerEditDialog({
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Phone className="w-3 h-3" /> Phone {(orderType === "pickup" || orderType === "delivery") && <span className="text-destructive text-xs">*</span>}
+              <Phone className="w-3 h-3" /> Phone {(orderType === OrderType.Pickup || orderType === OrderType.Delivery) && <span className="text-destructive text-xs">*</span>}
             </label>
             <Input
               id="customer-phone"
@@ -140,7 +141,7 @@ export function CustomerEditDialog({
               <p className="text-xs text-destructive font-medium">{errors.phone}</p>
             )}
           </div>
-          {orderType === "delivery" && (
+          {orderType === OrderType.Delivery && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                 <MapPin className="w-3 h-3" /> Delivery Address <span className="text-destructive text-xs">*</span>

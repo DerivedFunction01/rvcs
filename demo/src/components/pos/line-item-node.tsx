@@ -27,7 +27,7 @@ import type {
   AllocationBlock,
   CatalogItemEntry,
 } from "@/lib/vcs/types";
-import { AllocationType, CatalogItemType } from "@/lib/vcs/types";
+import { AllocationType, CatalogItemType, ItemStatus } from "@/lib/vcs/types";
 import {
   type Guest,
   getGuestColor,
@@ -82,10 +82,10 @@ export function LineItemNode({
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
   const assignee = getAssigneeFromItem(item, allocations, guests);
-  const isCanceled = item.status === "canceled";
-  const isPending = item.status === "pending";
-  const isChanged = item.status === "changed";
-  const isConfirmed = item.status === "confirmed";
+  const isCanceled = item.status === ItemStatus.Canceled;
+  const isPending = item.status === ItemStatus.Pending;
+  const isChanged = item.status === ItemStatus.Changed;
+  const isConfirmed = item.status === ItemStatus.Confirmed;
   const hasSplitPayment =
     item.allocations.filter((id) => allocations[id]?.type === AllocationType.Payment)
       .length > 1;

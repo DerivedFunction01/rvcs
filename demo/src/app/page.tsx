@@ -58,6 +58,8 @@ import {
   PaymentUpdateMode,
   ConfigUpdateMode,
   AllocationContext,
+  HistoryOpType,
+  OrderType,
 } from "@/lib/pos/types";
 import { generateAllocationId } from "@/lib/vcs/id";
 import {
@@ -73,6 +75,8 @@ import {
   DeltaActionType,
   AllocationType,
   CatalogItemType,
+  CatalogCategory,
+  ItemStatus,
 } from "@/lib/vcs/types";
 import {
   GitCommitHorizontal,
@@ -292,7 +296,7 @@ function POSTerminalInner({
 
   // ─── Dialog State ───────────────────────────────
   const [historyOpDialog, setHistoryOpDialog] = React.useState<{
-    type: "squash" | "reset";
+    type: HistoryOpType;
     targetHash: string;
     label: string;
     description: string;
@@ -303,17 +307,17 @@ function POSTerminalInner({
     (squashType?: SquashType) => {
       if (!historyOpDialog) return;
       try {
-        if (historyOpDialog.type === "squash") {
+        if (historyOpDialog.type === HistoryOpType.Squash) {
           squashPendingCommits(
             historyOpDialog.targetHash,
             squashType || SquashType.Light,
           );
           toast.success(
-            squashType === "full"
+            squashType === SquashType.Full
               ? "Commits squashed to a single commit"
               : "Net-zero items removed from pending history",
           );
-        } else if (historyOpDialog.type === "reset") {
+        } else if (historyOpDialog.type === HistoryOpType.Reset) {
           resetToCommit(historyOpDialog.targetHash);
           toast.success("Branch reset to selected commit");
         }
@@ -500,7 +504,10 @@ function POSTerminalInner({
 
   // ─── Derived State ──────────────────────────────────────────────────────
   const catalogItems = Object.values(catalog).filter(
-    (i) => i.active && i.type === CatalogItemType.Item && i.category !== "combo-slot",
+    (i) =>
+      i.active &&
+      i.type === CatalogItemType.Item &&
+      i.category !== CatalogCategory.ComboSlot,
   );
   const modifierItems = Object.values(catalog).filter(
     (i) => i.active && i.type === CatalogItemType.Modifier,
@@ -508,7 +515,7 @@ function POSTerminalInner({
   const groupedCatalog = catalogItems.reduce<
     Record<string, typeof catalogItems>
   >((acc, item) => {
-    const cat = item.category || "general";
+    const cat = item.category || CatalogCategory.General;
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
     return acc;
@@ -527,7 +534,7 @@ function POSTerminalInner({
   );
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
-      if (hideCanceled && item.status === "canceled") return false;
+      if (hideCanceled && item.status === ItemStatus.Canceled) return false;
       const assignee = getAssigneeFromItem(
         item,
         projectedState.allocations,
@@ -547,7 +554,7 @@ function POSTerminalInner({
   const canceledCount = React.useMemo(() => {
     let count = 0;
     const countCanceled = (item: ProjectedLineItem) => {
-      if (item.status === "canceled") count++;
+      if (item.status === ItemStatus.Canceled) count++;
       else item.children.forEach(countCanceled);
     };
     for (const item of rootItems) {
@@ -730,11 +737,11 @@ function POSTerminalInner({
     ) as FulfillmentAllocation | undefined;
     if (alloc) {
       const methodLabel =
-        alloc.method === "walk-in"
+        alloc.method === OrderType.WalkIn
           ? "Walk In"
-          : alloc.method === "pickup"
+          : alloc.method === OrderType.Pickup
             ? "Pickup"
-            : alloc.method === "delivery"
+            : alloc.method === OrderType.Delivery
               ? "Delivery"
               : alloc.method;
       const destLabel = alloc.fulfillmentMetadata.destinationLabel

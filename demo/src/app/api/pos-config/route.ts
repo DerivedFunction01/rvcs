@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { OrderType } from "@/lib/pos/types";
 
 interface CustomerField {
   key: string;
@@ -10,7 +11,7 @@ interface CustomerField {
   validation?: { pattern?: string; minLength?: number; maxLength?: number };
 }
 
-interface OrderType {
+interface OrderTypeConfigDto {
   id: string;
   label: string;
   description: string;
@@ -49,7 +50,7 @@ const DEFAULT_CONFIG = {
   defaultPaymentMethod: "cash",
   orderTypes: [
     {
-      id: "walk-in",
+      id: OrderType.WalkIn,
       label: "Walk In",
       description: "Dine-in or takeout at the counter",
       icon: "Store",
@@ -66,7 +67,7 @@ const DEFAULT_CONFIG = {
       ],
     },
     {
-      id: "pickup",
+      id: OrderType.Pickup,
       label: "Pickup",
       description: "Order now, pick up at the counter",
       icon: "PackageCheck",
@@ -98,7 +99,7 @@ const DEFAULT_CONFIG = {
       ],
     },
     {
-      id: "delivery",
+      id: OrderType.Delivery,
       label: "Delivery",
       description: "Have it delivered to your door",
       icon: "Truck",
@@ -137,7 +138,7 @@ const DEFAULT_CONFIG = {
         },
       ],
     },
-  ] as OrderType[],
+  ] as OrderTypeConfigDto[],
 };
 
 function defaultFloorSeed() {
@@ -345,7 +346,7 @@ export async function GET() {
     await ensureDefaultFloors(config.id);
 
     const parsed = JSON.parse(config.config);
-    const orderTypes = (parsed.orderTypes ?? parsed) as OrderType[];
+    const orderTypes = (parsed.orderTypes ?? parsed) as OrderTypeConfigDto[];
     const defaultPaymentMethod = (parsed.defaultPaymentMethod ?? "cash") as string;
     const floorConfigs = await readFloorConfigs(config.id);
 
@@ -369,7 +370,7 @@ export async function POST(request: Request) {
     const { key, label, orderTypes, defaultPaymentMethod } = body as {
       key?: string;
       label?: string;
-      orderTypes?: OrderType[];
+      orderTypes?: OrderTypeConfigDto[];
       defaultPaymentMethod?: string;
     };
 

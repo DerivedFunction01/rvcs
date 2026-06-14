@@ -36,7 +36,7 @@ import {
   ProjectedLineItem,
   TimeBlockType,
 } from "@/lib/vcs/types";
-import { AllocationContext } from "@/lib/pos/types";
+import { AllocationContext, OrderType } from "@/lib/pos/types";
 import type { FloorConfig } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
 import { formatFulfillmentTime } from "@/lib/pos/utils";
@@ -96,7 +96,7 @@ export function FulfillmentAllocationDialog({
   const [searchQuery, setSearchQuery] = useState("");
 
   // Custom configuration states
-  const [method, setMethod] = useState<string>("walk-in");
+  const [method, setMethod] = useState<OrderType>(OrderType.WalkIn);
   const [timeType, setTimeType] = useState<TimeBlockType>(
     TimeBlockType.Immediate,
   );
@@ -152,7 +152,7 @@ export function FulfillmentAllocationDialog({
       }
 
       if (target) {
-        setMethod(target.method);
+        setMethod(target.method as OrderType);
         setTimeType(target.time.type);
         setCalculatedAt(target.time.calculatedAt);
         const meta = target.fulfillmentMetadata;
@@ -169,7 +169,7 @@ export function FulfillmentAllocationDialog({
           setCustomDestLabel(meta.destinationLabel || "");
         }
       } else {
-        setMethod("walk-in");
+        setMethod(OrderType.WalkIn);
         setTimeType(TimeBlockType.Immediate);
         setCalculatedAt(null);
         setDestType("guest");
@@ -212,21 +212,21 @@ export function FulfillmentAllocationDialog({
       {
         id: "group-default-walk-in",
         label: "Walk In / Dine In",
-        method: "walk-in",
+        method: OrderType.WalkIn,
         description: "Standard table or counter service default config",
         icon: Store,
       },
       {
         id: "group-default-pickup",
         label: "Pickup",
-        method: "pickup",
+        method: OrderType.Pickup,
         description: "Counter pickup default configuration",
         icon: PackageCheck,
       },
       {
         id: "group-default-delivery",
         label: "Delivery",
-        method: "delivery",
+        method: OrderType.Delivery,
         description: "Delivery tracking default configuration",
         icon: Truck,
       },
@@ -269,11 +269,11 @@ export function FulfillmentAllocationDialog({
         seen.add(id);
 
         const methodLabel =
-          f.method === "walk-in"
+          f.method === OrderType.WalkIn
             ? "Walk In"
-            : f.method === "pickup"
+            : f.method === OrderType.Pickup
               ? "Pickup"
-              : f.method === "delivery"
+              : f.method === OrderType.Delivery
                 ? "Delivery"
                 : f.method;
 
@@ -284,9 +284,9 @@ export function FulfillmentAllocationDialog({
             : formatFulfillmentTime(f.time.calculatedAt);
 
         const Icon =
-          f.method === "delivery"
+          f.method === OrderType.Delivery
             ? Truck
-            : f.method === "pickup"
+            : f.method === OrderType.Pickup
               ? PackageCheck
               : Store;
 
@@ -329,11 +329,11 @@ export function FulfillmentAllocationDialog({
     if (!alloc) return null;
 
     const methodLabel =
-      alloc.method === "walk-in"
+      alloc.method === OrderType.WalkIn
         ? "Walk In"
-        : alloc.method === "pickup"
+        : alloc.method === OrderType.Pickup
           ? "Pickup"
-          : alloc.method === "delivery"
+          : alloc.method === OrderType.Delivery
             ? "Delivery"
             : alloc.method;
 
@@ -346,9 +346,9 @@ export function FulfillmentAllocationDialog({
           ? "Immediate"
           : formatFulfillmentTime(alloc.time.calculatedAt),
       icon:
-        alloc.method === "delivery"
+        alloc.method === OrderType.Delivery
           ? Truck
-          : alloc.method === "pickup"
+          : alloc.method === OrderType.Pickup
             ? PackageCheck
             : Store,
     };
@@ -559,9 +559,9 @@ export function FulfillmentAllocationDialog({
               </label>
               <div className="flex gap-2">
                 {[
-                  { id: "walk-in", label: "Walk In", icon: Store },
-                  { id: "pickup", label: "Pickup", icon: PackageCheck },
-                  { id: "delivery", label: "Delivery", icon: Truck },
+                  { id: OrderType.WalkIn, label: "Walk In", icon: Store },
+                  { id: OrderType.Pickup, label: "Pickup", icon: PackageCheck },
+                  { id: OrderType.Delivery, label: "Delivery", icon: Truck },
                 ].map((item) => {
                   const Icon = item.icon;
                   const active = method === item.id;

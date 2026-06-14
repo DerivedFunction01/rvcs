@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { GitCommitHorizontal, PanelRightClose, PanelRightOpen, AlertCircle, RotateCcw, ChevronDown, ChevronRight, GitBranch, Lightbulb, ChevronsUpDown, Eraser } from "lucide-react";
 import { toast } from "sonner";
 import { DeltaActionType } from "@/lib/vcs/types";
+import { HistoryOpType } from "@/lib/pos/types";
 
 export function CommitLedgerPanel(props: any) {
   const { isLedgerCollapsed, setIsLedgerCollapsed, log, viewingHash, headHash, isViewingHistory, viewRevision, graphData, expandedCommits, toggleCommitExpanded, checkoutBranch, activeBranch, branches, setHistoryOpDialog, engine, confirmedHash } = props;
@@ -102,8 +103,8 @@ export function CommitLedgerPanel(props: any) {
                           </div>
                           {!isConfirmed && !isHead && !commit.authorId.startsWith("system-") && (
                             <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover/commit:opacity-100 transition-opacity pointer-events-none group-hover/commit:pointer-events-auto">
-                              <TooltipProvider><Tooltip><TooltipTrigger asChild><button onClick={(e) => { e.stopPropagation(); setHistoryOpDialog({ type: "squash", targetHash: commit.commitHash, label: "Squash to HEAD", description: `Collapse pending commits up to HEAD.` }); }} className="h-5 w-5 rounded flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 border border-sky-500/20"><ChevronsUpDown className="w-3 h-3" /></button></TooltipTrigger><TooltipContent side="left" className="text-[10px]">Squash from here to HEAD</TooltipContent></Tooltip></TooltipProvider>
-                              <TooltipProvider><Tooltip><TooltipTrigger asChild><button onClick={(e) => { e.stopPropagation(); setHistoryOpDialog({ type: "reset", targetHash: commit.commitHash, label: "Reset to here", description: `Reset branch HEAD to ${commit.commitHash.substring(0, 7)}.` }); }} className="h-5 w-5 rounded flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20"><Eraser className="w-3 h-3" /></button></TooltipTrigger><TooltipContent side="left" className="text-[10px]">Reset branch to here</TooltipContent></Tooltip></TooltipProvider>
+                              <TooltipProvider><Tooltip><TooltipTrigger asChild><button onClick={(e) => { e.stopPropagation(); setHistoryOpDialog({ type: HistoryOpType.Squash, targetHash: commit.commitHash, label: "Squash to HEAD", description: `Collapse pending commits up to HEAD.` }); }} className="h-5 w-5 rounded flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 border border-sky-500/20"><ChevronsUpDown className="w-3 h-3" /></button></TooltipTrigger><TooltipContent side="left" className="text-[10px]">Squash from here to HEAD</TooltipContent></Tooltip></TooltipProvider>
+                              <TooltipProvider><Tooltip><TooltipTrigger asChild><button onClick={(e) => { e.stopPropagation(); setHistoryOpDialog({ type: HistoryOpType.Reset, targetHash: commit.commitHash, label: "Reset to here", description: `Reset branch HEAD to ${commit.commitHash.substring(0, 7)}.` }); }} className="h-5 w-5 rounded flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20"><Eraser className="w-3 h-3" /></button></TooltipTrigger><TooltipContent side="left" className="text-[10px]">Reset branch to here</TooltipContent></Tooltip></TooltipProvider>
                             </div>
                           )}
                         </div>

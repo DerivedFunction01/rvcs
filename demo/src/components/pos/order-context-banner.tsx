@@ -10,13 +10,14 @@ import {
 import { ShoppingCart, User, Phone, MapPin, UserPlus, Clock } from "lucide-react";
 import { ORDER_TYPE_ICONS } from "@/lib/pos/ui-utils";
 import { toast } from "sonner";
+import { OrderType } from "@/lib/pos/types";
 
 export function OrderContextBanner({
   context,
   onEditClick,
 }: {
   context: {
-    orderType: string;
+    orderType: OrderType;
     orderTypeLabel: string;
     customerFields: Record<string, string>;
     estimatedTimeLabel?: string | null;
@@ -32,11 +33,11 @@ export function OrderContextBanner({
           value={context.orderType}
           onValueChange={(val) => {
             const labels: Record<string, string> = {
-              "walk-in": "Walk In",
-              pickup: "Pickup",
-              delivery: "Delivery",
+              [OrderType.WalkIn]: "Walk In",
+              [OrderType.Pickup]: "Pickup",
+              [OrderType.Delivery]: "Delivery",
             };
-            useVCSStore.getState().updateOrderType(val, labels[val] || val);
+            useVCSStore.getState().updateOrderType(val as OrderType, labels[val] || val);
             toast.success(`Order type changed to ${labels[val] || val}`);
           }}
         >
@@ -50,9 +51,9 @@ export function OrderContextBanner({
             </div>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="walk-in">Walk In</SelectItem>
-            <SelectItem value="pickup">Pickup</SelectItem>
-            <SelectItem value="delivery">Delivery</SelectItem>
+            <SelectItem value={OrderType.WalkIn}>Walk In</SelectItem>
+            <SelectItem value={OrderType.Pickup}>Pickup</SelectItem>
+            <SelectItem value={OrderType.Delivery}>Delivery</SelectItem>
           </SelectContent>
         </Select>
       </div>

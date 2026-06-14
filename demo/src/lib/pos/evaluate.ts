@@ -1,4 +1,4 @@
-import type { ProjectedState, ProjectedLineItem, CatalogItemEntry } from "@/lib/vcs/types";
+import { ProjectedState, ProjectedLineItem, CatalogItemEntry, ItemStatus } from "@/lib/vcs/types";
 import { ResolvedChargeRule, ChargeBreakdownLine, ChargeCategory, ChargeRateType } from "./financials";
 
 export interface PosFinancials {
@@ -71,7 +71,7 @@ export function evaluateBusinessRules(
   // Phase 1: Evaluate Rules on all active line items
   // We iterate through the flat items map, processing roots and modifiers independently.
   for (const item of Object.values(vcsState.items)) {
-    if (item.status === "canceled") continue;
+    if (item.status === ItemStatus.Canceled) continue;
     applyChargeRules(item, item.qty, item.totalPrice);
   }
 

@@ -1,5 +1,11 @@
+export enum OrderType {
+  WalkIn = "walk-in",
+  Pickup = "pickup",
+  Delivery = "delivery",
+}
+
 export interface OrderContext {
-  orderType: string; // "walk-in" | "pickup" | "delivery"
+  orderType: OrderType;
   orderTypeLabel: string; // "Walk In" | "Pickup" | "Delivery"
   serverName: string; // server / account login for the terminal
   tableConfigId?: string | null;
@@ -75,6 +81,11 @@ export enum AllocationContext {
   Group = "group",
   Header = "header",
   Global = "global",
+}
+
+export enum HistoryOpType {
+  Squash = "squash",
+  Reset = "reset",
 }
 
 export interface FloorObjectBase {

@@ -37,6 +37,7 @@ import type { ResolvedChargeRule } from "@/lib/pos/financials";
 import { evaluateBusinessRules, type RenderedCheck } from "@/lib/pos/evaluate";
 import {
   OrderContext,
+  OrderType,
   PaymentUpdateMode,
   ConfigUpdateMode,
 } from "@/lib/pos/types";
@@ -170,7 +171,7 @@ interface VCSStore {
   // Actions — Order Init/Reset
   initRepo: (orderContext: OrderContext, defaultPaymentMethod: string) => void;
   resetOrder: () => void;
-  updateOrderType: (newType: string, newTypeLabel: string) => void;
+  updateOrderType: (newType: OrderType, newTypeLabel: string) => void;
   updateOrderContext: (context: Partial<OrderContext>) => void;
 
   // Actions — Default Allocations
@@ -671,7 +672,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       });
     },
 
-    updateOrderType: (newType: string, newTypeLabel: string) => {
+    updateOrderType: (newType: OrderType, newTypeLabel: string) => {
       const store = get();
       if (!store.orderContext) return;
       const updatedContext = {
@@ -2116,7 +2117,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const item = state.items[lineId];
 
-      if (item && item.status === "confirmed" && afterQty > beforeQty) {
+      if (item && item.status === ItemStatus.Confirmed && afterQty > beforeQty) {
         const change = afterQty - beforeQty;
         const deltas: Delta[] = [];
 
@@ -2263,7 +2264,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               lineId,
               qty: item.qty,
             });
-          } else if (item.status === "confirmed" && targetQty > item.qty) {
+          } else if (item.status === ItemStatus.Confirmed && targetQty > item.qty) {
             const change = targetQty - item.qty;
             buildCloneDeltas(item, null, 1, deltas, {
               overrideRootQty: change,
@@ -2298,7 +2299,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               lineId,
               qty: item.qty,
             });
-          } else if (item.status === "confirmed" && targetQty > item.qty) {
+          } else if (item.status === ItemStatus.Confirmed && targetQty > item.qty) {
             const change = targetQty - item.qty;
             buildCloneDeltas(item, null, 1, deltas, {
               overrideRootQty: change,

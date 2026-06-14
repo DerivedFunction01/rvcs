@@ -3,6 +3,8 @@ import React from "react";
 import type { AllocationBlock, PaymentAllocation, ProjectedLineItem } from "@/lib/vcs/types";
 import { AllocationType, PaymentStrategyType } from "@/lib/vcs/types";
 
+import { OrderType } from "./types";
+
 export interface Guest {
   id: string; // Stable identifier (e.g. "__vcs_guest_1__", "__vcs_guest_2__")
   number: number; // Stable sequential number
@@ -13,9 +15,9 @@ export interface Guest {
 export const PAYMENT_METHODS = ["cash", "visa", "mastercard", "amex"];
 
 export const ORDER_TYPE_ICONS: Record<string, React.ElementType> = {
-  "walk-in": Store,
-  pickup: PackageCheck,
-  delivery: Truck,
+  [OrderType.WalkIn]: Store,
+  [OrderType.Pickup]: PackageCheck,
+  [OrderType.Delivery]: Truck,
 };
 
 export function formatLabel(str: string) {

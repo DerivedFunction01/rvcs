@@ -43,6 +43,7 @@ import type {
   OrderContext,
   OrderTypeConfig,
 } from "@/lib/pos/types";
+import { OrderType } from "@/lib/pos/types";
 import { CustomerSearchDialog } from "@/components/pos/customer-search-dialog";
 import { CustomerFieldInput } from "@/components/pos/customer-fields";
 
@@ -359,7 +360,7 @@ export function OrderInitScreen({
     setCustomerFields(initial);
     setFieldErrors({});
     setSelectedObjectIds([]);
-    setStep(type.id === "walk-in" ? "floor" : "details");
+    setStep(type.id === OrderType.WalkIn ? "floor" : "details");
   };
 
   const validateFields = (): boolean => {
@@ -414,13 +415,13 @@ export function OrderInitScreen({
       }
 
       onOrderStart({
-        orderType: selectedType.id,
+        orderType: selectedType.id as OrderType,
         orderTypeLabel: selectedType.label,
         serverName: selectedServer || servers[0]?.name || "Tom",
         floorConfigId: selectedFloor?.id ?? null,
         tableConfigId: selectedTables[0]?.id ?? null,
         initialGuestNames:
-          selectedType.id === "walk-in" && selectedObjects.length > 0
+          selectedType.id === OrderType.WalkIn && selectedObjects.length > 0
             ? guestNames
             : undefined,
         customerFields: trimmed,
@@ -991,7 +992,7 @@ export function OrderInitScreen({
             size="sm"
             className="mb-6 text-xs text-muted-foreground"
             onClick={() =>
-              setStep(selectedType?.id === "walk-in" ? "floor" : "order")
+              setStep(selectedType?.id === OrderType.WalkIn ? "floor" : "order")
             }
           >
             <ArrowLeft className="w-3 h-3 mr-1" />

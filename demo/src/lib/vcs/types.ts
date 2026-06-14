@@ -356,6 +356,11 @@ export enum CatalogItemType {
   Discount = "discount",
 }
 
+export enum CatalogCategory {
+  ComboSlot = "combo-slot",
+  General = "general",
+}
+
 export interface CatalogItemEntry {
   sku: string;
   name: string;

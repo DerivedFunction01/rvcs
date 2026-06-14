@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Lock, ChevronsUpDown, Eraser } from "lucide-react";
 import { SQUASH_DESCRIPTIONS } from "@/lib/pos/utils";
 import { SquashType } from "@/lib/vcs/types";
+import { HistoryOpType } from "@/lib/pos/types";
 
 export function HistoryOpDialog({
   open,
@@ -13,7 +14,7 @@ export function HistoryOpDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  operation: { type: "squash" | "reset"; targetHash: string; label: string; description: string } | null;
+  operation: { type: HistoryOpType; targetHash: string; label: string; description: string } | null;
   onConfirm: (squashType?: SquashType) => void;
 }) {
   const [squashType, setSquashType] = useState<SquashType>(SquashType.Light);
@@ -29,7 +30,7 @@ export function HistoryOpDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {operation?.type === "squash" ? <ChevronsUpDown className="w-4 h-4 text-sky-500" /> : <Eraser className="w-4 h-4 text-rose-500" />}
+            {operation?.type === HistoryOpType.Squash ? <ChevronsUpDown className="w-4 h-4 text-sky-500" /> : <Eraser className="w-4 h-4 text-rose-500" />}
             {operation?.label}
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
@@ -37,7 +38,7 @@ export function HistoryOpDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {operation?.type === "squash" && (
+        {operation?.type === HistoryOpType.Squash && (
           <div className="py-2.5 space-y-2">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
               Select Squash Type
@@ -86,10 +87,10 @@ export function HistoryOpDialog({
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             size="sm"
-            variant={operation?.type === "reset" ? "destructive" : "default"}
-            onClick={() => onConfirm(operation?.type === "squash" ? squashType : undefined)}
+            variant={operation?.type === HistoryOpType.Reset ? "destructive" : "default"}
+            onClick={() => onConfirm(operation?.type === HistoryOpType.Squash ? squashType : undefined)}
           >
-            {operation?.type === "squash"
+            {operation?.type === HistoryOpType.Squash
               ? squashType === SquashType.Light
                 ? `Apply ${SQUASH_DESCRIPTIONS.light.label}`
                 : `Apply ${SQUASH_DESCRIPTIONS.full.label}`
