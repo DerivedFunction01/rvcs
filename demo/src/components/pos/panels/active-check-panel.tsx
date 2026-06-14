@@ -253,7 +253,6 @@ export function ActiveCheckPanel(props: any) {
                 detailLevel={detailLevel}
                 isCompactMode={isCompactMode}
                 hideCanceled={hideCanceled}
-                qtyStep={parsedStep}
               />
             ))}
           </div>

@@ -119,6 +119,13 @@ function isSystemBranch(branch: string | string[]): boolean {
   return branches.some((b) => b.trim() === "system");
 }
 
+function snapQty(qty: number, increment: number): number {
+  if (qty <= 0) return 0;
+  let snapped = Math.floor(qty / increment) * increment;
+  if (snapped <= 0) snapped = increment;
+  return Math.round(snapped * 1000) / 1000;
+}
+
 // ─── Create Default Repo ──────────────────────────────────────────────────────
 
 function createFreshRepo(orderContext?: OrderContext): VCSRepo {
@@ -2190,28 +2197,39 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const item = state.items[lineId];
 
-      if (
-        item &&
-        item.status === ItemStatus.Confirmed &&
-        afterQty > beforeQty
-      ) {
-        const change = afterQty - beforeQty;
-        const deltas: Delta[] = [];
+      if (item) {
+        const catalogEntry = store.catalog[item.sku];
+        const increment = catalogEntry?.mainQtyIncrement ?? 1;
+        
+        const finalQty = snapQty(afterQty, increment);
 
-        buildCloneDeltas(item, null, 1, deltas, { overrideRootQty: change });
-        store.commitDeltas(deltas, "pos-ui");
-      } else {
-        get().commitDeltas(
-          [
-            {
-              action: DeltaActionType.ModifyQty,
-              lineId,
-              beforeQty,
-              afterQty,
-            },
-          ],
-          "pos-ui",
-        );
+        if (finalQty <= 0) {
+          get().removeItem(lineId);
+          return;
+        }
+
+        if (
+          item.status === ItemStatus.Confirmed &&
+          finalQty > beforeQty
+        ) {
+          const change = finalQty - beforeQty;
+          const deltas: Delta[] = [];
+
+          buildCloneDeltas(item, null, 1, deltas, { overrideRootQty: change });
+          store.commitDeltas(deltas, "pos-ui");
+        } else if (finalQty !== beforeQty) {
+          get().commitDeltas(
+            [
+              {
+                action: DeltaActionType.ModifyQty,
+                lineId,
+                beforeQty,
+                afterQty: finalQty,
+              },
+            ],
+            "pos-ui",
+          );
+        }
       }
     },
 
@@ -2370,7 +2388,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
-          const targetQty = Math.round((item.qty + change) * 1000) / 1000;
+          const catalogEntry = store.catalog[item.sku];
+          const increment = catalogEntry?.mainQtyIncrement ?? 1;
+
+          const targetQty = snapQty(item.qty + change, increment);
+
           if (targetQty <= 0) {
             deltas.push({
               action: DeltaActionType.RemoveItem,
@@ -2381,11 +2403,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             item.status === ItemStatus.Confirmed &&
             targetQty > item.qty
           ) {
-            const change = targetQty - item.qty;
+            const changeDiff = targetQty - item.qty;
             buildCloneDeltas(item, null, 1, deltas, {
-              overrideRootQty: change,
+              overrideRootQty: changeDiff,
             });
-          } else {
+          } else if (targetQty !== item.qty) {
             deltas.push({
               action: DeltaActionType.ModifyQty,
               lineId,
@@ -2409,7 +2431,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
-          if (targetQty <= 0) {
+          const catalogEntry = store.catalog[item.sku];
+          const increment = catalogEntry?.mainQtyIncrement ?? 1;
+          
+          const finalQty = snapQty(targetQty, increment);
+
+          if (finalQty <= 0) {
             deltas.push({
               action: DeltaActionType.RemoveItem,
               lineId,
@@ -2417,18 +2444,18 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             });
           } else if (
             item.status === ItemStatus.Confirmed &&
-            targetQty > item.qty
+            finalQty > item.qty
           ) {
-            const change = targetQty - item.qty;
+            const changeDiff = finalQty - item.qty;
             buildCloneDeltas(item, null, 1, deltas, {
-              overrideRootQty: change,
+              overrideRootQty: changeDiff,
             });
-          } else {
+          } else if (finalQty !== item.qty) {
             deltas.push({
               action: DeltaActionType.ModifyQty,
               lineId,
               beforeQty: item.qty,
-              afterQty: targetQty,
+              afterQty: finalQty,
             });
           }
         }
@@ -2448,11 +2475,18 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
+          const catalogEntry = store.catalog[item.sku];
+          const increment = catalogEntry?.mainQtyIncrement ?? 1;
+
           let splitQty = 0;
           if (type === SplitQtyType.Amount) {
             splitQty = Math.min(item.qty, value);
           } else {
-            splitQty = Math.max(1, Math.ceil(item.qty * (value / 100)));
+            splitQty = item.qty * (value / 100);
+          }
+
+          if (splitQty > 0) {
+            splitQty = snapQty(splitQty, increment);
             splitQty = Math.min(item.qty, splitQty);
           }
 
@@ -2483,7 +2517,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                 action: DeltaActionType.ModifyQty,
                 lineId,
                 beforeQty: item.qty,
-                afterQty: remQty,
+                afterQty: Math.round(remQty * 1000) / 1000,
               });
             }
           }

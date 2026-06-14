@@ -56,7 +56,6 @@ export function LineItemNode({
   detailLevel = ViewMode.Simple,
   isCompactMode = false,
   hideCanceled = false,
-  qtyStep,
 }: {
   item: ProjectedLineItem;
   allocations: Record<string, AllocationBlock>;
@@ -82,11 +81,9 @@ export function LineItemNode({
   detailLevel?: ViewMode;
   isCompactMode?: boolean;
   hideCanceled: boolean;
-  qtyStep?: number;
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
-  const step = qtyStep || 1;
 
   const catalog = useVCSStore((state) => state.catalog);
   const projectedState = useVCSStore((state) => state.projectedState);
@@ -137,6 +134,7 @@ export function LineItemNode({
   );
 
   const catalogEntry = catalog[item.sku];
+  const step = catalogEntry?.mainQtyIncrement ?? 1;
 
   // console.log(`[LineItemNode Tracer] SKU: ${item.sku}`, {
   //   catalogEntry: catalogEntry,
@@ -734,7 +732,6 @@ export function LineItemNode({
               detailLevel={detailLevel}
               isCompactMode={isCompactMode}
               hideCanceled={hideCanceled}
-              qtyStep={step}
             />
           ))}
     </>

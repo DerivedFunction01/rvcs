@@ -424,6 +424,13 @@ export function POSTerminalScreen({
     return selectedItems.reduce((max, item) => Math.max(max, item.qty), 0);
   }, [selectedItems]);
 
+  const selectedIncrement = React.useMemo(() => {
+    if (selectedItems.length === 0) return 1;
+    const firstInc = catalog[selectedItems[0].sku]?.mainQtyIncrement ?? 1;
+    const allSame = selectedItems.every(i => (catalog[i.sku]?.mainQtyIncrement ?? 1) === firstInc);
+    return allSame ? firstInc : 1;
+  }, [selectedItems, catalog]);
+
   const log = commitLog();
   const confirmedHash = engine.getConfirmedHash();
   const branches = useVCSStore.getState().engine.getRepo().branches;
@@ -827,6 +834,7 @@ export function POSTerminalScreen({
         selectedItemsLength={selectedItems.length}
         firstSelectedQty={selectedItems.length === 1 ? selectedItems[0].qty : null}
         maxSelectedQty={maxSelectedQty}
+        increment={selectedIncrement}
       />
       <PosBranchDialogs
         dialogs={branchDialogs}

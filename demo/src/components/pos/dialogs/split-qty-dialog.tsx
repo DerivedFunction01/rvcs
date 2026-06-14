@@ -10,6 +10,7 @@ interface SplitQtyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   maxQty: number;
+  increment?: number;
   onConfirm: (type: SplitQtyType, value: number) => void;
 }
 
@@ -17,6 +18,7 @@ export function SplitQtyDialog({
   open,
   onOpenChange,
   maxQty,
+  increment,
   onConfirm,
 }: SplitQtyDialogProps) {
   const [type, setType] = useState<SplitQtyType>(SplitQtyType.Amount);
@@ -27,7 +29,8 @@ export function SplitQtyDialog({
     }
   }, [open]);
 
-  const maxAllowed = type === SplitQtyType.Amount ? Math.max(1, maxQty - 1) : 99;
+  const minVal = type === SplitQtyType.Amount ? (increment ?? 1) : 1;
+  const maxAllowed = type === SplitQtyType.Amount ? Math.max(minVal, maxQty - minVal) : 99;
 
   return (
     <NumberPadDialog
@@ -37,8 +40,9 @@ export function SplitQtyDialog({
       title="Split Quantity"
       description="Split the selected items into new lines by amount or percentage."
       confirmLabel="Split Items"
-      min={1}
+      min={minVal}
       max={maxAllowed}
+      increment={type === SplitQtyType.Amount ? increment : undefined}
       placeholder={type === SplitQtyType.Amount ? `Max: ${maxAllowed}` : "Max: 99%"}
       resetDependency={type}
       onConfirm={(val) => onConfirm(type, val)}

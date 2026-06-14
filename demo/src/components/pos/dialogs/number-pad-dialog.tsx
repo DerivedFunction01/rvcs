@@ -10,8 +10,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Delete, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Delete, RotateCcw } from "lucide-react";
 import React, { useMemo, useState } from "react";
+
+function snapQty(qty: number, increment: number): number {
+  if (qty <= 0) return 0;
+  let snapped = Math.floor(qty / increment) * increment;
+  if (snapped <= 0) snapped = increment;
+  return Math.round(snapped * 1000) / 1000;
+}
 
 interface NumberPadDialogProps {
   open: boolean;
@@ -22,6 +29,7 @@ interface NumberPadDialogProps {
   initialValue?: number | null;
   min?: number;
   max?: number;
+  increment?: number;
   onConfirm: (value: number) => void;
   placeholder?: string;
   extraContent?: React.ReactNode;
@@ -38,6 +46,7 @@ export function NumberPadDialog({
   initialValue = null,
   min = 0,
   max = Number.MAX_SAFE_INTEGER,
+  increment,
   onConfirm,
   placeholder,
   extraContent,
@@ -48,7 +57,7 @@ export function NumberPadDialog({
 
   const normalizedInitialValue = useMemo(() => {
     if (initialValue === null || Number.isNaN(initialValue)) return "";
-    return String(Math.max(min, Math.min(max, Math.trunc(initialValue))));
+    return String(Math.max(min, Math.min(max, initialValue)));
   }, [initialValue, min, max]);
 
   React.useEffect(() => {
@@ -65,21 +74,31 @@ export function NumberPadDialog({
     }
   }, [open, resetDependency]);
 
-  const parsed = value === "" ? null : Number.parseInt(value, 10);
-  const clamped =
+  const parsed = value === "" || value === "." ? null : Number.parseFloat(value);
+  let clamped =
     parsed === null || Number.isNaN(parsed)
       ? null
       : Math.max(min, Math.min(max, parsed));
 
+  let snapped = clamped;
+  if (clamped !== null && increment && increment > 0) {
+    snapped = snapQty(clamped, increment);
+  }
+
+  const willSnap =
+    clamped !== null && snapped !== null && Math.abs(clamped - snapped) > 0.0001;
+
   const appendDigit = (digit: string) => {
     setValue((prev) => {
+      if (digit === "." && prev.includes(".")) return prev;
+      if (digit === "." && prev === "") return "0.";
       const next = `${prev}${digit}`.replace(/^0+(?=\d)/, "");
       return next;
     });
   };
 
   const handleConfirm = () => {
-    const next = clamped ?? min;
+    const next = snapped ?? min;
     onConfirm(next);
     onOpenChange(false);
   };
@@ -103,13 +122,31 @@ export function NumberPadDialog({
 
         <div className="space-y-3">
           {extraContent}
-          <Input
-            value={value}
-            readOnly
-            inputMode="numeric"
-            className="h-12 text-center text-2xl font-mono tracking-wider"
-            placeholder={placeholder ?? String(min)}
-          />
+          <div className="flex gap-2">
+            <Input
+              value={value}
+              readOnly
+              inputMode="decimal"
+              className="h-12 text-center text-2xl font-mono tracking-wider flex-1"
+              placeholder={placeholder ?? String(min)}
+            />
+            <Button
+              variant="outline"
+              className="h-12 w-12 shrink-0"
+              onClick={() => setValue("")}
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {willSnap && (
+            <div className="text-[11px] text-amber-600 dark:text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md flex items-center gap-2 font-medium">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>
+                Will be adjusted to <strong className="font-mono text-xs">{snapped}</strong> (increment of {increment}).
+              </span>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-2">
             {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
@@ -124,10 +161,10 @@ export function NumberPadDialog({
             ))}
             <Button
               variant="outline"
-              className="h-12"
-              onClick={() => setValue("")}
+              className="h-12 text-lg font-semibold"
+              onClick={() => appendDigit(".")}
             >
-              <RotateCcw className="w-4 h-4" />
+              .
             </Button>
             <Button
               variant="outline"

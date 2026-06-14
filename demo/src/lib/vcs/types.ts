@@ -397,6 +397,7 @@ export interface CatalogItemEntry {
   inlineQtyPricePerUnit?: boolean | null;
   inlineQtyPricePerUnitShowPer?: boolean | null;
   inlineQtyMainQtyLocked?: boolean | null;
+  mainQtyIncrement?: number | null;
 }
 
 // ─── VCS Repository (The "Repo") ──────────────────────────────────────────────

@@ -679,6 +679,17 @@ const SEED_DATA = [
     inlineQtyIncrement: 0.05,
     inlineQtyPricePerUnit: true,
   },
+  {
+    sku: "SKU-GROCERY-COFFEE-BEANS",
+    name: "Bulk Coffee Beans (lbs)",
+    basePrice: 12.99,
+    category: "grocery",
+    type: "item",
+    dietaryFlags: ["vegan", "gluten_free"],
+    allergens: [],
+    brand: "MorningRoast",
+    mainQtyIncrement: 0.25,
+  },
 ];
 
 async function main() {
@@ -720,6 +731,7 @@ async function main() {
       inlineQtyPricePerUnitShowPer:
         (item as any).inlineQtyPricePerUnitShowPer ?? true,
       inlineQtyMainQtyLocked: (item as any).inlineQtyMainQtyLocked ?? false,
+      mainQtyIncrement: (item as any).mainQtyIncrement ?? 1,
       active: true,
     };
 

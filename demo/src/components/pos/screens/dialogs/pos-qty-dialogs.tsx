@@ -10,12 +10,14 @@ export function PosQtyDialogs({
   selectedItemsLength,
   firstSelectedQty,
   maxSelectedQty,
+  increment,
 }: {
   dialogs: ReturnType<typeof usePostTerminalQtyDialogs>;
   actions: ReturnType<typeof usePostTerminalActions>;
   selectedItemsLength: number;
   firstSelectedQty: number | null;
   maxSelectedQty: number;
+  increment?: number;
 }) {
   return (
     <>
@@ -26,13 +28,15 @@ export function PosQtyDialogs({
         description="Enter the quantity to apply to all selected items."
         confirmLabel="Set Qty"
         initialValue={selectedItemsLength === 1 ? firstSelectedQty : null}
-        min={1}
+        min={increment ?? 1}
+        increment={increment}
         onConfirm={actions.handleSetBulkQty}
       />
       <SplitQtyDialog
         open={dialogs.splitQtyDialogOpen}
         onOpenChange={dialogs.setSplitQtyDialogOpen}
         maxQty={maxSelectedQty}
+        increment={increment}
         onConfirm={actions.handleSplitQty}
       />
     </>
