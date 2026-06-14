@@ -392,6 +392,7 @@ export interface CatalogItemEntry {
   inlineQtyType?: "int" | "float" | "none" | null;
   inlineQtyLabel?: string | null;
   inlineQtyUnit?: string | null;
+  inlineQtyPricePerUnit?: boolean | null;
 }
 
 // ─── VCS Repository (The "Repo") ──────────────────────────────────────────────

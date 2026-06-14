@@ -35,10 +35,11 @@ model CatalogItem {
   brand        String   @default("")
   active       Boolean  @default(true)
   comboChoices String   @default("[]")   // JSON array: [{"slotSku": "SKU-BASE-BURGER", "optionSku": "SKU-BURGER-REG", "price": 4.00}, ...]
-  inlineQtyType  String?
-  inlineQtyLabel String?
-  inlineQtyUnit  String?
-  createdAt      DateTime @default(now())
+  inlineQtyType            String?
+  inlineQtyLabel           String?
+  inlineQtyUnit            String?
+  inlineQtyPricePerUnit    Boolean   @default(false)
+  createdAt                DateTime  @default(now())
 
   // A size option is just a modifier CatalogItem that belongs to a size group
   sizeGroupId  String?

@@ -137,11 +137,19 @@ export function LineItemNode({
   const catalogEntry = catalog[item.sku];
   const hasInlineQty =
     catalogEntry?.inlineQtyType && catalogEntry.inlineQtyType !== "none";
-  const inlineStep = catalogEntry?.inlineQtyType === "float" ? 0.5 : 1;
-  const inlineQtyLabel = catalogEntry?.inlineQtyLabel ?? "Qty";
+  const inlineStep = catalogEntry?.inlineQtyType === "float" ? 0.05 : 1;
+  const inlineQtyLabel =
+    catalogEntry?.inlineQtyLabel ??
+    (catalogEntry?.inlineQtyType === "int"
+      ? "Count"
+      : catalogEntry?.inlineQtyType === "float"
+      ? "Measurement"
+      : "Qty");
   const inlineQtyUnit =
     catalogEntry?.inlineQtyUnit ??
-    (catalogEntry?.inlineQtyType === "float" ? "lbs" : "");
+    (catalogEntry?.inlineQtyType === "float" ? "units" : "");
+  const inlineQtyRateUnit = inlineQtyUnit || inlineQtyLabel.toLowerCase();
+  const inlinePricePerUnit = catalogEntry?.inlineQtyPricePerUnit;
   const sizeGroup = catalogEntry?.appliedSizeGroup;
   const sizeOptions = sizeGroup?.options || [];
 
@@ -303,9 +311,14 @@ export function LineItemNode({
                   className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"} ${isCanceled ? "line-through opacity-50" : ""}`}
                 >
                   {item.name}
+                  {inlinePricePerUnit && catalogEntry?.basePrice !== undefined ? (
+                    <span className="font-semibold text-muted-foreground text-xs ml-2">
+                      @{`$${catalogEntry.basePrice.toFixed(2)} per ${inlineQtyRateUnit}`}
+                    </span>
+                  ) : null}
                   {item.inlineQty && item.inlineQty !== 1 ? (
                     <span className="font-semibold text-primary/80 ml-1">
-                      @{item.inlineQty} {inlineQtyUnit}
+                      ({item.inlineQty} {inlineQtyUnit})
                     </span>
                   ) : null}
                 </span>

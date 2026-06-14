@@ -468,6 +468,7 @@ const SEED_DATA = [
     inlineQtyType: "int",
     inlineQtyLabel: "Slices",
     inlineQtyUnit: "pcs",
+    inlineQtyPricePerUnit: true,
   },
   {
     sku: "sku-avocado-mod",
@@ -658,6 +659,7 @@ const SEED_DATA = [
     inlineQtyType: "int",
     inlineQtyLabel: "Count",
     inlineQtyUnit: "each",
+    inlineQtyPricePerUnit: true,
   },
   {
     sku: "SKU-GROCERY-CABBAGE",
@@ -671,6 +673,7 @@ const SEED_DATA = [
     inlineQtyType: "float",
     inlineQtyLabel: "Weight",
     inlineQtyUnit: "lbs",
+    inlineQtyPricePerUnit: true,
   },
 ];
 
