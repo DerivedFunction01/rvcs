@@ -12,7 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
     "db:seed": "npx tsx seed-catalog.ts",
-    "db:setup": "prisma db push && npm run db:seed"
+    "db:setup": "prisma generate && prisma db push && npm run db:seed"
   },
   "prisma": {
     "seed": "npx tsx seed-catalog.ts"
