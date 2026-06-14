@@ -36,6 +36,7 @@ interface NumberPadDialogProps {
   extraContent?: React.ReactNode;
   resetDependency?: any;
   icon?: React.ReactNode;
+  warningMessage?: (value: number | null) => string | null;
 }
 
 export function NumberPadDialog({
@@ -53,6 +54,7 @@ export function NumberPadDialog({
   extraContent,
   resetDependency,
   icon,
+  warningMessage,
 }: NumberPadDialogProps) {
   const [value, setValue] = useState("");
   const { defaultPrefs } = usePreferencesStore();
@@ -96,6 +98,8 @@ export function NumberPadDialog({
 
   const willSnap =
     clamped !== null && snapped !== null && Math.abs(clamped - snapped) > 0.0001;
+
+  const warning = warningMessage ? warningMessage(snapped ?? clamped) : null;
 
   const appendDigit = (digit: string) => {
     setValue((prev) => {
@@ -172,6 +176,13 @@ export function NumberPadDialog({
               <span>
                 Will be adjusted to <strong className="font-mono text-xs">{String(snapped).replace(".", decimalChar)}</strong> (increment of {increment}).
               </span>
+            </div>
+          )}
+
+          {warning && (
+            <div className="text-[11px] text-amber-600 dark:text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md flex items-center gap-2 font-medium">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{warning}</span>
             </div>
           )}
 

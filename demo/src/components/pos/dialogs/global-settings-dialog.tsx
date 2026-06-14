@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings2 } from "lucide-react";
 import { usePreferencesStore } from "@/store/preferences-store";
@@ -99,6 +100,20 @@ export function GlobalSettingsDialog({
               id="use-comma-decimal" 
               checked={defaultPrefs.useCommaDecimal}
               onCheckedChange={(checked) => updateDefaultPreferences({ useCommaDecimal: !!checked })}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <label htmlFor="split-warn-threshold" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+              Split Line Warn Threshold
+            </label>
+            <Input
+              id="split-warn-threshold"
+              type="number"
+              min={2}
+              value={(defaultPrefs as any).splitLineWarnThreshold ?? 10}
+              onChange={(e) => updateDefaultPreferences({ splitLineWarnThreshold: Number(e.target.value) || 10 })}
+              className="w-20 h-8 text-xs text-right"
             />
           </div>
         </div>

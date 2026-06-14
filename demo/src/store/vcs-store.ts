@@ -390,6 +390,7 @@ interface VCSStore {
     type: SplitQtyType,
     value: number,
   ) => string[];
+  splitItemsIntoIncrements: (lineIds: string[], splitQty: number) => string[];
   reassignItems: (lineIds: string[], newAssigneeIdOrName: string) => void;
   groupItemsPaymentConfig: (lineIds: string[], targetId: string) => void;
   groupItemsFulfillmentConfig: (lineIds: string[], targetId: string) => void;
@@ -2737,6 +2738,71 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                 beforeQty: item.qty,
                 afterQty: Math.round(remQty * 1000) / 1000,
               });
+            }
+          }
+        }
+      }
+
+      if (lockedSkipped) {
+        toast.error("Some items were skipped because their main quantity is locked.");
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+      return newLineIds;
+    },
+
+    splitItemsIntoIncrements: (lineIds, splitQty) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+      const newLineIds: string[] = [];
+      let lockedSkipped = false;
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item && item.qty > splitQty && splitQty > 0) {
+          const catalogEntry = store.catalog[item.sku];
+
+          if (isMainQtyLocked(catalogEntry)) {
+            lockedSkipped = true;
+            continue;
+          }
+          
+          let remainingQty = item.qty;
+          const pieces: number[] = [];
+          while (remainingQty > 0.0001) { // Floating point mitigation
+            if (remainingQty >= splitQty) {
+              pieces.push(splitQty);
+              remainingQty -= splitQty;
+            } else {
+              pieces.push(Math.round(remainingQty * 1000) / 1000);
+              remainingQty = 0;
+            }
+          }
+
+          if (pieces.length > 1) {
+            deltas.push({
+              action: DeltaActionType.ModifyQty,
+              lineId,
+              beforeQty: item.qty,
+              afterQty: pieces[0],
+            });
+
+            for (let i = 1; i < pieces.length; i++) {
+              const cloneDeltas: Delta[] = [];
+              buildCloneDeltas(item, null, 1, cloneDeltas, {
+                overrideRootQty: pieces[i],
+              });
+              if (cloneDeltas.length > 0) {
+                const addedRootDelta = cloneDeltas[0] as Extract<
+                  Delta,
+                  { action: DeltaActionType.AddItem }
+                >;
+                newLineIds.push(addedRootDelta.lineId);
+                deltas.push(...cloneDeltas);
+              }
             }
           }
         }

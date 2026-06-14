@@ -91,6 +91,7 @@ export function POSTerminalScreen({
     mergeItems,
     breakItems,
     combineItems,
+    splitItemsIntoIncrements,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
@@ -744,6 +745,7 @@ export function POSTerminalScreen({
             mergeItems={mergeItems}
             breakItems={breakItems}
             combineItems={combineItems}
+            splitItemsIntoIncrements={splitItemsIntoIncrements}
             setQtyPadOpen={setQtyPadOpen}
             setSplitQtyDialogOpen={setSplitQtyDialogOpen}
             duplicateItems={duplicateItems}

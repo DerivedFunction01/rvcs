@@ -41,6 +41,7 @@ import { toast } from "sonner";
 import { useVCSStore } from "@/store/vcs-store";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
+import { SplitIntoLinesDialog } from "@/components/pos/dialogs/split-into-lines-dialog";
 
 export function ActiveCheckPanel(props: any) {
   const {
@@ -74,6 +75,7 @@ export function ActiveCheckPanel(props: any) {
     mergeItems,
     breakItems,
     combineItems,
+    splitItemsIntoIncrements,
     setQtyPadOpen,
     setSplitQtyDialogOpen,
     duplicateItems,
@@ -196,6 +198,42 @@ export function ActiveCheckPanel(props: any) {
   const [qtyStep, setQtyStep] = useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;
   const [combineDialogOpen, setCombineDialogOpen] = useState(false);
+  const [splitLineDialogOpen, setSplitLineDialogOpen] = useState(false);
+
+  const maxSelectedQty = useMemo(() => {
+    let max = 0;
+    for (const id of selectedLineIds) {
+      const item = projectedState.items[id as string];
+      if (item && item.qty > max) max = item.qty;
+    }
+    return max;
+  }, [selectedLineIds, projectedState.items]);
+
+  const selectedQtys = useMemo(() => {
+    const qtys: number[] = [];
+    for (const id of selectedLineIds) {
+      const item = projectedState.items[id as string];
+      if (item) qtys.push(item.qty);
+    }
+    return qtys;
+  }, [selectedLineIds, projectedState.items]);
+
+  const selectedIncrement = useMemo(() => {
+    if (selectedLineIds.size === 0) return 1;
+    const firstId = Array.from(selectedLineIds)[0] as string;
+    const firstItem = projectedState.items[firstId];
+    if (!firstItem) return 1;
+    const firstInc = catalog[firstItem.sku]?.mainQtyIncrement ?? 1;
+    let allSame = true;
+    for (const id of selectedLineIds) {
+      const item = projectedState.items[id as string];
+      if (item && (catalog[item.sku]?.mainQtyIncrement ?? 1) !== firstInc) {
+        allSame = false;
+        break;
+      }
+    }
+    return allSame ? firstInc : 1;
+  }, [selectedLineIds, projectedState.items, catalog]);
 
   const formatNumber = useFormatNumber();
 
@@ -463,6 +501,15 @@ export function ActiveCheckPanel(props: any) {
                 <Split className="w-3.5 h-3.5 mr-1" />
                 Split Qty
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                onClick={() => setSplitLineDialogOpen(true)}
+              >
+                <Split className="w-3.5 h-3.5 mr-1" />
+                Split Line
+              </Button>
             </div>
             <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
@@ -632,6 +679,17 @@ export function ActiveCheckPanel(props: any) {
         catalog={useVCSStore.getState().catalog}
         onCombine={(comboSku, assignments) => {
           const newIds = combineItems(comboSku, assignments);
+          if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
+        }}
+      />
+      <SplitIntoLinesDialog
+        open={splitLineDialogOpen}
+        onOpenChange={setSplitLineDialogOpen}
+        maxQty={maxSelectedQty}
+        selectedQtys={selectedQtys}
+        increment={selectedIncrement}
+        onConfirm={(val) => {
+          const newIds = splitItemsIntoIncrements(Array.from(selectedLineIds), val);
           if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
         }}
       />

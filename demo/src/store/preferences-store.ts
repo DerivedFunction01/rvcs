@@ -8,6 +8,7 @@ export interface AppPreferences {
   isGroupNotesCollapsed: boolean;
   isCompactMode: boolean;
   useCommaDecimal: boolean;
+  splitLineWarnThreshold: number;
 }
 
 export const defaultAppPreferences: AppPreferences = {
@@ -16,6 +17,7 @@ export const defaultAppPreferences: AppPreferences = {
   isGroupNotesCollapsed: true,
   isCompactMode: false,
   useCommaDecimal: false,
+  splitLineWarnThreshold: 10,
 };
 
 interface PreferencesStore {
