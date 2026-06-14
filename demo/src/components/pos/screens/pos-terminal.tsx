@@ -6,7 +6,6 @@ import { BranchConfigDialog } from "@/components/pos/dialogs/branch-config-dialo
 import { BranchManagerDialog } from "@/components/pos/dialogs/branch-manager-dialog";
 import {
   ChoiceDialog,
-  type ChoiceDialogOption,
 } from "@/components/pos/dialogs/choice-dialog";
 import { FulfillmentAllocationDialog } from "@/components/pos/dialogs/fulfillment-allocation-dialog";
 import { MergeBranchDialog } from "@/components/pos/dialogs/merge-dialog";
@@ -24,6 +23,8 @@ import React, { useCallback } from "react";
 
 import { usePostTerminalGuests } from "@/components/pos/screens/hooks/use-post-terminal-guests";
 import { usePostTerminalSelection } from "@/components/pos/screens/hooks/use-post-terminal-selection";
+import { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
+import { usePostTerminalCatalog } from "@/components/pos/screens/hooks/use-post-terminal-catalog";
 
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
@@ -67,8 +68,6 @@ import {
   type AllocationBlock,
   AllocationType,
   BranchType,
-  CatalogCategory,
-  CatalogItemType,
   type Delta,
   DeltaActionType,
   type FulfillmentAllocation,
@@ -194,20 +193,85 @@ export function POSTerminalScreen({
     return resolved;
   }, [projectedState.allocations, resolveGuestName]);
 
-  const [addGuestOpen, setAddGuestOpen] = React.useState(false);
-  const [editGuestOpen, setEditGuestOpen] = React.useState(false);
-  const [guestToEdit, setGuestToEdit] = React.useState<any>(null);
-  const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
-  const [showResetConfirm, setShowResetConfirm] = React.useState(false);
+  const {
+    addGuestOpen,
+    setAddGuestOpen,
+    editGuestOpen,
+    setEditGuestOpen,
+    guestToEdit,
+    setGuestToEdit,
+    guestPickerOpen,
+    setGuestPickerOpen,
+    showResetConfirm,
+    setShowResetConfirm,
+    qtyPadOpen,
+    setQtyPadOpen,
+    splitQtyDialogOpen,
+    setSplitQtyDialogOpen,
+    dupMoveDialogOpen,
+    setDupMoveDialogOpen,
+    removeModDialogOpen,
+    setRemoveModDialogOpen,
+    groupNoteOpen,
+    setGroupNoteOpen,
+    groupNoteLineIds,
+    setGroupNoteLineIds,
+    historyOpDialog,
+    setHistoryOpDialog,
+    customerDialogOpen,
+    setCustomerDialogOpen,
+    isBranchManagerOpen,
+    setIsBranchManagerOpen,
+    isBranchConfigOpen,
+    setIsBranchConfigOpen,
+    branchToConfig,
+    setBranchToConfig,
+    isMergeOpen,
+    setIsMergeOpen,
+    allocConfigItem,
+    setAllocConfigItem,
+    assignmentAllocationOpen,
+    setAssignmentAllocationOpen,
+    assignmentAllocationContext,
+    setAssignmentAllocationContext,
+    assignmentAllocationItems,
+    setAssignmentAllocationItems,
+    paymentAllocationOpen,
+    setPaymentAllocationOpen,
+    paymentAllocationContext,
+    setPaymentAllocationContext,
+    paymentAllocationItems,
+    setPaymentAllocationItems,
+    fulfillmentAllocationOpen,
+    setFulfillmentAllocationOpen,
+    fulfillmentAllocationContext,
+    setFulfillmentAllocationContext,
+    fulfillmentAllocationItems,
+    setFulfillmentAllocationItems,
+    modifierAddOpen,
+    setModifierAddOpen,
+    modifierAddItem,
+    setModifierAddItem,
+    swapChoiceState,
+    setSwapChoiceState,
+    retainModifiersDuringSwap,
+    setRetainModifiersDuringSwap,
+    noteDialogOpen,
+    setNoteDialogOpen,
+    noteItem,
+    setNoteItem,
+    handleOpenCustomerDialog,
+    handleOpenModifierDialog,
+    handleOpenSwapDialog,
+    handleOpenNoteDialog,
+    handleOpenAddGuestDialog,
+    handleAllocConfig,
+    handleOpenGroupNoteDialog,
+  } = usePostTerminalDialogs();
+
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(true);
   const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] =
     React.useState(true);
-  const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
-  const [splitQtyDialogOpen, setSplitQtyDialogOpen] = React.useState(false);
-  const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
-  const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
-  const [groupNoteOpen, setGroupNoteOpen] = React.useState(false);
-  const [groupNoteLineIds, setGroupNoteLineIds] = React.useState<string[]>([]);
   const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(
     new Set(),
   );
@@ -247,15 +311,6 @@ export function POSTerminalScreen({
     }
   }, [hasCollapsedItems, projectedState.items]);
 
-  // ─── Dialog State ───────────────────────────────
-  const [historyOpDialog, setHistoryOpDialog] = React.useState<{
-    type: HistoryOpType;
-    targetHash: string;
-    label: string;
-    description: string;
-  } | null>(null);
-  const [customerDialogOpen, setCustomerDialogOpen] = React.useState(false);
-
   const handleConfirmHistoryOp = React.useCallback(
     (squashType?: SquashType) => {
       if (!historyOpDialog) return;
@@ -283,10 +338,6 @@ export function POSTerminalScreen({
     [historyOpDialog, squashPendingCommits, resetToCommit],
   );
 
-  const handleOpenCustomerDialog = React.useCallback(() => {
-    setCustomerDialogOpen(true);
-  }, []);
-
   const handleSaveCustomerFields = React.useCallback(
     (fields: Record<string, string>) => {
       useVCSStore.getState().updateOrderContext({ customerFields: fields });
@@ -301,15 +352,6 @@ export function POSTerminalScreen({
     },
     [storeGuests],
   );
-
-  const [newBranchFromHistoryName, setNewBranchFromHistoryName] =
-    React.useState("");
-  const [isBranchManagerOpen, setIsBranchManagerOpen] = React.useState(false);
-  const [isBranchConfigOpen, setIsBranchConfigOpen] = React.useState(false);
-  const [branchToConfig, setBranchToConfig] = React.useState<string | null>(
-    null,
-  );
-  const [isMergeOpen, setIsMergeOpen] = React.useState(false);
 
   const handleSaveBranchConfig = useCallback(
     (newName: string, type: BranchType, label: string) => {
@@ -340,58 +382,6 @@ export function POSTerminalScreen({
     });
   }, []);
 
-  const [allocConfigItem, setAllocConfigItem] =
-    React.useState<ProjectedLineItem | null>(null);
-  const [assignmentAllocationOpen, setAssignmentAllocationOpen] =
-    React.useState(false);
-  const [assignmentAllocationContext, setAssignmentAllocationContext] =
-    React.useState<AllocationContext>(AllocationContext.Item);
-  const [assignmentAllocationItems, setAssignmentAllocationItems] =
-    React.useState<ProjectedLineItem[]>([]);
-  const [paymentAllocationOpen, setPaymentAllocationOpen] =
-    React.useState(false);
-  const [paymentAllocationContext, setPaymentAllocationContext] =
-    React.useState<AllocationContext>(AllocationContext.Item);
-  const [paymentAllocationItems, setPaymentAllocationItems] = React.useState<
-    ProjectedLineItem[]
-  >([]);
-  const [fulfillmentAllocationOpen, setFulfillmentAllocationOpen] =
-    React.useState(false);
-  const [fulfillmentAllocationContext, setFulfillmentAllocationContext] =
-    React.useState<AllocationContext>(AllocationContext.Item);
-  const [fulfillmentAllocationItems, setFulfillmentAllocationItems] =
-    React.useState<ProjectedLineItem[]>([]);
-  const [modifierAddOpen, setModifierAddOpen] = React.useState(false);
-  const [modifierAddItem, setModifierAddItem] =
-    React.useState<ProjectedLineItem | null>(null);
-
-  const handleOpenModifierDialog = React.useCallback(
-    (item: ProjectedLineItem) => {
-      setModifierAddItem(item);
-      setModifierAddOpen(true);
-    },
-    [],
-  );
-
-  const [swapChoiceState, setSwapChoiceState] = React.useState<{
-    lineId: string;
-    parentLineId: string;
-    slotSku: string;
-  } | null>(null);
-  const [retainModifiersDuringSwap, setRetainModifiersDuringSwap] =
-    React.useState<boolean>(true);
-  const handleOpenSwapDialog = React.useCallback(
-    (lineId: string, parentLineId: string, slotSku: string) => {
-      setSwapChoiceState({ lineId, parentLineId, slotSku });
-    },
-    [],
-  );
-
-  const [noteDialogOpen, setNoteDialogOpen] = React.useState(false);
-  const [noteItem, setNoteItem] = React.useState<ProjectedLineItem | null>(
-    null,
-  );
-
   const isComboChildItem = React.useMemo(() => {
     if (!noteItem || !noteItem.parentLineId) return false;
     const parent = projectedState.items[noteItem.parentLineId];
@@ -399,11 +389,6 @@ export function POSTerminalScreen({
     const parentEntry = catalog[parent.sku];
     return !!parentEntry?.comboChoices;
   }, [noteItem, projectedState.items, catalog]);
-
-  const handleOpenNoteDialog = React.useCallback((item: ProjectedLineItem) => {
-    setNoteItem(item);
-    setNoteDialogOpen(true);
-  }, []);
 
   const handleSaveNote = React.useCallback(
     (text: string, linkToComboBase: boolean) => {
@@ -441,36 +426,7 @@ export function POSTerminalScreen({
     return guestId;
   }, []);
 
-  const handleOpenAddGuestDialog = useCallback(() => {
-    setAddGuestOpen(true);
-  }, []);
-
   // ─── Derived State ──────────────────────────────────────────────────────
-  const catalogItems = Object.values(catalog).filter(
-    (i) =>
-      i.active &&
-      i.type === CatalogItemType.Item &&
-      i.category !== CatalogCategory.ComboSlot,
-  );
-  const modifierItems = Object.values(catalog).filter(
-    (i) => i.active && i.type === CatalogItemType.Modifier,
-  );
-  const groupedCatalog = catalogItems.reduce<
-    Record<string, typeof catalogItems>
-  >((acc, item) => {
-    const cat = item.category || CatalogCategory.General;
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(item);
-    return acc;
-  }, {});
-  const availableTags = React.useMemo(() => {
-    const tags = new Set<string>();
-    for (const item of catalogItems) {
-      for (const a of item.allergens) tags.add(a);
-      for (const f of item.dietaryFlags) tags.add(f);
-    }
-    return Array.from(tags).sort();
-  }, [catalogItems]);
 
   const rootItems = Object.values(projectedState.items).filter(
     (i) => !i.parentLineId,
@@ -592,34 +548,29 @@ export function POSTerminalScreen({
     () => rootItems.filter((item) => selectedLineIds.has(item.lineId)),
     [rootItems, selectedLineIds],
   );
+
+  const {
+    catalogItems,
+    modifierItems,
+    groupedCatalog,
+    availableTags,
+    compatibleModifiers,
+    singleItemCompatibleModifiers,
+    activeModifiersOnSelected,
+    removeModChoiceOptions,
+    swapOptions,
+    slotName,
+  } = usePostTerminalCatalog(
+    catalog,
+    selectedItems,
+    modifierAddItem,
+    swapChoiceState,
+    projectedState.items
+  );
+
   const maxSelectedQty = React.useMemo(() => {
     return selectedItems.reduce((max, item) => Math.max(max, item.qty), 0);
   }, [selectedItems]);
-  const compatibleModifiers = React.useMemo(() => {
-    if (selectedItems.length === 0) return [];
-    let commonSkus = catalog[selectedItems[0].sku]?.allowedModifiers || [];
-    for (let i = 1; i < selectedItems.length; i++) {
-      const allowed = catalog[selectedItems[i].sku]?.allowedModifiers || [];
-      commonSkus = commonSkus.filter((sku) => allowed.includes(sku));
-    }
-    return modifierItems.filter((mod) => commonSkus.includes(mod.sku));
-  }, [selectedItems, catalog, modifierItems]);
-  const singleItemCompatibleModifiers = React.useMemo(() => {
-    if (!modifierAddItem) return [];
-    const allowed = catalog[modifierAddItem.sku]?.allowedModifiers || [];
-    return modifierItems.filter((mod) => allowed.includes(mod.sku));
-  }, [modifierAddItem, catalog, modifierItems]);
-  const activeModifiersOnSelected = React.useMemo(() => {
-    if (selectedItems.length === 0) return [];
-    const activeModifierSkus = new Set<string>();
-    for (const item of selectedItems) {
-      for (const child of item.children) {
-        if (catalog[child.sku]?.type === CatalogItemType.Modifier)
-          activeModifierSkus.add(child.sku);
-      }
-    }
-    return modifierItems.filter((mod) => activeModifierSkus.has(mod.sku));
-  }, [selectedItems, catalog, modifierItems]);
 
   const paymentConfigs = React.useMemo(() => {
     const configs: Array<{ id: string; name: string; isSplit: boolean }> = [];
@@ -851,11 +802,6 @@ export function POSTerminalScreen({
     [selectedLineIds]
   );
 
-  const handleOpenGroupNoteDialog = useCallback((lineIds: string[]) => {
-    setGroupNoteLineIds(lineIds);
-    setGroupNoteOpen(true);
-  }, []);
-
   const handleSaveGroupNote = useCallback(
     (text: string) => {
       addGroupNote(groupNoteLineIds, text);
@@ -884,18 +830,6 @@ export function POSTerminalScreen({
     },
     [attachNoteToOrder],
   );
-  const removeModChoiceOptions = React.useMemo(
-    () =>
-      activeModifiersOnSelected.map((mod) => ({
-        id: mod.sku,
-        label: mod.name,
-        description: mod.sku,
-      })),
-    [activeModifiersOnSelected],
-  );
-  const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
-    setAllocConfigItem((prev) => (prev === item ? null : item));
-  }, []);
   const handleCreateBranch = useCallback(
     (name: string, startFromEmpty: boolean) => {
       const trimmed = name.trim();
@@ -926,48 +860,6 @@ export function POSTerminalScreen({
     setAddGuestOpen(false);
     toast.success("Order reset — ready for a new order");
   }, [resetOrder]);
-
-  const swapOptions = React.useMemo<ChoiceDialogOption[]>(() => {
-    if (!swapChoiceState) return [];
-    const { parentLineId, slotSku } = swapChoiceState;
-    const parentItem = projectedState.items[parentLineId];
-    if (!parentItem) return [];
-    const parentEntry = catalog[parentItem.sku];
-    if (!parentEntry?.comboChoices) return [];
-    const slotChoices = parentEntry.comboChoices.filter(
-      (c) => c.slotSku === slotSku,
-    );
-    return slotChoices.map((choice) => {
-      const name = catalog[choice.optionSku]?.name || choice.optionSku;
-      const modifierName = choice.modifierSku
-        ? catalog[choice.modifierSku]?.name
-        : undefined;
-      const currentItem = projectedState.items[swapChoiceState.lineId];
-      const isCurrent =
-        choice.optionSku === currentItem?.sku &&
-        (choice.modifierSku
-          ? currentItem.children?.some((c) => c.sku === choice.modifierSku)
-          : !currentItem.children?.some((c) =>
-              slotChoices.some(
-                (sc) =>
-                  sc.optionSku === choice.optionSku && sc.modifierSku === c.sku,
-              ),
-            ));
-      return {
-        id: `${choice.optionSku}:${choice.modifierSku || ""}`,
-        label: modifierName ? `${name} (${modifierName})` : name,
-        description: `$${choice.price.toFixed(2)}`,
-        badge: isCurrent ? (
-          <Badge className="bg-primary/20 text-primary border-transparent text-[9px] h-3.5 px-1 inline-flex">
-            Current
-          </Badge>
-        ) : undefined,
-      };
-    });
-  }, [swapChoiceState, projectedState.items, catalog]);
-  const slotName = swapChoiceState
-    ? catalog[swapChoiceState.slotSku]?.name || "Slot Choice"
-    : "Slot Choice";
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1810,4 +1702,3 @@ export function POSTerminalScreen({
     </TooltipProvider>
   );
 }
-
