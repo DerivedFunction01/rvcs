@@ -126,6 +126,15 @@ function snapQty(qty: number, increment: number): number {
   return Math.round(snapped * 1000) / 1000;
 }
 
+function isMainQtyLocked(
+  catalogEntry: CatalogItemEntry | undefined,
+  targetQty?: number,
+): boolean {
+  if (!catalogEntry?.inlineQtyMainQtyLocked) return false;
+  if (targetQty === 0) return false;
+  return true;
+}
+
 // ─── Create Default Repo ──────────────────────────────────────────────────────
 
 function createFreshRepo(orderContext?: OrderContext): VCSRepo {
@@ -2199,6 +2208,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       if (item) {
         const catalogEntry = store.catalog[item.sku];
+        if (isMainQtyLocked(catalogEntry, afterQty)) {
+          toast.error("Main quantity is locked for this item.");
+          return;
+        }
+
         const increment = catalogEntry?.mainQtyIncrement ?? 1;
         
         const finalQty = snapQty(afterQty, increment);
@@ -2384,6 +2398,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const state = store.projectedState;
       const deltas: Delta[] = [];
+      let lockedSkipped = false;
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -2392,6 +2407,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const increment = catalogEntry?.mainQtyIncrement ?? 1;
 
           const targetQty = snapQty(item.qty + change, increment);
+
+          if (isMainQtyLocked(catalogEntry, targetQty)) {
+            lockedSkipped = true;
+            continue;
+          }
 
           if (targetQty <= 0) {
             deltas.push({
@@ -2418,6 +2438,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
       }
 
+      if (lockedSkipped) {
+        toast.error("Some items were skipped because their main quantity is locked.");
+      }
+
       if (deltas.length > 0) {
         store.commitDeltas(deltas, "pos-ui");
       }
@@ -2427,6 +2451,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const state = store.projectedState;
       const deltas: Delta[] = [];
+      let lockedSkipped = false;
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -2435,6 +2460,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const increment = catalogEntry?.mainQtyIncrement ?? 1;
           
           const finalQty = snapQty(targetQty, increment);
+
+          if (isMainQtyLocked(catalogEntry, finalQty)) {
+            lockedSkipped = true;
+            continue;
+          }
 
           if (finalQty <= 0) {
             deltas.push({
@@ -2461,6 +2491,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
       }
 
+      if (lockedSkipped) {
+        toast.error("Some items were skipped because their main quantity is locked.");
+      }
+
       if (deltas.length > 0) {
         store.commitDeltas(deltas, "pos-ui");
       }
@@ -2471,11 +2505,18 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const deltas: Delta[] = [];
       const newLineIds: string[] = [];
+      let lockedSkipped = false;
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
           const catalogEntry = store.catalog[item.sku];
+
+          if (isMainQtyLocked(catalogEntry)) {
+            lockedSkipped = true;
+            continue;
+          }
+
           const increment = catalogEntry?.mainQtyIncrement ?? 1;
 
           let splitQty = 0;
@@ -2522,6 +2563,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             }
           }
         }
+      }
+
+      if (lockedSkipped) {
+        toast.error("Some items were skipped because their main quantity is locked.");
       }
 
       if (deltas.length > 0) {

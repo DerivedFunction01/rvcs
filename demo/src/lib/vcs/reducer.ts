@@ -308,6 +308,11 @@ function applyDelta(
     case DeltaActionType.RemoveItem: {
       const item = items[delta.lineId];
       if (item) {
+        const entry = catalog[item.sku];
+        if (entry?.inlineQtyMainQtyLocked && delta.qty !== item.qty) {
+          break;
+        }
+
         if (item.isConfirmed) {
           const removeAmount = Math.min(item.qty, delta.qty);
           item.qty -= removeAmount;
@@ -359,6 +364,11 @@ function applyDelta(
     case DeltaActionType.ModifyQty: {
       const item = items[delta.lineId];
       if (item && item.qty === delta.beforeQty) {
+        const entry = catalog[item.sku];
+        if (entry?.inlineQtyMainQtyLocked && delta.afterQty !== 0) {
+          break;
+        }
+
         if (delta.afterQty < item.qty && item.isConfirmed) {
           item.canceledQty += item.qty - delta.afterQty;
         }
