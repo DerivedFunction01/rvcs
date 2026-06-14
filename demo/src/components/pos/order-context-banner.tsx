@@ -1,5 +1,3 @@
-import React from "react";
-import { useVCSStore } from "@/store/vcs-store";
 import {
   Select,
   SelectContent,
@@ -7,10 +5,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ShoppingCart, User, Phone, MapPin, UserPlus, Clock } from "lucide-react";
-import { ORDER_TYPE_ICONS } from "@/lib/pos/ui-utils";
-import { toast } from "sonner";
 import { OrderType } from "@/lib/pos/types";
+import { ORDER_TYPE_ICONS } from "@/lib/pos/ui-utils";
+import { useVCSStore } from "@/store/vcs-store";
+import {
+  Clock,
+  MapPin,
+  Phone,
+  ShoppingCart,
+  User,
+  UserPlus,
+} from "lucide-react";
+import React from "react";
+import { toast } from "sonner";
 
 export function OrderContextBanner({
   context,
@@ -29,9 +36,10 @@ export function OrderContextBanner({
   const matchedIconKey = Object.keys(ORDER_TYPE_ICONS).find(
     (k) =>
       k.toLowerCase().replace(/[^a-z0-9]/g, "") ===
-      context.orderType?.toLowerCase().replace(/[^a-z0-9]/g, "")
+      context.orderType?.toLowerCase().replace(/[^a-z0-9]/g, ""),
   );
-  const TypeIcon = (matchedIconKey ? ORDER_TYPE_ICONS[matchedIconKey] : null) ?? ShoppingCart;
+  const TypeIcon =
+    (matchedIconKey ? ORDER_TYPE_ICONS[matchedIconKey] : null) ?? ShoppingCart;
 
   return (
     <div className="px-6 py-2 bg-primary/5 border-b flex items-center gap-4 text-xs shrink-0">
@@ -44,16 +52,17 @@ export function OrderContextBanner({
               [OrderType.Pickup]: "Pickup",
               [OrderType.Delivery]: "Delivery",
             };
-            useVCSStore.getState().updateOrderType(val as OrderType, labels[val] || val);
+            useVCSStore
+              .getState()
+              .updateOrderType(val as OrderType, labels[val] || val);
             toast.success(`Order type changed to ${labels[val] || val}`);
           }}
         >
           <SelectTrigger className="h-6 px-1.5 border-primary/20 bg-background/50 hover:bg-background text-primary font-semibold text-[11px] gap-1.5 rounded-md focus:ring-0">
             <div className="flex items-center gap-1.5">
-              {React.createElement(
-                TypeIcon,
-                { className: "w-3 h-3 text-primary shrink-0" },
-              )}
+              {React.createElement(TypeIcon, {
+                className: "w-3 h-3 text-primary shrink-0",
+              })}
               <SelectValue placeholder="Select type..." />
             </div>
           </SelectTrigger>

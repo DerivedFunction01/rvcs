@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -9,10 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import React, { useMemo, useState } from "react";
 
 export interface ChoiceDialogOption {
   id: string;
@@ -173,7 +173,9 @@ export function ChoiceDialog({
                       {option.badge}
                     </div>
                     {option.description && (
-                      <span className={`text-[10px] text-muted-foreground ${isMultiSelect ? "pl-5.5" : ""}`}>
+                      <span
+                        className={`text-[10px] text-muted-foreground ${isMultiSelect ? "pl-5.5" : ""}`}
+                      >
                         {option.description}
                       </span>
                     )}
@@ -190,13 +192,19 @@ export function ChoiceDialog({
               {selectedIds.length} selected
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </Button>
               <Button
                 size="sm"
                 onClick={() => {
-                  const selectedOptions = options.filter((o) => selectedIds.includes(o.id));
+                  const selectedOptions = options.filter((o) =>
+                    selectedIds.includes(o.id),
+                  );
                   onChooseMultiple?.(selectedOptions);
                 }}
                 disabled={selectedIds.length === 0}

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { useVCSStore } from "@/store/vcs-store";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -10,18 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -29,49 +19,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import {
-  GitMerge,
-  GitBranch,
-  Lightbulb,
-  AlertTriangle,
-  CheckCircle2,
-  ChevronRight,
-  ChevronLeft,
-  Zap,
-  RefreshCw,
-  Eye,
-  TriangleAlert,
-  User,
-  DollarSign,
-  Package,
-  Lock,
-  ChevronDown,
-  Clock,
-  CreditCard,
-  ArrowRight,
-  Tag,
-  Sparkles,
-  ChevronsUpDown,
-} from "lucide-react";
-import type {
-  BranchMap,
-  MergePreview,
-  MergeConflict,
-  Delta,
-  ProjectedState,
-  ProjectedLineItem,
-  AllocationBlock,
-  CatalogItemEntry,
-  PaymentAllocation,
-  FulfillmentAllocation,
-} from "@/lib/vcs/types";
-import { MergeConflictType, SquashType, DeltaActionType, AllocationType, TimeBlockType } from "@/lib/vcs/types";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
   MERGE_SQUASH_DESCRIPTIONS,
 } from "@/lib/pos/utils";
 import { areDeltasIdentical } from "@/lib/vcs";
+import type {
+  AllocationBlock,
+  BranchMap,
+  CatalogItemEntry,
+  Delta,
+  FulfillmentAllocation,
+  MergeConflict,
+  MergePreview,
+  PaymentAllocation,
+  ProjectedLineItem,
+  ProjectedState,
+} from "@/lib/vcs/types";
+import { AllocationType, DeltaActionType, MergeConflictType, SquashType, TimeBlockType } from "@/lib/vcs/types";
+import { useVCSStore } from "@/store/vcs-store";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  Clock,
+  CreditCard,
+  DollarSign,
+  Eye,
+  GitBranch,
+  GitMerge,
+  Lightbulb,
+  Lock,
+  Package,
+  RefreshCw,
+  Sparkles,
+  Tag,
+  TriangleAlert,
+  User,
+  Zap
+} from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

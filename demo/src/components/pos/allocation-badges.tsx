@@ -1,21 +1,20 @@
-import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { User, CreditCard, Clock, Split, MessageSquare } from "lucide-react";
-import { useVCSStore } from "@/store/vcs-store";
+import { type Guest, getPatchedAllocations } from "@/lib/pos/ui-utils";
 import {
-  getPaymentAllocDisplayName,
-  getAssignmentAllocDisplayName,
   formatFulfillmentTime,
+  getAssignmentAllocDisplayName,
+  getPaymentAllocDisplayName,
 } from "@/lib/pos/utils";
 import {
   type AllocationBlock,
-  type PaymentAllocation,
   type FulfillmentAllocation,
   type NoteAllocation,
+  type PaymentAllocation,
   AllocationType,
   TimeBlockType,
 } from "@/lib/vcs/types";
-import { type Guest, getPatchedAllocations } from "@/lib/pos/ui-utils";
+import { useVCSStore } from "@/store/vcs-store";
+import { Clock, CreditCard, MessageSquare, Split, User } from "lucide-react";
 
 export function AllocationBadges({
   allocationIds,
@@ -89,7 +88,8 @@ export function AllocationBadges({
         if (alloc.type === AllocationType.Fulfillment) {
           const fulAlloc = alloc as FulfillmentAllocation;
           const isImmediate =
-            fulAlloc.time.type === TimeBlockType.Immediate || !fulAlloc.time.calculatedAt;
+            fulAlloc.time.type === TimeBlockType.Immediate ||
+            !fulAlloc.time.calculatedAt;
           const displayLabel = isImmediate
             ? `${fulAlloc.method} (On Confirmation)`
             : `${fulAlloc.method} @ ${formatFulfillmentTime(fulAlloc.time.calculatedAt!, initiatedAt)}`;

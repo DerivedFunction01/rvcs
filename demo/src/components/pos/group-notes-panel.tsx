@@ -1,25 +1,25 @@
 "use client";
 
-import React from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  MessageSquare,
-  AlertTriangle,
-  Trash2,
-  X,
-  ClipboardSignature,
-  PanelRightClose,
-  PanelRightOpen,
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { ProjectedState, NoteAllocation } from "@/lib/vcs/types";
+import type { NoteAllocation, ProjectedState } from "@/lib/vcs/types";
+import {
+  AlertTriangle,
+  ClipboardSignature,
+  MessageSquare,
+  PanelRightClose,
+  PanelRightOpen,
+  Trash2,
+  X,
+} from "lucide-react";
+import React from "react";
 
 interface GroupNotesPanelProps {
   projectedState: ProjectedState;

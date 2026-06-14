@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { OrderType } from "@/lib/pos/types";
+import { NextResponse } from "next/server";
 
 interface CustomerField {
   key: string;

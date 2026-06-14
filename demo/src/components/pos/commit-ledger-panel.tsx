@@ -1,6 +1,11 @@
-import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -8,31 +13,26 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { HistoryOpType } from "@/lib/pos/types";
+import { getBranchColorInfo } from "@/lib/pos/ui-utils";
+import { buildCommitGraph } from "@/lib/vcs/graph";
+import { DeltaActionType } from "@/lib/vcs/types";
 import {
-  GitCommitHorizontal,
-  PanelRightClose,
-  PanelRightOpen,
   AlertCircle,
-  RotateCcw,
   ChevronDown,
   ChevronRight,
-  GitBranch,
-  Lightbulb,
   ChevronsUpDown,
   Eraser,
   Filter,
+  GitBranch,
+  GitCommitHorizontal,
+  Lightbulb,
+  PanelRightClose,
+  PanelRightOpen,
+  RotateCcw,
 } from "lucide-react";
+import React from "react";
 import { toast } from "sonner";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
-import { buildCommitGraph } from "@/lib/vcs/graph";
-import { DeltaActionType } from "@/lib/vcs/types";
-import { HistoryOpType } from "@/lib/pos/types";
-import { getBranchColorInfo } from "@/lib/pos/ui-utils";
 
 export function CommitLedgerPanel(props: any) {
   const {

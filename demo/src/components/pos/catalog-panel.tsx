@@ -1,22 +1,22 @@
-import React, { useState } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Filter, Search, Plus, Minus } from "lucide-react";
-import * as LucideIcons from "lucide-react";
 import { formatLabel } from "@/lib/pos/ui-utils";
 import type { CatalogItemEntry } from "@/lib/vcs/types";
 import type { IconConfig } from "@/store/vcs-store";
+import * as LucideIcons from "lucide-react";
+import { Filter, Minus, Plus, Search } from "lucide-react";
+import { useState } from "react";
 
 export function CatalogPanel({
   catalogItems,

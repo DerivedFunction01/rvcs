@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,26 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  Calendar,
-  Clock,
-  AlertCircle,
-  Store,
-  PackageCheck,
-  Truck,
-  User,
-  Grid2x2,
-  Search,
-  ArrowLeft,
-  Check,
-  Plus,
-  HelpCircle,
-  ArrowRight,
-} from "lucide-react";
+import type { FloorConfig } from "@/lib/pos/types";
+import { AllocationContext, OrderType } from "@/lib/pos/types";
+import type { Guest } from "@/lib/pos/ui-utils";
+import { formatFulfillmentTime } from "@/lib/pos/utils";
 import {
   AllocationBlock,
   AllocationType,
@@ -36,10 +22,21 @@ import {
   ProjectedLineItem,
   TimeBlockType,
 } from "@/lib/vcs/types";
-import { AllocationContext, OrderType } from "@/lib/pos/types";
-import type { FloorConfig } from "@/lib/pos/types";
-import type { Guest } from "@/lib/pos/ui-utils";
-import { formatFulfillmentTime } from "@/lib/pos/utils";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Clock,
+  Grid2x2,
+  HelpCircle,
+  PackageCheck,
+  Plus,
+  Search,
+  Store,
+  Truck,
+  User,
+} from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
 
 interface FulfillmentAllocationDialogProps {
   open: boolean;
@@ -156,7 +153,10 @@ export function FulfillmentAllocationDialog({
         setTimeType(target.time.type);
         setCalculatedAt(target.time.calculatedAt);
         const meta = target.fulfillmentMetadata;
-        if (meta.destinationId && guests.some((g) => g.id === meta.destinationId)) {
+        if (
+          meta.destinationId &&
+          guests.some((g) => g.id === meta.destinationId)
+        ) {
           setDestType("guest");
           setSelectedGuestId(meta.destinationId);
           setCustomDestLabel("");

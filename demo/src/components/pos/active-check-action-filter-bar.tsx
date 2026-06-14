@@ -1,11 +1,18 @@
-import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Layers, Clock, User, ChevronsUpDown, LayoutList } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { GUEST_PALETTE } from "@/lib/pos/ui-utils";
+import { ChevronsUpDown, Clock, Layers, LayoutList, User } from "lucide-react";
 
 interface ActiveCheckActionFilterBarProps {
   activeBranch: string;
@@ -44,7 +51,10 @@ export function ActiveCheckActionFilterBar({
       </Badge>
 
       {isViewingHistory && (
-        <Badge variant="outline" className="text-[10px] h-6 flex items-center text-amber-600 border-amber-300 bg-amber-50">
+        <Badge
+          variant="outline"
+          className="text-[10px] h-6 flex items-center text-amber-600 border-amber-300 bg-amber-50"
+        >
           <Clock className="w-2.5 h-2.5 mr-1" />
           Viewing history
         </Badge>
@@ -52,14 +62,18 @@ export function ActiveCheckActionFilterBar({
 
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2 bg-background border hover:bg-accent">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[10px] gap-1 px-2 bg-background border hover:bg-accent"
+          >
             <User className="w-3 h-3 text-muted-foreground" />
             <span>
               {visibleGuests.size === guests.length
                 ? "All Guests"
                 : visibleGuests.size === 0
-                ? "No Guests"
-                : `${visibleGuests.size}/${guests.length} Guests`}
+                  ? "No Guests"
+                  : `${visibleGuests.size}/${guests.length} Guests`}
             </span>
           </Button>
         </PopoverTrigger>
@@ -73,7 +87,9 @@ export function ActiveCheckActionFilterBar({
                 <Button
                   variant="link"
                   className="h-auto p-0 text-[10px] font-semibold text-primary"
-                  onClick={() => setVisibleGuests(new Set(guests.map((g) => g.id)))}
+                  onClick={() =>
+                    setVisibleGuests(new Set(guests.map((g) => g.id)))
+                  }
                 >
                   Select All
                 </Button>
@@ -99,7 +115,7 @@ export function ActiveCheckActionFilterBar({
                           if (next.has(g.id)) next.delete(g.id);
                           else next.add(g.id);
                           return next;
-                        })()
+                        })(),
                       )
                     }
                     className={`flex items-center gap-1.5 px-2 py-1 border rounded-lg text-left text-xs transition-all ${
@@ -113,7 +129,9 @@ export function ActiveCheckActionFilterBar({
                         GUEST_PALETTE[idx % GUEST_PALETTE.length]
                       }`}
                     />
-                    <span className="truncate flex-1">{g.alias || `Guest ${g.number}`}</span>
+                    <span className="truncate flex-1">
+                      {g.alias || `Guest ${g.number}`}
+                    </span>
                   </button>
                 );
               })}
@@ -181,7 +199,9 @@ export function ActiveCheckActionFilterBar({
                 onCheckedChange={(v) => setHideCanceled(!!v)}
                 className="w-3.5 h-3.5"
               />
-              <span className="font-medium text-foreground">Hide voided items</span>
+              <span className="font-medium text-foreground">
+                Hide voided items
+              </span>
             </label>
           </div>
         </PopoverContent>

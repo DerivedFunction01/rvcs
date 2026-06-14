@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -8,12 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
+import { generateDraftBranchName } from "@/lib/pos/id";
+import type { BranchMap } from "@/lib/vcs/types";
+import { BranchType } from "@/lib/vcs/types";
 import {
   GitBranch,
   GitMerge,
@@ -22,9 +24,7 @@ import {
   Settings2,
   Star,
 } from "lucide-react";
-import { generateDraftBranchName } from "@/lib/pos/id";
-import type { BranchMap } from "@/lib/vcs/types";
-import { BranchType } from "@/lib/vcs/types";
+import { useEffect, useState } from "react";
 
 interface BranchManagerDialogProps {
   open: boolean;
@@ -131,9 +131,7 @@ function BranchRow({
           size="icon"
           className="h-7 w-7 shrink-0"
           onClick={onCheckout}
-          title={
-            isActive ? "Active draft" : "Set as active draft"
-          }
+          title={isActive ? "Active draft" : "Set as active draft"}
         >
           <Star
             className={`w-3.5 h-3.5 ${isActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
@@ -224,37 +222,40 @@ export function BranchManagerDialog({
               <Input
                 value={newBranchName}
                 onChange={(e) => setNewBranchName(e.target.value)}
-              placeholder="Leave blank to auto-generate"
-              className={`h-8 text-xs flex-1 ${viewingHash && !startFromEmpty ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
+                placeholder="Leave blank to auto-generate"
+                className={`h-8 text-xs flex-1 ${viewingHash && !startFromEmpty ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
               />
               <Button
                 variant="outline"
                 size="sm"
-              className={`h-8 px-2.5 gap-1 shrink-0 ${viewingHash && !startFromEmpty ? "border-amber-400/50 text-amber-600" : ""}`}
+                className={`h-8 px-2.5 gap-1 shrink-0 ${viewingHash && !startFromEmpty ? "border-amber-400/50 text-amber-600" : ""}`}
                 onClick={handleCreate}
               >
                 <Plus className="w-3.5 h-3.5" />
                 Create
               </Button>
             </div>
-          <div className="flex items-center gap-2 mt-2">
-            <Checkbox
-              id="empty-branch-cb"
-              checked={startFromEmpty}
-              onCheckedChange={(c) => setStartFromEmpty(!!c)}
-              className="h-3.5 w-3.5"
-            />
-            <label htmlFor="empty-branch-cb" className="text-[10px] text-muted-foreground cursor-pointer select-none font-medium">
-              Start from empty (root of main)
-            </label>
-          </div>
+            <div className="flex items-center gap-2 mt-2">
+              <Checkbox
+                id="empty-branch-cb"
+                checked={startFromEmpty}
+                onCheckedChange={(c) => setStartFromEmpty(!!c)}
+                className="h-3.5 w-3.5"
+              />
+              <label
+                htmlFor="empty-branch-cb"
+                className="text-[10px] text-muted-foreground cursor-pointer select-none font-medium"
+              >
+                Start from empty (root of main)
+              </label>
+            </div>
             <p className="text-[10px] text-muted-foreground">
-            {startFromEmpty
-              ? "Branches from the initial system state."
-              : viewingHash
-                ? `Branches from commit ${viewingHash.slice(0, 7)}`
-                : "Branches from current HEAD"}
+              {startFromEmpty
+                ? "Branches from the initial system state."
+                : viewingHash
+                  ? `Branches from commit ${viewingHash.slice(0, 7)}`
+                  : "Branches from current HEAD"}
             </p>
           </div>
 

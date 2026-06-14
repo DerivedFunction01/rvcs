@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search } from "lucide-react";
 import type { CatalogItemEntry } from "@/lib/vcs/types";
+import { Plus, Search } from "lucide-react";
+import React, { useMemo, useState } from "react";
 
 interface ModifierAddDialogProps {
   open: boolean;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,11 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Phone, MapPin, Settings2 } from "lucide-react";
 import { OrderType } from "@/lib/pos/types";
+import { MapPin, Phone, Settings2, User } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface CustomerEditDialogProps {
   open: boolean;
@@ -86,13 +86,15 @@ export function CustomerEditDialog({
             <User className="w-4 h-4 text-primary" /> Edit Customer Info
           </DialogTitle>
           <DialogDescription>
-            Update the customer details for this order. Changes apply immediately.
+            Update the customer details for this order. Changes apply
+            immediately.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <User className="w-3 h-3" /> Name <span className="text-destructive text-xs">*</span>
+              <User className="w-3 h-3" /> Name{" "}
+              <span className="text-destructive text-xs">*</span>
             </label>
             <Input
               id="customer-name"
@@ -112,12 +114,18 @@ export function CustomerEditDialog({
               autoComplete="name"
             />
             {errors.name && (
-              <p className="text-xs text-destructive font-medium">{errors.name}</p>
+              <p className="text-xs text-destructive font-medium">
+                {errors.name}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Phone className="w-3 h-3" /> Phone {(orderType === OrderType.Pickup || orderType === OrderType.Delivery) && <span className="text-destructive text-xs">*</span>}
+              <Phone className="w-3 h-3" /> Phone{" "}
+              {(orderType === OrderType.Pickup ||
+                orderType === OrderType.Delivery) && (
+                <span className="text-destructive text-xs">*</span>
+              )}
             </label>
             <Input
               id="customer-phone"
@@ -136,22 +144,28 @@ export function CustomerEditDialog({
               }}
               className={`h-9 text-sm ${errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}`}
               autoComplete="tel"
-                />
+            />
             {errors.phone && (
-              <p className="text-xs text-destructive font-medium">{errors.phone}</p>
+              <p className="text-xs text-destructive font-medium">
+                {errors.phone}
+              </p>
             )}
           </div>
           {orderType === OrderType.Delivery && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <MapPin className="w-3 h-3" /> Delivery Address <span className="text-destructive text-xs">*</span>
+                <MapPin className="w-3 h-3" /> Delivery Address{" "}
+                <span className="text-destructive text-xs">*</span>
               </label>
               <Input
                 id="customer-address"
                 placeholder="e.g. 123 Main St, City, State"
                 value={editedFields.address ?? ""}
                 onChange={(e) => {
-                  setEditedFields((prev) => ({ ...prev, address: e.target.value }));
+                  setEditedFields((prev) => ({
+                    ...prev,
+                    address: e.target.value,
+                  }));
                   if (errors.address) {
                     setErrors((prev) => {
                       const next = { ...prev };
@@ -164,7 +178,9 @@ export function CustomerEditDialog({
                 autoComplete="street-address"
               />
               {errors.address && (
-                <p className="text-xs text-destructive font-medium">{errors.address}</p>
+                <p className="text-xs text-destructive font-medium">
+                  {errors.address}
+                </p>
               )}
             </div>
           )}

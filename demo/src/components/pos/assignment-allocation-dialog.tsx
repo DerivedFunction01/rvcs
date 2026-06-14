@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -9,18 +10,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { User, Plus, X } from "lucide-react";
-import {
-  type ProjectedLineItem,
-  type AllocationBlock,
-  type AssignmentAllocation,
-  AllocationType,
-} from "@/lib/vcs/types";
 import { AllocationContext } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
+import {
+  type AllocationBlock,
+  type AssignmentAllocation,
+  type ProjectedLineItem,
+  AllocationType,
+} from "@/lib/vcs/types";
+import { Plus, User, X } from "lucide-react";
+import React, { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 interface AssignmentAllocationDialogProps {
@@ -65,16 +65,20 @@ export function AssignmentAllocationDialog({
       setNewGuestInputName("");
       if (currentAssignment) {
         if (currentAssignment.allocationId.startsWith("alloc-assign-")) {
-          const idsOrNames = currentAssignment.entity.split(",").map((s) => s.trim());
-          const resolvedIds = idsOrNames.map((idOrName) => {
-            if (guests.some((g) => g.id === idOrName)) {
-              return idOrName;
-            }
-            const found = guests.find(
-              (g) => g.alias === idOrName || `Guest ${g.number}` === idOrName
-            );
-            return found ? found.id : null;
-          }).filter(Boolean) as string[];
+          const idsOrNames = currentAssignment.entity
+            .split(",")
+            .map((s) => s.trim());
+          const resolvedIds = idsOrNames
+            .map((idOrName) => {
+              if (guests.some((g) => g.id === idOrName)) {
+                return idOrName;
+              }
+              const found = guests.find(
+                (g) => g.alias === idOrName || `Guest ${g.number}` === idOrName,
+              );
+              return found ? found.id : null;
+            })
+            .filter(Boolean) as string[];
           setSelectedIds(resolvedIds);
         } else {
           setSelectedIds([currentAssignment.allocationId]);

@@ -1,20 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Lock, ChevronsUpDown, Eraser } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { HistoryOpType } from "@/lib/pos/types";
 import { SQUASH_DESCRIPTIONS } from "@/lib/pos/utils";
 import { SquashType } from "@/lib/vcs/types";
-import { HistoryOpType } from "@/lib/pos/types";
+import { ChevronsUpDown, Eraser, Lock } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export function HistoryOpDialog({
   open,
   onOpenChange,
   operation,
-  onConfirm
+  onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  operation: { type: HistoryOpType; targetHash: string; label: string; description: string } | null;
+  operation: {
+    type: HistoryOpType;
+    targetHash: string;
+    label: string;
+    description: string;
+  } | null;
   onConfirm: (squashType?: SquashType) => void;
 }) {
   const [squashType, setSquashType] = useState<SquashType>(SquashType.Light);
@@ -30,7 +42,11 @@ export function HistoryOpDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {operation?.type === HistoryOpType.Squash ? <ChevronsUpDown className="w-4 h-4 text-sky-500" /> : <Eraser className="w-4 h-4 text-rose-500" />}
+            {operation?.type === HistoryOpType.Squash ? (
+              <ChevronsUpDown className="w-4 h-4 text-sky-500" />
+            ) : (
+              <Eraser className="w-4 h-4 text-rose-500" />
+            )}
             {operation?.label}
           </DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
@@ -53,7 +69,9 @@ export function HistoryOpDialog({
                     : "border-border bg-card opacity-70 hover:opacity-100"
                 }`}
               >
-                <div className="font-bold text-foreground">{SQUASH_DESCRIPTIONS.light.label}</div>
+                <div className="font-bold text-foreground">
+                  {SQUASH_DESCRIPTIONS.light.label}
+                </div>
                 <div className="text-[10px] text-muted-foreground leading-normal font-normal">
                   {SQUASH_DESCRIPTIONS.light.desc}
                 </div>
@@ -68,7 +86,9 @@ export function HistoryOpDialog({
                     : "border-border bg-card opacity-70 hover:opacity-100"
                 }`}
               >
-                <div className="font-bold text-foreground">{SQUASH_DESCRIPTIONS.full.label}</div>
+                <div className="font-bold text-foreground">
+                  {SQUASH_DESCRIPTIONS.full.label}
+                </div>
                 <div className="text-[10px] text-muted-foreground leading-normal font-normal">
                   {SQUASH_DESCRIPTIONS.full.desc}
                 </div>
@@ -80,15 +100,32 @@ export function HistoryOpDialog({
         <div className="py-1">
           <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2 flex items-start gap-2">
             <Lock className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" />
-            Confirmed orders are never modified. Only pending (unconfirmed) commits are affected.
+            Confirmed orders are never modified. Only pending (unconfirmed)
+            commits are affected.
           </p>
         </div>
         <DialogFooter className="gap-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
           <Button
             size="sm"
-            variant={operation?.type === HistoryOpType.Reset ? "destructive" : "default"}
-            onClick={() => onConfirm(operation?.type === HistoryOpType.Squash ? squashType : undefined)}
+            variant={
+              operation?.type === HistoryOpType.Reset
+                ? "destructive"
+                : "default"
+            }
+            onClick={() =>
+              onConfirm(
+                operation?.type === HistoryOpType.Squash
+                  ? squashType
+                  : undefined,
+              )
+            }
           >
             {operation?.type === HistoryOpType.Squash
               ? squashType === SquashType.Light

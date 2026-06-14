@@ -1,40 +1,37 @@
-import React from "react";
-import { useVCSStore } from "@/store/vcs-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Minus,
-  Plus,
-  ArrowLeftRight,
-  Split,
-  CreditCard,
-  Pencil,
-  Copy,
-  Settings2,
-  Trash2,
-  ChevronRight,
-  ChevronDown,
-} from "lucide-react";
+  type Guest,
+  getAssigneeFromItem,
+  getGuestColor,
+} from "@/lib/pos/ui-utils";
 import type {
-  ProjectedLineItem,
   AllocationBlock,
   CatalogItemEntry,
+  ProjectedLineItem,
 } from "@/lib/vcs/types";
 import { AllocationType, CatalogItemType, ItemStatus } from "@/lib/vcs/types";
+import { useVCSStore } from "@/store/vcs-store";
 import {
-  type Guest,
-  getGuestColor,
-  getAssigneeFromItem,
-} from "@/lib/pos/ui-utils";
-import { AllocationBadges } from "./allocation-badges";
+  ArrowLeftRight,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Minus,
+  Pencil,
+  Plus,
+  Settings2,
+  Split,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
+import { AllocationBadges } from "./allocation-badges";
 
 export function LineItemNode({
   item,
@@ -87,10 +84,13 @@ export function LineItemNode({
   const isChanged = item.status === ItemStatus.Changed;
   const isConfirmed = item.status === ItemStatus.Confirmed;
   const hasSplitPayment =
-    item.allocations.filter((id) => allocations[id]?.type === AllocationType.Payment)
-      .length > 1;
+    item.allocations.filter(
+      (id) => allocations[id]?.type === AllocationType.Payment,
+    ).length > 1;
   const hasNonDefaultPayment = item.allocations.some(
-    (id) => allocations[id]?.type === AllocationType.Payment && id !== defaultPaymentAllocId,
+    (id) =>
+      allocations[id]?.type === AllocationType.Payment &&
+      id !== defaultPaymentAllocId,
   );
 
   const catalogEntry = useVCSStore.getState().catalog[item.sku];

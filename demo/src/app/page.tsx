@@ -1,104 +1,90 @@
 "use client";
 
-import React, { useCallback } from "react";
-import { useVCSStore } from "@/store/vcs-store";
+import { AllocationConfigDialog } from "@/components/pos/allocation-config-dialog";
+import { AssignmentAllocationDialog } from "@/components/pos/assignment-allocation-dialog";
+import { BranchConfigDialog } from "@/components/pos/branch-config-dialog";
+import { BranchManagerDialog } from "@/components/pos/branch-manager-dialog";
+import {
+  ChoiceDialog,
+  type ChoiceDialogOption,
+} from "@/components/pos/choice-dialog";
+import { FulfillmentAllocationDialog } from "@/components/pos/fulfillment-allocation-dialog";
+import { MergeBranchDialog } from "@/components/pos/merge-dialog";
+import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
+import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
+import { OrderInitScreen } from "@/components/pos/order-init-screen";
+import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dialog";
 import {
   formatFulfillmentTime,
   getPaymentAllocDisplayName,
 } from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
-import { OrderInitScreen } from "@/components/pos/order-init-screen";
-import { AllocationConfigDialog } from "@/components/pos/allocation-config-dialog";
-import { PaymentAllocationDialog } from "@/components/pos/payment-allocation-dialog";
-import { FulfillmentAllocationDialog } from "@/components/pos/fulfillment-allocation-dialog";
-import { AssignmentAllocationDialog } from "@/components/pos/assignment-allocation-dialog";
-import { ModifierAddDialog } from "@/components/pos/modifier-add-dialog";
-import { NumberPadDialog } from "@/components/pos/number-pad-dialog";
-import {
-  ChoiceDialog,
-  type ChoiceDialogOption,
-} from "@/components/pos/choice-dialog";
-import { BranchConfigDialog } from "@/components/pos/branch-config-dialog";
-import { BranchManagerDialog } from "@/components/pos/branch-manager-dialog";
-import { MergeBranchDialog } from "@/components/pos/merge-dialog";
+import { useVCSStore } from "@/store/vcs-store";
+import React, { useCallback } from "react";
 
-import { HistoryOpDialog } from "@/components/pos/history-op-dialog";
-import { NoteDialog } from "@/components/pos/note-dialog";
+import { ActiveCheckActionFilterBar } from "@/components/pos/active-check-action-filter-bar";
+import { ActiveCheckPanel } from "@/components/pos/active-check-panel";
+import { CatalogPanel } from "@/components/pos/catalog-panel";
+import { CommitLedgerPanel } from "@/components/pos/commit-ledger-panel";
+import { CustomerEditDialog } from "@/components/pos/customer-edit-dialog";
+import { GroupNoteDialog } from "@/components/pos/group-note-dialog";
+import { GroupNotesPanel } from "@/components/pos/group-notes-panel";
 import {
   AddGuestDialog,
-  GuestPickerDialog,
   EditGuestDialog,
+  GuestPickerDialog,
 } from "@/components/pos/guest-dialogs";
-import { CustomerEditDialog } from "@/components/pos/customer-edit-dialog";
-import { CatalogPanel } from "@/components/pos/catalog-panel";
-import { ActiveCheckPanel } from "@/components/pos/active-check-panel";
-import { ActiveCheckActionFilterBar } from "@/components/pos/active-check-action-filter-bar";
-import { CommitLedgerPanel } from "@/components/pos/commit-ledger-panel";
-import { GroupNotesPanel } from "@/components/pos/group-notes-panel";
-import { GroupNoteDialog } from "@/components/pos/group-note-dialog";
+import { HistoryOpDialog } from "@/components/pos/history-op-dialog";
+import { NoteDialog } from "@/components/pos/note-dialog";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  type Guest,
-  getGuestColor,
-  getUniqueGuestLabel,
-  getPatchedAllocations,
-  getAssigneeFromItem,
-} from "@/lib/pos/ui-utils";
 import { OrderContextBanner } from "@/components/pos/order-context-banner";
-import {
-  type FloorConfig,
-  type OrderTypeConfig,
-  PaymentUpdateMode,
-  ConfigUpdateMode,
-  AllocationContext,
-  HistoryOpType,
-  OrderType,
-} from "@/lib/pos/types";
-import { generateAllocationId } from "@/lib/vcs/id";
-import {
-  type ProjectedLineItem,
-  type Delta,
-  type AllocationBlock,
-  type PaymentAllocation,
-  type FulfillmentAllocation,
-  BranchType,
-  SquashType,
-  TimeBlockType,
-  PaymentStrategyType,
-  DeltaActionType,
-  AllocationType,
-  CatalogItemType,
-  CatalogCategory,
-  ItemStatus,
-} from "@/lib/vcs/types";
-import {
-  GitCommitHorizontal,
-  Clock,
-  User,
-  CreditCard,
-  XCircle,
-  Phone,
-  MapPin,
-  Settings2,
-  ChevronDown,
-  GitBranch,
-  Lightbulb,
-  Lock,
-} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator as SeparatorUI } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  AllocationContext,
+  ConfigUpdateMode,
+  type FloorConfig,
+  HistoryOpType,
+  OrderType,
+  type OrderTypeConfig,
+  PaymentUpdateMode,
+} from "@/lib/pos/types";
+import {
+  type Guest,
+  getAssigneeFromItem,
+  getPatchedAllocations,
+  getUniqueGuestLabel,
+} from "@/lib/pos/ui-utils";
+import { generateAllocationId } from "@/lib/vcs/id";
+import {
+  type AllocationBlock,
+  AllocationType,
+  BranchType,
+  CatalogCategory,
+  CatalogItemType,
+  type Delta,
+  DeltaActionType,
+  type FulfillmentAllocation,
+  ItemStatus,
+  type PaymentAllocation,
+  PaymentStrategyType,
+  type ProjectedLineItem,
+  SquashType,
+  TimeBlockType,
+} from "@/lib/vcs/types";
+import {
+  ChevronDown,
+  Clock,
+  CreditCard,
+  GitBranch,
+  GitCommitHorizontal,
+  Lightbulb,
+  Lock,
+  User,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────

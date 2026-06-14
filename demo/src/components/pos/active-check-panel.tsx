@@ -1,19 +1,6 @@
-import React from "react";
 import { LineItemNode } from "@/components/pos/line-item-node";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Separator as SeparatorUI } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -22,22 +9,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  ShoppingCart,
-  Plus,
-  Minus,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Separator as SeparatorUI } from "@/components/ui/separator";
+import { AllocationContext } from "@/lib/pos/types";
+import { getGuestColor } from "@/lib/pos/ui-utils";
+import {
+  AlertCircle,
+  ChevronDown,
   Copy,
+  Minus,
+  Plus,
+  ShoppingCart,
   Trash2,
   User,
-  ChevronDown,
-  AlertCircle,
-  Layers,
-  Clock,
-  ChevronsUpDown,
-  LayoutList,
   XCircle,
 } from "lucide-react";
-import { getGuestColor, GUEST_PALETTE } from "@/lib/pos/ui-utils";
-import { AllocationContext } from "@/lib/pos/types";
 
 export function ActiveCheckPanel(props: any) {
   const {

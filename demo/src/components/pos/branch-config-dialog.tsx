@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { GitBranch, Lightbulb, Save, Info, AlertTriangle } from "lucide-react";
 import { BranchType } from "@/lib/vcs/types";
+import { AlertTriangle, GitBranch, Info, Lightbulb, Save } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface BranchConfigDialogProps {
   open: boolean;
@@ -80,7 +80,8 @@ export function BranchConfigDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitBranch className="w-5 h-5 text-primary" />
-            Configure Branch: <span className="font-semibold text-primary">{branchName}</span>
+            Configure Branch:{" "}
+            <span className="font-semibold text-primary">{branchName}</span>
           </DialogTitle>
           <DialogDescription>
             Modify branch name, label, and operation flow type.
@@ -90,7 +91,9 @@ export function BranchConfigDialog({
         <div className="space-y-4 py-3">
           {/* Name Field */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground">Branch Identifier</label>
+            <label className="text-xs font-semibold text-muted-foreground">
+              Branch Identifier
+            </label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -115,7 +118,9 @@ export function BranchConfigDialog({
 
           {/* Label Field */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground">Custom Display Label (Optional)</label>
+            <label className="text-xs font-semibold text-muted-foreground">
+              Custom Display Label (Optional)
+            </label>
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
@@ -126,17 +131,25 @@ export function BranchConfigDialog({
 
           {/* Branch Type Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Branch Classification Type</label>
+            <label className="text-xs font-semibold text-muted-foreground">
+              Branch Classification Type
+            </label>
             {isMain ? (
               <div className="p-3 rounded-xl border-2 border-primary/20 bg-primary/5 flex flex-col items-start text-left">
                 <div className="p-1.5 rounded-lg mb-2 bg-primary/10 text-primary w-fit">
                   <GitBranch className="w-4 h-4" />
                 </div>
-                <div className="font-semibold text-xs text-foreground">Main Trunk</div>
+                <div className="font-semibold text-xs text-foreground">
+                  Main Trunk
+                </div>
                 <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
-                  The primary ledger history. This branch serves as the authoritative source of truth and cannot be reclassified.
+                  The primary ledger history. This branch serves as the
+                  authoritative source of truth and cannot be reclassified.
                   <div className="mt-2 p-2 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                    <strong className="font-semibold">Warning:</strong> Main is purely a read-only place. Any modifications made here will automatically create a new draft branch to protect the main ledger.
+                    <strong className="font-semibold">Warning:</strong> Main is
+                    purely a read-only place. Any modifications made here will
+                    automatically create a new draft branch to protect the main
+                    ledger.
                   </div>
                 </div>
               </div>
@@ -152,14 +165,21 @@ export function BranchConfigDialog({
                       : "border-border hover:border-muted-foreground/30 bg-background"
                   }`}
                 >
-                  <div className={`p-1.5 rounded-lg mb-2 ${
-                    type === BranchType.Parallel ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"
-                  }`}>
+                  <div
+                    className={`p-1.5 rounded-lg mb-2 ${
+                      type === BranchType.Parallel
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
                     <GitBranch className="w-4 h-4" />
                   </div>
-                  <div className="font-semibold text-xs text-foreground">Parallel Branch</div>
+                  <div className="font-semibold text-xs text-foreground">
+                    Parallel Branch
+                  </div>
                   <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
-                    Co-existing active flow representing multiple inputs (e.g., parallel customer bills).
+                    Co-existing active flow representing multiple inputs (e.g.,
+                    parallel customer bills).
                   </div>
                 </button>
 
@@ -173,14 +193,21 @@ export function BranchConfigDialog({
                       : "border-border hover:border-muted-foreground/30 bg-background"
                   }`}
                 >
-                  <div className={`p-1.5 rounded-lg mb-2 ${
-                    type === BranchType.Hypothetical ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"
-                  }`}>
+                  <div
+                    className={`p-1.5 rounded-lg mb-2 ${
+                      type === BranchType.Hypothetical
+                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
                     <Lightbulb className="w-4 h-4" />
                   </div>
-                  <div className="font-semibold text-xs text-foreground">Hypothetical Branch</div>
+                  <div className="font-semibold text-xs text-foreground">
+                    Hypothetical Branch
+                  </div>
                   <div className="text-[10px] text-muted-foreground leading-relaxed mt-1">
-                    Speculative "what if" draft changes (sandbox scenarios, mock discount runs).
+                    Speculative "what if" draft changes (sandbox scenarios, mock
+                    discount runs).
                   </div>
                 </button>
               </div>
@@ -189,7 +216,12 @@ export function BranchConfigDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-9">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="h-9"
+          >
             Cancel
           </Button>
           <Button

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,46 +10,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  User,
-  CreditCard,
-  Split,
-  RotateCcw,
-  Plus,
-  Link2,
-  X,
-  Calendar,
-  Clock,
-} from "lucide-react";
+  formatFulfillmentTime,
+  getAssignmentAllocDisplayName,
+  getPaymentAllocDisplayName,
+} from "@/lib/pos/utils";
 import {
   type AllocationBlock,
-  type PaymentAllocation,
-  type FulfillmentAllocation,
-  type ProjectedLineItem,
   type AssignmentAllocation,
+  type FulfillmentAllocation,
+  type PaymentAllocation,
+  type ProjectedLineItem,
   AllocationType,
   PaymentStrategyType,
   TimeBlockType,
 } from "@/lib/vcs/types";
 import {
-  getPaymentAllocDisplayName,
-  getAssignmentAllocDisplayName,
-  formatFulfillmentTime,
-} from "@/lib/pos/utils";
-import type { Guest } from "@/lib/pos/ui-utils";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
+  Calendar,
+  Clock,
+  CreditCard,
+  Link2,
+  RotateCcw,
+  Split,
+  User,
+} from "lucide-react";
+import React, { useCallback, useMemo } from "react";
 
 interface AllocationConfigDialogProps {
   open: boolean;

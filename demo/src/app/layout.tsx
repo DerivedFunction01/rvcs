@@ -1,7 +1,7 @@
+import { Toaster } from "@/components/ui/toaster";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Retail VCS Terminal — Version-Controlled POS",
-  description: "A version-controlled, event-sourced retail checkout system. Orders are Git repositories.",
+  description:
+    "A version-controlled, event-sourced retail checkout system. Orders are Git repositories.",
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },

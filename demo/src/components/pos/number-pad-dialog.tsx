@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,9 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Delete, RotateCcw } from "lucide-react";
+import React, { useMemo, useState } from "react";
 
 interface NumberPadDialogProps {
   open: boolean;
@@ -50,9 +50,10 @@ export function NumberPadDialog({
   }, [open, normalizedInitialValue]);
 
   const parsed = value === "" ? null : Number.parseInt(value, 10);
-  const clamped = parsed === null || Number.isNaN(parsed)
-    ? null
-    : Math.max(min, Math.min(max, parsed));
+  const clamped =
+    parsed === null || Number.isNaN(parsed)
+      ? null
+      : Math.max(min, Math.min(max, parsed));
 
   const appendDigit = (digit: string) => {
     setValue((prev) => {
@@ -132,7 +133,10 @@ export function NumberPadDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={clamped === null && value !== ""}>
+          <Button
+            onClick={handleConfirm}
+            disabled={clamped === null && value !== ""}
+          >
             {confirmLabel}
           </Button>
         </DialogFooter>

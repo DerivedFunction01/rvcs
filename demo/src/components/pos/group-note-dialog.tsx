@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface GroupNoteDialogProps {
   open: boolean;
@@ -61,12 +68,19 @@ export function GroupNoteDialog({
             }}
           />
           <div className="text-[10px] text-muted-foreground">
-            Tip: press <span className="font-medium text-foreground">Ctrl+Enter</span> or <span className="font-medium text-foreground">Cmd+Enter</span> to save.
+            Tip: press{" "}
+            <span className="font-medium text-foreground">Ctrl+Enter</span> or{" "}
+            <span className="font-medium text-foreground">Cmd+Enter</span> to
+            save.
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!noteText.trim()}>Apply to Group</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!noteText.trim()}>
+            Apply to Group
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

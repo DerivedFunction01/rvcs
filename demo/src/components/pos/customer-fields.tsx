@@ -1,8 +1,8 @@
-import React from "react";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Phone, MapPin, MessageSquare } from "lucide-react";
+import { MapPin, MessageSquare, Phone, User } from "lucide-react";
+import React from "react";
 
 const FIELD_ICONS: Record<string, React.ElementType> = {
   name: User,
@@ -24,7 +24,9 @@ interface CustomerFieldInputProps {
   value: string;
   error?: string;
   onChange: (value: string) => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onKeyDown?: (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
 }
 
 export function CustomerFieldInput({
@@ -45,9 +47,7 @@ export function CustomerFieldInput({
       >
         <FieldIcon className="w-3.5 h-3.5 text-muted-foreground" />
         {field.label}
-        {field.required && (
-          <span className="text-destructive text-xs">*</span>
-        )}
+        {field.required && <span className="text-destructive text-xs">*</span>}
       </Label>
 
       {field.type === "textarea" ? (
@@ -77,9 +77,7 @@ export function CustomerFieldInput({
         />
       )}
       {hasError && (
-        <p className="text-xs text-destructive font-medium">
-          {error}
-        </p>
+        <p className="text-xs text-destructive font-medium">{error}</p>
       )}
     </div>
   );

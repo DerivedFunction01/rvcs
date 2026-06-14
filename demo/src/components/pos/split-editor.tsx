@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, X } from "lucide-react";
-import { useVCSStore } from "@/store/vcs-store";
-import { PaymentStrategyType } from "@/lib/vcs/types";
+import { Separator } from "@/components/ui/separator";
 import { PAYMENT_METHODS } from "@/lib/pos/ui-utils";
+import { PaymentStrategyType } from "@/lib/vcs/types";
+import { useVCSStore } from "@/store/vcs-store";
+import { Plus, Trash2, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
 export interface PaymentSplitEntry {
   entity: string;

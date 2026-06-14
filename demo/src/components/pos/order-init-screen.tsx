@@ -1,18 +1,9 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { CustomerFieldInput } from "@/components/pos/customer-fields";
+import { CustomerSearchDialog } from "@/components/pos/customer-search-dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -21,22 +12,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Store,
-  PackageCheck,
-  Truck,
-  GitCommitHorizontal,
-  Loader2,
-  ChevronRight,
-  ArrowLeft,
-  Clock,
-  User,
-  Phone,
-  MapPin,
-  MessageSquare,
-  AtSign,
-  Grid2x2,
-  Search,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   FloorConfig,
   FloorObject,
@@ -44,8 +25,19 @@ import type {
   OrderTypeConfig,
 } from "@/lib/pos/types";
 import { OrderType } from "@/lib/pos/types";
-import { CustomerSearchDialog } from "@/components/pos/customer-search-dialog";
-import { CustomerFieldInput } from "@/components/pos/customer-fields";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Clock,
+  GitCommitHorizontal,
+  Grid2x2,
+  Loader2,
+  PackageCheck,
+  Search,
+  Store,
+  Truck
+} from "lucide-react";
+import React, { useMemo, useState } from "react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Store,
