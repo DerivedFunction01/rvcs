@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 interface ModifierAddDialogProps {
@@ -23,6 +23,7 @@ interface ModifierAddDialogProps {
   onAdd: (sku: string, defaultState?: string, targetLineIds?: string[]) => void;
   onRemove: (sku: string, targetLineIds?: string[]) => void;
   onUpdateState?: (sku: string, newState?: string, targetLineIds?: string[]) => void;
+  onUpdateInlineQty?: (sku: string, change: number, targetLineIds?: string[]) => void;
   parentItems?: ProjectedLineItem[];
 }
 
@@ -34,6 +35,7 @@ export function ModifierAddDialog({
   onAdd,
   onRemove,
   onUpdateState,
+  onUpdateInlineQty,
   parentItems
 }: ModifierAddDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,6 +52,7 @@ export function ModifierAddDialog({
       itemsWithoutIt: string[];
       itemsWithIt: string[];
       appliedStates: Set<string>;
+      currentInlineQty: number | null;
     }>();
     if (!parentItems || parentItems.length === 0) return stats;
 
@@ -59,6 +62,7 @@ export function ModifierAddDialog({
       const itemsWithoutIt: string[] = [];
       const itemsWithIt: string[] = [];
       const appliedStates = new Set<string>();
+      let currentInlineQty: number | null = null;
 
       for (const parent of parentItems) {
         const parentEntry = catalog[parent.sku];
@@ -73,6 +77,7 @@ export function ModifierAddDialog({
           itemsWithIt.push(parent.lineId);
           for (const c of modChildren) {
             if (c.selectedModifierState) appliedStates.add(c.selectedModifierState);
+            if (currentInlineQty === null) currentInlineQty = c.inlineQty ?? 1;
           }
         } else {
           itemsWithoutIt.push(parent.lineId);
@@ -96,7 +101,8 @@ export function ModifierAddDialog({
         allowDuplicates,
         itemsWithoutIt,
         itemsWithIt,
-        appliedStates
+        appliedStates,
+        currentInlineQty
       });
     }
     return stats;
@@ -157,6 +163,23 @@ export function ModifierAddDialog({
                 )?.state || mod.allowedStates?.[0]?.state || undefined;
                 
                 const hasStates = mod.allowedStates && mod.allowedStates.length > 0;
+                
+                const hasInlineQty = mod.inlineQtyType && mod.inlineQtyType !== "none";
+                const inlineStep = mod.inlineQtyIncrement ?? (mod.inlineQtyType === "float" ? 0.05 : 1);
+                const inlineQtyLabel = mod.inlineQtyLabel ?? (mod.inlineQtyType === "int" ? "Count" : mod.inlineQtyType === "float" ? "Measure" : "Qty");
+                const inlineQtyUnit = mod.inlineQtyUnit ?? (mod.inlineQtyType === "float" ? "units" : "");
+                const precision = (() => {
+                  const increment = inlineStep;
+                  if (!Number.isFinite(increment)) return 0;
+                  const text = increment.toString();
+                  if (text.includes("e-")) {
+                    const match = text.match(/e-(\d+)$/);
+                    return match ? Number(match[1]) : 0;
+                  }
+                  const decimals = text.split(".")[1];
+                  return decimals ? decimals.length : 0;
+                })();
+                const formatInlineQty = (value: number) => precision > 0 ? value.toFixed(precision) : `${Math.round(value)}`;
 
                 const stats = modifierStats.get(mod.sku);
                 const isFullyApplied = stats && stats.appliedCount === stats.totalParents && !stats.allowDuplicates;
@@ -287,58 +310,94 @@ export function ModifierAddDialog({
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
-                    {hasStates && (
-                      <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-border/50">
-                        {mod.allowedStates?.map((stateOpt) => {
-                          const priceDiff =
-                            stateOpt.priceOverride !== null && stateOpt.priceOverride !== undefined
-                              ? stateOpt.priceOverride - mod.basePrice
-                              : 0;
-                          
-                          const isStateApplied = stats?.appliedStates.has(stateOpt.state);
-                          
-                          return (
-                            <button
-                              key={stateOpt.state}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const itemsWithThisState = parentItems?.filter(p => p.children.some(c => c.sku === mod.sku && c.selectedModifierState === stateOpt.state)) || [];
+                    {(hasStates || hasInlineQty) && (
+                      <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-border/50">
+                        {hasStates && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {mod.allowedStates?.map((stateOpt) => {
+                              const priceDiff =
+                                stateOpt.priceOverride !== null && stateOpt.priceOverride !== undefined
+                                  ? stateOpt.priceOverride - mod.basePrice
+                                  : 0;
+                              
+                              const isStateApplied = stats?.appliedStates.has(stateOpt.state);
+                              
+                              return (
+                                <button
+                                  key={stateOpt.state}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const itemsWithThisState = parentItems?.filter(p => p.children.some(c => c.sku === mod.sku && c.selectedModifierState === stateOpt.state)) || [];
 
-                                if (stats && stats.appliedCount === 0) {
-                                  onAdd(mod.sku, stateOpt.state);
-                                } else if (stats && stats.totalParents > 1) {
-                                  if (isFullyApplied && itemsWithThisState.length === 0) {
-                                    if (onUpdateState) onUpdateState(mod.sku, stateOpt.state);
-                                    else onAdd(mod.sku, stateOpt.state);
-                                  } else {
-                                    setActionPrompt({ sku: mod.sku, defaultState: stateOpt.state });
-                                  }
-                                } else {
-                                  if (itemsWithThisState.length > 0 || stats?.allowDuplicates) {
-                                    setActionPrompt({ sku: mod.sku, defaultState: stateOpt.state });
-                                  } else {
-                                    if (onUpdateState) onUpdateState(mod.sku, stateOpt.state);
-                                    else onAdd(mod.sku, stateOpt.state);
-                                  }
-                                }
-                              }}
-                              className={`text-[10px] px-2 py-1 rounded font-medium flex items-center gap-1 transition-colors ${
-                                isStateApplied 
-                                  ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE" 
-                                      ? "bg-destructive/15 text-destructive border border-destructive/30" 
-                                      : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30") 
-                                  : "bg-muted hover:bg-primary/20 hover:text-primary border border-transparent"
-                              }`}
-                            >
-                              {stateOpt.state}
-                              {priceDiff !== 0 && (
-                                <span className="opacity-70 font-mono text-[9px]">
-                                  ({priceDiff > 0 ? "+" : ""}${priceDiff.toFixed(2)})
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
+                                    if (stats && stats.appliedCount === 0) {
+                                      onAdd(mod.sku, stateOpt.state);
+                                    } else if (stats && stats.totalParents > 1) {
+                                      if (isFullyApplied && itemsWithThisState.length === 0) {
+                                        if (onUpdateState) onUpdateState(mod.sku, stateOpt.state);
+                                        else onAdd(mod.sku, stateOpt.state);
+                                      } else {
+                                        setActionPrompt({ sku: mod.sku, defaultState: stateOpt.state });
+                                      }
+                                    } else {
+                                      if (itemsWithThisState.length > 0 || stats?.allowDuplicates) {
+                                        setActionPrompt({ sku: mod.sku, defaultState: stateOpt.state });
+                                      } else {
+                                        if (onUpdateState) onUpdateState(mod.sku, stateOpt.state);
+                                        else onAdd(mod.sku, stateOpt.state);
+                                      }
+                                    }
+                                  }}
+                                  className={`text-[10px] px-2 py-1 rounded font-medium flex items-center gap-1 transition-colors ${
+                                    isStateApplied 
+                                      ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE" 
+                                          ? "bg-destructive/15 text-destructive border border-destructive/30" 
+                                          : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30") 
+                                      : "bg-muted hover:bg-primary/20 hover:text-primary border border-transparent"
+                                  }`}
+                                >
+                                  {stateOpt.state}
+                                  {priceDiff !== 0 && (
+                                    <span className="opacity-70 font-mono text-[9px]">
+                                      ({priceDiff > 0 ? "+" : ""}${priceDiff.toFixed(2)})
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {hasInlineQty && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                              {inlineQtyLabel}:
+                            </span>
+                            <div className="flex items-center rounded border p-0.5 bg-background shrink-0 shadow-sm">
+                              <button
+                                className="h-5 w-5 flex items-center justify-center hover:bg-muted hover:text-primary rounded text-muted-foreground transition-colors disabled:opacity-50"
+                                disabled={!isApplied}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onUpdateInlineQty) onUpdateInlineQty(mod.sku, -inlineStep);
+                                }}
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1">
+                                {isApplied ? formatInlineQty(stats?.currentInlineQty ?? 1) : "0"}
+                                {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
+                              </span>
+                              <button
+                                className="h-5 w-5 flex items-center justify-center hover:bg-muted hover:text-primary rounded text-muted-foreground transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onUpdateInlineQty) onUpdateInlineQty(mod.sku, inlineStep);
+                                }}
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

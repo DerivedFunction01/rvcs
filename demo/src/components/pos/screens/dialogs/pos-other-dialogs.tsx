@@ -110,6 +110,48 @@ export function PosOtherDialogs({
             store.commitDeltas(deltas, "pos-ui");
           }
         }}
+        onUpdateInlineQty={(sku, change, targetLineIds) => {
+          const targets = targetLineIds || (dialogs.modifierAddItem ? [dialogs.modifierAddItem.lineId] : selectedLineIdsArray);
+          const state = store.projectedState;
+          const deltas: Delta[] = [];
+          for (const parentId of targets) {
+            const parent = state.items[parentId];
+            if (parent) {
+              const modChild = parent.children.find((c) => c.sku === sku);
+              if (modChild) {
+                const current = modChild.inlineQty ?? 1;
+                const next = Math.round((current + change) * 1000) / 1000;
+                if (next > 0) {
+                  deltas.push({
+                    action: DeltaActionType.ModifyInlineQty,
+                    lineId: modChild.lineId,
+                    beforeInlineQty: current,
+                    afterInlineQty: next,
+                  });
+                } else {
+                  deltas.push({
+                    action: DeltaActionType.RemoveItem,
+                    lineId: modChild.lineId,
+                    qty: modChild.qty
+                  });
+                }
+              } else if (change > 0) {
+                deltas.push({
+                  action: DeltaActionType.AddItem,
+                  lineId: generateLineId(),
+                  parentLineId: parentId,
+                  sku: sku,
+                  qty: 1,
+                  inlineQty: change,
+                  allocations: [],
+                });
+              }
+            }
+          }
+          if (deltas.length > 0) {
+            store.commitDeltas(deltas, "pos-ui");
+          }
+        }}
         parentItems={parentItems}
       />
       <GroupNoteDialog
