@@ -183,7 +183,11 @@ function ConflictCard({
 }) {
   const isSemanticWarning = conflict.type === MergeConflictType.ModifyQtyModifyInlineQty;
 
-  const options = [];
+  const options: {
+    branch: string | "both";
+    label: string;
+    description: string;
+  }[]  = [];
 
   if (isSemanticWarning) {
     options.push({
