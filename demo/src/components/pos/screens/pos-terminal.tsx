@@ -13,10 +13,6 @@ import { ModifierAddDialog } from "@/components/pos/dialogs/modifier-add-dialog"
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { PaymentAllocationDialog } from "@/components/pos/dialogs/payment-allocation-dialog";
 import { SplitQtyDialog } from "@/components/pos/dialogs/split-qty-dialog";
-import {
-  formatFulfillmentTime,
-  getPaymentAllocDisplayName,
-} from "@/lib/pos/utils";
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
 import React, { useCallback } from "react";
@@ -25,6 +21,7 @@ import { usePostTerminalGuests } from "@/components/pos/screens/hooks/use-post-t
 import { usePostTerminalSelection } from "@/components/pos/screens/hooks/use-post-terminal-selection";
 import { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
 import { usePostTerminalCatalog } from "@/components/pos/screens/hooks/use-post-terminal-catalog";
+import { usePostTerminalConfigs } from "@/components/pos/screens/hooks/use-post-terminal-configs";
 
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
@@ -60,7 +57,6 @@ import {
 import {
   type Guest,
   getAssigneeFromItem,
-  getPatchedAllocations,
   getUniqueGuestLabel,
 } from "@/lib/pos/ui-utils";
 import { generateAllocationId } from "@/lib/vcs/id";
@@ -90,6 +86,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatFulfillmentTime } from "@/lib/pos/utils";
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────
 
@@ -181,17 +178,19 @@ export function POSTerminalScreen({
     setGuestFilterOp,
   } = usePostTerminalGuests(projectedState.allocations, defaultAssignmentAllocId);
 
-  const resolvedAllocations = React.useMemo(() => {
-    const resolved: Record<string, AllocationBlock> = {};
-    for (const [id, alloc] of Object.entries(projectedState.allocations)) {
-      if (alloc.type === AllocationType.Assignment)
-        resolved[id] = { ...alloc, entity: resolveGuestName(alloc.entity) };
-      else if (alloc.type === AllocationType.Payment)
-        resolved[id] = { ...alloc, payer: resolveGuestName(alloc.payer) };
-      else resolved[id] = alloc;
-    }
-    return resolved;
-  }, [projectedState.allocations, resolveGuestName]);
+  const {
+    resolvedAllocations,
+    paymentConfigs,
+    currentConfigName,
+    currentFulfillmentConfigName,
+  } = usePostTerminalConfigs({
+    projectedState,
+    activePaymentConfigId,
+    activeFulfillmentConfigId,
+    defaultPaymentAllocId,
+    orderContext,
+    resolveGuestName,
+  });
 
   const {
     addGuestOpen,
@@ -571,122 +570,6 @@ export function POSTerminalScreen({
   const maxSelectedQty = React.useMemo(() => {
     return selectedItems.reduce((max, item) => Math.max(max, item.qty), 0);
   }, [selectedItems]);
-
-  const paymentConfigs = React.useMemo(() => {
-    const configs: Array<{ id: string; name: string; isSplit: boolean }> = [];
-    const allocations = projectedState.allocations;
-    const referencedIds = new Set<string>();
-    for (const item of Object.values(projectedState.items)) {
-      for (const id of item.allocations) referencedIds.add(id);
-    }
-    const singlePayers = new Map<string, PaymentAllocation>();
-    const splitGroups = new Map<string, PaymentAllocation[]>();
-    for (const alloc of Object.values(allocations)) {
-      if (alloc.type === AllocationType.Payment) {
-        const pay = alloc as PaymentAllocation;
-        const isReferenced = referencedIds.has(alloc.allocationId);
-        const isActive =
-          activePaymentConfigId === alloc.allocationId ||
-          activePaymentConfigId === alloc.correlationId;
-        const isDefault = pay.correlationId?.startsWith("group-default-");
-        if (!isReferenced && !isActive && !isDefault) continue;
-        if (pay.correlationId) {
-          if (pay.correlationId.startsWith("group-default-")) continue;
-          const group = splitGroups.get(pay.correlationId) || [];
-          group.push(pay);
-          splitGroups.set(pay.correlationId, group);
-        } else {
-          if (pay.allocationId !== defaultPaymentAllocId)
-            singlePayers.set(pay.allocationId, pay);
-        }
-      }
-    }
-    const patchedAllocs = getPatchedAllocations(allocations);
-    singlePayers.forEach((pay, id) => {
-      configs.push({
-        id,
-        name: `Single: ${getPaymentAllocDisplayName(patchedAllocs[id] as PaymentAllocation, patchedAllocs)}`,
-        isSplit: false,
-      });
-    });
-    splitGroups.forEach((group, correlationId) => {
-      const isTrueSplit = group.length > 1;
-      configs.push({
-        id: correlationId,
-        name: `${isTrueSplit ? "Split" : "Single"}: ${getPaymentAllocDisplayName(patchedAllocs[group[0].allocationId] as PaymentAllocation, patchedAllocs)}`,
-        isSplit: isTrueSplit,
-      });
-    });
-    return configs;
-  }, [
-    projectedState.allocations,
-    projectedState.items,
-    defaultPaymentAllocId,
-    activePaymentConfigId,
-  ]);
-
-  const currentConfigName = React.useMemo(() => {
-    const customerName = orderContext?.customerFields.name || "Guest";
-    if (
-      activePaymentConfigId &&
-      activePaymentConfigId.startsWith("group-default-")
-    )
-      return `${customerName} (${activePaymentConfigId.replace("group-default-", "").toUpperCase()})`;
-    const allocations = projectedState.allocations;
-    const activeAlloc = Object.values(allocations).find(
-      (a) =>
-        a.type === AllocationType.Payment &&
-        (a.allocationId === activePaymentConfigId ||
-          a.correlationId === activePaymentConfigId),
-    );
-    if (activeAlloc) {
-      const patchedAllocs = getPatchedAllocations(allocations);
-      const siblings = activeAlloc.correlationId
-        ? Object.values(patchedAllocs).filter(
-            (a) =>
-              a.type === AllocationType.Payment &&
-              a.correlationId === activeAlloc.correlationId &&
-              a.allocationId !== activeAlloc.allocationId,
-          )
-        : [];
-      return `${siblings.length > 0 ? "Split" : "Single"}: ${getPaymentAllocDisplayName(patchedAllocs[activeAlloc.allocationId] as PaymentAllocation, patchedAllocs)}`;
-    }
-    return "Default Config";
-  }, [activePaymentConfigId, projectedState.allocations, orderContext]);
-
-  const currentFulfillmentConfigName = React.useMemo(() => {
-    const activeId = activeFulfillmentConfigId;
-    if (!activeId) return "On Confirmation";
-    const alloc = Object.values(projectedState.allocations).find(
-      (a) =>
-        a.type === AllocationType.Fulfillment &&
-        (a.allocationId === activeId || a.correlationId === activeId),
-    ) as FulfillmentAllocation | undefined;
-    if (alloc) {
-      const methodLabel =
-        alloc.method === OrderType.WalkIn
-          ? "Walk In"
-          : alloc.method === OrderType.Pickup
-            ? "Pickup"
-            : alloc.method === OrderType.Delivery
-              ? "Delivery"
-              : alloc.method;
-      const destLabel = alloc.fulfillmentMetadata.destinationLabel
-        ? ` (${alloc.fulfillmentMetadata.destinationLabel})`
-        : "";
-      if (
-        alloc.time.type === TimeBlockType.Immediate ||
-        !alloc.time.calculatedAt
-      )
-        return `${methodLabel}${destLabel} (Immediate)`;
-      return `${methodLabel}${destLabel} @ ${formatFulfillmentTime(alloc.time.calculatedAt, orderContext?.initiatedAt)}`;
-    }
-    return "On Confirmation";
-  }, [
-    activeFulfillmentConfigId,
-    projectedState.allocations,
-    orderContext?.initiatedAt,
-  ]);
 
   const log = commitLog();
   const confirmedHash = engine.getConfirmedHash();
