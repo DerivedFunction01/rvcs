@@ -89,6 +89,8 @@ export function POSTerminalScreen({
     removeItems,
     modifyItemsQty,
     mergeItems,
+    breakItems,
+    combineItems,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
@@ -740,6 +742,8 @@ export function POSTerminalScreen({
             bulkActionsBarRef={bulkActionsBarRef}
             modifyItemsQty={modifyItemsQty}
             mergeItems={mergeItems}
+            breakItems={breakItems}
+            combineItems={combineItems}
             setQtyPadOpen={setQtyPadOpen}
             setSplitQtyDialogOpen={setSplitQtyDialogOpen}
             duplicateItems={duplicateItems}

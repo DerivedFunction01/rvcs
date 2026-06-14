@@ -33,11 +33,14 @@ import {
   Equal,
   Pencil,
   RotateCcw,
+  Unlink,
+  PackageCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useVCSStore } from "@/store/vcs-store";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
 
 export function ActiveCheckPanel(props: any) {
   const {
@@ -69,6 +72,8 @@ export function ActiveCheckPanel(props: any) {
     bulkActionsBarRef,
     modifyItemsQty,
     mergeItems,
+    breakItems,
+    combineItems,
     setQtyPadOpen,
     setSplitQtyDialogOpen,
     duplicateItems,
@@ -90,8 +95,107 @@ export function ActiveCheckPanel(props: any) {
     onGroupNoteOpen,
   } = props;
 
+  const catalog = useVCSStore((s) => s.catalog);
+
+  const { canMerge, canBreak, canCombine } = useMemo(() => {
+    let canMerge = false;
+    let canBreak = false;
+    let canCombine = false;
+
+    if (selectedLineIds.size === 0) return { canMerge, canBreak, canCombine };
+
+    const selectedItems = Array.from(selectedLineIds)
+      .map((id) => projectedState.items[id as string])
+      .filter(Boolean);
+
+    // Check Merge
+    if (selectedItems.length >= 2) {
+      const getSignature = (item: any): string => {
+        const childrenSig = item.children
+          .filter((c: any) => c.status !== "canceled")
+          .map((c: any) => getSignature(c))
+          .sort()
+          .join("|");
+        const allocSig = [...item.allocations].sort().join(",");
+        return `${item.sku}::${item.inlineQty}::${item.selectedModifierState}::${allocSig}::${childrenSig}`;
+      };
+      
+      const sigs = new Set<string>();
+      for (const item of selectedItems) {
+        if (item.status !== "canceled") {
+          const sig = getSignature(item);
+          if (sigs.has(sig)) {
+            const entry = catalog[item.sku];
+            if (!entry?.inlineQtyMainQtyLocked) {
+              canMerge = true;
+              break;
+            }
+          }
+          sigs.add(sig);
+        }
+      }
+    }
+
+    // Check Break
+    for (const item of selectedItems) {
+      if (item.status !== "canceled") {
+        const entry = catalog[item.sku];
+        if (entry?.comboChoices && entry.comboChoices.length > 0) {
+          canBreak = true;
+          break;
+        }
+      }
+    }
+
+    // Check Combine
+    if (selectedItems.length >= 2) {
+      const combos = Object.values(catalog).filter(
+        (c) => c.type === "item" && c.category === "combo" && c.comboChoices && c.comboChoices.length > 0
+      );
+      
+      for (const combo of combos) {
+        const slots: Record<string, Set<string>> = {};
+        for (const choice of combo.comboChoices!) {
+          if (!slots[choice.slotSku]) slots[choice.slotSku] = new Set();
+          slots[choice.slotSku].add(choice.optionSku);
+        }
+        const requiredSlots = Object.keys(slots);
+        
+        const availableSkus: string[] = [];
+        for (const item of selectedItems) {
+          if (item.status !== "canceled") {
+            for (let i = 0; i < item.qty; i++) {
+              availableSkus.push(item.sku);
+            }
+          }
+        }
+        
+        let matchedAll = true;
+        const usedIndices = new Set<number>();
+        for (const slotSku of requiredSlots) {
+          const validSkus = slots[slotSku];
+          const index = availableSkus.findIndex((sku, i) => !usedIndices.has(i) && validSkus.has(sku));
+          if (index !== -1) {
+            usedIndices.add(index);
+          } else {
+            matchedAll = false;
+            break;
+          }
+        }
+        
+        if (matchedAll) {
+          canCombine = true;
+          break;
+        }
+      }
+    }
+
+    return { canMerge, canBreak, canCombine };
+  }, [selectedLineIds, projectedState.items, catalog]);
+
   const [qtyStep, setQtyStep] = useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;
+  const [combineDialogOpen, setCombineDialogOpen] = useState(false);
 
   const formatNumber = useFormatNumber();
 
@@ -410,10 +514,33 @@ export function ActiveCheckPanel(props: any) {
                   mergeItems(Array.from(selectedLineIds));
                   setSelectedLineIds(new Set());
                 }}
-                disabled={selectedLineIds.size <= 1}
+                disabled={!canMerge}
               >
                 <Combine className="w-3.5 h-3.5 mr-1" />
                 Merge
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                onClick={() => {
+                  const newIds = breakItems(Array.from(selectedLineIds));
+                  if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
+                }}
+                disabled={!canBreak}
+              >
+                <Unlink className="w-3.5 h-3.5 mr-1" />
+                Break
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                onClick={() => setCombineDialogOpen(true)}
+                disabled={!canCombine}
+              >
+                <PackageCheck className="w-3.5 h-3.5 mr-1" />
+                Combine
               </Button>
             </div>
             <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
@@ -497,6 +624,17 @@ export function ActiveCheckPanel(props: any) {
           </div>
         </div>
       )}
+
+      <CombineDialog
+        open={combineDialogOpen}
+        onOpenChange={setCombineDialogOpen}
+        selectedItems={Array.from(selectedLineIds).map(id => projectedState.items[id as string]).filter(Boolean)}
+        catalog={useVCSStore.getState().catalog}
+        onCombine={(comboSku, assignments) => {
+          const newIds = combineItems(comboSku, assignments);
+          if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
+        }}
+      />
     </main>
   );
 }

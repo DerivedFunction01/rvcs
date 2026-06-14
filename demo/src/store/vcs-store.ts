@@ -383,6 +383,8 @@ interface VCSStore {
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
   mergeItems: (lineIds: string[]) => void;
+  breakItems: (lineIds: string[]) => string[];
+  combineItems: (comboSku: string, assignments: any[][]) => string[];
   splitItemsQty: (
     lineIds: string[],
     type: SplitQtyType,
@@ -2577,6 +2579,102 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (deltas.length > 0) {
         store.commitDeltas(deltas, "pos-ui");
       }
+    },
+
+    breakItems: (lineIds) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+      const newLineIds: string[] = [];
+
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (!item || item.status === ItemStatus.Canceled) continue;
+
+        const entry = store.catalog[item.sku];
+        if (!entry || !entry.comboChoices || entry.comboChoices.length === 0) continue;
+
+        let broken = false;
+        for (const child of item.children) {
+          if (child.status === ItemStatus.Canceled) continue;
+          const childEntry = store.catalog[child.sku];
+          // Only break out full items (sides/entrees), leaving modifiers/sizes alone
+          if (childEntry && childEntry.type === CatalogItemType.Item) {
+            const cloneDeltas: Delta[] = [];
+            buildCloneDeltas(child, null, 1, cloneDeltas, {
+              overrideRootQty: child.qty,
+              rootAllocations: item.allocations,
+            });
+            const addRootDelta = cloneDeltas.find(
+              (d) => d.action === DeltaActionType.AddItem && d.parentLineId === null,
+            ) as Extract<Delta, { action: DeltaActionType.AddItem }>;
+            if (addRootDelta) newLineIds.push(addRootDelta.lineId);
+            deltas.push(...cloneDeltas);
+            broken = true;
+          }
+        }
+
+        if (broken) {
+          deltas.push({
+            action: DeltaActionType.RemoveItem,
+            lineId,
+            qty: item.qty,
+          });
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+      return newLineIds;
+    },
+
+    combineItems: (comboSku, assignments) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+      const newLineIds: string[] = [];
+      const consumption = new Map<string, number>();
+
+      for (const comboAssignment of assignments) {
+        const firstUnit = comboAssignment[0]?.unit;
+        const allocations = firstUnit?.item.allocations || [];
+
+        const comboLineId = generateLineId();
+        deltas.push({
+          action: DeltaActionType.AddItem,
+          lineId: comboLineId,
+          parentLineId: null,
+          sku: comboSku,
+          qty: 1,
+          allocations: [...allocations],
+        });
+        newLineIds.push(comboLineId);
+
+        for (const slot of comboAssignment) {
+          const unitItem = slot.unit.item;
+          buildCloneDeltas(unitItem, comboLineId, unitItem.qty, deltas, {
+            overrideRootQty: 1,
+          });
+          consumption.set(unitItem.lineId, (consumption.get(unitItem.lineId) || 0) + 1);
+        }
+      }
+
+      for (const [lineId, consumedQty] of consumption.entries()) {
+        const item = state.items[lineId];
+        if (item) {
+          if (consumedQty >= item.qty) {
+            deltas.push({ action: DeltaActionType.RemoveItem, lineId, qty: item.qty });
+          } else {
+            deltas.push({ action: DeltaActionType.ModifyQty, lineId, beforeQty: item.qty, afterQty: item.qty - consumedQty });
+          }
+        }
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+      return newLineIds;
     },
 
     splitItemsQty: (lineIds, type, value) => {
