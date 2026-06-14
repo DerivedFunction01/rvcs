@@ -55,6 +55,7 @@ import {
   User,
   XCircle,
 } from "lucide-react";
+import { usePreferencesStore } from "@/store/preferences-store";
 
 // ─── POS Terminal (rendered after init) ────────────────────────────────────
 
@@ -174,15 +175,46 @@ export function POSTerminalScreen({
     setShowResetConfirm,
   } = branchDialogs;
 
-  const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(true);
-  const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] =
-    React.useState(true);
+
+  const repoId = engine.getRepo().contextId;
+  const { getPreferences, updateRepoPreferences } = usePreferencesStore();
+  const prefs = React.useMemo(() => getPreferences(repoId), [getPreferences, repoId]);
+
+  const [isLedgerCollapsedState, setIsLedgerCollapsedState] = React.useState(prefs.isLedgerCollapsed);
+  const [isGroupNotesCollapsedState, setIsGroupNotesCollapsedState] = React.useState(prefs.isGroupNotesCollapsed);
   const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(
     new Set(),
   );
-  const [detailLevel, setDetailLevel] = React.useState<
-    ViewMode
-  >(ViewMode.Simple);
+  const [detailLevelState, setDetailLevelState] = React.useState<ViewMode>(prefs.detailLevel);
+
+  const isLedgerCollapsed = isLedgerCollapsedState;
+  const isGroupNotesCollapsed = isGroupNotesCollapsedState;
+  const detailLevel = detailLevelState;
+
+  const setIsLedgerCollapsed = React.useCallback((val: boolean | ((prev: boolean) => boolean)) => {
+    setIsLedgerCollapsedState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      updateRepoPreferences(repoId, { isLedgerCollapsed: next });
+      return next;
+    });
+  }, [repoId, updateRepoPreferences]);
+
+  const setIsGroupNotesCollapsed = React.useCallback((val: boolean | ((prev: boolean) => boolean)) => {
+    setIsGroupNotesCollapsedState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      updateRepoPreferences(repoId, { isGroupNotesCollapsed: next });
+      return next;
+    });
+  }, [repoId, updateRepoPreferences]);
+
+  const setDetailLevel = React.useCallback((val: ViewMode | ((prev: ViewMode) => ViewMode)) => {
+    setDetailLevelState(prev => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      updateRepoPreferences(repoId, { detailLevel: next });
+      return next;
+    });
+  }, [repoId, updateRepoPreferences]);
+
   const [hideCanceled, setHideCanceled] = React.useState(false);
 
   const hasCollapsedItems = collapsedItems.size > 0;
