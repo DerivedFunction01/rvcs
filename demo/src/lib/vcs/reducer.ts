@@ -161,6 +161,15 @@ interface InternalLineItem {
   hasPendingChanges?: boolean;
 }
 
+function isMainQtyLocked(
+  catalogEntry: CatalogItemEntry | undefined,
+  targetQty?: number,
+): boolean {
+  if (!catalogEntry?.inlineQtyMainQtyLocked) return false;
+  if (targetQty === 0) return false;
+  return true;
+}
+
 // ─── The Core Reducer ──────────────────────────────────────────────────────────
 
 /**
@@ -309,7 +318,7 @@ function applyDelta(
       const item = items[delta.lineId];
       if (item) {
         const entry = catalog[item.sku];
-        if (entry?.inlineQtyMainQtyLocked && delta.qty !== item.qty) {
+        if (isMainQtyLocked(entry, item.qty - delta.qty)) {
           break;
         }
 
@@ -365,7 +374,7 @@ function applyDelta(
       const item = items[delta.lineId];
       if (item && item.qty === delta.beforeQty) {
         const entry = catalog[item.sku];
-        if (entry?.inlineQtyMainQtyLocked && delta.afterQty !== 0) {
+        if (isMainQtyLocked(entry, delta.afterQty)) {
           break;
         }
 
