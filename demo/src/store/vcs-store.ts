@@ -382,6 +382,7 @@ interface VCSStore {
   removeItems: (lineIds: string[]) => void;
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
+  mergeItems: (lineIds: string[]) => void;
   splitItemsQty: (
     lineIds: string[],
     type: SplitQtyType,
@@ -2493,6 +2494,84 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       if (lockedSkipped) {
         toast.error("Some items were skipped because their main quantity is locked.");
+      }
+
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+    },
+
+    mergeItems: (lineIds) => {
+      const store = get();
+      const state = store.projectedState;
+      const deltas: Delta[] = [];
+      let lockedSkipped = false;
+
+      const getSignature = (item: ProjectedLineItem): string => {
+        const childrenSig = item.children
+          .filter((c) => c.status !== ItemStatus.Canceled)
+          .map((c) => getSignature(c))
+          .sort()
+          .join("|");
+        const allocSig = [...item.allocations].sort().join(",");
+        return `${item.sku}::${item.inlineQty}::${item.selectedModifierState}::${allocSig}::${childrenSig}`;
+      };
+
+      const groups = new Map<string, ProjectedLineItem[]>();
+      for (const lineId of lineIds) {
+        const item = state.items[lineId];
+        if (item && item.status !== ItemStatus.Canceled) {
+          const sig = getSignature(item);
+          if (!groups.has(sig)) groups.set(sig, []);
+          groups.get(sig)!.push(item);
+        }
+      }
+
+      for (const group of groups.values()) {
+        if (group.length < 2) continue;
+
+        const survivor = group[0];
+        const catalogEntry = store.catalog[survivor.sku];
+
+        if (isMainQtyLocked(catalogEntry)) {
+          lockedSkipped = true;
+          continue;
+        }
+
+        let sumQty = 0;
+        for (let i = 1; i < group.length; i++) {
+          const mergee = group[i];
+          sumQty += mergee.qty;
+          deltas.push({
+            action: DeltaActionType.RemoveItem,
+            lineId: mergee.lineId,
+            qty: mergee.qty,
+          });
+        }
+
+        const increment = catalogEntry?.mainQtyIncrement ?? 1;
+        const targetQty = snapQty(survivor.qty + sumQty, increment);
+
+        if (
+          survivor.status === ItemStatus.Confirmed &&
+          targetQty > survivor.qty
+        ) {
+          const changeDiff = targetQty - survivor.qty;
+          buildCloneDeltas(survivor, null, 1, deltas, {
+            overrideRootQty: changeDiff,
+          });
+        } else if (targetQty !== survivor.qty) {
+          deltas.push({
+            action: DeltaActionType.ModifyQty,
+            lineId: survivor.lineId,
+            beforeQty: survivor.qty,
+            afterQty: targetQty,
+          });
+        }
+      }
+
+      if (lockedSkipped) {
+        toast.error("Some items could not be merged because their main quantity is locked.");
       }
 
       if (deltas.length > 0) {
