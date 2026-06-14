@@ -19,6 +19,7 @@ import { PosBranchDialogs } from "@/components/pos/screens/dialogs/pos-branch-di
 import { PosChoiceDialogs } from "@/components/pos/screens/dialogs/pos-choice-dialogs";
 import { PosGuestDialogs } from "@/components/pos/screens/dialogs/pos-guest-dialogs";
 import { PosOtherDialogs } from "@/components/pos/screens/dialogs/pos-other-dialogs";
+import { GlobalSettingsDialog } from "@/components/pos/dialogs/global-settings-dialog";
 
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
@@ -52,6 +53,7 @@ import {
   GitCommitHorizontal,
   Lightbulb,
   Lock,
+  Settings2,
   User,
   XCircle,
 } from "lucide-react";
@@ -216,6 +218,7 @@ export function POSTerminalScreen({
   }, [repoId, updateRepoPreferences]);
 
   const [hideCanceled, setHideCanceled] = React.useState(false);
+  const [globalSettingsOpen, setGlobalSettingsOpen] = React.useState(false);
 
   const hasCollapsedItems = collapsedItems.size > 0;
   const handleToggleCollapse = React.useCallback((lineId: string) => {
@@ -601,6 +604,16 @@ export function POSTerminalScreen({
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             </Button>
             <SeparatorUI orientation="vertical" className="h-6" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs px-2 text-muted-foreground"
+              onClick={() => setGlobalSettingsOpen(true)}
+              title="Global Settings"
+            >
+              <Settings2 className="w-3 h-3 mr-1" />
+              Settings
+            </Button>
             {showResetConfirm ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-destructive">
@@ -818,6 +831,10 @@ export function POSTerminalScreen({
         isComboChildItem={isComboChildItem}
         selectedLineIdsSize={selectedLineIds.size}
         selectedLineIdsArray={Array.from(selectedLineIds)}
+      />
+      <GlobalSettingsDialog
+        open={globalSettingsOpen}
+        onOpenChange={setGlobalSettingsOpen}
       />
     </TooltipProvider>
   );
