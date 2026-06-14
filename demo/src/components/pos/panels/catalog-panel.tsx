@@ -17,6 +17,7 @@ import type { IconConfig } from "@/store/vcs-store";
 import * as LucideIcons from "lucide-react";
 import { Filter, Minus, Plus, Search } from "lucide-react";
 import { useState } from "react";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 export function CatalogPanel({
   catalogItems,
@@ -34,6 +35,8 @@ export function CatalogPanel({
   const [catalogFilter, setCatalogFilter] = useState("");
   const [requireTags, setRequireTags] = useState<Set<string>>(new Set());
   const [avoidTags, setAvoidTags] = useState<Set<string>>(new Set());
+
+  const formatNumber = useFormatNumber();
 
   return (
     <aside className="w-lg border-r bg-card flex flex-col shrink-0">
@@ -238,7 +241,7 @@ export function CatalogPanel({
                           </div>
                         </div>
                         <span className="font-mono text-xs font-semibold text-muted-foreground group-hover:text-foreground shrink-0 ml-2">
-                          ${item.basePrice.toFixed(2)}
+                          ${formatNumber(item.basePrice, 2)}
                         </span>
                       </button>
                     </TooltipTrigger>

@@ -35,6 +35,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { useVCSStore } from "@/store/vcs-store";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 export function ActiveCheckPanel(props: any) {
   const {
@@ -89,6 +90,8 @@ export function ActiveCheckPanel(props: any) {
   const [qtyStep, setQtyStep] = useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;
 
+  const formatNumber = useFormatNumber();
+
   return (
     <main className="flex-1 flex flex-col min-w-0">
       <div className="border-b bg-card px-6 py-3 flex items-center justify-between shrink-0">
@@ -133,7 +136,7 @@ export function ActiveCheckPanel(props: any) {
                           </span>
                         </div>
                         <span className="font-mono font-semibold tabular-nums ml-2">
-                          ${pb.subtotal.toFixed(2)}
+                          ${formatNumber(pb.subtotal, 2)}
                         </span>
                       </div>
                     ))}
@@ -148,7 +151,7 @@ export function ActiveCheckPanel(props: any) {
               Subtotal
             </div>
             <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-              ${projectedState.financials.subtotal.toFixed(2)}
+              ${formatNumber(projectedState.financials.subtotal, 2)}
             </div>
           </div>
           {projectedState.financials.chargeTotal > 0 && (
@@ -159,7 +162,7 @@ export function ActiveCheckPanel(props: any) {
                     Tax & Fees <ChevronDown className="w-2.5 h-2.5" />
                   </div>
                   <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-                    ${projectedState.financials.chargeTotal.toFixed(2)}
+                    ${formatNumber(projectedState.financials.chargeTotal, 2)}
                   </div>
                 </button>
               </PopoverTrigger>
@@ -179,7 +182,7 @@ export function ActiveCheckPanel(props: any) {
                             {charge.label}
                           </span>
                           <span className="font-mono font-medium tabular-nums">
-                            ${charge.chargeAmount.toFixed(2)}
+                            ${formatNumber(charge.chargeAmount, 2)}
                           </span>
                         </div>
                       ),
@@ -194,7 +197,7 @@ export function ActiveCheckPanel(props: any) {
               Total
             </div>
             <div className="font-mono font-bold text-lg tabular-nums text-primary leading-tight">
-              ${projectedState.financials.grandTotal.toFixed(2)}
+              ${formatNumber(projectedState.financials.grandTotal, 2)}
             </div>
           </div>
         </div>
@@ -312,7 +315,7 @@ export function ActiveCheckPanel(props: any) {
                   modifyItemsQty(Array.from(selectedLineIds), -parsedStep);
                 }}
               >
-                <Minus className="w-3.5 h-3.5 mr-1" /> {parsedStep}
+                <Minus className="w-3.5 h-3.5 mr-1" /> {formatNumber(parsedStep)}
               </Button>
               <Button
                 variant="ghost"
@@ -322,7 +325,7 @@ export function ActiveCheckPanel(props: any) {
                   modifyItemsQty(Array.from(selectedLineIds), parsedStep);
                 }}
               >
-                <Plus className="w-3.5 h-3.5 mr-1" /> {parsedStep}
+                <Plus className="w-3.5 h-3.5 mr-1" /> {formatNumber(parsedStep)}
               </Button>
               <Button
                 variant="ghost"

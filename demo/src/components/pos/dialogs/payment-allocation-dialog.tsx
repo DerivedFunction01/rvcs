@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import React, { useCallback, useMemo, useState } from "react";
 import { PaymentSplitEntry, SplitEditor, validateSplit } from "./split-editor";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 interface PaymentAllocationDialogProps {
   open: boolean;
@@ -97,6 +98,8 @@ export function PaymentAllocationDialog({
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [splits, setSplits] = useState<PaymentSplitEntry[]>([]);
+
+  const formatNumber = useFormatNumber();
 
   // For the header confirmation flow
   const [pendingSelection, setPendingSelection] = useState<{
@@ -235,7 +238,7 @@ export function PaymentAllocationDialog({
           .sort((a, b) => (b.paymentStrategy.value ?? 0) - (a.paymentStrategy.value ?? 0))
           .map((a) => {
              const strat = a.paymentStrategy.strategyType;
-             return `${a.payer} ${strat === "remaining" ? "rem" : strat === "percentage" ? `${Math.round((a.paymentStrategy.value ?? 1) * 100)}%` : `$${a.paymentStrategy.value}`}`;
+             return `${a.payer} ${strat === "remaining" ? "rem" : strat === "percentage" ? `${Math.round((a.paymentStrategy.value ?? 1) * 100)}%` : `$${formatNumber(a.paymentStrategy.value ?? 0, 2)}`}`;
           })
           .join(" / ");
       } else {
@@ -543,7 +546,7 @@ export function PaymentAllocationDialog({
             </span>
           </div>
           <span className="font-mono font-bold">
-            ${items[0].totalPrice.toFixed(2)}
+            ${formatNumber(items[0].totalPrice, 2)}
           </span>
         </div>
       );
@@ -557,7 +560,7 @@ export function PaymentAllocationDialog({
             </span>
           </div>
           <span className="font-mono font-bold">
-            ${totalContextPrice?.toFixed(2)}
+            ${totalContextPrice !== undefined ? formatNumber(totalContextPrice, 2) : "0.00"}
           </span>
         </div>
       );
@@ -617,7 +620,7 @@ export function PaymentAllocationDialog({
                           </span>
                         </span>
                         <span className="font-mono text-[10px] text-muted-foreground font-bold shrink-0">
-                          ${item.totalPrice.toFixed(2)}
+                          ${formatNumber(item.totalPrice, 2)}
                         </span>
                       </div>
                     ))}

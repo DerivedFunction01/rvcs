@@ -7,6 +7,7 @@ export interface AppPreferences {
   isLedgerCollapsed: boolean;
   isGroupNotesCollapsed: boolean;
   isCompactMode: boolean;
+  useCommaDecimal: boolean;
 }
 
 export const defaultAppPreferences: AppPreferences = {
@@ -14,6 +15,7 @@ export const defaultAppPreferences: AppPreferences = {
   isLedgerCollapsed: true,
   isGroupNotesCollapsed: true,
   isCompactMode: false,
+  useCommaDecimal: false,
 };
 
 interface PreferencesStore {

@@ -36,6 +36,7 @@ import {
   User,
 } from "lucide-react";
 import React, { useCallback, useMemo } from "react";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 interface AllocationConfigDialogProps {
   open: boolean;
@@ -131,6 +132,8 @@ export function AllocationConfigDialog({
   );
   const correlationId = currentPayments[0]?.correlationId;
 
+  const formatNumber = useFormatNumber();
+
   // Reset state when dialog opens
   React.useEffect(() => {
     // no-op
@@ -165,7 +168,7 @@ export function AllocationConfigDialog({
             </div>
           </div>
           <div className="font-mono font-bold text-sm">
-            ${item.totalPrice.toFixed(2)}
+            ${formatNumber(item.totalPrice, 2)}
           </div>
         </div>
 
@@ -295,10 +298,10 @@ export function AllocationConfigDialog({
                           PaymentStrategyType.FixedItem ||
                         (payAlloc.paymentStrategy.strategyType as string) ===
                           PaymentStrategyType.Fixed
-                      ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)}/item`
+                      ? `$${formatNumber(payAlloc.paymentStrategy.value ?? 0, 2)}/item`
                       : (payAlloc.paymentStrategy.strategyType as string) ===
                           PaymentStrategyType.FixedGlobal
-                        ? `$${(payAlloc.paymentStrategy.value ?? 0).toFixed(2)} total`
+                        ? `$${formatNumber(payAlloc.paymentStrategy.value ?? 0, 2)} total`
                         : "remaining"}
                 </span>
               </div>

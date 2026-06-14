@@ -34,6 +34,7 @@ import {
 import { toast } from "sonner";
 import { AllocationBadges } from "./allocation-badges";
 import { ViewMode } from "@/lib/pos/types";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 export function LineItemNode({
   item,
@@ -88,6 +89,7 @@ export function LineItemNode({
   const catalog = useVCSStore((state) => state.catalog);
   const projectedState = useVCSStore((state) => state.projectedState);
   const rawAllocations = projectedState.allocations;
+  const formatNumber = useFormatNumber();
 
   const rawAssignAlloc = item.allocations
     .map((id) => rawAllocations[id])
@@ -179,7 +181,7 @@ export function LineItemNode({
     return decimals ? decimals.length : 0;
   })();
   const formatInlineQty = (value: number) =>
-    precision > 0 ? value.toFixed(precision) : `${Math.round(value)}`;
+    formatNumber(value, precision > 0 ? precision : 0);
   const inlinePricePerUnit = catalogEntry?.inlineQtyPricePerUnit;
   const inlineQtyPricePerUnitShowPer =
     catalogEntry?.inlineQtyPricePerUnitShowPer ?? true;
@@ -310,7 +312,7 @@ export function LineItemNode({
                       <Minus className="w-2.5 h-2.5" />
                     </Button>
                     <span className="text-[10px] text-foreground font-mono font-semibold min-w-2.5 text-center select-none">
-                      {item.qty}
+                      {formatNumber(item.qty)}
                     </span>
                     <Button
                       variant="ghost"
@@ -332,17 +334,17 @@ export function LineItemNode({
                   </div>
                 ) : isRoot && !isCanceled && (inlineQtyMainQtyLocked || isCompactMode) ? (
                   <span className="text-[10px] text-muted-foreground font-mono font-semibold min-w-2.5 text-center select-none">
-                    {item.qty}
+                    {formatNumber(item.qty)}
                   </span>
                 ) : isRoot && isCanceled ? (
                   <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-destructive/10 border-destructive/20 shrink-0">
                     <span className="text-[10px] text-destructive font-mono font-semibold min-w-2.5 px-2 text-center select-none">
-                      {item.canceledQty}
+                      {formatNumber(item.canceledQty)}
                     </span>
                   </div>
                 ) : (
                   <span className="text-xs text-muted-foreground font-mono shrink-0">
-                    x{isCanceled ? item.canceledQty : item.qty}
+                    x{formatNumber(isCanceled ? item.canceledQty : item.qty)}
                   </span>
                 )}
                 <span
@@ -353,7 +355,7 @@ export function LineItemNode({
                   catalogEntry?.basePrice !== undefined ? (
                     <span className="font-semibold text-muted-foreground text-xs ml-2">
                       @
-                      {`$${catalogEntry.basePrice.toFixed(2)}${inlineQtyRateUnit ? inlineQtyPricePerUnitShowPer ? ` per ${inlineQtyRateUnit}` : ` ${inlineQtyRateUnit}` : ""}`}
+                      {`$${formatNumber(catalogEntry.basePrice, 2)}${inlineQtyRateUnit ? inlineQtyPricePerUnitShowPer ? ` per ${inlineQtyRateUnit}` : ` ${inlineQtyRateUnit}` : ""}`}
                     </span>
                   ) : null}
                   {item.inlineQty && item.inlineQty !== 1 ? (
@@ -415,7 +417,7 @@ export function LineItemNode({
                     variant="destructive"
                     className="text-[9px] h-3.5 px-1"
                   >
-                    -{item.canceledQty} Void
+                    -{formatNumber(item.canceledQty)} Void
                   </Badge>
                 )}
                 {hasSplitPayment && (
@@ -474,7 +476,7 @@ export function LineItemNode({
                           >
                             {opt.name}
                             {opt.basePrice > 0 &&
-                              ` (+$${opt.basePrice.toFixed(2)})`}
+                              ` (+$${formatNumber(opt.basePrice, 2)})`}
                           </Button>
                         );
                       })}
@@ -487,11 +489,7 @@ export function LineItemNode({
                   <span className="text-[10px] text-muted-foreground mr-1">
                     {inlineQtyLabel}:
                   </span>
-                  {isCompactMode ? (
-                    <span className="text-[10px] text-foreground font-mono font-semibold select-none">
-                      {formatInlineQty(item.inlineQty ?? 1)}{inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
-                    </span>
-                  ) : (
+                  {(
                     <div className="flex items-center rounded border p-0.5 bg-muted/20 shrink-0">
                       <Button
                         variant="ghost"
@@ -582,7 +580,7 @@ export function LineItemNode({
                             {priceDiff !== 0 && (
                               <span className="opacity-70 font-mono ml-0.5 text-[8px]">
                                 ({priceDiff > 0 ? "+" : ""}$
-                                {priceDiff.toFixed(2)})
+                                {formatNumber(priceDiff, 2)})
                               </span>
                             )}
                           </Button>
@@ -596,11 +594,11 @@ export function LineItemNode({
             <div className="flex flex-col items-end shrink-0 gap-1.5">
               {isCanceled && item.basePrice > 0 ? (
                 <span className="font-mono font-semibold tabular-nums text-muted-foreground line-through opacity-70">
-                  ${(item.basePrice * item.canceledQty).toFixed(2)}
+                  ${formatNumber(item.basePrice * item.canceledQty, 2)}
                 </span>
               ) : item.totalPrice > 0 ? (
                 <span className="font-mono font-semibold text-foreground tabular-nums">
-                  ${item.totalPrice.toFixed(2)}
+                  ${formatNumber(item.totalPrice, 2)}
                 </span>
               ) : null}
               {!isCanceled && !isCompactMode && (

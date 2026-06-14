@@ -16,6 +16,7 @@ import { PaymentStrategyType } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
 import { Plus, Trash2, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 export interface PaymentSplitEntry {
   entity: string;
@@ -68,6 +69,8 @@ export function SplitEditor({
   }, [getGuests, allocationsState]);
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
   const [showNewGuestInput, setShowNewGuestInput] = useState(false);
+
+  const formatNumber = useFormatNumber();
 
   const [quickAddStrategy, setQuickAddStrategy] = useState<PaymentStrategyType>(
     PaymentStrategyType.Percentage,
@@ -605,12 +608,12 @@ export function SplitEditor({
                 ? "Split is valid (remainder pays balance)."
                 : totalFixed + itemTotalPrice * (totalPercentage / 100) <
                     itemTotalPrice - 0.01
-                  ? `Covered: $${(totalFixed + itemTotalPrice * (totalPercentage / 100)).toFixed(2)} (remainder of $${(itemTotalPrice - (totalFixed + itemTotalPrice * (totalPercentage / 100))).toFixed(2)} defaults to Guest)`
+                  ? `Covered: $${formatNumber(totalFixed + itemTotalPrice * (totalPercentage / 100), 2)} (remainder of $${formatNumber(itemTotalPrice - (totalFixed + itemTotalPrice * (totalPercentage / 100)), 2)} defaults to Guest)`
                   : "Split covers the full price."}
             </div>
           ) : (
             <div className="text-destructive">
-              Exceeds total item price of ${itemTotalPrice.toFixed(2)}. Please
+              Exceeds total item price of ${formatNumber(itemTotalPrice, 2)}. Please
               adjust split values.
             </div>
           )

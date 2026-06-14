@@ -71,6 +71,7 @@ import {
   Zap
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1023,6 +1024,8 @@ function ConflictsDialog({
     ? findItemForConflict(activeConflict, autoMergedState)
     : null;
 
+  const formatNumber = useFormatNumber();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-120 flex flex-col max-h-[85vh]">
@@ -1114,7 +1117,7 @@ function ConflictsDialog({
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs font-mono font-bold text-foreground">
-                          ${affectedItem.price.toFixed(2)}
+                          ${formatNumber(affectedItem.price, 2)}
                         </span>
                         {showDetails ? (
                           <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -1253,6 +1256,7 @@ function ConflictsDialog({
 function renderLineItem(
   item: ProjectedLineItem,
   depth: number = 0,
+  formatNumber: (value: number, decimals?: number) => string
 ): React.ReactNode {
   const indent = depth * 12;
   return (
@@ -1269,12 +1273,12 @@ function renderLineItem(
           ×{item.qty}
         </span>
         <span className="text-xs font-semibold tabular-nums shrink-0 w-14 text-right">
-          ${item.totalPrice.toFixed(2)}
+          ${formatNumber(item.totalPrice, 2)}
         </span>
       </div>
       {item.children
         .filter((c) => c.name)
-        .map((child) => renderLineItem(child, depth + 1))}
+        .map((child) => renderLineItem(child, depth + 1, formatNumber))}
     </React.Fragment>
   );
 }
@@ -1296,6 +1300,8 @@ function MergedStateSheet({
 }) {
   const rootItems = Object.values(state.items).filter((i) => !i.parentLineId);
   const { subtotal, personBreakdown } = state.financials;
+
+  const formatNumber = useFormatNumber();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1331,7 +1337,7 @@ function MergedStateSheet({
                 <div className="rounded-xl border divide-y">
                   {rootItems.map((item) => (
                     <div key={item.lineId} className="px-1 py-0.5">
-                      {renderLineItem(item)}
+                      {renderLineItem(item, 0, formatNumber)}
                     </div>
                   ))}
                 </div>
@@ -1375,7 +1381,7 @@ function MergedStateSheet({
                           </div>
                         </div>
                         <span className="text-sm font-bold tabular-nums">
-                          ${pb.subtotal.toFixed(2)}
+                          ${formatNumber(pb.subtotal, 2)}
                         </span>
                       </div>
                     ))}
@@ -1413,7 +1419,7 @@ function MergedStateSheet({
                                   </div>
                                 </div>
                                 <span className="text-sm font-bold tabular-nums">
-                                  ${pb.subtotal.toFixed(2)}
+                                  ${formatNumber(pb.subtotal, 2)}
                                 </span>
                               </div>
                             ))}
@@ -1435,7 +1441,7 @@ function MergedStateSheet({
                 <span className="text-sm font-semibold">Subtotal</span>
               </div>
               <span className="text-xl font-bold tabular-nums">
-                ${subtotal.toFixed(2)}
+                ${formatNumber(subtotal, 2)}
               </span>
             </section>
           </div>

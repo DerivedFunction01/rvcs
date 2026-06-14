@@ -14,6 +14,7 @@ import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
 import { Minus, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import React, { useMemo, useState } from "react";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 interface ModifierAddDialogProps {
   open: boolean;
@@ -42,6 +43,7 @@ export function ModifierAddDialog({
   const [actionPrompt, setActionPrompt] = useState<{sku: string, defaultState?: string} | null>(null);
 
   const catalog = useVCSStore((s) => s.catalog);
+  const formatNumber = useFormatNumber();
 
   const modifierStats = useMemo(() => {
     const stats = new Map<string, { 
@@ -179,7 +181,7 @@ export function ModifierAddDialog({
                   const decimals = text.split(".")[1];
                   return decimals ? decimals.length : 0;
                 })();
-                const formatInlineQty = (value: number) => precision > 0 ? value.toFixed(precision) : `${Math.round(value)}`;
+                const formatInlineQty = (value: number) => formatNumber(value, precision > 0 ? precision : 0);
 
                 const stats = modifierStats.get(mod.sku);
                 const isFullyApplied = stats && stats.appliedCount === stats.totalParents && !stats.allowDuplicates;
@@ -290,7 +292,7 @@ export function ModifierAddDialog({
                         {mod.sku}
                       </span>
                       <span className="text-sm font-bold text-foreground/80 mt-2 font-mono">
-                        {mod.basePrice > 0 ? `+$${mod.basePrice.toFixed(2)}` : "Free"}
+                        {mod.basePrice > 0 ? `+$${formatNumber(mod.basePrice, 2)}` : "Free"}
                       </span>
                       {(!isFullyApplied || stats?.allowDuplicates) && !isApplied && (
                         <span className="absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -358,7 +360,7 @@ export function ModifierAddDialog({
                                   {stateOpt.state}
                                   {priceDiff !== 0 && (
                                     <span className="opacity-70 font-mono text-[9px]">
-                                      ({priceDiff > 0 ? "+" : ""}${priceDiff.toFixed(2)})
+                                      ({priceDiff > 0 ? "+" : ""}${formatNumber(priceDiff, 2)})
                                     </span>
                                   )}
                                 </button>

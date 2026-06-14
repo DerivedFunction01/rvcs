@@ -22,6 +22,7 @@ import {
 import { Plus, User, X } from "lucide-react";
 import React, { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 interface AssignmentAllocationDialogProps {
   open: boolean;
@@ -46,6 +47,8 @@ export function AssignmentAllocationDialog({
 }: AssignmentAllocationDialogProps) {
   const [showAddGuestInput, setShowAddGuestInput] = useState(false);
   const [newGuestInputName, setNewGuestInputName] = useState("");
+
+  const formatNumber = useFormatNumber();
 
   const currentAssignment = useMemo(() => {
     if (items.length === 0) return null;
@@ -150,7 +153,7 @@ export function AssignmentAllocationDialog({
               </div>
             </div>
             <div className="font-mono font-bold text-sm">
-              ${items[0].totalPrice.toFixed(2)}
+              ${formatNumber(items[0].totalPrice, 2)}
             </div>
           </div>
         )}
