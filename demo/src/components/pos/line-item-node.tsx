@@ -44,6 +44,7 @@ export function LineItemNode({
   onAddNote,
   onAllocConfig,
   onSwapComboChoice,
+  onDuplicateItem,
   depth,
   modifiers,
   guests,
@@ -54,6 +55,7 @@ export function LineItemNode({
   collapsedItems,
   detailLevel = ViewMode.Simple,
   hideCanceled = false,
+  qtyStep,
 }: {
   item: ProjectedLineItem;
   allocations: Record<string, AllocationBlock>;
@@ -67,6 +69,7 @@ export function LineItemNode({
     parentLineId: string,
     slotSku: string,
   ) => void;
+  onDuplicateItem?: (lineId: string) => void;
   depth: number;
   modifiers: CatalogItemEntry[];
   guests: Guest[];
@@ -77,9 +80,11 @@ export function LineItemNode({
   collapsedItems?: Set<string>;
   detailLevel?: ViewMode;
   hideCanceled: boolean;
+  qtyStep?: number;
 }) {
   const isRoot = !item.parentLineId;
   const isModifier = item.basePrice === 0 || item.parentLineId;
+  const step = qtyStep || 1;
 
   const rawAllocations = useVCSStore.getState().projectedState.allocations;
 
@@ -235,10 +240,10 @@ export function LineItemNode({
                       className="h-4 w-4 p-0 hover:bg-background"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (item.qty > 1) {
+                        if (item.qty > step) {
                           useVCSStore
                             .getState()
-                            .modifyItemQty(item.lineId, item.qty, item.qty - 1);
+                            .modifyItemQty(item.lineId, item.qty, Math.round((item.qty - step) * 1000) / 1000);
                         } else {
                           useVCSStore.getState().removeItem(item.lineId);
                         }
@@ -257,7 +262,7 @@ export function LineItemNode({
                         e.stopPropagation();
                         useVCSStore
                           .getState()
-                          .modifyItemQty(item.lineId, item.qty, item.qty + 1);
+                          .modifyItemQty(item.lineId, item.qty, Math.round((item.qty + step) * 1000) / 1000);
                       }}
                     >
                       <Plus className="w-2.5 h-2.5" />
@@ -510,8 +515,12 @@ export function LineItemNode({
                           className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                           onClick={(e) => {
                             e.stopPropagation();
-                            useVCSStore.getState().duplicateItem(item.lineId);
-                            toast.success("Item duplicated");
+                            if (onDuplicateItem) {
+                              onDuplicateItem(item.lineId);
+                            } else {
+                              useVCSStore.getState().duplicateItem(item.lineId);
+                              toast.success("Item duplicated");
+                            }
                           }}
                         >
                           <Copy className="w-3 h-3" />
@@ -571,6 +580,7 @@ export function LineItemNode({
               onAddNote={onAddNote}
               onAllocConfig={onAllocConfig}
               onSwapComboChoice={onSwapComboChoice}
+              onDuplicateItem={onDuplicateItem}
               depth={depth + 1}
               modifiers={modifiers}
               guests={guests}
@@ -579,6 +589,7 @@ export function LineItemNode({
               collapsedItems={collapsedItems}
               detailLevel={detailLevel}
               hideCanceled={hideCanceled}
+              qtyStep={step}
             />
           ))}
     </>

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { SplitQtyType } from "@/lib/pos/types";
 import { Split } from "lucide-react";
 import React, { useState, useEffect } from "react";
@@ -49,18 +43,24 @@ export function SplitQtyDialog({
       resetDependency={type}
       onConfirm={(val) => onConfirm(type, val)}
       extraContent={
-        <Select
-          value={type}
-          onValueChange={(val: any) => setType(val as SplitQtyType)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={SplitQtyType.Amount}>By Amount</SelectItem>
-            <SelectItem value={SplitQtyType.Percentage}>By Percentage (%)</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex bg-muted/50 p-1 rounded-lg gap-1">
+          <Button
+            type="button"
+            variant={type === SplitQtyType.Amount ? "default" : "ghost"}
+            className="flex-1 h-8 text-xs font-medium"
+            onClick={() => setType(SplitQtyType.Amount)}
+          >
+            By Amount
+          </Button>
+          <Button
+            type="button"
+            variant={type === SplitQtyType.Percentage ? "default" : "ghost"}
+            className="flex-1 h-8 text-xs font-medium"
+            onClick={() => setType(SplitQtyType.Percentage)}
+          >
+            By Percentage (%)
+          </Button>
+        </div>
       }
     />
   );

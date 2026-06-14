@@ -334,7 +334,7 @@ interface VCSStore {
   ) => void;
   removeItem: (lineId: string) => void;
   modifyItemQty: (lineId: string, beforeQty: number, afterQty: number) => void;
-  duplicateItem: (lineId: string) => void;
+  duplicateItem: (lineId: string) => string | undefined;
   modifyItemSku: (lineId: string, beforeSku: string, afterSku: string) => void;
   modifyModifierState: (
     lineId: string,
@@ -349,11 +349,11 @@ interface VCSStore {
   ) => void;
 
   // Actions — Bulk Operations
-  duplicateItems: (lineIds: string[]) => void;
+  duplicateItems: (lineIds: string[]) => string[];
   duplicateAndReassignItems: (
     lineIds: string[],
     targetGuestIdOrName: string,
-  ) => void;
+  ) => string[];
   removeItems: (lineIds: string[]) => void;
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
@@ -2169,33 +2169,42 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const state = store.projectedState;
       const item = state.items[lineId];
-      if (!item) return;
+      if (!item) return undefined;
 
       const deltas: Delta[] = [];
 
       buildCloneDeltas(item, null, 1, deltas);
       store.commitDeltas(deltas, "pos-ui");
+      const addRootDelta = deltas.find(d => d.action === DeltaActionType.AddItem && d.parentLineId === null) as any;
+      return addRootDelta?.lineId;
     },
 
     duplicateItems: (lineIds) => {
       const store = get();
       const state = store.projectedState;
       const deltas: Delta[] = [];
+      const newLineIds: string[] = [];
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
-          buildCloneDeltas(item, null, 1, deltas);
+          const cloneDeltas: Delta[] = [];
+          buildCloneDeltas(item, null, 1, cloneDeltas);
+          const addRootDelta = cloneDeltas.find((d) => d.action === DeltaActionType.AddItem && d.parentLineId === null) as any;
+          if (addRootDelta) newLineIds.push(addRootDelta.lineId);
+          deltas.push(...cloneDeltas);
         }
       }
 
-      store.commitDeltas(deltas, "pos-ui");
+      if (deltas.length > 0) store.commitDeltas(deltas, "pos-ui");
+      return newLineIds;
     },
 
     duplicateAndReassignItems: (lineIds, targetGuestIdOrName) => {
       const store = get();
       const state = store.projectedState;
       const deltas: Delta[] = [];
+      const newLineIds: string[] = [];
 
       let targetAssignId = targetGuestIdOrName;
       const targetAlloc = state.allocations[targetGuestIdOrName];
@@ -2239,7 +2248,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               )
             : [...item.allocations, targetAssignId];
 
-          buildCloneDeltas(item, null, 1, deltas, { rootAllocations });
+          const cloneDeltas: Delta[] = [];
+          buildCloneDeltas(item, null, 1, cloneDeltas, { rootAllocations });
+          const addRootDelta = cloneDeltas.find((d) => d.action === DeltaActionType.AddItem && d.parentLineId === null) as any;
+          if (addRootDelta) newLineIds.push(addRootDelta.lineId);
+          deltas.push(...cloneDeltas);
         }
       }
 
@@ -2255,6 +2268,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         });
         store.persist();
       }
+      return newLineIds;
     },
 
     removeItems: (lineIds) => {
@@ -2284,7 +2298,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       for (const lineId of lineIds) {
         const item = state.items[lineId];
         if (item) {
-          const targetQty = item.qty + change;
+          const targetQty = Math.round((item.qty + change) * 1000) / 1000;
           if (targetQty <= 0) {
             deltas.push({
               action: DeltaActionType.RemoveItem,

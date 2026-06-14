@@ -1,6 +1,7 @@
 import { LineItemNode } from "@/components/pos/line-item-node";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,9 @@ import {
   BringToFront,
   Equal,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { useVCSStore } from "@/store/vcs-store";
 
 export function ActiveCheckPanel(props: any) {
   const {
@@ -88,6 +92,9 @@ export function ActiveCheckPanel(props: any) {
     setRemoveModDialogOpen,
     onGroupNoteOpen,
   } = props;
+
+  const [qtyStep, setQtyStep] = useState<number | "">(1);
+  const parsedStep = Number(qtyStep) || 1;
 
   return (
     <main className="flex-1 flex flex-col min-w-0">
@@ -237,6 +244,11 @@ export function ActiveCheckPanel(props: any) {
                 onAddNote={handleOpenNoteDialog}
                 onAllocConfig={handleAllocConfig}
                 onSwapComboChoice={handleOpenSwapDialog}
+                onDuplicateItem={(lineId) => {
+                  const newId = useVCSStore.getState().duplicateItem(lineId);
+                  if (newId) setSelectedLineIds(new Set([newId]));
+                  toast.success("Item duplicated");
+                }}
                 depth={0}
                 modifiers={modifierItems}
                 guests={guests}
@@ -247,6 +259,7 @@ export function ActiveCheckPanel(props: any) {
                 collapsedItems={collapsedItems}
                 detailLevel={detailLevel}
                 hideCanceled={hideCanceled}
+                qtyStep={parsedStep}
               />
             ))}
           </div>
@@ -290,25 +303,33 @@ export function ActiveCheckPanel(props: any) {
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
                 Qty
               </span>
+              <Input
+                type="number"
+                min={0.1}
+                step="any"
+                value={qtyStep}
+                onChange={(e) => setQtyStep(e.target.value === "" ? "" : Number(e.target.value))}
+                className="w-14 h-7 text-[11px] px-2 text-center"
+              />
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => {
-                  modifyItemsQty(Array.from(selectedLineIds), -1);
+                  modifyItemsQty(Array.from(selectedLineIds), -parsedStep);
                 }}
               >
-                <Minus className="w-3.5 h-3.5 mr-1" /> 1
+                <Minus className="w-3.5 h-3.5 mr-1" /> {parsedStep}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => {
-                  modifyItemsQty(Array.from(selectedLineIds), 1);
+                  modifyItemsQty(Array.from(selectedLineIds), parsedStep);
                 }}
               >
-                <Plus className="w-3.5 h-3.5 mr-1" /> 1
+                <Plus className="w-3.5 h-3.5 mr-1" /> {parsedStep}
               </Button>
               <Button
                 variant="ghost"
@@ -337,7 +358,10 @@ export function ActiveCheckPanel(props: any) {
                 variant="ghost"
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => duplicateItems(Array.from(selectedLineIds))}
+                onClick={() => {
+                  const newIds = duplicateItems(Array.from(selectedLineIds));
+                  if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
+                }}
               >
                 <Copy className="w-3.5 h-3.5 mr-1" />
                 Duplicate

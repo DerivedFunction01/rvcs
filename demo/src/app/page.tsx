@@ -682,6 +682,10 @@ function POSTerminalInner({
       if (selectedLineIds.size === 0) return;
       const target = e.target as HTMLElement;
       if (!target) return;
+
+      // Ignore clicks on elements that have been detached from the DOM (e.g., closing a dropdown)
+      if (!document.body.contains(target)) return;
+
       if (
         checklistRef.current?.contains(target) ||
         bulkActionsBarRef.current?.contains(target)
@@ -691,6 +695,7 @@ function POSTerminalInner({
         target.closest("[data-radix-portal]") ||
         target.closest("[data-radix-popper-content-wrapper]") ||
         target.closest('[role="listbox"]') ||
+        target.closest('[role="combobox"]') ||
         target.closest('[role="dialog"]') ||
         target.closest('[role="menu"]') ||
         target.closest(".bg-popover") ||
@@ -1850,8 +1855,12 @@ function POSTerminalInner({
         searchPlaceholder="Search guests..."
         options={guestChoiceOptions}
         onChoose={(option) => {
-          duplicateAndReassignItems(Array.from(selectedLineIds), option.id);
-          setSelectedLineIds(new Set());
+          const newIds = duplicateAndReassignItems(Array.from(selectedLineIds), option.id);
+          if (newIds && newIds.length > 0) {
+            setSelectedLineIds(new Set(newIds));
+          } else {
+            setSelectedLineIds(new Set());
+          }
           setDupMoveDialogOpen(false);
           toast.success(
             `Selected items duplicated and moved to ${option.label}`,
