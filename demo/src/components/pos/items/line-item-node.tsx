@@ -155,8 +155,8 @@ export function LineItemNode({
     (catalogEntry?.inlineQtyType === "int"
       ? "Count"
       : catalogEntry?.inlineQtyType === "float"
-      ? "Measurement"
-      : "Qty");
+        ? "Measurement"
+        : "Qty");
   const inlineQtyUnit =
     catalogEntry?.inlineQtyUnit ??
     (catalogEntry?.inlineQtyType === "float" ? "units" : "");
@@ -323,9 +323,11 @@ export function LineItemNode({
                   className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"} ${isCanceled ? "line-through opacity-50" : ""}`}
                 >
                   {item.name}
-                  {inlinePricePerUnit && catalogEntry?.basePrice !== undefined ? (
+                  {inlinePricePerUnit &&
+                  catalogEntry?.basePrice !== undefined ? (
                     <span className="font-semibold text-muted-foreground text-xs ml-2">
-                      @{`$${catalogEntry.basePrice.toFixed(2)} per ${inlineQtyRateUnit}`}
+                      @
+                      {`$${catalogEntry.basePrice.toFixed(2)} per ${inlineQtyRateUnit}`}
                     </span>
                   ) : null}
                   {item.inlineQty && item.inlineQty !== 1 ? (

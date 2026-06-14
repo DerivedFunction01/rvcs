@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { CatalogItemType } from "@/lib/vcs/types";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // ─── GET /api/catalog ─────────────────────────────────────────────────────────
 // Returns the active product catalog. The VCS Engine caches this locally.
 
