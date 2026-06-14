@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { HistoryOpType, AllocationContext } from "@/lib/pos/types";
 import { ProjectedLineItem } from "@/lib/vcs/types";
 
 export function usePostTerminalDialogs() {
@@ -7,50 +6,12 @@ export function usePostTerminalDialogs() {
   const [editGuestOpen, setEditGuestOpen] = useState(false);
   const [guestToEdit, setGuestToEdit] = useState<any>(null);
   const [guestPickerOpen, setGuestPickerOpen] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const [qtyPadOpen, setQtyPadOpen] = useState(false);
-  const [splitQtyDialogOpen, setSplitQtyDialogOpen] = useState(false);
-  const [dupMoveDialogOpen, setDupMoveDialogOpen] = useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = useState(false);
   const [groupNoteOpen, setGroupNoteOpen] = useState(false);
   const [groupNoteLineIds, setGroupNoteLineIds] = useState<string[]>([]);
 
-  const [historyOpDialog, setHistoryOpDialog] = useState<{
-    type: HistoryOpType;
-    targetHash: string;
-    label: string;
-    description: string;
-  } | null>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
-
-  const [isBranchManagerOpen, setIsBranchManagerOpen] = useState(false);
-  const [isBranchConfigOpen, setIsBranchConfigOpen] = useState(false);
-  const [branchToConfig, setBranchToConfig] = useState<string | null>(null);
-  const [isMergeOpen, setIsMergeOpen] = useState(false);
-
-  const [allocConfigItem, setAllocConfigItem] =
-    useState<ProjectedLineItem | null>(null);
-  const [assignmentAllocationOpen, setAssignmentAllocationOpen] =
-    useState(false);
-  const [assignmentAllocationContext, setAssignmentAllocationContext] =
-    useState<AllocationContext>(AllocationContext.Item);
-  const [assignmentAllocationItems, setAssignmentAllocationItems] = useState<
-    ProjectedLineItem[]
-  >([]);
-  const [paymentAllocationOpen, setPaymentAllocationOpen] = useState(false);
-  const [paymentAllocationContext, setPaymentAllocationContext] =
-    useState<AllocationContext>(AllocationContext.Item);
-  const [paymentAllocationItems, setPaymentAllocationItems] = useState<
-    ProjectedLineItem[]
-  >([]);
-  const [fulfillmentAllocationOpen, setFulfillmentAllocationOpen] =
-    useState(false);
-  const [fulfillmentAllocationContext, setFulfillmentAllocationContext] =
-    useState<AllocationContext>(AllocationContext.Item);
-  const [fulfillmentAllocationItems, setFulfillmentAllocationItems] = useState<
-    ProjectedLineItem[]
-  >([]);
 
   const [modifierAddOpen, setModifierAddOpen] = useState(false);
   const [modifierAddItem, setModifierAddItem] =
@@ -92,10 +53,6 @@ export function usePostTerminalDialogs() {
     setAddGuestOpen(true);
   }, []);
 
-  const handleAllocConfig = useCallback((item: ProjectedLineItem) => {
-    setAllocConfigItem((prev) => (prev === item ? null : item));
-  }, []);
-
   const handleOpenGroupNoteDialog = useCallback((lineIds: string[]) => {
     setGroupNoteLineIds(lineIds);
     setGroupNoteOpen(true);
@@ -110,52 +67,14 @@ export function usePostTerminalDialogs() {
     setGuestToEdit,
     guestPickerOpen,
     setGuestPickerOpen,
-    showResetConfirm,
-    setShowResetConfirm,
-    qtyPadOpen,
-    setQtyPadOpen,
-    splitQtyDialogOpen,
-    setSplitQtyDialogOpen,
-    dupMoveDialogOpen,
-    setDupMoveDialogOpen,
     removeModDialogOpen,
     setRemoveModDialogOpen,
     groupNoteOpen,
     setGroupNoteOpen,
     groupNoteLineIds,
     setGroupNoteLineIds,
-    historyOpDialog,
-    setHistoryOpDialog,
     customerDialogOpen,
     setCustomerDialogOpen,
-    isBranchManagerOpen,
-    setIsBranchManagerOpen,
-    isBranchConfigOpen,
-    setIsBranchConfigOpen,
-    branchToConfig,
-    setBranchToConfig,
-    isMergeOpen,
-    setIsMergeOpen,
-    allocConfigItem,
-    setAllocConfigItem,
-    assignmentAllocationOpen,
-    setAssignmentAllocationOpen,
-    assignmentAllocationContext,
-    setAssignmentAllocationContext,
-    assignmentAllocationItems,
-    setAssignmentAllocationItems,
-    paymentAllocationOpen,
-    setPaymentAllocationOpen,
-    paymentAllocationContext,
-    setPaymentAllocationContext,
-    paymentAllocationItems,
-    setPaymentAllocationItems,
-    fulfillmentAllocationOpen,
-    setFulfillmentAllocationOpen,
-    fulfillmentAllocationContext,
-    setFulfillmentAllocationContext,
-    fulfillmentAllocationItems,
-    setFulfillmentAllocationItems,
     modifierAddOpen,
     setModifierAddOpen,
     modifierAddItem,
@@ -175,7 +94,6 @@ export function usePostTerminalDialogs() {
     handleOpenSwapDialog,
     handleOpenNoteDialog,
     handleOpenAddGuestDialog,
-    handleAllocConfig,
     handleOpenGroupNoteDialog,
   };
 }

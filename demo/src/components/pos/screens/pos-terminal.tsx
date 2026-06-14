@@ -22,6 +22,9 @@ import { usePostTerminalSelection } from "@/components/pos/screens/hooks/use-pos
 import { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
 import { usePostTerminalCatalog } from "@/components/pos/screens/hooks/use-post-terminal-catalog";
 import { usePostTerminalConfigs } from "@/components/pos/screens/hooks/use-post-terminal-configs";
+import { usePostTerminalAllocationDialogs } from "@/components/pos/screens/hooks/use-post-terminal-allocation-dialogs";
+import { usePostTerminalQtyDialogs } from "@/components/pos/screens/hooks/use-post-terminal-qty-dialogs";
+import { usePostTerminalBranchDialogs } from "@/components/pos/screens/hooks/use-post-terminal-branch-dialogs";
 import { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
 
 import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
@@ -166,31 +169,33 @@ export function POSTerminalScreen({
     setGuestToEdit,
     guestPickerOpen,
     setGuestPickerOpen,
-    showResetConfirm,
-    setShowResetConfirm,
-    qtyPadOpen,
-    setQtyPadOpen,
-    splitQtyDialogOpen,
-    setSplitQtyDialogOpen,
-    dupMoveDialogOpen,
-    setDupMoveDialogOpen,
     removeModDialogOpen,
     setRemoveModDialogOpen,
     groupNoteOpen,
     setGroupNoteOpen,
     groupNoteLineIds,
-    historyOpDialog,
-    setHistoryOpDialog,
     customerDialogOpen,
     setCustomerDialogOpen,
-    isBranchManagerOpen,
-    setIsBranchManagerOpen,
-    isBranchConfigOpen,
-    setIsBranchConfigOpen,
-    branchToConfig,
-    setBranchToConfig,
-    isMergeOpen,
-    setIsMergeOpen,
+    modifierAddOpen,
+    setModifierAddOpen,
+    modifierAddItem,
+    setModifierAddItem,
+    swapChoiceState,
+    setSwapChoiceState,
+    retainModifiersDuringSwap,
+    setRetainModifiersDuringSwap,
+    noteDialogOpen,
+    setNoteDialogOpen,
+    noteItem,
+    handleOpenCustomerDialog,
+    handleOpenModifierDialog,
+    handleOpenSwapDialog,
+    handleOpenNoteDialog,
+    handleOpenAddGuestDialog,
+    handleOpenGroupNoteDialog,
+  } = usePostTerminalDialogs();
+
+  const {
     allocConfigItem,
     setAllocConfigItem,
     assignmentAllocationOpen,
@@ -211,25 +216,32 @@ export function POSTerminalScreen({
     setFulfillmentAllocationContext,
     fulfillmentAllocationItems,
     setFulfillmentAllocationItems,
-    modifierAddOpen,
-    setModifierAddOpen,
-    modifierAddItem,
-    setModifierAddItem,
-    swapChoiceState,
-    setSwapChoiceState,
-    retainModifiersDuringSwap,
-    setRetainModifiersDuringSwap,
-    noteDialogOpen,
-    setNoteDialogOpen,
-    noteItem,
-    handleOpenCustomerDialog,
-    handleOpenModifierDialog,
-    handleOpenSwapDialog,
-    handleOpenNoteDialog,
-    handleOpenAddGuestDialog,
     handleAllocConfig,
-    handleOpenGroupNoteDialog,
-  } = usePostTerminalDialogs();
+  } = usePostTerminalAllocationDialogs();
+
+  const {
+    qtyPadOpen,
+    setQtyPadOpen,
+    splitQtyDialogOpen,
+    setSplitQtyDialogOpen,
+    dupMoveDialogOpen,
+    setDupMoveDialogOpen,
+  } = usePostTerminalQtyDialogs();
+
+  const {
+    historyOpDialog,
+    setHistoryOpDialog,
+    isBranchManagerOpen,
+    setIsBranchManagerOpen,
+    isBranchConfigOpen,
+    setIsBranchConfigOpen,
+    branchToConfig,
+    setBranchToConfig,
+    isMergeOpen,
+    setIsMergeOpen,
+    showResetConfirm,
+    setShowResetConfirm,
+  } = usePostTerminalBranchDialogs();
 
   const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(true);
   const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] =
