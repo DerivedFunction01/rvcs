@@ -164,7 +164,7 @@ interface VCSStore {
 
   // Actions — Guests
   guests: () => Array<{ id: string; name: string }>;
-  addGuest: (name: string) => void;
+  addGuest: (name: string) => string;
   updateGuest: (id: string, name: string) => void;
   hideGuest: (id: string) => void;
 
@@ -772,6 +772,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         ),
       });
       store.persist();
+      return allocId;
     },
 
     updateGuest: (id: string, name: string) => {

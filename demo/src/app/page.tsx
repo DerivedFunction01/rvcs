@@ -491,11 +491,12 @@ function POSTerminalInner({
   );
 
   // ─── Guest Management ──────────────────────────────────────────────────
-  const handleAddGuestFromDialog = useCallback((name: string) => {
+  const handleAddGuestFromDialog = useCallback((name: string): string => {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    useVCSStore.getState().addGuest(trimmed);
+    if (!trimmed) return "";
+    const guestId = useVCSStore.getState().addGuest(trimmed);
     toast.success(`${trimmed} added to the order`);
+    return guestId;
   }, []);
 
   const handleOpenAddGuestDialog = useCallback(() => {

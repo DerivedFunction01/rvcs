@@ -31,7 +31,7 @@ interface AssignmentAllocationDialogProps {
   allocations: Record<string, AllocationBlock>;
   guests: Guest[];
   onApplyConfig: (guestIds: string) => void;
-  onAddGuest: (name: string) => void;
+  onAddGuest: (name: string) => string;
 }
 
 export function AssignmentAllocationDialog({
@@ -90,18 +90,12 @@ export function AssignmentAllocationDialog({
   const handleAddNewGuest = useCallback(() => {
     const name = newGuestInputName.trim();
     if (!name) return;
-    onAddGuest(name);
-
-    // Predetermine sequential guest ID
-    const currentMax =
-      guests.length > 0 ? Math.max(...guests.map((g) => g.number)) : 0;
-    const nextNum = currentMax + 1;
-    const newGuestId = `__vcs_guest_${nextNum}__`;
+    const newGuestId = onAddGuest(name);
 
     setSelectedIds((prev) => [...prev, newGuestId]);
     setNewGuestInputName("");
     setShowAddGuestInput(false);
-  }, [newGuestInputName, onAddGuest, guests]);
+  }, [newGuestInputName, onAddGuest]);
 
   const handleApply = useCallback(() => {
     if (selectedIds.length === 0) {

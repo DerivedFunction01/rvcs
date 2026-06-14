@@ -156,7 +156,7 @@ export function FulfillmentAllocationDialog({
         setTimeType(target.time.type);
         setCalculatedAt(target.time.calculatedAt);
         const meta = target.fulfillmentMetadata;
-        if (meta.destinationId?.startsWith("__vcs_guest_")) {
+        if (meta.destinationId && guests.some((g) => g.id === meta.destinationId)) {
           setDestType("guest");
           setSelectedGuestId(meta.destinationId);
           setCustomDestLabel("");

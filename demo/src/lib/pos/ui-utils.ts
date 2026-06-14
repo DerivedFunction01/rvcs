@@ -1,12 +1,16 @@
 import { Store, PackageCheck, Truck } from "lucide-react";
 import React from "react";
-import type { AllocationBlock, PaymentAllocation, ProjectedLineItem } from "@/lib/vcs/types";
+import type {
+  AllocationBlock,
+  PaymentAllocation,
+  ProjectedLineItem,
+} from "@/lib/vcs/types";
 import { AllocationType, PaymentStrategyType } from "@/lib/vcs/types";
 
 import { OrderType } from "./types";
 
 export interface Guest {
-  id: string; // Stable identifier (e.g. "__vcs_guest_1__", "__vcs_guest_2__")
+  id: string; // Stable identifier
   number: number; // Stable sequential number
   alias?: string; // Optional custom name/alias
   description?: string; // Optional custom description/details
@@ -21,7 +25,10 @@ export const ORDER_TYPE_ICONS: Record<string, React.ElementType> = {
 };
 
 export function formatLabel(str: string) {
-  return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return str
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 // Guest color palette — cycled by index. Deterministic: same name at same index = same color.
@@ -50,15 +57,14 @@ export function getGuestColor(name: string, guests: Guest[]): string {
 }
 
 export function getUniqueGuestLabel(name: string, allGuests: string[]): string {
-  if (/^(guest|table|chair|seat|__vcs_guest_)\b/i.test(name)) return name;
+  if (/^(guest|table|chair|seat)\b/i.test(name)) return name;
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return name;
   const firstName = parts[0];
   const rest = parts.slice(1).join(" ");
 
   const sameFirst = allGuests.filter((g) => {
-    if (g === name || /^(guest|table|chair|seat|__vcs_guest_)\b/i.test(g))
-      return false;
+    if (g === name || /^(guest|table|chair|seat)\b/i.test(g)) return false;
     return g.trim().split(/\s+/)[0].toLowerCase() === firstName.toLowerCase();
   });
 
@@ -83,10 +89,16 @@ export function getPatchedAllocations(
     if (alloc.type === AllocationType.Payment) {
       const p = alloc as PaymentAllocation;
       const stratType = p.paymentStrategy.strategyType as string;
-      if (stratType === PaymentStrategyType.FixedItem || stratType === PaymentStrategyType.FixedGlobal) {
+      if (
+        stratType === PaymentStrategyType.FixedItem ||
+        stratType === PaymentStrategyType.FixedGlobal
+      ) {
         patched[id] = {
           ...p,
-          paymentStrategy: { ...p.paymentStrategy, strategyType: PaymentStrategyType.Fixed },
+          paymentStrategy: {
+            ...p.paymentStrategy,
+            strategyType: PaymentStrategyType.Fixed,
+          },
         } as any;
         continue;
       }
