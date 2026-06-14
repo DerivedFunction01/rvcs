@@ -91,7 +91,9 @@ export function LineItemNode({
   const rawAssignAlloc = item.allocations
     .map((id) => rawAllocations[id])
     .find((a) => a?.type === AllocationType.Assignment) as any;
-  const assigneeId = rawAssignAlloc ? rawAssignAlloc.allocationId : (guests[0]?.id || "Guest");
+  const assigneeId = rawAssignAlloc
+    ? rawAssignAlloc.allocationId
+    : guests[0]?.id || "Guest";
 
   const rawPaymentAllocs = item.allocations
     .map((id) => rawAllocations[id])
@@ -99,7 +101,9 @@ export function LineItemNode({
   let payerId = assigneeId;
   if (rawPaymentAllocs.length > 0) {
     const rawPayer = rawPaymentAllocs[0].payer;
-    const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
+    const matchedPayer = guests.find(
+      (g) => g.id === rawPayer || g.alias === rawPayer,
+    );
     payerId = matchedPayer ? matchedPayer.id : rawPayer;
   }
 
@@ -111,7 +115,8 @@ export function LineItemNode({
   const paymentAllocs = item.allocations
     .map((id) => allocations[id])
     .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
-  const payerName = paymentAllocs.length > 0 ? paymentAllocs[0].payer : assigneeName;
+  const payerName =
+    paymentAllocs.length > 0 ? paymentAllocs[0].payer : assigneeName;
 
   const isCanceled = item.status === ItemStatus.Canceled;
   const isPending = item.status === ItemStatus.Pending;
@@ -128,6 +133,9 @@ export function LineItemNode({
   );
 
   const catalogEntry = useVCSStore.getState().catalog[item.sku];
+  const hasInlineQty =
+    catalogEntry?.inlineQtyType && catalogEntry.inlineQtyType !== "none";
+  const inlineStep = catalogEntry?.inlineQtyType === "float" ? 0.5 : 1;
   const sizeGroup = catalogEntry?.appliedSizeGroup;
   const sizeOptions = sizeGroup?.options || [];
 
@@ -197,9 +205,9 @@ export function LineItemNode({
                   />
                 )}
                 {!isModifier && !isCanceled && (
-                  <div 
+                  <div
                     className="flex -space-x-1 shrink-0 items-center mr-1"
-                    title={`Assignee: ${assigneeName || "Guest"}\nPayer: ${paymentAllocs.length > 1 ? "Multiple (Split)" : (payerName || "Guest")}`}
+                    title={`Assignee: ${assigneeName || "Guest"}\nPayer: ${paymentAllocs.length > 1 ? "Multiple (Split)" : payerName || "Guest"}`}
                   >
                     <div
                       className={`w-2.5 h-2.5 rounded-full border border-background z-10 ${getGuestColor(
@@ -243,7 +251,11 @@ export function LineItemNode({
                         if (item.qty > step) {
                           useVCSStore
                             .getState()
-                            .modifyItemQty(item.lineId, item.qty, Math.round((item.qty - step) * 1000) / 1000);
+                            .modifyItemQty(
+                              item.lineId,
+                              item.qty,
+                              Math.round((item.qty - step) * 1000) / 1000,
+                            );
                         } else {
                           useVCSStore.getState().removeItem(item.lineId);
                         }
@@ -262,7 +274,11 @@ export function LineItemNode({
                         e.stopPropagation();
                         useVCSStore
                           .getState()
-                          .modifyItemQty(item.lineId, item.qty, Math.round((item.qty + step) * 1000) / 1000);
+                          .modifyItemQty(
+                            item.lineId,
+                            item.qty,
+                            Math.round((item.qty + step) * 1000) / 1000,
+                          );
                       }}
                     >
                       <Plus className="w-2.5 h-2.5" />
@@ -279,9 +295,68 @@ export function LineItemNode({
                     x{isCanceled ? item.canceledQty : item.qty}
                   </span>
                 )}
+
+                {hasInlineQty && !isCanceled && (
+                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-primary/10 border-primary/20 shrink-0 mx-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 p-0 hover:bg-background text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const currentInline = item.inlineQty ?? 1;
+                        if (currentInline > inlineStep) {
+                          const nextInline =
+                            Math.round((currentInline - inlineStep) * 100) /
+                            100;
+                          useVCSStore
+                            .getState()
+                            .modifyItemInlineQty(
+                              item.lineId,
+                              currentInline,
+                              nextInline,
+                            );
+                        }
+                      }}
+                    >
+                      <Minus className="w-2.5 h-2.5" />
+                    </Button>
+                    <span className="text-[10px] text-primary font-mono font-semibold min-w-2.5 text-center select-none">
+                      {item.inlineQty ?? 1}
+                      {catalogEntry?.inlineQtyType === "float" ? " lbs" : "x"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 p-0 hover:bg-background text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const currentInline = item.inlineQty ?? 1;
+                        const nextInline =
+                          Math.round((currentInline + inlineStep) * 100) / 100;
+                        useVCSStore
+                          .getState()
+                          .modifyItemInlineQty(
+                            item.lineId,
+                            currentInline,
+                            nextInline,
+                          );
+                      }}
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                    </Button>
+                  </div>
+                )}
                 <span
                   className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"} ${isCanceled ? "line-through opacity-50" : ""}`}
                 >
+                  {item.inlineQty && item.inlineQty !== 1 ? (
+                    <span className="font-semibold text-primary/80 mr-1">
+                      {catalogEntry?.inlineQtyType === "float"
+                        ? `${item.inlineQty} lbs`
+                        : `${item.inlineQty}x`}
+                    </span>
+                  ) : null}
                   {item.name}
                 </span>
                 {isComboChoice && !isCanceled && (

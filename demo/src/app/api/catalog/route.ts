@@ -37,6 +37,7 @@ export async function GET() {
       comboChoices: JSON.parse(item.comboChoices || "[]") as any[],
       sizeGroupId: item.sizeGroupId,
       appliedSizeGroupId: item.appliedSizeGroupId,
+      inlineQtyType: (item as any).inlineQtyType,
       appliedSizeGroup: item.appliedSizeGroup
         ? {
             id: item.appliedSizeGroup.id,
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
       dietaryFlags?: string[];
       allergens?: string[];
       brand?: string;
+      inlineQtyType?: string;
     }>;
 
     if (!Array.isArray(items)) {
@@ -106,26 +108,23 @@ export async function POST(request: Request) {
     }
 
     for (const item of items) {
+      const data: any = {
+        name: item.name,
+        basePrice: item.basePrice,
+        category: item.category,
+        type: item.type,
+        dietaryFlags: JSON.stringify(item.dietaryFlags || []),
+        allergens: JSON.stringify(item.allergens || []),
+        brand: item.brand || "",
+        inlineQtyType: item.inlineQtyType || null,
+      };
+
       await db.catalogItem.upsert({
         where: { sku: item.sku },
-        update: {
-          name: item.name,
-          basePrice: item.basePrice,
-          category: item.category,
-          type: item.type,
-          dietaryFlags: JSON.stringify(item.dietaryFlags || []),
-          allergens: JSON.stringify(item.allergens || []),
-          brand: item.brand || "",
-        },
+        update: data,
         create: {
           sku: item.sku,
-          name: item.name,
-          basePrice: item.basePrice,
-          category: item.category,
-          type: item.type,
-          dietaryFlags: JSON.stringify(item.dietaryFlags || []),
-          allergens: JSON.stringify(item.allergens || []),
-          brand: item.brand || "",
+          ...data,
         },
       });
     }

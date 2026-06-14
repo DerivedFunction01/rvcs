@@ -22,13 +22,20 @@ const CHINESE_ENTREES = [
   { optionSku: "SKU-CHINESE-HNY-SESAME-CHK", price: 0 },
   { optionSku: "SKU-CHINESE-BEIJING-BEEF", price: 0 },
   { optionSku: "SKU-CHINESE-BROCCOLI-BEEF", price: 0 },
-  { optionSku: "SKU-CHINESE-BLKPEPPER-STEAK", price: 1.50 },
-  { optionSku: "SKU-CHINESE-HNYWALNUT-SHRIMP", price: 1.50 },
-  { optionSku: "SKU-CHINESE-PEPPERCORN-SHRIMP", price: 1.50 },
+  { optionSku: "SKU-CHINESE-BLKPEPPER-STEAK", price: 1.5 },
+  { optionSku: "SKU-CHINESE-HNYWALNUT-SHRIMP", price: 1.5 },
+  { optionSku: "SKU-CHINESE-PEPPERCORN-SHRIMP", price: 1.5 },
 ];
 
-const buildChoices = (slotSku: string, options: {optionSku: string, price: number}[]) =>
-  options.map(opt => ({ slotSku, optionSku: opt.optionSku, price: opt.price }));
+const buildChoices = (
+  slotSku: string,
+  options: { optionSku: string; price: number }[],
+) =>
+  options.map((opt) => ({
+    slotSku,
+    optionSku: opt.optionSku,
+    price: opt.price,
+  }));
 
 const SEED_DATA = [
   // ─── Burgers ──────────────────────────────────────────────────────────────
@@ -299,7 +306,7 @@ const SEED_DATA = [
   {
     sku: "SKU-APP-EGGROLL-CHK",
     name: "Chicken Egg Roll",
-    basePrice: 2.50,
+    basePrice: 2.5,
     category: "appetizer",
     type: "item",
     dietaryFlags: [],
@@ -309,7 +316,7 @@ const SEED_DATA = [
   {
     sku: "SKU-APP-SPRINGROLL-VEG",
     name: "Veggie Spring Roll",
-    basePrice: 2.00,
+    basePrice: 2.0,
     category: "appetizer",
     type: "item",
     dietaryFlags: ["vegetarian"],
@@ -319,7 +326,7 @@ const SEED_DATA = [
   {
     sku: "SKU-APP-RANGOON",
     name: "Cream Cheese Rangoon",
-    basePrice: 3.00,
+    basePrice: 3.0,
     category: "appetizer",
     type: "item",
     dietaryFlags: ["vegetarian"],
@@ -329,7 +336,7 @@ const SEED_DATA = [
   {
     sku: "SKU-APP-POTSTICKER-CHK",
     name: "Chicken Potstickers",
-    basePrice: 4.50,
+    basePrice: 4.5,
     category: "appetizer",
     type: "item",
     dietaryFlags: [],
@@ -339,7 +346,7 @@ const SEED_DATA = [
   {
     sku: "SKU-APP-HOTSOUR-SOUP",
     name: "Hot & Sour Soup",
-    basePrice: 3.50,
+    basePrice: 3.5,
     category: "appetizer",
     type: "item",
     dietaryFlags: ["vegetarian", "spicy"],
@@ -349,7 +356,7 @@ const SEED_DATA = [
   {
     sku: "SKU-SIDE-CHOWMEIN",
     name: "Chow Mein",
-    basePrice: 4.50,
+    basePrice: 4.5,
     category: "side",
     type: "item",
     dietaryFlags: ["vegetarian"],
@@ -359,7 +366,7 @@ const SEED_DATA = [
   {
     sku: "SKU-SIDE-SUPERGREENS",
     name: "Super Greens",
-    basePrice: 4.50,
+    basePrice: 4.5,
     category: "side",
     type: "item",
     dietaryFlags: ["vegan", "gluten_free"],
@@ -458,6 +465,7 @@ const SEED_DATA = [
     dietaryFlags: ["vegetarian"],
     allergens: ["dairy"],
     brand: "",
+    inlineQtyType: "int",
   },
   {
     sku: "sku-avocado-mod",
@@ -478,6 +486,7 @@ const SEED_DATA = [
     dietaryFlags: [],
     allergens: ["pork"],
     brand: "",
+    inlineQtyType: "int",
   },
   {
     sku: "MOD-GLUTEN-FREE",
@@ -493,7 +502,7 @@ const SEED_DATA = [
   {
     sku: "SKU-CHINESE-PLATE",
     name: "Plate",
-    basePrice: 9.60,
+    basePrice: 9.6,
     category: "combo",
     type: "item",
     dietaryFlags: [],
@@ -508,7 +517,7 @@ const SEED_DATA = [
   {
     sku: "SKU-CHINESE-BIGGER-PLATE",
     name: "Bigger Plate",
-    basePrice: 11.10,
+    basePrice: 11.1,
     category: "combo",
     type: "item",
     dietaryFlags: [],
@@ -633,6 +642,28 @@ const SEED_DATA = [
     allergens: [],
     brand: "",
   },
+  {
+    sku: "SKU-GROCERY-APPLES",
+    name: "Bag of Apples",
+    basePrice: 4.99,
+    category: "grocery",
+    type: "item",
+    dietaryFlags: ["vegan", "gluten_free"],
+    allergens: [],
+    brand: "AppleFarms",
+    inlineQtyType: "int",
+  },
+  {
+    sku: "SKU-GROCERY-CABBAGE",
+    name: "Cabbage",
+    basePrice: 1.99,
+    category: "grocery",
+    type: "item",
+    dietaryFlags: ["vegan", "gluten_free"],
+    allergens: [],
+    brand: "LocalGrow",
+    inlineQtyType: "float",
+  },
 ];
 
 async function main() {
@@ -655,34 +686,27 @@ async function main() {
   });
 
   for (const item of SEED_DATA) {
+    const data: any = {
+      name: item.name,
+      basePrice: item.basePrice,
+      category: item.category,
+      type: item.type,
+      dietaryFlags: JSON.stringify(item.dietaryFlags),
+      allergens: JSON.stringify(item.allergens),
+      brand: item.brand,
+      comboChoices: (item as any).comboChoices
+        ? JSON.stringify((item as any).comboChoices)
+        : "[]",
+      inlineQtyType: (item as any).inlineQtyType || null,
+      active: true,
+    };
+
     await prisma.catalogItem.upsert({
       where: { sku: item.sku },
-      update: {
-        name: item.name,
-        basePrice: item.basePrice,
-        category: item.category,
-        type: item.type,
-        dietaryFlags: JSON.stringify(item.dietaryFlags),
-        allergens: JSON.stringify(item.allergens),
-        brand: item.brand,
-        comboChoices: (item as any).comboChoices
-          ? JSON.stringify((item as any).comboChoices)
-          : "[]",
-        active: true,
-      },
+      update: data,
       create: {
         sku: item.sku,
-        name: item.name,
-        basePrice: item.basePrice,
-        category: item.category,
-        type: item.type,
-        dietaryFlags: JSON.stringify(item.dietaryFlags),
-        allergens: JSON.stringify(item.allergens),
-        brand: item.brand,
-        comboChoices: (item as any).comboChoices
-          ? JSON.stringify((item as any).comboChoices)
-          : "[]",
-        active: true,
+        ...data,
       },
     });
   }
@@ -831,7 +855,12 @@ async function main() {
         ],
       },
       items: {
-        connect: [{ sku: "SKU-FRIED-RICE" }, { sku: "SKU-FRIED-RICE-PORK" }, { sku: "SKU-FRIED-RICE-CHICKEN" }, { sku: "SKU-FRIED-RICE-SHRIMP" }],
+        connect: [
+          { sku: "SKU-FRIED-RICE" },
+          { sku: "SKU-FRIED-RICE-PORK" },
+          { sku: "SKU-FRIED-RICE-CHICKEN" },
+          { sku: "SKU-FRIED-RICE-SHRIMP" },
+        ],
       },
     },
   });
@@ -984,38 +1013,108 @@ async function main() {
   // 5. Rice Onion States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-rice-onion-mod", state: "NO", label: "No Onions", priceOverride: 0.0 },
-      { modifierSku: "sku-rice-onion-mod", state: "LESS", label: "Less Onions", priceOverride: 0.0 },
-      { modifierSku: "sku-rice-onion-mod", state: "ADD", label: "Add Onions", priceOverride: 0.0 },
-      { modifierSku: "sku-rice-onion-mod", state: "EXTRA", label: "Extra Onions", priceOverride: 0.0 },
+      {
+        modifierSku: "sku-rice-onion-mod",
+        state: "NO",
+        label: "No Onions",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-rice-onion-mod",
+        state: "LESS",
+        label: "Less Onions",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-rice-onion-mod",
+        state: "ADD",
+        label: "Add Onions",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-rice-onion-mod",
+        state: "EXTRA",
+        label: "Extra Onions",
+        priceOverride: 0.0,
+      },
     ],
   });
 
   // 6. Peas States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-peas-mod", state: "NO", label: "No Peas", priceOverride: 0.0 },
-      { modifierSku: "sku-peas-mod", state: "LESS", label: "Less Peas", priceOverride: 0.0 },
-      { modifierSku: "sku-peas-mod", state: "ADD", label: "Add Peas", priceOverride: 0.0 },
-      { modifierSku: "sku-peas-mod", state: "EXTRA", label: "Extra Peas", priceOverride: 0.0 },
+      {
+        modifierSku: "sku-peas-mod",
+        state: "NO",
+        label: "No Peas",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-peas-mod",
+        state: "LESS",
+        label: "Less Peas",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-peas-mod",
+        state: "ADD",
+        label: "Add Peas",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-peas-mod",
+        state: "EXTRA",
+        label: "Extra Peas",
+        priceOverride: 0.0,
+      },
     ],
   });
 
   // 7. Egg States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-egg-mod", state: "NO", label: "No Egg", priceOverride: 0.0 },
-      { modifierSku: "sku-egg-mod", state: "ADD", label: "Add Egg", priceOverride: 1.0 },
+      {
+        modifierSku: "sku-egg-mod",
+        state: "NO",
+        label: "No Egg",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-egg-mod",
+        state: "ADD",
+        label: "Add Egg",
+        priceOverride: 1.0,
+      },
     ],
   });
 
   // 8. Spice States
   await prisma.modifierStateOption.createMany({
     data: [
-      { modifierSku: "sku-spicy-mod", state: "NO", label: "Not Spicy", priceOverride: 0.0 },
-      { modifierSku: "sku-spicy-mod", state: "MILD", label: "Mild", priceOverride: 0.0 },
-      { modifierSku: "sku-spicy-mod", state: "MEDIUM", label: "Medium", priceOverride: 0.0 },
-      { modifierSku: "sku-spicy-mod", state: "EXTRA", label: "Extra Spicy", priceOverride: 0.0 },
+      {
+        modifierSku: "sku-spicy-mod",
+        state: "NO",
+        label: "Not Spicy",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-spicy-mod",
+        state: "MILD",
+        label: "Mild",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-spicy-mod",
+        state: "MEDIUM",
+        label: "Medium",
+        priceOverride: 0.0,
+      },
+      {
+        modifierSku: "sku-spicy-mod",
+        state: "EXTRA",
+        label: "Extra Spicy",
+        priceOverride: 0.0,
+      },
     ],
   });
 
@@ -1393,21 +1492,111 @@ async function main() {
 
   // 5. Icon Configs (Dietary Flags & Allergens)
   const iconConfigs = [
-    { id: "spicy", type: "dietary_flag", label: "Spicy", icon: "Flame", color: "text-rose-500" },
-    { id: "vegetarian", type: "dietary_flag", label: "Vegetarian", icon: "Leaf", color: "text-emerald-500" },
-    { id: "vegan", type: "dietary_flag", label: "Vegan", icon: "Leaf", color: "text-emerald-600" },
-    { id: "gluten_free", type: "dietary_flag", label: "Gluten Free", icon: "WheatOff", color: "text-amber-500" },
-    { id: "dairy", type: "allergen", label: "Dairy", icon: "Milk", color: "text-sky-500" },
-    { id: "wheat", type: "allergen", label: "Wheat", icon: "Wheat", color: "text-amber-600" },
-    { id: "egg", type: "allergen", label: "Egg", icon: "Egg", color: "text-yellow-600" },
-    { id: "shellfish", type: "allergen", label: "Shellfish", icon: "Shrimp", color: "text-blue-500" },
-    { id: "fish", type: "allergen", label: "Shellfish", icon: "Fish", color: "text-blue-500" },
-    { id: "peanuts", type: "allergen", label: "Peanuts", icon: "Nut", color: "text-amber-700" },
-    { id: "tree_nuts", type: "allergen", label: "Tree Nuts", icon: "Nut", color: "text-amber-700" },
-    { id: "soy", type: "allergen", label: "Soy", icon: "Bean", color: "text-lime-600" },
-    { id: "pork", type: "allergen", label: "Pork", icon: "Ham", color: "text-rose-400" },
-    { id: "mustard", type: "allergen", label: "Mustard", icon: "FlaskConical", color: "text-yellow-500" },
-    { id: "alcohol", type: "dietary_flag", label: "Alcohol", icon: "Wine", color: "text-purple-600" }
+    {
+      id: "spicy",
+      type: "dietary_flag",
+      label: "Spicy",
+      icon: "Flame",
+      color: "text-rose-500",
+    },
+    {
+      id: "vegetarian",
+      type: "dietary_flag",
+      label: "Vegetarian",
+      icon: "Leaf",
+      color: "text-emerald-500",
+    },
+    {
+      id: "vegan",
+      type: "dietary_flag",
+      label: "Vegan",
+      icon: "Leaf",
+      color: "text-emerald-600",
+    },
+    {
+      id: "gluten_free",
+      type: "dietary_flag",
+      label: "Gluten Free",
+      icon: "WheatOff",
+      color: "text-amber-500",
+    },
+    {
+      id: "dairy",
+      type: "allergen",
+      label: "Dairy",
+      icon: "Milk",
+      color: "text-sky-500",
+    },
+    {
+      id: "wheat",
+      type: "allergen",
+      label: "Wheat",
+      icon: "Wheat",
+      color: "text-amber-600",
+    },
+    {
+      id: "egg",
+      type: "allergen",
+      label: "Egg",
+      icon: "Egg",
+      color: "text-yellow-600",
+    },
+    {
+      id: "shellfish",
+      type: "allergen",
+      label: "Shellfish",
+      icon: "Shrimp",
+      color: "text-blue-500",
+    },
+    {
+      id: "fish",
+      type: "allergen",
+      label: "Shellfish",
+      icon: "Fish",
+      color: "text-blue-500",
+    },
+    {
+      id: "peanuts",
+      type: "allergen",
+      label: "Peanuts",
+      icon: "Nut",
+      color: "text-amber-700",
+    },
+    {
+      id: "tree_nuts",
+      type: "allergen",
+      label: "Tree Nuts",
+      icon: "Nut",
+      color: "text-amber-700",
+    },
+    {
+      id: "soy",
+      type: "allergen",
+      label: "Soy",
+      icon: "Bean",
+      color: "text-lime-600",
+    },
+    {
+      id: "pork",
+      type: "allergen",
+      label: "Pork",
+      icon: "Ham",
+      color: "text-rose-400",
+    },
+    {
+      id: "mustard",
+      type: "allergen",
+      label: "Mustard",
+      icon: "FlaskConical",
+      color: "text-yellow-500",
+    },
+    {
+      id: "alcohol",
+      type: "dietary_flag",
+      label: "Alcohol",
+      icon: "Wine",
+      color: "text-purple-600",
+    },
   ];
 
   await (prisma as any).iconConfig.deleteMany({});
@@ -1418,47 +1607,60 @@ async function main() {
       create: ic,
     });
   }
-  
+
   console.log("✅ Icon configs seeded.");
 
   // 6. Customer Profiles
   console.log("🌱 Seeding Customer Profiles...");
   await (prisma as any).customerProfile.deleteMany({});
-  
+
   const customers = [
     {
       loyaltyTier: "gold",
       name: { firstName: "John", lastName: "Doe", displayName: "John Doe" },
       contacts: [
         { channel: "phone", value: "555-0199", isPrimary: true },
-        { channel: "email", value: "john.doe@example.com", isPrimary: false }
+        { channel: "email", value: "john.doe@example.com", isPrimary: false },
       ],
       locations: [
-        { formattedAddress: "123 Gold Medallion Way, New York, NY 10001", isDefault: true }
-      ]
+        {
+          formattedAddress: "123 Gold Medallion Way, New York, NY 10001",
+          isDefault: true,
+        },
+      ],
     },
     {
       loyaltyTier: "silver",
       name: { firstName: "Jane", lastName: "Smith", displayName: "Jane Smith" },
       contacts: [
         { channel: "phone", value: "555-0244", isPrimary: true },
-        { channel: "email", value: "jane.smith@example.com", isPrimary: false }
+        { channel: "email", value: "jane.smith@example.com", isPrimary: false },
       ],
       locations: [
-        { formattedAddress: "456 Silver Lining St, San Francisco, CA 94102", isDefault: true }
-      ]
+        {
+          formattedAddress: "456 Silver Lining St, San Francisco, CA 94102",
+          isDefault: true,
+        },
+      ],
     },
     {
       loyaltyTier: "bronze",
-      name: { firstName: "Bob", lastName: "Johnson", displayName: "Bob Johnson" },
+      name: {
+        firstName: "Bob",
+        lastName: "Johnson",
+        displayName: "Bob Johnson",
+      },
       contacts: [
         { channel: "phone", value: "555-0322", isPrimary: true },
-        { channel: "email", value: "bob.j@example.com", isPrimary: false }
+        { channel: "email", value: "bob.j@example.com", isPrimary: false },
       ],
       locations: [
-        { formattedAddress: "789 Bronze Gate Rd, Seattle, WA 98101", isDefault: true }
-      ]
-    }
+        {
+          formattedAddress: "789 Bronze Gate Rd, Seattle, WA 98101",
+          isDefault: true,
+        },
+      ],
+    },
   ];
 
   for (const c of customers) {
@@ -1469,16 +1671,16 @@ async function main() {
           create: {
             firstName: c.name.firstName,
             lastName: c.name.lastName,
-            displayName: c.name.displayName
-          }
+            displayName: c.name.displayName,
+          },
         },
         contacts: {
-          create: c.contacts
+          create: c.contacts,
         },
         deliveryLocations: {
-          create: c.locations
-        }
-      }
+          create: c.locations,
+        },
+      },
     });
   }
 
@@ -1488,4 +1690,3 @@ async function main() {
 main()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
-
