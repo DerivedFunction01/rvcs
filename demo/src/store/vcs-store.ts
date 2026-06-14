@@ -17,12 +17,22 @@ import type {
   AllocationBlock,
   ProjectedLineItem,
   MergePreview,
-  PaymentStrategy,
 } from "@/lib/vcs/types";
-import { BranchType, SquashType, DeltaActionType, PaymentStrategyType, AllocationType, TimeBlockType, ItemStatus } from "@/lib/vcs/types";
+import {
+  BranchType,
+  SquashType,
+  DeltaActionType,
+  PaymentStrategyType,
+  AllocationType,
+  TimeBlockType,
+  ItemStatus,
+  NoteAttachmentScope,
+  RepoContextType,
+  CatalogItemType,
+} from "@/lib/vcs/types";
 import type { ResolvedChargeRule } from "@/lib/pos/financials";
 import { evaluateBusinessRules, type RenderedCheck } from "@/lib/pos/evaluate";
-import type { OrderContext } from "@/lib/pos/types";
+import { OrderContext, PaymentUpdateMode, ConfigUpdateMode } from "@/lib/pos/types";
 import { generateAllocationId, generateLineId } from "@/lib/vcs/id";
 import { generateDraftBranchName } from "@/lib/pos/id";
 import {
@@ -99,7 +109,7 @@ function isSystemBranch(branch: string | string[]): boolean {
 
 function createFreshRepo(orderContext?: OrderContext): VCSRepo {
   return {
-    contextType: "cart",
+    contextType: RepoContextType.Cart,
     contextId: generateContextId(),
     orderContext,
     log: [],
@@ -186,7 +196,7 @@ interface VCSStore {
    */
   changeDefaultPayment: (
     newMethod: string,
-    mode: "change-existing" | "new-only",
+    mode: ConfigUpdateMode,
   ) => void;
 
   addGroupNote: (lineIds: string[], text: string) => void;
@@ -202,7 +212,7 @@ interface VCSStore {
    */
   selectPaymentConfig: (
     newConfigId: string,
-    mode: "change-existing" | "new-only",
+    mode: ConfigUpdateMode,
   ) => void;
 
   /**
@@ -210,7 +220,7 @@ interface VCSStore {
    */
   selectFulfillmentConfig: (
     newConfigId: string,
-    mode: "change-existing" | "new-only",
+    mode: ConfigUpdateMode,
   ) => void;
 
   /**
@@ -241,7 +251,7 @@ interface VCSStore {
       value: number; // decimal for percentage (e.g. 0.6), absolute value for fixed, 0 for remaining
       method?: string | null;
     }>,
-    mode?: "group" | "item",
+    mode?: PaymentUpdateMode,
   ) => void;
 
   /**
@@ -269,7 +279,7 @@ interface VCSStore {
     lineId: string,
     newMethod: string,
     payerIdOrName: string,
-    mode?: "group" | "item",
+    mode?: PaymentUpdateMode,
   ) => void;
 
   /**
@@ -455,7 +465,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         projectedState: evaluateBusinessRules(store.engine.projectCurrent(), rules, store.catalog),
       });
     },
-
+    
     loadIconConfigs: (configs) => {
       const map: Record<string, IconConfig> = {};
       for (const c of configs) {
@@ -742,12 +752,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const state = store.projectedState;
       let guestName = guestIdOrName;
-
+      
       const alloc = state.allocations[guestIdOrName];
       if (alloc && alloc.type === AllocationType.Assignment) {
         guestName = alloc.entity;
       }
-
+      
       // Sanitize guest name to a safe prefix (lowercase, alphanumeric + dash)
       const sanitized =
         guestName
@@ -922,7 +932,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     changeDefaultPayment: (
       newMethod: string,
-      mode: "change-existing" | "new-only",
+      mode: ConfigUpdateMode,
     ) => {
       get().selectPaymentConfig(`group-default-${newMethod}`, mode);
     },
@@ -930,7 +940,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     addGroupNote: (lineIds, text) => {
       const store = get();
       const noteId = `note-${generateAllocationId()}`;
-
+      
       store.engine.commitSystem([
         {
           action: DeltaActionType.DeclareAllocation,
@@ -1009,7 +1019,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       const updatedAlloc = {
         ...currentAlloc,
-        attachedTo: attached ? ("order" as const) : null,
+        attachedTo: attached ? NoteAttachmentScope.Order : null,
       };
 
       store.engine.commitSystem([
@@ -1055,7 +1065,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     selectPaymentConfig: (
       newConfigId: string,
-      mode: "change-existing" | "new-only",
+      mode: ConfigUpdateMode,
     ) => {
       const store = get();
       const currentConfigId = store.activePaymentConfigId;
@@ -1081,7 +1091,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
       const newPayIds = newPayAllocs.map((a) => a.allocationId);
 
-      if (mode === "change-existing") {
+      if (mode === ConfigUpdateMode.ChangeExisting) {
         const itemsToSwap = Object.values(state.items).filter((item) =>
           item.allocations.some((id) => oldPayIds.includes(id)),
         );
@@ -1120,7 +1130,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     selectFulfillmentConfig: (
       newConfigId: string,
-      mode: "change-existing" | "new-only",
+      mode: ConfigUpdateMode,
     ) => {
       const store = get();
       let currentConfigId = store.activeFulfillmentConfigId;
@@ -1135,7 +1145,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
       }
 
-      if (currentConfigId && mode === "change-existing") {
+      if (currentConfigId && mode === ConfigUpdateMode.ChangeExisting) {
         // Get allocations of the old config
         const oldFulAllocs = Object.values(state.allocations).filter(
           (a): a is FulfillmentAllocation =>
@@ -1279,7 +1289,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         value: number;
         method?: string | null;
       }>,
-      mode: "group" | "item" = "group",
+      mode: PaymentUpdateMode = PaymentUpdateMode.Group,
     ) => {
       const store = get();
       const state = store.projectedState;
@@ -1360,20 +1370,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       // Find all payment allocation IDs in the old group
       const oldPayIds = existingCorrelationId
         ? Object.values(state.allocations)
-          .filter(
-            (a): a is PaymentAllocation =>
-              a.type === AllocationType.Payment &&
-              a.correlationId === existingCorrelationId,
-          )
-          .map((a) => a.allocationId)
+            .filter(
+              (a): a is PaymentAllocation =>
+                a.type === AllocationType.Payment &&
+                a.correlationId === existingCorrelationId,
+            )
+            .map((a) => a.allocationId)
         : currentPayAllocs.map((a) => a.allocationId);
 
       // Find items to update based on the mode
       const itemsToUpdate =
-        mode === "group"
+        mode === PaymentUpdateMode.Group
           ? Object.values(state.items).filter((i) =>
-            i.allocations.some((id) => oldPayIds.includes(id)),
-          )
+              i.allocations.some((id) => oldPayIds.includes(id)),
+            )
           : [item];
 
       store.engine.commitSystem(
@@ -1489,7 +1499,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       );
 
       // Create new fulfillment allocation
-      const newFulAllocId = generateAllocationId(AllocationType.Fulfillment);
+      const newFulAllocId = generateAllocationId("fulfillment");
       const newFulAlloc: FulfillmentAllocation = {
         allocationId: newFulAllocId,
         type: AllocationType.Fulfillment,
@@ -1533,7 +1543,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       lineId: string,
       newMethod: string,
       payerIdOrName: string,
-      mode: "group" | "item" = "item",
+      mode: PaymentUpdateMode = PaymentUpdateMode.Item,
     ) => {
       const store = get();
       const state = store.projectedState;
@@ -1570,19 +1580,19 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       )?.correlationId;
       const oldPayIds = existingCorrelationId
         ? Object.values(state.allocations)
-          .filter(
-            (a): a is PaymentAllocation =>
-              a.type === AllocationType.Payment &&
-              a.correlationId === existingCorrelationId,
-          )
-          .map((a) => a.allocationId)
+            .filter(
+              (a): a is PaymentAllocation =>
+                a.type === AllocationType.Payment &&
+                a.correlationId === existingCorrelationId,
+            )
+            .map((a) => a.allocationId)
         : currentPayAllocs.map((a) => a.allocationId);
 
       const itemsToUpdate =
-        mode === "group"
+        mode === PaymentUpdateMode.Group
           ? Object.values(state.items).filter((i) =>
-            i.allocations.some((id) => oldPayIds.includes(id)),
-          )
+              i.allocations.some((id) => oldPayIds.includes(id)),
+            )
           : [item];
 
       store.engine.commitSystem([{ action: DeltaActionType.DeclareAllocation, allocation: newPaymentAlloc }], "pos-ui");
@@ -1878,7 +1888,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const childEntry = store.catalog[child.sku];
           if (
             childEntry &&
-            childEntry.type === "modifier" &&
+            childEntry.type === CatalogItemType.Modifier &&
             childEntry.category !== "size"
           ) {
             // Check if new item supports this modifier
@@ -1917,7 +1927,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (item && item.status === "confirmed" && afterQty > beforeQty) {
         const change = afterQty - beforeQty;
         const deltas: Delta[] = [];
-
+        
         buildCloneDeltas(item, null, 1, deltas, { overrideRootQty: change });
         store.commitDeltas(deltas, "pos-ui");
       } else {
@@ -2560,7 +2570,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                   defaultPaymentAllocId = delta.allocation.allocationId;
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
-                } else if (delta.allocation.type === AllocationType.Fulfillment) {
+                } else if (delta.allocation.type === "fulfillment") {
                   activeFulfillmentConfigId = delta.allocation.allocationId;
                 }
               }
@@ -2589,7 +2599,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                   defaultPaymentMethod =
                     (delta.allocation as PaymentAllocation).method || "cash";
                 } else if (
-                  delta.allocation.type === AllocationType.Fulfillment &&
+                  delta.allocation.type === "fulfillment" &&
                   !activeFulfillmentConfigId
                 ) {
                   activeFulfillmentConfigId = delta.allocation.allocationId;
@@ -2616,7 +2626,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             const itemFulAllocs = lastItem.allocations
               .map((id) => currentProj.allocations[id])
               .filter(
-                (a) => a?.type === AllocationType.Fulfillment,
+                (a) => a?.type === "fulfillment",
               ) as FulfillmentAllocation[];
             if (itemFulAllocs.length > 0) {
               activeFulfillmentConfigId =

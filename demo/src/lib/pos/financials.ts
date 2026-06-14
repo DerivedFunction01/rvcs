@@ -1,16 +1,22 @@
-export type ChargeCategory =
-  | "sales_tax"
-  | "excise"
-  | "import_duty"
-  | "surcharge";
+export enum ChargeCategory {
+  SalesTax = "sales_tax",
+  Excise = "excise",
+  ImportDuty = "import_duty",
+  Surcharge = "surcharge",
+}
 
-export type ChargeRateType = "percentage" | "per_unit" | "compound";
+export enum ChargeRateType {
+  Percentage = "percentage",
+  PerUnit = "per_unit",
+  Compound = "compound",
+}
 
-export type CalculationBasis =
-  | "retail_price"
-  | "wholesale_cost"
-  | "subtotal"
-  | "subtotal_plus_tax";
+export enum CalculationBasis {
+  RetailPrice = "retail_price",
+  WholesaleCost = "wholesale_cost",
+  Subtotal = "subtotal",
+  SubtotalPlusTax = "subtotal_plus_tax",
+}
 
 export interface ChargeBreakdownLine {
   jurisdictionCode: string;

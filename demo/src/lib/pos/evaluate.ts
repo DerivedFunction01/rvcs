@@ -1,5 +1,5 @@
 import type { ProjectedState, ProjectedLineItem, CatalogItemEntry } from "@/lib/vcs/types";
-import type { ResolvedChargeRule, ChargeBreakdownLine, ChargeCategory } from "./financials";
+import { ResolvedChargeRule, ChargeBreakdownLine, ChargeCategory, ChargeRateType } from "./financials";
 
 export interface PosFinancials {
   subtotal: number;
@@ -51,11 +51,11 @@ export function evaluateBusinessRules(
       if (rule.originCode !== null && rule.originCode !== skuOriginCode) continue;
 
       let amount = 0;
-      if (rule.rateType === "percentage") {
+      if (rule.rateType === ChargeRateType.Percentage) {
         amount = price * rule.rate;
-      } else if (rule.rateType === "per_unit") {
+      } else if (rule.rateType === ChargeRateType.PerUnit) {
         amount = qty * rule.rate;
-      } else if (rule.rateType === "compound") {
+      } else if (rule.rateType === ChargeRateType.Compound) {
         amount = price * rule.rate; 
       }
 
@@ -85,29 +85,29 @@ export function evaluateBusinessRules(
     if (rounded === 0) continue;
 
     const rateLabel =
-      rule.rateType === "per_unit"
+      rule.rateType === ChargeRateType.PerUnit
         ? `$${rule.rate.toFixed(2)}/unit`
         : `${(rule.rate * 100).toFixed(0)}%`;
         
     const categoryLabel: Record<ChargeCategory, string> = {
-      sales_tax: "Sales Tax",
-      excise: "Excise",
-      import_duty: "Import Surcharge",
-      surcharge: "Surcharge",
+      [ChargeCategory.SalesTax]: "Sales Tax",
+      [ChargeCategory.Excise]: "Excise",
+      [ChargeCategory.ImportDuty]: "Import Surcharge",
+      [ChargeCategory.Surcharge]: "Surcharge",
     };
 
     chargeBreakdown.push({
       jurisdictionCode: rule.jurisdictionCode,
       jurisdictionName: rule.jurisdictionName,
       tagCode: rule.tagCode,
-      chargeCategory: rule.chargeCategory as ChargeCategory,
+      chargeCategory: rule.chargeCategory,
       rateType: rule.rateType,
       rate: rule.rate,
       chargeAmount: rounded,
-      label: `${rule.jurisdictionName} ${categoryLabel[rule.chargeCategory as ChargeCategory] ?? rule.chargeCategory} (${rateLabel})`,
+      label: `${rule.jurisdictionName} ${categoryLabel[rule.chargeCategory] ?? rule.chargeCategory} (${rateLabel})`,
     });
 
-    if (rule.chargeCategory === "sales_tax" || rule.chargeCategory === "excise") {
+    if (rule.chargeCategory === ChargeCategory.SalesTax || rule.chargeCategory === ChargeCategory.Excise) {
       taxTotal += rounded;
     } else {
       surchargeTotal += rounded;

@@ -17,6 +17,11 @@ export enum TimeBlockType {
   Deferred = "deferred",
 }
 
+export enum NoteAttachmentScope {
+  Order = "order",
+  Item = "item",
+}
+
 export interface TimeBlock {
   type: TimeBlockType;
   calculatedAt: string | null;
@@ -75,7 +80,7 @@ export interface NoteAllocation {
   correlationId?: string | null;
   type: AllocationType.Note;
   text: string;
-  attachedTo?: "order" | null;
+  attachedTo?: NoteAttachmentScope | null;
   hidden?: boolean;
 }
 
@@ -336,12 +341,18 @@ export interface SkuChargeTagEntry {
   originCode?: string | null;
 }
 
+export enum CatalogItemType {
+  Item = "item",
+  Modifier = "modifier",
+  Discount = "discount",
+}
+
 export interface CatalogItemEntry {
   sku: string;
   name: string;
   basePrice: number;
   category: string;
-  type: "item" | "modifier" | "discount";
+  type: CatalogItemType;
   dietaryFlags: string[];
   allergens: string[];
   brand: string;
@@ -357,8 +368,14 @@ export interface CatalogItemEntry {
 
 // ─── VCS Repository (The "Repo") ──────────────────────────────────────────────
 
+export enum RepoContextType {
+  Cart = "cart",
+  Catalog = "catalog",
+  InventoryWarehouse = "inventory_warehouse",
+}
+
 export interface VCSRepo {
-  contextType: string;
+  contextType: RepoContextType | string;
   contextId: string;
   orderContext?: unknown; // Optional external state, not part of core VCS semantics
   log: VCSCommit[];

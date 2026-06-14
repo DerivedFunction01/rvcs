@@ -25,6 +25,7 @@ import {
   PaymentStrategyType,
   AllocationType,
   TimeBlockType,
+  CatalogItemType,
 } from "./types";
 import { projectState } from "./reducer";
 import { generateCommitHash, generateLineId, generateAllocationId } from "./id";
@@ -253,13 +254,13 @@ export class VCSEngine {
 
   getCatalogItems(): CatalogItemEntry[] {
     return Object.values(this.catalog).filter(
-      (i) => i.active && i.type === "item",
+      (i) => i.active && i.type === CatalogItemType.Item,
     );
   }
 
   getModifierItems(): CatalogItemEntry[] {
     return Object.values(this.catalog).filter(
-      (i) => i.active && i.type === "modifier",
+      (i) => i.active && i.type === CatalogItemType.Modifier,
     );
   }
 

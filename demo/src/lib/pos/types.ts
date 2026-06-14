@@ -11,10 +11,17 @@ export interface OrderContext {
   jurisdictionCode?: string; // e.g. "18106" — resolved to full charge-rule chain at order time
 }
 
+export enum CustomerFieldType {
+  Text = "text",
+  Tel = "tel",
+  Email = "email",
+  Textarea = "textarea",
+}
+
 export interface CustomerFieldConfig {
   key: string;
   label: string;
-  type: "text" | "tel" | "email" | "textarea";
+  type: CustomerFieldType;
   required: boolean;
   placeholder?: string;
   validation?: { pattern?: string; minLength?: number; maxLength?: number };
@@ -38,13 +45,30 @@ export interface PosConfigResponse {
   floorConfigs?: FloorConfig[];
 }
 
-export type FloorObjectKind = "table" | "chair" | "wall" | "deadspace";
-export type FloorShape =
-  | "circle"
-  | "ellipse"
-  | "rectangle"
-  | "triangle"
-  | "polygon";
+export enum FloorObjectKind {
+  Table = "table",
+  Chair = "chair",
+  Wall = "wall",
+  Deadspace = "deadspace",
+}
+
+export enum FloorShape {
+  Circle = "circle",
+  Ellipse = "ellipse",
+  Rectangle = "rectangle",
+  Triangle = "triangle",
+  Polygon = "polygon",
+}
+
+export enum PaymentUpdateMode {
+  Group = "group",
+  Item = "item",
+}
+
+export enum ConfigUpdateMode {
+  ChangeExisting = "change-existing",
+  NewOnly = "new-only",
+}
 
 export interface FloorObjectBase {
   id: string;
@@ -65,7 +89,7 @@ export interface FloorObjectBase {
 }
 
 export interface FloorTableObject extends FloorObjectBase {
-  kind: "table";
+  kind: FloorObjectKind.Table;
   guestNames: string[];
   linkedChairIds?: string[];
   chairLabels?: string[];
@@ -73,12 +97,12 @@ export interface FloorTableObject extends FloorObjectBase {
 }
 
 export interface FloorChairObject extends FloorObjectBase {
-  kind: "chair";
+  kind: FloorObjectKind.Chair;
   tableId?: string | null;
 }
 
 export interface FloorWallObject extends FloorObjectBase {
-  kind: "wall" | "deadspace";
+  kind: FloorObjectKind.Wall | FloorObjectKind.Deadspace;
 }
 
 export type FloorObject = FloorTableObject | FloorChairObject | FloorWallObject;
