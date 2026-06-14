@@ -234,9 +234,9 @@ function POSTerminalInner({
   const [guestToEdit, setGuestToEdit] = React.useState<any>(null);
   const [guestPickerOpen, setGuestPickerOpen] = React.useState(false);
   const [showResetConfirm, setShowResetConfirm] = React.useState(false);
-  const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(false);
+  const [isLedgerCollapsed, setIsLedgerCollapsed] = React.useState(true);
   const [isGroupNotesCollapsed, setIsGroupNotesCollapsed] =
-    React.useState(false);
+    React.useState(true);
   const [qtyPadOpen, setQtyPadOpen] = React.useState(false);
   const [dupMoveDialogOpen, setDupMoveDialogOpen] = React.useState(false);
   const [removeModDialogOpen, setRemoveModDialogOpen] = React.useState(false);
@@ -247,7 +247,7 @@ function POSTerminalInner({
   );
   const [detailLevel, setDetailLevel] = React.useState<
     "simple" | "balanced" | "full"
-  >("balanced");
+    >("simple");
   const [hideCanceled, setHideCanceled] = React.useState(false);
 
   const hasCollapsedItems = collapsedItems.size > 0;
