@@ -1128,7 +1128,7 @@ async function main() {
       {
         modifierSku: "sku-spicy-mod",
         state: "MEDIUM",
-        label: "Medium",
+        label: "Medium Spicy",
         priceOverride: 0.0,
       },
       {

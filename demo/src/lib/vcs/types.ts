@@ -388,6 +388,7 @@ export interface CatalogItemEntry {
   appliedSizeGroup?: SizeGroup | null;
   allowedStates?: ModifierStateOption[];
   allowedModifiers?: string[];
+  modifierConfigs?: { modifierSku: string; allowDuplicates: boolean }[];
   chargeTags?: SkuChargeTagEntry[]; // resolved from SkuChargeTag — empty = use GENERAL rules
   inlineQtyType?: "int" | "float" | "none" | null;
   inlineQtyLabel?: string | null;

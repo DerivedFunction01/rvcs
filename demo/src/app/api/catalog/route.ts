@@ -74,6 +74,10 @@ export async function GET() {
         priceOverride: as.priceOverride,
       })),
       allowedModifiers: item.allowedModifiers.map((am) => am.modifierSku),
+      modifierConfigs: item.allowedModifiers.map((am) => ({
+        modifierSku: am.modifierSku,
+        allowDuplicates: am.allowDuplicates,
+      })),
       chargeTags: item.chargeTags.map((ct) => ({
         tagCode: ct.tag.code,
         categoryHint: ct.tag.categoryHint,

@@ -45,6 +45,10 @@ export function PosAllocationDialogs({
 }) {
   const store = useVCSStore();
 
+  const liveAllocConfigItem = dialogs.allocConfigItem
+    ? projectedState.items[dialogs.allocConfigItem.lineId] || dialogs.allocConfigItem
+    : null;
+
   return (
     <>
       <AllocationConfigDialog
@@ -52,7 +56,7 @@ export function PosAllocationDialogs({
         onOpenChange={(open) => {
           if (!open) dialogs.setAllocConfigItem(null);
         }}
-        item={dialogs.allocConfigItem}
+        item={liveAllocConfigItem}
         allocations={configs.resolvedAllocations}
         defaultPaymentAllocId={defaultPaymentAllocId}
         defaultPaymentMethod={defaultPaymentMethod}

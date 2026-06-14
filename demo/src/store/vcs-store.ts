@@ -2030,7 +2030,26 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     },
 
     addModifier: (parentLineId, modifierSku, selectedModifierState) => {
-      get().commitDeltas(
+      const store = get();
+      const state = store.projectedState;
+      const parent = state.items[parentLineId];
+
+      if (parent) {
+        const parentEntry = store.catalog[parent.sku];
+        const modConfig = parentEntry?.modifierConfigs?.find(
+          (c) => c.modifierSku === modifierSku,
+        );
+
+        if (!modConfig?.allowDuplicates) {
+          const hasMod = parent.children.some((c) => c.sku === modifierSku);
+          if (hasMod) {
+            toast.error("Duplicate modifier not allowed.");
+            return;
+          }
+        }
+      }
+
+      store.commitDeltas(
         [
           {
             action: DeltaActionType.AddItem,
@@ -2637,8 +2656,17 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       for (const parentLineId of parentLineIds) {
         const parent = state.items[parentLineId];
         if (parent) {
-          const hasMod = parent.children.some((c) => c.sku === modifierSku);
-          if (!hasMod) {
+          const parentEntry = store.catalog[parent.sku];
+          const modConfig = parentEntry?.modifierConfigs?.find(
+            (c) => c.modifierSku === modifierSku,
+          );
+
+          let skip = false;
+          if (!modConfig?.allowDuplicates) {
+            skip = parent.children.some((c) => c.sku === modifierSku);
+          }
+
+          if (!skip) {
             deltas.push({
               action: DeltaActionType.AddItem,
               lineId: generateLineId(),

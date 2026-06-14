@@ -4,7 +4,8 @@ import { CustomerEditDialog } from "@/components/pos/dialogs/customer-edit-dialo
 import { NoteDialog } from "@/components/pos/dialogs/note-dialog";
 import { ModifierAddDialog } from "@/components/pos/dialogs/modifier-add-dialog";
 import { GroupNoteDialog } from "@/components/pos/dialogs/group-note-dialog";
-import { ChoiceDialog } from "@/components/pos/dialogs/choice-dialog";
+import { Delta, DeltaActionType } from "@/lib/vcs/types";
+import { generateLineId } from "@/lib/vcs/id";
 import { useVCSStore } from "@/store/vcs-store";
 import type { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
 import type { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
@@ -29,6 +30,16 @@ export function PosOtherDialogs({
 }) {
   const store = useVCSStore();
 
+  const parentItems = React.useMemo(() => {
+    if (dialogs.modifierAddItem) {
+      const liveItem = store.projectedState.items[dialogs.modifierAddItem.lineId];
+      return liveItem ? [liveItem] : [dialogs.modifierAddItem];
+    }
+    return selectedLineIdsArray
+      .map((id) => store.projectedState.items[id])
+      .filter(Boolean);
+  }, [dialogs.modifierAddItem, selectedLineIdsArray, store.projectedState.items]);
+
   return (
     <>
       <CustomerEditDialog
@@ -50,28 +61,56 @@ export function PosOtherDialogs({
         onOpenChange={dialogs.setModifierAddOpen}
         itemName={dialogs.modifierAddItem ? dialogs.modifierAddItem.name : `${selectedLineIdsSize} selected items`}
         modifiers={dialogs.modifierAddItem ? catalogData.singleItemCompatibleModifiers : catalogData.compatibleModifiers}
-        onAdd={(sku, defaultState) => {
-          if (dialogs.modifierAddItem) store.addModifier(dialogs.modifierAddItem.lineId, sku, defaultState);
-          else store.addGroupModifier(selectedLineIdsArray, sku, defaultState);
+        onAdd={(sku, defaultState, targetLineIds) => {
+          const targets = targetLineIds || (dialogs.modifierAddItem ? [dialogs.modifierAddItem.lineId] : selectedLineIdsArray);
+          store.addGroupModifier(targets, sku, defaultState);
         }}
+        onRemove={(sku, targetLineIds) => {
+          const targets = targetLineIds || (dialogs.modifierAddItem ? [dialogs.modifierAddItem.lineId] : selectedLineIdsArray);
+          store.removeGroupModifier(targets, sku);
+          toast.success(dialogs.modifierAddItem ? `Removed modifier` : `Removed modifier in bulk`);
+        }}
+        onUpdateState={(sku, newState, targetLineIds) => {
+          const targets = targetLineIds || (dialogs.modifierAddItem ? [dialogs.modifierAddItem.lineId] : selectedLineIdsArray);
+          const state = store.projectedState;
+          const deltas: Delta[] = [];
+          for (const parentId of targets) {
+            const parent = state.items[parentId];
+            if (parent) {
+              const modChild = parent.children.find((c) => c.sku === sku);
+              if (modChild) {
+                if (modChild.selectedModifierState !== newState) {
+                  deltas.push({
+                    action: DeltaActionType.ModifyModifierState,
+                    lineId: modChild.lineId,
+                    beforeState: modChild.selectedModifierState,
+                    afterState: newState,
+                  });
+                }
+              } else {
+                deltas.push({
+                  action: DeltaActionType.AddItem,
+                  lineId: generateLineId(),
+                  parentLineId: parentId,
+                  sku: sku,
+                  qty: 1,
+                  allocations: [],
+                  selectedModifierState: newState,
+                });
+              }
+            }
+          }
+          if (deltas.length > 0) {
+            store.commitDeltas(deltas, "pos-ui");
+          }
+        }}
+        parentItems={parentItems}
       />
       <GroupNoteDialog
         open={dialogs.groupNoteOpen}
         onOpenChange={dialogs.setGroupNoteOpen}
         onSave={actions.handleSaveGroupNote}
         selectedCount={dialogs.groupNoteLineIds.length}
-      />
-      <ChoiceDialog
-        open={dialogs.removeModDialogOpen}
-        onOpenChange={dialogs.setRemoveModDialogOpen}
-        title="Remove Modifier"
-        description="Choose a modifier to remove from all selected items."
-        searchPlaceholder="Search modifiers..."
-        options={catalogData.removeModChoiceOptions}
-        onChoose={(option) => {
-          store.removeGroupModifier(selectedLineIdsArray, option.id);
-          toast.success(`Removed modifier ${option.label} in bulk`);
-        }}
       />
     </>
   );

@@ -156,6 +156,7 @@ model ModifierStateOption {
 model ItemModifier {
   itemSku     String
   modifierSku String
+  allowDuplicates Boolean @default(false)
 
   item        CatalogItem @relation("ItemModifiers", fields: [itemSku], references: [sku], onDelete: Cascade)
   modifier    CatalogItem @relation("ModifierItems", fields: [modifierSku], references: [sku], onDelete: Cascade)
@@ -318,4 +319,3 @@ model DeliveryLocation {
 
   @@index([customerId])
 }
-
