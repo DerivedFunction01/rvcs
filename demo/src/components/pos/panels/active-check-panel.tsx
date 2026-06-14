@@ -410,6 +410,7 @@ export function ActiveCheckPanel(props: any) {
                   mergeItems(Array.from(selectedLineIds));
                   setSelectedLineIds(new Set());
                 }}
+                disabled={selectedLineIds.size <= 1}
               >
                 <Combine className="w-3.5 h-3.5 mr-1" />
                 Merge
@@ -476,25 +477,23 @@ export function ActiveCheckPanel(props: any) {
                 Group Note
               </Button>
             </div>
-            {(compatibleModifiers.length > 0 ||
-              activeModifiersOnSelected.length > 0) && (
-                <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                    Mods
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-primary hover:bg-primary/5 gap-1"
-                    onClick={() => {
-                      setModifierAddItem(null);
-                      setModifierAddOpen(true);
-                    }}
-                  >
-                    <Pencil className="w-3.5 h-3.5" /> Edit
-                  </Button>
-                </div>
-              )}
+            <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
+                Mods
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-primary hover:bg-primary/5 gap-1"
+                onClick={() => {
+                  setModifierAddItem(null);
+                  setModifierAddOpen(true);
+                }}
+                disabled={compatibleModifiers.length === 0 && activeModifiersOnSelected.length === 0}
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </Button>
+            </div>
           </div>
         </div>
       )}
