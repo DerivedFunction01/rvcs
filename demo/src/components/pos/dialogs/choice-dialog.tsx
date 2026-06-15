@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 export interface ChoiceDialogOption {
@@ -57,14 +57,21 @@ export function ChoiceDialog({
   extraToggle,
 }: ChoiceDialogProps) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   React.useEffect(() => {
     if (open) {
       setQuery("");
+      setDebouncedQuery("");
       setSelectedIds(initialSelectedIds || []);
     }
   }, [open, initialSelectedIds]);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const toggleOption = (option: ChoiceDialogOption) => {
     if (isMultiSelect) {
@@ -81,7 +88,7 @@ export function ChoiceDialog({
   };
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return options;
     return options.filter(
       (opt) =>
@@ -89,7 +96,7 @@ export function ChoiceDialog({
         opt.id.toLowerCase().includes(q) ||
         (opt.description?.toLowerCase().includes(q) ?? false),
     );
-  }, [options, query]);
+  }, [options, debouncedQuery]);
 
   return (
     <Dialog
@@ -98,6 +105,7 @@ export function ChoiceDialog({
         onOpenChange(nextOpen);
         if (!nextOpen) {
           setQuery("");
+          setDebouncedQuery("");
           setSelectedIds([]);
         }
       }}
@@ -115,8 +123,11 @@ export function ChoiceDialog({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={searchPlaceholder}
-            className="pl-9"
+          className="pl-9 pr-9"
           />
+        {query !== debouncedQuery && (
+          <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+        )}
         </div>
 
         {extraToggle && (

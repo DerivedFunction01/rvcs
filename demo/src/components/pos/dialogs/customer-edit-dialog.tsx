@@ -80,7 +80,7 @@ export function CustomerEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-4 h-4 text-primary" /> Edit Customer Info
@@ -90,114 +90,62 @@ export function CustomerEditDialog({
             immediately.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <User className="w-3 h-3" /> Name{" "}
-              <span className="text-destructive text-xs">*</span>
-            </label>
-            <Input
-              id="customer-name"
-              placeholder="e.g. John Smith"
-              value={editedFields.name ?? ""}
-              onChange={(e) => {
-                setEditedFields((prev) => ({ ...prev, name: e.target.value }));
-                if (errors.name) {
-                  setErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.name;
-                    return next;
-                  });
-                }
-              }}
-              className={`h-9 text-sm ${errors.name ? "border-destructive focus-visible:ring-destructive" : ""}`}
-              autoComplete="name"
-            />
-            {errors.name && (
-              <p className="text-xs text-destructive font-medium">
-                {errors.name}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Phone className="w-3 h-3" /> Phone{" "}
-              {(orderType === OrderType.Pickup ||
-                orderType === OrderType.Delivery) && (
-                <span className="text-destructive text-xs">*</span>
-              )}
-            </label>
-            <Input
-              id="customer-phone"
-              type="tel"
-              placeholder="e.g. (555) 123-4567"
-              value={editedFields.phone ?? ""}
-              onChange={(e) => {
-                setEditedFields((prev) => ({ ...prev, phone: e.target.value }));
-                if (errors.phone) {
-                  setErrors((prev) => {
-                    const next = { ...prev };
-                    delete next.phone;
-                    return next;
-                  });
-                }
-              }}
-              className={`h-9 text-sm ${errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}`}
-              autoComplete="tel"
-            />
-            {errors.phone && (
-              <p className="text-xs text-destructive font-medium">
-                {errors.phone}
-              </p>
-            )}
-          </div>
-          {orderType === OrderType.Delivery && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
+          {/* Column 1 */}
+          <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <MapPin className="w-3 h-3" /> Delivery Address{" "}
-                <span className="text-destructive text-xs">*</span>
+                <User className="w-3 h-3" /> Name <span className="text-destructive text-xs">*</span>
               </label>
               <Input
-                id="customer-address"
-                placeholder="e.g. 123 Main St, City, State"
-                value={editedFields.address ?? ""}
-                onChange={(e) => {
-                  setEditedFields((prev) => ({
-                    ...prev,
-                    address: e.target.value,
-                  }));
-                  if (errors.address) {
-                    setErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.address;
-                      return next;
-                    });
-                  }
-                }}
-                className={`h-9 text-sm ${errors.address ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                autoComplete="street-address"
+                value={editedFields.name ?? ""}
+                onChange={(e) => setEditedFields(prev => ({ ...prev, name: e.target.value }))}
+                className={`h-9 text-sm ${errors.name ? "border-destructive" : ""}`}
               />
-              {errors.address && (
-                <p className="text-xs text-destructive font-medium">
-                  {errors.address}
-                </p>
-              )}
+              {errors.name && <p className="text-xs text-destructive font-medium">{errors.name}</p>}
             </div>
-          )}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Settings2 className="w-3 h-3" /> Order Notes
-            </label>
-            <Textarea
-              id="customer-notes"
-              placeholder="Allergies, special requests, etc."
-              value={editedFields.notes ?? ""}
-              onChange={(e) =>
-                setEditedFields((prev) => ({ ...prev, notes: e.target.value }))
-              }
-              className="text-sm resize-none"
-              rows={3}
-            />
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Phone className="w-3 h-3" /> Phone
+              </label>
+              <Input
+                type="tel"
+                value={editedFields.phone ?? ""}
+                onChange={(e) => setEditedFields(prev => ({ ...prev, phone: e.target.value }))}
+                className="h-9 text-sm"
+                placeholder="123-456-7890"
+              />
+            </div>
+          </div>
+
+          {/* Column 2 */}
+          <div className="space-y-4">
+            {orderType === OrderType.Delivery && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <MapPin className="w-3 h-3" /> Delivery Address
+                </label>
+                <Input
+                  value={editedFields.address ?? ""}
+                  onChange={(e) => setEditedFields(prev => ({ ...prev, address: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Settings2 className="w-3 h-3" /> Order Notes
+              </label>
+              <Textarea
+                value={editedFields.notes ?? ""}
+                onChange={(e) => setEditedFields(prev => ({ ...prev, notes: e.target.value }))}
+                className="text-sm resize-none"
+                // Adjusted rows for better fit in column
+                rows={orderType === OrderType.Delivery ? 3 : 5}
+              />
+            </div>
           </div>
         </div>
         <DialogFooter className="gap-2">

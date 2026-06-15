@@ -37,15 +37,27 @@ export function CustomerSearchDialog({
   onSelectCustomer,
 }: CustomerSearchDialogProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState("");
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setSearchTerm("");
-      fetchCustomers("");
+      setDebouncedTerm("");
     }
   }, [open]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedTerm(searchTerm), 250);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (open) {
+      fetchCustomers(debouncedTerm);
+    }
+  }, [debouncedTerm, open]);
 
   const fetchCustomers = async (query: string) => {
     setLoading(true);
@@ -65,7 +77,6 @@ export function CustomerSearchDialog({
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchTerm(val);
-    fetchCustomers(val);
   };
 
   const handleSelect = (customer: CustomerProfile) => {
@@ -135,7 +146,7 @@ export function CustomerSearchDialog({
             onChange={handleSearchChange}
             className="pl-9 pr-8"
           />
-          {loading && (
+          {(loading || searchTerm !== debouncedTerm) && (
             <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>

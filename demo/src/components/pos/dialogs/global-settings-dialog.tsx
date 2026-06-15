@@ -10,12 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings2, Plus, X, RotateCcw } from "lucide-react";
 import { usePreferencesStore } from "@/store/preferences-store";
 import { ViewMode } from "@/lib/pos/types";
 import { useEffect, useRef, useState } from "react";
+import { NumberPadDialog } from "./number-pad-dialog";
+import { Input } from "@/components/ui/input";
 
 export function GlobalSettingsDialog({
   open,
@@ -27,6 +28,7 @@ export function GlobalSettingsDialog({
   const { defaultPrefs, updateDefaultPreferences } = usePreferencesStore();
 
   const [localPrefs, setLocalPrefs] = useState<any>(defaultPrefs);
+  const [splitWarnPadOpen, setSplitWarnPadOpen] = useState(false);
 
   const prevOpen = useRef(open);
   useEffect(() => {
@@ -43,7 +45,8 @@ export function GlobalSettingsDialog({
   }, [localPrefs, updateDefaultPreferences]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] sm:max-w-4xl flex flex-col max-h-[85vh]">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
@@ -124,14 +127,13 @@ export function GlobalSettingsDialog({
             <label htmlFor="split-warn-threshold" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
               Split Line Warn Threshold
             </label>
-            <Input
+            <button
               id="split-warn-threshold"
-              type="number"
-              min={2}
-              value={localPrefs.splitLineWarnThreshold ?? 10}
-              onChange={(e) => setLocalPrefs((prev: any) => ({ ...prev, splitLineWarnThreshold: Number(e.target.value) || 10 }))}
-              className="w-20 h-8 text-xs text-right"
-            />
+              onClick={() => setSplitWarnPadOpen(true)}
+              className="w-20 h-8 text-xs text-right px-2 font-mono font-medium bg-background border shadow-sm hover:bg-accent rounded-md cursor-pointer flex items-center justify-end"
+            >
+              {localPrefs.splitLineWarnThreshold ?? 10}
+            </button>
           </div>
 
           <div className="flex flex-col gap-3 pt-4 border-t">
@@ -297,6 +299,19 @@ export function GlobalSettingsDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      <NumberPadDialog
+        open={splitWarnPadOpen}
+        onOpenChange={setSplitWarnPadOpen}
+        title="Split Line Warning Threshold"
+        description="Set the number of new lines that will trigger a warning during a split operation."
+        initialValue={localPrefs.splitLineWarnThreshold ?? 10}
+        min={2}
+        increment={1}
+        onConfirm={(val) => {
+          setLocalPrefs((prev: any) => ({ ...prev, splitLineWarnThreshold: val }));
+        }}
+      />
+    </>
   );
 }

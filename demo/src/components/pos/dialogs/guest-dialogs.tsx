@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePreferencesStore } from "@/store/preferences-store";
 import { useVCSStore } from "@/store/vcs-store";
-import { Minus, Pencil, Plus, Search, User, UserPlus } from "lucide-react";
+import { Loader2, Minus, Pencil, Plus, Search, User, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NumberPadDialog } from "./number-pad-dialog";
 
@@ -158,18 +158,29 @@ export function GuestPickerDialog({
   onOpenAddGuest,
 }: any) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const getGuests = useVCSStore((s) => s.guests);
   const allocationsState = useVCSStore((s) => s.projectedState.allocations);
   const globalGuestPalette = usePreferencesStore((state) => state.defaultPrefs.globalDepthColors) || ["#94a3b8"];
   const guests = useMemo(() => getGuests(), [getGuests, allocationsState]);
+
   useEffect(() => {
-    if (open) setQuery("");
+    if (open) {
+      setQuery("");
+      setDebouncedQuery("");
+    }
   }, [open]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return guests;
     return guests.filter((g) => g.name.toLowerCase().includes(q));
-  }, [guests, query]);
+  }, [guests, debouncedQuery]);
 
   const searchArea = (
     <div className="relative flex-1 min-w-0">
@@ -179,8 +190,11 @@ export function GuestPickerDialog({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search guests..."
-        className="pl-10 sm:pl-10 h-14 sm:h-12 text-base"
+        className="pl-10 pr-10 sm:pl-10 h-14 sm:h-12 text-base"
       />
+      {query !== debouncedQuery && (
+        <Loader2 className="absolute right-3 top-4 sm:top-3.5 h-5 w-5 sm:h-5 sm:w-5 animate-spin text-muted-foreground" />
+      )}
     </div>
   );
 
