@@ -35,6 +35,8 @@ import { toast } from "sonner";
 import { AllocationBadges } from "./allocation-badges";
 import { ViewMode } from "@/lib/pos/types";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import { useState } from "react";
+import { NumberPadDialog } from "../dialogs/number-pad-dialog";
 
 export function LineItemNode({
   item,
@@ -90,6 +92,8 @@ export function LineItemNode({
   const projectedState = useVCSStore((state) => state.projectedState);
   const rawAllocations = projectedState.allocations;
   const formatNumber = useFormatNumber();
+
+  const [qtyPadTarget, setQtyPadTarget] = useState<"main" | "inline" | null>(null);
 
   const rawAssignAlloc = item.allocations
     .map((id) => rawAllocations[id])
@@ -311,9 +315,15 @@ export function LineItemNode({
                     >
                       <Minus className="w-2.5 h-2.5" />
                     </Button>
-                    <span className="text-[10px] text-foreground font-mono font-semibold min-w-2.5 text-center select-none">
+                    <button
+                      className="text-[10px] text-foreground font-mono font-semibold min-w-6 px-1 text-center select-none hover:bg-background rounded transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQtyPadTarget("main");
+                      }}
+                    >
                       {formatNumber(item.qty)}
-                    </span>
+                    </button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -514,10 +524,16 @@ export function LineItemNode({
                       >
                         <Minus className="w-3 h-3" />
                       </Button>
-                      <span className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1">
+                      <button
+                        className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1 hover:bg-background rounded transition-colors cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setQtyPadTarget("inline");
+                        }}
+                      >
                         {formatInlineQty(item.inlineQty ?? 1)}
                         {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
-                      </span>
+                      </button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -734,6 +750,26 @@ export function LineItemNode({
               hideCanceled={hideCanceled}
             />
           ))}
+      {qtyPadTarget && (
+        <NumberPadDialog
+          open={qtyPadTarget !== null}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setQtyPadTarget(null);
+          }}
+          title={qtyPadTarget === "main" ? "Quantity" : "Measurement"}
+          description={`Set the ${qtyPadTarget === "main" ? "quantity" : "measurement"} for ${item.name}`}
+          initialValue={qtyPadTarget === "main" ? item.qty : (item.inlineQty ?? 1)}
+          min={qtyPadTarget === "main" ? step : inlineStep}
+          increment={qtyPadTarget === "main" ? step : inlineStep}
+          onConfirm={(val) => {
+            if (qtyPadTarget === "main") {
+              useVCSStore.getState().modifyItemQty(item.lineId, item.qty, val);
+            } else {
+              useVCSStore.getState().modifyItemInlineQty(item.lineId, item.inlineQty ?? 1, val);
+            }
+          }}
+        />
+      )}
     </>
   );
 }

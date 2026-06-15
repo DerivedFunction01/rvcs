@@ -42,6 +42,7 @@ import { useVCSStore } from "@/store/vcs-store";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
 import { SplitIntoLinesDialog } from "@/components/pos/dialogs/split-into-lines-dialog";
+import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 
 export function ActiveCheckPanel(props: any) {
   const {
@@ -204,6 +205,7 @@ export function ActiveCheckPanel(props: any) {
   const parsedStep = Number(qtyStep) || 1;
   const [combineDialogOpen, setCombineDialogOpen] = useState(false);
   const [splitLineDialogOpen, setSplitLineDialogOpen] = useState(false);
+  const [qtyStepPadOpen, setQtyStepPadOpen] = useState(false);
 
   const maxSelectedQty = useMemo(() => {
     let max = 0;
@@ -449,14 +451,12 @@ export function ActiveCheckPanel(props: any) {
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
                 Qty
               </span>
-              <Input
-                type="number"
-                min={0.1}
-                step="any"
-                value={qtyStep}
-                onChange={(e) => setQtyStep(e.target.value === "" ? "" : Number(e.target.value))}
-                className="w-14 h-7 text-[11px] px-2 text-center"
-              />
+              <button
+                className="h-7 w-14 text-[11px] px-2 font-mono font-medium bg-background border shadow-sm hover:bg-accent rounded-md cursor-pointer transition-colors flex items-center justify-center"
+                onClick={() => setQtyStepPadOpen(true)}
+              >
+                {qtyStep === "" ? "1" : formatNumber(Number(qtyStep))}
+              </button>
               {qtyStep !== 1 && (
                 <Button
                   variant="ghost"
@@ -697,6 +697,16 @@ export function ActiveCheckPanel(props: any) {
           const newIds = splitItemsIntoIncrements(Array.from(selectedLineIds), val);
           if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
         }}
+      />
+      <NumberPadDialog
+        open={qtyStepPadOpen}
+        onOpenChange={setQtyStepPadOpen}
+        title="Quantity Increment"
+        description="Set the increment step for bulk quantity adjustments"
+        initialValue={qtyStep === "" ? 1 : Number(qtyStep)}
+        min={selectedIncrement}
+        increment={selectedIncrement}
+        onConfirm={(val) => setQtyStep(val)}
       />
     </main>
   );
