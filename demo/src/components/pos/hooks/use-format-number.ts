@@ -27,7 +27,7 @@ export function useFormatNumber() {
         (absValue > 0 && absValue < Math.pow(10, -overflow_precision));
 
       if (shouldUseScientific && overflow_fraction_strategy === NumberFractionOverflow.Scientific) {
-        return value.toExponential(2);
+        return value.toExponential(overflow_precision);
       }
 
       // Handle cases between -1 and 1
