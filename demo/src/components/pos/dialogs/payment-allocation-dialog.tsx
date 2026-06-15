@@ -34,6 +34,7 @@ import {
   Copy,
   CreditCard,
   HelpCircle,
+  Loader2,
   Pencil,
   Plus,
   Search,
@@ -98,6 +99,7 @@ export function PaymentAllocationDialog({
   const [view, setView] = useState<ViewState>("main");
   const [selectedGuest, setSelectedGuest] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [splits, setSplits] = useState<PaymentSplitEntry[]>([]);
 
   const formatNumber = useFormatNumber();
@@ -168,22 +170,55 @@ export function PaymentAllocationDialog({
       badge: string;
       isSplit: boolean;
     }> = [];
+    const seenIds = new Set<string>();
     const seenMethods = new Set<string>();
 
     for (const alloc of Object.values(allocations)) {
       if (alloc.type !== AllocationType.Payment) continue;
       const pay = alloc as PaymentAllocation;
       if (pay.payer === selectedGuest && pay.correlationId) {
-        const method = pay.method || "cash";
-        if (seenMethods.has(method)) continue;
-        seenMethods.add(method);
-        methods.push({
-          id: pay.correlationId,
-          label: `${selectedGuest} (${method.toUpperCase()})`,
-          description: `Default payment config for ${selectedGuest}`,
-          badge: method.toUpperCase(),
-          isSplit: false,
-        });
+        const id = pay.correlationId;
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+
+        const siblings = Object.values(allocations).filter(
+          (a) => a.type === AllocationType.Payment && a.correlationId === id
+        );
+        const isSplit = siblings.length > 1;
+
+        if (isSplit) {
+          const otherPayers = siblings
+            .map((a) => (a as PaymentAllocation).payer)
+            .filter((p) => p !== selectedGuest);
+          const uniqueOthers = Array.from(new Set(otherPayers));
+          let splitName = "Split with ";
+          if (uniqueOthers.length === 1) {
+            splitName += uniqueOthers[0];
+          } else if (uniqueOthers.length > 1) {
+            splitName += `${uniqueOthers.length} others`;
+          } else {
+            splitName = "Split";
+          }
+
+          methods.push({
+            id,
+            label: splitName,
+            description: `Split payment involving ${selectedGuest}`,
+            badge: "SPLIT",
+            isSplit: true,
+          });
+        } else {
+          const method = pay.method || "cash";
+          if (seenMethods.has(method)) continue;
+          seenMethods.add(method);
+          methods.push({
+            id,
+            label: `${selectedGuest} (${method.toUpperCase()})`,
+            description: `Default payment config for ${selectedGuest}`,
+            badge: method.toUpperCase(),
+            isSplit: false,
+          });
+        }
       }
     }
 
@@ -321,22 +356,55 @@ export function PaymentAllocationDialog({
       badge: string;
       isSplit: boolean;
     }> = [];
+    const seenIds = new Set<string>();
     const seenMethods = new Set<string>();
 
     for (const alloc of Object.values(allocations)) {
       if (alloc.type !== AllocationType.Payment) continue;
       const pay = alloc as PaymentAllocation;
       if (pay.payer === activeGuestName && pay.correlationId) {
-        const method = pay.method || "cash";
-        if (seenMethods.has(method)) continue;
-        seenMethods.add(method);
-        methods.push({
-          id: pay.correlationId,
-          label: `${activeGuestName} (${method.toUpperCase()})`,
-          description: `Default payment config for ${activeGuestName}`,
-          badge: method.toUpperCase(),
-          isSplit: false,
-        });
+        const id = pay.correlationId;
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+
+        const siblings = Object.values(allocations).filter(
+          (a) => a.type === AllocationType.Payment && a.correlationId === id
+        );
+        const isSplit = siblings.length > 1;
+
+        if (isSplit) {
+          const otherPayers = siblings
+            .map((a) => (a as PaymentAllocation).payer)
+            .filter((p) => p !== activeGuestName);
+          const uniqueOthers = Array.from(new Set(otherPayers));
+          let splitName = "Split with ";
+          if (uniqueOthers.length === 1) {
+            splitName += uniqueOthers[0];
+          } else if (uniqueOthers.length > 1) {
+            splitName += `${uniqueOthers.length} others`;
+          } else {
+            splitName = "Split";
+          }
+
+          methods.push({
+            id,
+            label: splitName,
+            description: `Split payment involving ${activeGuestName}`,
+            badge: "SPLIT",
+            isSplit: true,
+          });
+        } else {
+          const method = pay.method || "cash";
+          if (seenMethods.has(method)) continue;
+          seenMethods.add(method);
+          methods.push({
+            id,
+            label: `${activeGuestName} (${method.toUpperCase()})`,
+            description: `Default payment config for ${activeGuestName}`,
+            badge: method.toUpperCase(),
+            isSplit: false,
+          });
+        }
       }
     }
 
@@ -361,57 +429,63 @@ export function PaymentAllocationDialog({
 
   // Filters
   const filteredPrimaryDefaults = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = debouncedQuery.trim().toLowerCase();
     if (!query) return primaryDefaults;
     return primaryDefaults.filter(
       (c) =>
         c.label.toLowerCase().includes(query) ||
         c.badge.toLowerCase().includes(query),
     );
-  }, [primaryDefaults, searchQuery]);
+  }, [primaryDefaults, debouncedQuery]);
 
   const filteredActiveGuestMethods = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = debouncedQuery.trim().toLowerCase();
     if (!query) return activeGuestMethods;
     return activeGuestMethods.filter(
       (c) =>
         c.label.toLowerCase().includes(query) ||
         c.badge.toLowerCase().includes(query),
     );
-  }, [activeGuestMethods, searchQuery]);
+  }, [activeGuestMethods, debouncedQuery]);
 
   const filteredOtherGuests = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = debouncedQuery.trim().toLowerCase();
     // Exclude both primary guest and the current active guest (since the active guest has their own detailed row)
     const otherGuests = guests.slice(1).filter((g) => g !== activeGuestName);
     if (!query) return otherGuests;
     return otherGuests.filter((g) => g.toLowerCase().includes(query));
-  }, [guests, searchQuery, activeGuestName]);
+  }, [guests, debouncedQuery, activeGuestName]);
 
   const filteredSavedSplits = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = debouncedQuery.trim().toLowerCase();
     if (!query) return savedSplits;
     return savedSplits.filter(
       (s) =>
         s.label.toLowerCase().includes(query) ||
         s.badge.toLowerCase().includes(query),
     );
-  }, [savedSplits, searchQuery]);
+  }, [savedSplits, debouncedQuery]);
 
   const filteredSavedSingles = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = debouncedQuery.trim().toLowerCase();
     if (!query) return savedSingles;
     return savedSingles.filter(
       (s) =>
         s.label.toLowerCase().includes(query) ||
         s.badge.toLowerCase().includes(query),
     );
-  }, [savedSingles, searchQuery]);
+  }, [savedSingles, debouncedQuery]);
 
   // Reset state when opening/closing
   React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  React.useEffect(() => {
     if (open) {
       setSearchQuery("");
+      setDebouncedQuery("");
       setView("main");
       setSelectedGuest(null);
       setSplits([]);
@@ -1049,8 +1123,11 @@ export function PaymentAllocationDialog({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search default payer methods or guest names..."
-                className="pl-9 h-10 text-xs"
+                className="pl-9 pr-9 h-10 text-xs"
               />
+              {searchQuery !== debouncedQuery && (
+                <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+              )}
             </div>
 
             <div className="min-h-55 max-h-[45vh] overflow-y-auto pr-1">

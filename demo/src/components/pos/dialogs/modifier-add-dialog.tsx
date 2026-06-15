@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
-import { Minus, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Loader2, Minus, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { NumberPadDialog } from "./number-pad-dialog";
@@ -41,6 +41,7 @@ export function ModifierAddDialog({
   parentItems
 }: ModifierAddDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [actionPrompt, setActionPrompt] = useState<{ sku: string, defaultState?: string } | null>(null);
   const [qtyPadTarget, setQtyPadTarget] = useState<string | null>(null);
   const [lastTouchedSku, setLastTouchedSku] = useState<string | null>(null);
@@ -117,19 +118,25 @@ export function ModifierAddDialog({
   const filtered = useMemo(() => {
     return modifiers.filter(
       (m) =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.sku.toLowerCase().includes(searchQuery.toLowerCase())
+        m.name.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+        m.sku.toLowerCase().includes(debouncedQuery.toLowerCase())
     );
-  }, [modifiers, searchQuery]);
+  }, [modifiers, debouncedQuery]);
 
   // Reset search when dialog opens/closes
   React.useEffect(() => {
     if (open) {
       setSearchQuery("");
+      setDebouncedQuery("");
       setActionPrompt(null);
       setLastTouchedSku(null);
     }
   }, [open]);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const lastTouchedMod = useMemo(() => {
     if (!lastTouchedSku) return null;
@@ -160,8 +167,11 @@ export function ModifierAddDialog({
                   placeholder="Search modifiers (e.g. Cheese, Onions...)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 text-xs w-full"
+                  className="pl-9 pr-9 text-xs w-full"
                 />
+                {searchQuery !== debouncedQuery && (
+                  <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
               </div>
               {lastTouchedMod && (() => {
                 const stats = modifierStats.get(lastTouchedMod.sku);

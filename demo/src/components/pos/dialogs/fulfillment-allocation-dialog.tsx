@@ -31,6 +31,7 @@ import {
   Copy,
   Grid2x2,
   HelpCircle,
+  Loader2,
   PackageCheck,
   Pencil,
   Plus,
@@ -95,6 +96,7 @@ export function FulfillmentAllocationDialog({
   type ViewState = "main" | "customize";
   const [view, setView] = useState<ViewState>("main");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
   // Custom configuration states
   const [method, setMethod] = useState<OrderType>(OrderType.WalkIn);
@@ -128,6 +130,7 @@ export function FulfillmentAllocationDialog({
     if (open) {
       setView("main");
       setSearchQuery("");
+      setDebouncedQuery("");
       setPendingSelection(null);
 
       // Try to read active settings to prepopulate customize view
@@ -184,6 +187,11 @@ export function FulfillmentAllocationDialog({
     }
   }, [open, context, items, allocations, activeFulfillmentConfigId, guests]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Extract all tables from layouts
   const allTables = useMemo(() => {
     const tables: Array<{ id: string; label: string }> = [];
@@ -239,7 +247,7 @@ export function FulfillmentAllocationDialog({
 
   // Filtered built-in configs
   const filteredBuiltIns = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
+    const q = debouncedQuery.toLowerCase().trim();
     if (!q) return builtInConfigs;
     return builtInConfigs.filter(
       (c) =>
@@ -247,7 +255,7 @@ export function FulfillmentAllocationDialog({
         c.description.toLowerCase().includes(q) ||
         c.method.toLowerCase().includes(q),
     );
-  }, [builtInConfigs, searchQuery]);
+  }, [builtInConfigs, debouncedQuery]);
 
   // Find other saved fulfillment configs in the repo allocations
   const savedConfigs = useMemo(() => {
@@ -310,7 +318,7 @@ export function FulfillmentAllocationDialog({
 
   // Filtered saved configs
   const filteredSavedConfigs = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
+    const q = debouncedQuery.toLowerCase().trim();
     if (!q) return savedConfigs;
     return savedConfigs.filter(
       (c) =>
@@ -318,7 +326,7 @@ export function FulfillmentAllocationDialog({
         c.description.toLowerCase().includes(q) ||
         c.method.toLowerCase().includes(q),
     );
-  }, [savedConfigs, searchQuery]);
+  }, [savedConfigs, debouncedQuery]);
 
   // Retrieve current active config details for UI header
   const activeConfigDetails = useMemo(() => {
@@ -844,10 +852,13 @@ export function FulfillmentAllocationDialog({
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search fulfillment configs..."
-                  className="pl-8 h-8.5 text-xs focus-visible:ring-1 focus-visible:ring-emerald-500"
+                  className="pl-8 pr-8 h-8.5 text-xs focus-visible:ring-1 focus-visible:ring-emerald-500"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
+                {searchQuery !== debouncedQuery && (
+                  <Loader2 className="absolute right-2.5 top-2.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                )}
               </div>
               <Button
                 size="sm"
