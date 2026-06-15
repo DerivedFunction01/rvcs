@@ -41,17 +41,18 @@ export function ModifierAddDialog({
   parentItems
 }: ModifierAddDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [actionPrompt, setActionPrompt] = useState<{sku: string, defaultState?: string} | null>(null);
+  const [actionPrompt, setActionPrompt] = useState<{ sku: string, defaultState?: string } | null>(null);
   const [qtyPadTarget, setQtyPadTarget] = useState<string | null>(null);
+  const [lastTouchedSku, setLastTouchedSku] = useState<string | null>(null);
 
   const catalog = useVCSStore((s) => s.catalog);
   const formatNumber = useFormatNumber();
 
   const modifierStats = useMemo(() => {
-    const stats = new Map<string, { 
-      appliedCount: number; 
-      canAddCount: number; 
-      totalParents: number; 
+    const stats = new Map<string, {
+      appliedCount: number;
+      canAddCount: number;
+      totalParents: number;
       allowDuplicates: boolean;
       itemsWithoutIt: string[];
       itemsWithIt: string[];
@@ -72,10 +73,10 @@ export function ModifierAddDialog({
         const parentEntry = catalog[parent.sku];
         const modConfig = parentEntry?.modifierConfigs?.find((c) => c.modifierSku === mod.sku);
         const allowDuplicates = modConfig?.allowDuplicates ?? false;
-        
+
         const modChildren = parent.children.filter((c) => c.sku === mod.sku);
         const hasMod = modChildren.length > 0;
-        
+
         if (hasMod) {
           appliedCount++;
           itemsWithIt.push(parent.lineId);
@@ -86,22 +87,22 @@ export function ModifierAddDialog({
         } else {
           itemsWithoutIt.push(parent.lineId);
         }
-        
+
         if (!allowDuplicates) {
           if (!hasMod) canAddCount++;
         } else {
           canAddCount++;
         }
       }
-      
+
       const parentEntryFallback = catalog[parentItems[0]?.sku];
       const modConfigFallback = parentEntryFallback?.modifierConfigs?.find((c) => c.modifierSku === mod.sku);
       const allowDuplicates = modConfigFallback?.allowDuplicates ?? false;
 
-      stats.set(mod.sku, { 
-        appliedCount, 
-        canAddCount, 
-        totalParents: parentItems.length, 
+      stats.set(mod.sku, {
+        appliedCount,
+        canAddCount,
+        totalParents: parentItems.length,
         allowDuplicates,
         itemsWithoutIt,
         itemsWithIt,
@@ -126,8 +127,14 @@ export function ModifierAddDialog({
     if (open) {
       setSearchQuery("");
       setActionPrompt(null);
+      setLastTouchedSku(null);
     }
   }, [open]);
+
+  const lastTouchedMod = useMemo(() => {
+    if (!lastTouchedSku) return null;
+    return modifiers.find(m => m.sku === lastTouchedSku) || null;
+  }, [modifiers, lastTouchedSku]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,6 +160,175 @@ export function ModifierAddDialog({
           />
         </div>
 
+        {/* Top Customization Bar */}
+        {lastTouchedMod ? (() => {
+          const stats = modifierStats.get(lastTouchedMod.sku);
+          const isApplied = stats && stats.appliedCount > 0;
+          const isFullyApplied = stats && stats.appliedCount === stats.totalParents && !stats.allowDuplicates;
+          const hasStates = lastTouchedMod.allowedStates && lastTouchedMod.allowedStates.length > 0;
+          const hasInlineQty = lastTouchedMod.inlineQtyType && lastTouchedMod.inlineQtyType !== "none";
+
+          const inlineStep = lastTouchedMod.inlineQtyIncrement ?? (lastTouchedMod.inlineQtyType === "float" ? 0.05 : 1);
+          const inlineQtyLabel = lastTouchedMod.inlineQtyLabel ?? (lastTouchedMod.inlineQtyType === "int" ? "Count" : lastTouchedMod.inlineQtyType === "float" ? "Measure" : "Qty");
+          const inlineQtyUnit = lastTouchedMod.inlineQtyUnit ?? (lastTouchedMod.inlineQtyType === "float" ? "units" : "");
+          const precision = (() => {
+            const increment = inlineStep;
+            if (!Number.isFinite(increment)) return 0;
+            const text = increment.toString();
+            if (text.includes("e-")) {
+              const match = text.match(/e-(\d+)$/);
+              return match ? Number(match[1]) : 0;
+            }
+            const decimals = text.split(".")[1];
+            return decimals ? decimals.length : 0;
+          })();
+          const formatInlineQty = (value: number) => formatNumber(value, precision > 0 ? precision : 0);
+
+          return (
+            <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6 p-4 border rounded-xl bg-card shrink-0 shadow-sm z-10 mx-1 mt-2">
+              <div className="flex-1 flex flex-wrap items-end gap-4 md:gap-6">
+                {hasStates && (
+                  <div className="flex flex-col gap-1 md:border-r md:pr-6 border-border/50 w-full md:w-auto">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Options</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {lastTouchedMod.allowedStates?.map((stateOpt) => {
+                        const priceDiff =
+                          stateOpt.priceOverride !== null && stateOpt.priceOverride !== undefined
+                            ? stateOpt.priceOverride - lastTouchedMod.basePrice
+                            : 0;
+
+                        const isStateApplied = stats?.appliedStates.has(stateOpt.state);
+
+                        return (
+                          <Button
+                            key={stateOpt.state}
+                            size="lg"
+                            variant={isStateApplied ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE" ? "destructive" : "default") : "outline"}
+                            className={`h-14 px-4 text-sm font-bold flex flex-col gap-0.5 min-w-20 ${isStateApplied
+                                ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE"
+                                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  : "bg-emerald-600 text-white hover:bg-emerald-700")
+                                : "bg-background"
+                              }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const itemsWithThisState = parentItems?.filter(p => p.children.some(c => c.sku === lastTouchedMod.sku && c.selectedModifierState === stateOpt.state)) || [];
+
+                              if (stats && stats.appliedCount === 0) {
+                                onAdd(lastTouchedMod.sku, stateOpt.state);
+                              } else if (stats && stats.totalParents > 1) {
+                                if (isFullyApplied && itemsWithThisState.length === 0) {
+                                  if (onUpdateState) onUpdateState(lastTouchedMod.sku, stateOpt.state);
+                                  else onAdd(lastTouchedMod.sku, stateOpt.state);
+                                } else {
+                                  setActionPrompt({ sku: lastTouchedMod.sku, defaultState: stateOpt.state });
+                                }
+                              } else {
+                                if (itemsWithThisState.length > 0 || stats?.allowDuplicates) {
+                                  setActionPrompt({ sku: lastTouchedMod.sku, defaultState: stateOpt.state });
+                                } else {
+                                  if (onUpdateState) onUpdateState(lastTouchedMod.sku, stateOpt.state);
+                                  else onAdd(lastTouchedMod.sku, stateOpt.state);
+                                }
+                              }
+                            }}
+                          >
+                            <span>{stateOpt.state}</span>
+                            {priceDiff !== 0 && (
+                              <span className="opacity-80 font-mono text-[10px] font-normal">
+                                {priceDiff > 0 ? "+" : ""}${formatNumber(priceDiff, 2)}
+                              </span>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-end justify-between w-full md:w-auto gap-4 md:gap-6">
+                  {hasInlineQty ? (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                        {inlineQtyLabel}
+                      </span>
+                      <div className="flex items-center rounded-lg border bg-background shadow-sm overflow-hidden">
+                        <Button
+                          variant="ghost"
+                          className="h-14 w-14 rounded-none border-r hover:bg-muted text-muted-foreground hover:text-foreground"
+                          disabled={!isApplied}
+                          onClick={() => {
+                            if (onUpdateInlineQty) onUpdateInlineQty(lastTouchedMod.sku, -inlineStep);
+                          }}
+                        >
+                          <Minus className="w-6 h-6" />
+                        </Button>
+                        <button
+                          className="h-14 px-4 min-w-25 text-lg text-foreground font-mono font-bold text-center select-none hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
+                          disabled={!isApplied}
+                          onClick={() => {
+                            setQtyPadTarget(lastTouchedMod.sku);
+                          }}
+                        >
+                          {isApplied ? formatInlineQty(stats?.currentInlineQty ?? 1) : "0"}
+                          <span className="text-xs ml-1 font-sans font-medium text-muted-foreground">{inlineQtyUnit}</span>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          className="h-14 w-14 rounded-none border-l hover:bg-muted text-muted-foreground hover:text-foreground"
+                          disabled={!isApplied && !isFullyApplied && !stats?.allowDuplicates}
+                          onClick={() => {
+                            if (!isApplied) {
+                              onAdd(lastTouchedMod.sku);
+                            } else {
+                              if (onUpdateInlineQty) onUpdateInlineQty(lastTouchedMod.sku, inlineStep);
+                            }
+                          }}
+                        >
+                          <Plus className="w-6 h-6" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : <div />}
+
+                  <div className="md:pl-4 md:border-l border-border/50 shrink-0 flex items-center gap-2">
+                    {stats?.allowDuplicates && isApplied && parentItems && parentItems.length === 1 && (
+                      <Button
+                        variant="ghost"
+                        className="h-14 px-3 flex flex-col gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdd(lastTouchedMod.sku);
+                        }}
+                      >
+                        <Plus className="w-5 h-5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Add Another</span>
+                      </Button>
+                    )}
+                    {isApplied && (
+                      <Button
+                        variant="ghost"
+                        className="h-14 px-3 flex flex-col gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (stats) onRemove(lastTouchedMod.sku, stats.itemsWithIt);
+                        }}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Remove</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })() : (
+          <div className="flex items-center justify-center p-6 border rounded-xl bg-muted/10 shrink-0 h-26.5 mx-1 mt-2">
+            <span className="text-sm font-medium text-muted-foreground">Select a modifier below to customize</span>
+          </div>
+        )}
+
         {/* Grid Scroll Area */}
         <div className="flex-1 overflow-y-auto mt-4 pr-1">
           {filtered.length === 0 ? (
@@ -165,9 +341,9 @@ export function ModifierAddDialog({
                 const defaultState = mod.allowedStates?.find(
                   (s) => s.state === "ADD" || s.state === "WITH"
                 )?.state || mod.allowedStates?.[0]?.state || undefined;
-                
+
                 const hasStates = mod.allowedStates && mod.allowedStates.length > 0;
-                
+
                 const hasInlineQty = mod.inlineQtyType && mod.inlineQtyType !== "none";
                 const inlineStep = mod.inlineQtyIncrement ?? (mod.inlineQtyType === "float" ? 0.05 : 1);
                 const inlineQtyLabel = mod.inlineQtyLabel ?? (mod.inlineQtyType === "int" ? "Count" : mod.inlineQtyType === "float" ? "Measure" : "Qty");
@@ -191,6 +367,8 @@ export function ModifierAddDialog({
                 const isApplied = stats && stats.appliedCount > 0;
 
                 const handleMainClick = () => {
+                  setLastTouchedSku(mod.sku);
+
                   if (stats && stats.totalParents === 1) {
                     if (stats.appliedCount === 0) {
                       onAdd(mod.sku, defaultState);
@@ -208,50 +386,50 @@ export function ModifierAddDialog({
 
                 if (actionPrompt?.sku === mod.sku) {
                   const targetState = actionPrompt.defaultState;
-                  const itemsWithSpecificState = parentItems?.filter(p => 
+                  const itemsWithSpecificState = parentItems?.filter(p =>
                     p.children.some(c => c.sku === mod.sku && c.selectedModifierState === targetState)
                   ) || [];
                   const specificStateCount = itemsWithSpecificState.length;
 
                   return (
                     <div key={mod.sku} className="flex flex-col p-4 text-left border rounded-lg border-primary bg-primary/5">
-                       <span className="text-sm font-semibold text-foreground mb-3">Edit {mod.name}</span>
-                       <div className="space-y-2">
-                         {stats && stats.itemsWithoutIt.length > 0 && stats.appliedCount > 0 && (
-                           <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => { 
-                               if (onUpdateState) onUpdateState(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt);
-                               else onAdd(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt); 
-                               setActionPrompt(null); 
-                             }}>
-                             Apply {actionPrompt.defaultState || "Add"} to {stats.itemsWithoutIt.length} remaining
-                           </Button>
-                         )}
-                         {stats && stats.appliedCount > 0 && parentItems && parentItems.length > 1 && (
-                           <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => { 
-                               if (onUpdateState && actionPrompt.defaultState) onUpdateState(mod.sku, actionPrompt.defaultState);
-                               else onAdd(mod.sku, actionPrompt.defaultState); 
-                               setActionPrompt(null); 
-                             }}>
-                             Apply {actionPrompt.defaultState || "Add"} to all {stats.totalParents} items
-                           </Button>
-                         )}
-                         {stats && stats.allowDuplicates && parentItems && parentItems.length === 1 && (
-                           <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => { 
-                             onAdd(mod.sku, actionPrompt.defaultState); 
-                             setActionPrompt(null); 
-                           }}>
-                             Add another
-                           </Button>
-                         )}
-                         {specificStateCount > 0 && (
-                           <Button size="sm" variant="destructive" className="w-full text-xs h-8" onClick={() => { onRemove(mod.sku, itemsWithSpecificState.map(i => i.lineId)); setActionPrompt(null); }}>
-                             Remove{targetState ? ` ${targetState}` : ""}{parentItems && parentItems.length > 1 ? ` from ${specificStateCount} items` : ''}
-                           </Button>
-                         )}
-                         <Button size="sm" variant="ghost" className="w-full text-xs h-8" onClick={() => setActionPrompt(null)}>
-                           Cancel
-                         </Button>
-                       </div>
+                      <span className="text-sm font-semibold text-foreground mb-3">Edit {mod.name}</span>
+                      <div className="space-y-2">
+                        {stats && stats.itemsWithoutIt.length > 0 && stats.appliedCount > 0 && (
+                          <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => {
+                            if (onUpdateState) onUpdateState(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt);
+                            else onAdd(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt);
+                            setActionPrompt(null);
+                          }}>
+                            Apply {actionPrompt.defaultState || "Add"} to {stats.itemsWithoutIt.length} remaining
+                          </Button>
+                        )}
+                        {stats && stats.appliedCount > 0 && parentItems && parentItems.length > 1 && (
+                          <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => {
+                            if (onUpdateState && actionPrompt.defaultState) onUpdateState(mod.sku, actionPrompt.defaultState);
+                            else onAdd(mod.sku, actionPrompt.defaultState);
+                            setActionPrompt(null);
+                          }}>
+                            Apply {actionPrompt.defaultState || "Add"} to all {stats.totalParents} items
+                          </Button>
+                        )}
+                        {stats && stats.allowDuplicates && parentItems && parentItems.length === 1 && (
+                          <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => {
+                            onAdd(mod.sku, actionPrompt.defaultState);
+                            setActionPrompt(null);
+                          }}>
+                            Add another
+                          </Button>
+                        )}
+                        {specificStateCount > 0 && (
+                          <Button size="sm" variant="destructive" className="w-full text-xs h-8" onClick={() => { onRemove(mod.sku, itemsWithSpecificState.map(i => i.lineId)); setActionPrompt(null); }}>
+                            Remove{targetState ? ` ${targetState}` : ""}{parentItems && parentItems.length > 1 ? ` from ${specificStateCount} items` : ''}
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="w-full text-xs h-8" onClick={() => setActionPrompt(null)}>
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
                   );
                 }
@@ -268,11 +446,11 @@ export function ModifierAddDialog({
                         handleMainClick();
                       }
                     }}
-                    className={`flex flex-col p-4 text-left border rounded-lg transition-all group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                      isFullyApplied ? "bg-primary/10 border-primary" : 
-                      isPartiallyApplied || isApplied ? "bg-primary/5 border-primary/50 hover:border-primary" : 
-                      "bg-card/50 hover:border-primary/50"
-                    }`}
+                    className={`flex flex-col p-4 text-left border rounded-lg transition-all group relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary ${lastTouchedSku === mod.sku ? "ring-2 ring-primary border-primary shadow-sm" : ""
+                      } ${isFullyApplied ? "bg-primary/10 border-primary" :
+                        isPartiallyApplied || isApplied ? "bg-primary/5 border-primary/50 hover:border-primary" :
+                          "bg-card/50 hover:border-primary/50"
+                      }`}
                   >
                     <div className={`flex flex-col items-start w-full flex-1 text-left relative`}>
                       <div className="flex w-full justify-between items-start">
@@ -306,6 +484,7 @@ export function ModifierAddDialog({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          setLastTouchedSku(mod.sku);
                           if (stats) onRemove(mod.sku, stats.itemsWithIt);
                         }}
                         className="absolute top-2 right-2 p-1.5 rounded hover:bg-destructive/10 text-destructive/70 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
@@ -315,7 +494,7 @@ export function ModifierAddDialog({
                       </button>
                     )}
                     {(hasStates || hasInlineQty) && (
-                      <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-border/50">
+                      <div className="hidden md:flex flex-col gap-2 mt-3 pt-3 border-t border-border/50">
                         {hasStates && (
                           <div className="flex flex-wrap gap-1.5">
                             {mod.allowedStates?.map((stateOpt) => {
@@ -323,14 +502,15 @@ export function ModifierAddDialog({
                                 stateOpt.priceOverride !== null && stateOpt.priceOverride !== undefined
                                   ? stateOpt.priceOverride - mod.basePrice
                                   : 0;
-                              
+
                               const isStateApplied = stats?.appliedStates.has(stateOpt.state);
-                              
+
                               return (
                                 <button
                                   key={stateOpt.state}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setLastTouchedSku(mod.sku);
                                     const itemsWithThisState = parentItems?.filter(p => p.children.some(c => c.sku === mod.sku && c.selectedModifierState === stateOpt.state)) || [];
 
                                     if (stats && stats.appliedCount === 0) {
@@ -351,13 +531,12 @@ export function ModifierAddDialog({
                                       }
                                     }
                                   }}
-                                  className={`text-[10px] px-2 py-1 rounded font-medium flex items-center gap-1 transition-colors ${
-                                    isStateApplied 
-                                      ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE" 
-                                          ? "bg-destructive/15 text-destructive border border-destructive/30" 
-                                          : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30") 
+                                  className={`text-[10px] px-2 py-1 rounded font-medium flex items-center gap-1 transition-colors ${isStateApplied
+                                      ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE"
+                                        ? "bg-destructive/15 text-destructive border border-destructive/30"
+                                        : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30")
                                       : "bg-muted hover:bg-primary/20 hover:text-primary border border-transparent"
-                                  }`}
+                                    }`}
                                 >
                                   {stateOpt.state}
                                   {priceDiff !== 0 && (
@@ -381,6 +560,7 @@ export function ModifierAddDialog({
                                 disabled={!isApplied}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setLastTouchedSku(mod.sku);
                                   if (onUpdateInlineQty) onUpdateInlineQty(mod.sku, -inlineStep);
                                 }}
                               >
@@ -391,6 +571,7 @@ export function ModifierAddDialog({
                                 disabled={!isApplied}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setLastTouchedSku(mod.sku);
                                   setQtyPadTarget(mod.sku);
                                 }}
                               >
@@ -401,6 +582,7 @@ export function ModifierAddDialog({
                                 className="h-5 w-5 flex items-center justify-center hover:bg-muted hover:text-primary rounded text-muted-foreground transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  setLastTouchedSku(mod.sku);
                                   if (onUpdateInlineQty) onUpdateInlineQty(mod.sku, inlineStep);
                                 }}
                               >

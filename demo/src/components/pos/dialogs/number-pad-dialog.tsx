@@ -9,10 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { AlertTriangle, ArrowLeft, Delete, RotateCcw } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { usePreferencesStore } from "@/store/preferences-store";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 function snapQty(qty: number, increment: number): number {
   if (qty <= 0) return 0;
@@ -116,6 +117,83 @@ export function NumberPadDialog({
     onOpenChange(false);
   };
 
+  const displayArea = (
+    <div className="flex w-full min-w-0 gap-2">
+      <Input
+        readOnly
+        tabIndex={-1}
+        inputMode="none"
+        value={value !== "" ? value : (placeholder ?? String(min).replace(".", decimalChar))}
+        className={cn(
+          "flex h-16 md:h-20 flex-1 rounded-md border border-input bg-background px-3 font-mono text-3xl tracking-wider shadow-sm text-center min-w-0 cursor-default focus:outline-none select-none",
+          value === "" ? "text-muted-foreground" : "text-foreground"
+        )}
+      />
+      <Button
+        variant="outline"
+        className="h-16 w-16 md:h-20 md:w-20 shrink-0"
+        onClick={() => setValue("")}
+      >
+        <RotateCcw className="w-6 h-6 md:w-7 md:h-7" />
+      </Button>
+    </div>
+  );
+
+  const numpadArea = (
+    <div className="grid grid-cols-3 gap-2">
+      {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
+        <Button
+          key={digit}
+          variant="outline"
+          className="h-16 text-2xl font-semibold"
+          onClick={() => appendDigit(digit)}
+        >
+          {digit}
+        </Button>
+      ))}
+      <Button
+        variant="outline"
+        className="h-16 text-2xl font-semibold"
+        onClick={() => appendDigit(decimalChar)}
+      >
+        {decimalChar}
+      </Button>
+      <Button
+        variant="outline"
+        className="h-16 text-2xl font-semibold"
+        onClick={() => appendDigit("0")}
+      >
+        0
+      </Button>
+      <Button
+        variant="outline"
+        className="h-16"
+        onClick={() => setValue((prev) => prev.slice(0, -1))}
+      >
+        <Delete className="w-6 h-6 md:w-7 md:h-7" />
+      </Button>
+    </div>
+  );
+
+  const actionButtons = (
+    <>
+      <Button
+        variant="outline"
+        className="flex-1 h-16 md:h-20 text-xl font-semibold"
+        onClick={() => onOpenChange(false)}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleConfirm}
+        disabled={clamped === null && value !== ""}
+        className="flex-1 h-16 md:h-20 text-xl font-semibold"
+      >
+        {confirmLabel}
+      </Button>
+    </>
+  );
+
   return (
     <Dialog
       open={open}
@@ -125,7 +203,7 @@ export function NumberPadDialog({
       }}
     >
       <DialogContent
-        className="sm:max-w-md"
+        className="sm:max-w-md md:max-w-lg landscape:sm:max-w-2xl landscape:md:max-w-3xl max-h-[95vh] landscape:md:min-h-95 overflow-y-auto landscape:max-h-[95vh] landscape:overflow-hidden"
         onKeyDown={(e) => {
           if (/^[0-9]$/.test(e.key)) {
             e.preventDefault();
@@ -143,94 +221,47 @@ export function NumberPadDialog({
           }
         }}
       >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {icon || <ArrowLeft className="w-5 h-5 text-primary" />}
-            {title}
-          </DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
+        <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 h-full landscape:h-full landscape:overflow-hidden">
+          <div className="flex flex-col gap-3 flex-1 min-w-0 landscape:overflow-y-auto landscape:min-h-0">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {icon || <ArrowLeft className="w-5 h-5 text-primary" />}
+                {title}
+              </DialogTitle>
+              {description && <DialogDescription>{description}</DialogDescription>}
+            </DialogHeader>
 
-        <div className="space-y-3">
-          {extraContent}
-          <div className="flex gap-2">
-            <Input
-              value={value}
-              readOnly
-              inputMode="decimal"
-              className="h-12 text-center text-2xl font-mono tracking-wider flex-1"
-              placeholder={placeholder ?? String(min).replace(".", decimalChar)}
-            />
-            <Button
-              variant="outline"
-              className="h-12 w-12 shrink-0"
-              onClick={() => setValue("")}
-            >
-              <RotateCcw className="w-4 h-4" />
-            </Button>
+            {extraContent}
+            {displayArea}
+
+            {willSnap && (
+              <div className="text-[11px] text-amber-600 dark:text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md flex items-center gap-2 font-medium">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>
+                  Will be adjusted to <strong className="font-mono text-xs">{String(snapped).replace(".", decimalChar)}</strong> (increment of {increment}).
+                </span>
+              </div>
+            )}
+
+            {warning && (
+              <div className="text-[11px] text-amber-600 dark:text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md flex items-center gap-2 font-medium">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{warning}</span>
+              </div>
+            )}
+
+            <div className="hidden landscape:flex flex-row gap-3 pt-2 mt-auto w-full">
+              {actionButtons}
+            </div>
           </div>
 
-          {willSnap && (
-            <div className="text-[11px] text-amber-600 dark:text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md flex items-center gap-2 font-medium">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>
-                Will be adjusted to <strong className="font-mono text-xs">{String(snapped).replace(".", decimalChar)}</strong> (increment of {increment}).
-              </span>
-            </div>
-          )}
-
-          {warning && (
-            <div className="text-[11px] text-amber-600 dark:text-amber-500 bg-amber-500/10 px-3 py-2 rounded-md flex items-center gap-2 font-medium">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{warning}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-2">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
-              <Button
-                key={digit}
-                variant="outline"
-                className="h-12 text-lg font-semibold"
-                onClick={() => appendDigit(digit)}
-              >
-                {digit}
-              </Button>
-            ))}
-            <Button
-              variant="outline"
-              className="h-12 text-lg font-semibold"
-              onClick={() => appendDigit(decimalChar)}
-            >
-              {decimalChar}
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12 text-lg font-semibold"
-              onClick={() => appendDigit("0")}
-            >
-              0
-            </Button>
-            <Button
-              variant="outline"
-              className="h-12"
-              onClick={() => setValue((prev) => prev.slice(0, -1))}
-            >
-              <Delete className="w-4 h-4" />
-            </Button>
+          <div className="shrink-0 landscape:w-70 landscape:md:w-96 landscape:mt-8">
+            {numpadArea}
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={clamped === null && value !== ""}
-          >
-            {confirmLabel}
-          </Button>
+        <DialogFooter className="flex-row sm:flex-row gap-3 sm:gap-3 space-x-0 sm:space-x-0 pt-2 w-full landscape:hidden mt-2">
+          {actionButtons}
         </DialogFooter>
       </DialogContent>
     </Dialog>
