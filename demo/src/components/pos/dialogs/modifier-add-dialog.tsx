@@ -191,7 +191,7 @@ export function ModifierAddDialog({
               const formatInlineQty = (value: number) => formatNumber(value, precision > 0 ? precision : 0);
 
               return (
-                <div className="flex flex-col md:flex-row landscape:flex-col md:items-center landscape:items-start gap-4 md:gap-6 landscape:gap-4 p-4 border rounded-xl bg-card shrink-0 shadow-sm z-10 mx-1 landscape:mx-0 mt-2 landscape:mt-0">                  
+                <div className="flex flex-col md:flex-row landscape:flex-col md:items-center landscape:items-start gap-4 md:gap-6 landscape:gap-4 p-4 border rounded-xl bg-card shrink-0 shadow-sm z-10 mx-1 landscape:mx-0 mt-2 landscape:mt-0">
                   <div className="flex-1 flex flex-wrap landscape:flex-nowrap landscape:flex-col items-end landscape:items-stretch gap-4 md:gap-6 landscape:gap-4 w-full">
                     {hasStates && (
                       <div className="flex flex-col gap-1 md:border-r landscape:border-r-0 md:pr-6 landscape:pr-0 border-border/50 w-full md:w-auto landscape:w-full">
@@ -211,10 +211,10 @@ export function ModifierAddDialog({
                                 size="lg"
                                 variant={isStateApplied ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE" ? "destructive" : "default") : "outline"}
                                 className={`h-14 px-4 text-sm font-bold flex flex-col gap-0.5 min-w-20 ${isStateApplied
-                                    ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE"
-                                      ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      : "bg-emerald-600 text-white hover:bg-emerald-700")
-                                    : "bg-background"
+                                  ? (stateOpt.state === "NO" || stateOpt.state === "LESS" || stateOpt.state === "REMOVE" || stateOpt.state === "EXCLUDE"
+                                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    : "bg-emerald-600 text-white hover:bg-emerald-700")
+                                  : "bg-background"
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -253,10 +253,10 @@ export function ModifierAddDialog({
                     )}
 
                     <div className="flex items-end landscape:items-start landscape:flex-col justify-between w-full md:w-auto landscape:w-full gap-2 md:gap-4">
-                      
+
 
                       <div className={`md:pl-4 landscape:pl-0 md:border-l landscape:border-l-0 border-border/50 shrink-0 flex items-center gap-2 landscape:pt-2 landscape:border-t `
-                        + hasInlineQty ? ``: `w-full`
+                        + hasInlineQty ? `` : `w-full`
                       }>
                         {stats?.allowDuplicates && isApplied && parentItems && parentItems.length === 1 && (
                           <Button
@@ -350,7 +350,7 @@ export function ModifierAddDialog({
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
                   {filtered.map((mod) => {
                     const defaultState = mod.allowedStates?.find(
-                      (s) => s.state === "ADD" || s.state === "WITH"
+                      (s) => s.state === "Add" || s.state === "With"
                     )?.state || mod.allowedStates?.[0]?.state || undefined;
 
                     const hasStates = mod.allowedStates && mod.allowedStates.length > 0;
@@ -377,6 +377,40 @@ export function ModifierAddDialog({
                     const isPartiallyApplied = stats && stats.appliedCount > 0 && stats.appliedCount < stats.totalParents;
                     const isApplied = stats && stats.appliedCount > 0;
 
+                    let displayPrice = mod.basePrice;
+                    let isMixedPrice = false;
+                    if (isApplied) {
+                      let uniquePrice: number | null = null;
+
+                      parentItems?.forEach((parent) => {
+                        const modChildren = parent.children.filter((c) => c.sku === mod.sku);
+                        modChildren.forEach((child) => {
+                          let childPrice = mod.basePrice;
+                          if (child.selectedModifierState) {
+                            const stateOpt = mod.allowedStates?.find(
+                              (s) => s.state === child.selectedModifierState
+                            );
+                            if (
+                              stateOpt &&
+                              stateOpt.priceOverride !== null &&
+                              stateOpt.priceOverride !== undefined
+                            ) {
+                              childPrice = stateOpt.priceOverride;
+                            }
+                          }
+                          if (uniquePrice === null) {
+                            uniquePrice = childPrice;
+                          } else if (uniquePrice !== childPrice) {
+                            isMixedPrice = true;
+                          }
+                        });
+                      });
+
+                      if (!isMixedPrice && uniquePrice !== null) {
+                        displayPrice = uniquePrice;
+                      }
+                    }
+
                     const handleMainClick = () => {
                       setLastTouchedSku(mod.sku);
 
@@ -389,61 +423,11 @@ export function ModifierAddDialog({
                       } else {
                         if (stats && stats.appliedCount === 0) {
                           onAdd(mod.sku, defaultState);
-                        } else if (!isFullyApplied || stats?.allowDuplicates) {
+                        } else if ((!isFullyApplied || stats?.allowDuplicates) && mod.allowedStates?.length == 0) {
                           setActionPrompt({ sku: mod.sku, defaultState });
                         }
                       }
                     };
-
-                    if (actionPrompt?.sku === mod.sku) {
-                      const targetState = actionPrompt.defaultState;
-                      const itemsWithSpecificState = parentItems?.filter(p =>
-                        p.children.some(c => c.sku === mod.sku && c.selectedModifierState === targetState)
-                      ) || [];
-                      const specificStateCount = itemsWithSpecificState.length;
-
-                      return (
-                        <div key={mod.sku} className="flex flex-col p-4 text-left border rounded-lg border-primary bg-primary/5">
-                          <span className="text-sm font-semibold text-foreground mb-3">Edit {mod.name}</span>
-                          <div className="space-y-2">
-                            {stats && stats.itemsWithoutIt.length > 0 && stats.appliedCount > 0 && (
-                              <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => {
-                                if (onUpdateState) onUpdateState(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt);
-                                else onAdd(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt);
-                                setActionPrompt(null);
-                              }}>
-                                Apply {actionPrompt.defaultState || "Add"} to {stats.itemsWithoutIt.length} remaining
-                              </Button>
-                            )}
-                            {stats && stats.appliedCount > 0 && parentItems && parentItems.length > 1 && (
-                              <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => {
-                                if (onUpdateState && actionPrompt.defaultState) onUpdateState(mod.sku, actionPrompt.defaultState);
-                                else onAdd(mod.sku, actionPrompt.defaultState);
-                                setActionPrompt(null);
-                              }}>
-                                Apply {actionPrompt.defaultState || "Add"} to all {stats.totalParents} items
-                              </Button>
-                            )}
-                            {stats && stats.allowDuplicates && parentItems && parentItems.length === 1 && (
-                              <Button size="sm" variant="secondary" className="w-full text-xs h-8" onClick={() => {
-                                onAdd(mod.sku, actionPrompt.defaultState);
-                                setActionPrompt(null);
-                              }}>
-                                Add another
-                              </Button>
-                            )}
-                            {specificStateCount > 0 && (
-                              <Button size="sm" variant="destructive" className="w-full text-xs h-8" onClick={() => { onRemove(mod.sku, itemsWithSpecificState.map(i => i.lineId)); setActionPrompt(null); }}>
-                                Remove{targetState ? ` ${targetState}` : ""}{parentItems && parentItems.length > 1 ? ` from ${specificStateCount} items` : ''}
-                              </Button>
-                            )}
-                            <Button size="sm" variant="ghost" className="w-full text-xs h-8" onClick={() => setActionPrompt(null)}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    }
 
                     return (
                       <div
@@ -483,7 +467,11 @@ export function ModifierAddDialog({
                             {mod.sku}
                           </span>
                           <span className="text-sm font-bold text-foreground/80 mt-2 font-mono">
-                            {mod.basePrice > 0 ? `+$${formatNumber(mod.basePrice, 2)}` : "Free"}
+                            {isMixedPrice
+                              ? "Mixed"
+                              : displayPrice !== 0
+                                ? `${displayPrice > 0 ? "+" : "-"}$${formatNumber(Math.abs(displayPrice), 2)}`
+                                : "Free"}
                           </span>
                           {(!isFullyApplied || stats?.allowDuplicates) && !isApplied && (
                             <span className="absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -612,6 +600,20 @@ export function ModifierAddDialog({
             </div>
           </div>
         </div>
+        {actionPrompt && (() => {
+          const mod = modifiers.find(m => m.sku === actionPrompt.sku);
+          if (!mod) return null;
+          const stats = modifierStats.get(actionPrompt.sku);
+          const targetState = actionPrompt.defaultState;
+          const itemsWithSpecificState = parentItems?.filter(p =>
+            p.children.some(c => c.sku === mod.sku && c.selectedModifierState === targetState)
+          ) || [];
+          const specificStateCount = itemsWithSpecificState.length;
+
+          return (
+            ModifierCollisionDialog(actionPrompt, setActionPrompt, mod, stats, onUpdateState, onAdd, parentItems, specificStateCount, onRemove, itemsWithSpecificState, targetState)
+          )
+        })()}
         {qtyPadTarget && (() => {
           const mod = modifiers.find((m) => m.sku === qtyPadTarget);
           if (!mod) return null;
@@ -641,3 +643,51 @@ export function ModifierAddDialog({
     </Dialog>
   );
 }
+function ModifierCollisionDialog(actionPrompt: { sku: string; defaultState?: string; }, setActionPrompt: React.Dispatch<React.SetStateAction<{ sku: string; defaultState?: string; } | null>>, mod: CatalogItemEntry, stats: { appliedCount: number; canAddCount: number; totalParents: number; allowDuplicates: boolean; itemsWithoutIt: string[]; itemsWithIt: string[]; appliedStates: Set<string>; currentInlineQty: number | null; } | undefined, onUpdateState: ((sku: string, newState?: string, targetLineIds?: string[]) => void) | undefined, onAdd: (sku: string, defaultState?: string, targetLineIds?: string[]) => void, parentItems: ProjectedLineItem[] | undefined, specificStateCount: number, onRemove: (sku: string, targetLineIds?: string[]) => void, itemsWithSpecificState: ProjectedLineItem[], targetState: string | undefined): React.ReactNode {
+  return <Dialog open={actionPrompt !== null} onOpenChange={(isOpen) => { if (!isOpen) setActionPrompt(null); }}>
+    <DialogContent className="sm:max-w-xs">
+      <DialogHeader>
+        <DialogTitle>Edit {mod.name}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-2 py-2">
+        {stats && stats.itemsWithoutIt.length > 0 && stats.appliedCount > 0 && (
+          <Button size="sm" variant="secondary" className="w-full text-xs h-10" onClick={() => {
+            if (onUpdateState) onUpdateState(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt);
+            else onAdd(mod.sku, actionPrompt.defaultState, stats.itemsWithoutIt);
+            setActionPrompt(null);
+          }}>
+            Apply {actionPrompt.defaultState || "Add"} to {stats.itemsWithoutIt.length} remaining
+          </Button>
+        )}
+        {stats && stats.appliedCount > 0 && parentItems && parentItems.length > 1 && (
+          <Button size="sm" variant="secondary" className="w-full text-xs h-10" onClick={() => {
+            if (onUpdateState && actionPrompt.defaultState) onUpdateState(mod.sku, actionPrompt.defaultState);
+            else onAdd(mod.sku, actionPrompt.defaultState);
+            setActionPrompt(null);
+          }}>
+            Apply {actionPrompt.defaultState || "Add"} to all {stats.totalParents} items
+          </Button>
+        )}
+        {stats && stats.allowDuplicates && parentItems && parentItems.length === 1 && (
+          <Button size="sm" variant="secondary" className="w-full text-xs h-10" onClick={() => {
+            onAdd(mod.sku, actionPrompt.defaultState);
+            setActionPrompt(null);
+          }}>
+            Add another
+          </Button>
+        )}
+        {specificStateCount > 0 && (
+          <Button size="sm" variant="destructive" className="w-full text-xs h-10" onClick={() => { onRemove(mod.sku, itemsWithSpecificState.map(i => i.lineId)); setActionPrompt(null); }}>
+            Remove{targetState ? ` ${targetState}` : ""}{parentItems && parentItems.length > 1 ? ` from ${specificStateCount} items` : ''}
+          </Button>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" className="w-full" onClick={() => setActionPrompt(null)}>
+          Cancel
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>;
+}
+
