@@ -27,6 +27,18 @@ import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { LineItemActions } from "./line-item-actions";
 import { LineItemMainQty, LineItemInlineQty } from "./line-item-qty-controls";
 
+// One color per depth level, cycling past depth 5.
+const DEPTH_COLORS = [
+  "border-muted",
+  "border-primary/30",
+  "border-emerald-500/30",
+  "border-amber-500/30",
+  "border-rose-500/30",
+];
+function depthColor(depth: number) {
+  return DEPTH_COLORS[Math.min(depth, DEPTH_COLORS.length - 1)];
+}
+
 export function LineItemNode({
   item,
   allocations,
@@ -194,11 +206,15 @@ export function LineItemNode({
   const isComboChoice = !!comboChoiceEntry;
   const slotSku = comboChoiceEntry?.slotSku;
 
+  const validChildren = item.children.filter((child) => child.name !== "");
+
+  // Color for the connectors drawn by *this* node's children list.
+  // Children at depth N+1 use depthColor(N).
+  const childConnectorColor = depthColor(depth);
+
   return (
     <>
-      <div
-        className={`group relative ${depth > 0 ? "ml-4 border-l-2 border-muted pl-3" : ""}`}
-      >
+      <div className="group relative">
         <div
           className={`rounded-lg border p-3 transition-all ${isSelectable
               ? isSelected
@@ -245,7 +261,7 @@ export function LineItemNode({
                     />
                   </div>
                 )}
-                {item.children.some((child) => child.name !== "") ? (
+                {validChildren.length > 0 ? (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -316,28 +332,18 @@ export function LineItemNode({
                 )}
 
                 {item.basePrice === 0 && (
-                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1">
-                    mod
-                  </Badge>
+                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1">mod</Badge>
                 )}
                 {isCanceled && (
-                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">
-                    Void
-                  </Badge>
+                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">Void</Badge>
                 )}
                 {isPending && !isCanceled && (
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                  >
+                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                     *new*
                   </Badge>
                 )}
                 {isChanged && !isCanceled && (
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] h-3.5 px-1 bg-amber-500/10 text-amber-600 border border-amber-500/20"
-                  >
+                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1 bg-amber-500/10 text-amber-600 border border-amber-500/20">
                     *changed*
                   </Badge>
                 )}
@@ -347,10 +353,7 @@ export function LineItemNode({
                   </Badge>
                 )}
                 {hasSplitPayment && (
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] h-3.5 px-1 border-primary/40 text-primary"
-                  >
+                  <Badge variant="outline" className="text-[9px] h-3.5 px-1 border-primary/40 text-primary">
                     <Split className="w-2.5 h-2.5 mr-0.5" />
                     split
                   </Badge>
@@ -485,38 +488,75 @@ export function LineItemNode({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Children ── */}
-      {!isCollapsed &&
-        item.children
-          .filter((child) => child.name !== "")
-          .map((child) => (
-            <LineItemNode
-              key={child.lineId}
-              item={child}
-              allocations={allocations}
-              defaultPaymentAllocId={defaultPaymentAllocId}
-              onRemove={onRemove}
-              onAddModifier={onAddModifier}
-              onAddNote={onAddNote}
-              onAllocConfig={onAllocConfig}
-              onSwapComboChoice={onSwapComboChoice}
-              onDuplicateItem={onDuplicateItem}
-              depth={depth + 1}
-              modifiers={modifiers}
-              guests={guests}
-              isSelected={selectedLineIds?.has(child.lineId)}
-              selectedLineIds={selectedLineIds}
-              onSelectToggle={onSelectToggle}
-              isCollapsed={collapsedItems?.has(child.lineId)}
-              onToggleCollapse={onToggleCollapse}
-              collapsedItems={collapsedItems}
-              detailLevel={detailLevel}
-              isCompactMode={isCompactMode}
-              hideCanceled={hideCanceled}
-            />
-          ))}
+        {/* ── Children ── */}
+        {/*
+          File-explorer connector strategy:
+          - The children container has a left border = the vertical trunk line.
+          - Each child gets a relative wrapper with an absolutely-positioned
+            horizontal elbow that meets the trunk and the card edge.
+          - The last child's elbow is an L-shape (no trunk below it), drawn
+            with border-b + border-l + rounded-bl. Non-last children just get
+            a horizontal tick (border-t) since the trunk continues beneath them.
+          - All connector lines use the same color class so depth levels
+            are visually distinct.
+        */}
+        {!isCollapsed && validChildren.length > 0 && (
+          <div
+            className={`ml-4 mt-1 flex flex-col gap-1.5 border-l-2 ${childConnectorColor}`}
+          >
+            {validChildren.map((child, index) => {
+              const isLast = index === validChildren.length - 1;
+              return (
+                <div key={child.lineId} className="relative pl-4">
+                  {/*
+                    Horizontal elbow connector.
+                    - For non-last: a simple horizontal tick at mid-card-top (~12px down).
+                    - For last: an L-shape that also terminates the vertical trunk.
+                    Both are pinned to the left edge of pl-4 padding (left: -1px overlaps the trunk border).
+                  */}
+                  {isLast ? (
+                    // L-shape: vertical segment from top down to mid, then horizontal to card
+                    <span
+                      className={`pointer-events-none absolute -left-px top-0 h-4 w-4 border-b-2 border-l-2 rounded-bl-md ${childConnectorColor}`}
+                      aria-hidden
+                    />
+                  ) : (
+                    // Horizontal tick only; the trunk border continues vertically
+                    <span
+                      className={`pointer-events-none absolute -left-px top-4 h-px w-4 border-t-2 ${childConnectorColor}`}
+                      aria-hidden
+                    />
+                  )}
+                  <LineItemNode
+                    item={child}
+                    allocations={allocations}
+                    defaultPaymentAllocId={defaultPaymentAllocId}
+                    onRemove={onRemove}
+                    onAddModifier={onAddModifier}
+                    onAddNote={onAddNote}
+                    onAllocConfig={onAllocConfig}
+                    onSwapComboChoice={onSwapComboChoice}
+                    onDuplicateItem={onDuplicateItem}
+                    depth={depth + 1}
+                    modifiers={modifiers}
+                    guests={guests}
+                    isSelected={selectedLineIds?.has(child.lineId)}
+                    selectedLineIds={selectedLineIds}
+                    onSelectToggle={onSelectToggle}
+                    isCollapsed={collapsedItems?.has(child.lineId)}
+                    onToggleCollapse={onToggleCollapse}
+                    collapsedItems={collapsedItems}
+                    detailLevel={detailLevel}
+                    isCompactMode={isCompactMode}
+                    hideCanceled={hideCanceled}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* ── Number pad dialog ── */}
       {qtyPadTarget && (
