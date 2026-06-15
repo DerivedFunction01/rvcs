@@ -996,7 +996,7 @@ export function FulfillmentAllocationDialog({
                 onClick={() => onOpenChange(false)}
                 className="w-full sm:w-auto"
               >
-                Close Dialog
+                Close
               </Button>
             </DialogFooter>
           </div>
