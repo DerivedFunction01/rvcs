@@ -78,7 +78,8 @@ export enum ConfigUpdateMode {
 
 export enum ConfigType{
   Config = "config",
-  Custom = "custom"
+  Custom = "custom",
+  Guest = "guest"
 }
 export enum AllocationContext {
   Item = "item",

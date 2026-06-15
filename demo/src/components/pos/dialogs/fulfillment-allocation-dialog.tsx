@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ConfigType, FloorConfig } from "@/lib/pos/types";
+import { ConfigType, FloorConfig, FloorObjectKind } from "@/lib/pos/types";
 import { AllocationContext, ConfigUpdateMode, OrderType } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
 import { formatFulfillmentTime } from "@/lib/pos/utils";
@@ -103,8 +103,8 @@ export function FulfillmentAllocationDialog({
   );
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
 
-  const [destType, setDestType] = useState<"table" | "guest" | ConfigType.Custom>(
-    "guest",
+  const [destType, setDestType] = useState<ConfigType | FloorObjectKind>(
+   ConfigType.Guest,
   );
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
@@ -161,11 +161,11 @@ export function FulfillmentAllocationDialog({
           meta.destinationId &&
           guests.some((g) => g.id === meta.destinationId)
         ) {
-          setDestType("guest");
+          setDestType(ConfigType.Guest);
           setSelectedGuestId(meta.destinationId);
           setCustomDestLabel("");
         } else if (meta.destinationId) {
-          setDestType("table");
+          setDestType(FloorObjectKind.Table);
           setSelectedTableId(meta.destinationId);
           setCustomDestLabel("");
         } else {
@@ -176,7 +176,7 @@ export function FulfillmentAllocationDialog({
         setMethod(OrderType.WalkIn);
         setTimeType(TimeBlockType.Immediate);
         setCalculatedAt(null);
-        setDestType("guest");
+        setDestType(ConfigType.Guest);
         setSelectedGuestId(guests[0]?.id || null);
         setSelectedTableId(null);
         setCustomDestLabel("");
@@ -189,7 +189,7 @@ export function FulfillmentAllocationDialog({
     const tables: Array<{ id: string; label: string }> = [];
     for (const floor of floorConfigs) {
       for (const obj of floor.objects) {
-        if (obj.kind === "table") {
+        if (obj.kind === FloorObjectKind.Table) {
           tables.push({
             id: obj.id,
             label: obj.displayName || obj.label || `Table ${obj.id}`,
@@ -202,10 +202,10 @@ export function FulfillmentAllocationDialog({
 
   // Set default selections based on destination type change
   useEffect(() => {
-    if (destType === "table" && !selectedTableId && allTables.length > 0) {
+    if (destType === FloorObjectKind.Table && !selectedTableId && allTables.length > 0) {
       setSelectedTableId(allTables[0].id);
     }
-    if (destType === "guest" && !selectedGuestId && guests.length > 0) {
+    if (destType === ConfigType.Guest && !selectedGuestId && guests.length > 0) {
       setSelectedGuestId(guests[0].id);
     }
   }, [destType, allTables, selectedTableId, guests, selectedGuestId]);
@@ -281,7 +281,7 @@ export function FulfillmentAllocationDialog({
                 ? "Delivery"
                 : f.method;
 
-        const destLabel = f.fulfillmentMetadata.destinationLabel || "Guest";
+        const destLabel = f.fulfillmentMetadata.destinationLabel || ConfigType.Guest;
         const timeLabel =
           f.time.type === TimeBlockType.Immediate || !f.time.calculatedAt
             ? "Immediate"
@@ -344,7 +344,7 @@ export function FulfillmentAllocationDialog({
     return {
       id: activeFulfillmentConfigId,
       methodLabel,
-      destLabel: alloc.fulfillmentMetadata.destinationLabel || "Guest",
+      destLabel: alloc.fulfillmentMetadata.destinationLabel || ConfigType.Guest,
       timeLabel:
         alloc.time.type === TimeBlockType.Immediate || !alloc.time.calculatedAt
           ? "Immediate"
@@ -360,16 +360,16 @@ export function FulfillmentAllocationDialog({
 
   // Resolve destination details based on state
   const resolvedDestination = useMemo(() => {
-    let label = "Guest";
+    let label: FloorObjectKind | ConfigType | string = ConfigType.Guest;
     let id: string | null = null;
 
-    if (destType === "table") {
+    if (destType === FloorObjectKind.Table) {
       const t = allTables.find((x) => x.id === selectedTableId);
-      label = t ? t.label : "Table";
+      label = t ? t.label : FloorObjectKind.Table;
       id = selectedTableId;
-    } else if (destType === "guest") {
+    } else if (destType === ConfigType.Guest) {
       const g = guests.find((x) => x.id === selectedGuestId);
-      label = g ? g.alias || `Guest ${g.number}` : "Guest";
+      label = g ? g.alias || `Guest ${g.number}` : ConfigType.Guest;
       id = selectedGuestId;
     } else {
       label = customDestLabel.trim() || "Guest Address";
@@ -465,11 +465,11 @@ export function FulfillmentAllocationDialog({
           meta.destinationId &&
           guests.some((g) => g.id === meta.destinationId)
         ) {
-          setDestType("guest");
+          setDestType(ConfigType.Guest);
           setSelectedGuestId(meta.destinationId);
           setCustomDestLabel("");
         } else if (meta.destinationId) {
-          setDestType("table");
+          setDestType(FloorObjectKind.Table);
           setSelectedTableId(meta.destinationId);
           setCustomDestLabel("");
         } else {
@@ -690,9 +690,9 @@ export function FulfillmentAllocationDialog({
               </label>
               <div className="flex gap-2">
                 {[
-                  { id: "guest", label: "Guest Pointer", icon: User },
-                  { id: "table", label: "Table layout", icon: Grid2x2 },
-                  { id: ConfigType.Custom, label: "Custom Location", icon: Truck },
+                  { id: ConfigType.Guest, label: "Guest", icon: User },
+                  { id: FloorObjectKind.Table, label: "Table", icon: Grid2x2 },
+                  { id: ConfigType.Custom, label: "Custom", icon: Truck },
                 ].map((item) => {
                   const Icon = item.icon;
                   const active = destType === item.id;
@@ -712,7 +712,7 @@ export function FulfillmentAllocationDialog({
 
               {/* Destination Detail Picker */}
               <div className="mt-2 rounded-lg border p-3 bg-muted/10 space-y-2">
-                {destType === "guest" && (
+                {destType === ConfigType.Guest && (
                   <div className="space-y-1">
                     <span className="text-[10px] text-muted-foreground uppercase font-semibold">
                       Select Guest
@@ -736,7 +736,7 @@ export function FulfillmentAllocationDialog({
                   </div>
                 )}
 
-                {destType === "table" && (
+                {destType === FloorObjectKind.Table && (
                   <div className="space-y-1">
                     <span className="text-[10px] text-muted-foreground uppercase font-semibold">
                       Select Table
@@ -948,7 +948,7 @@ export function FulfillmentAllocationDialog({
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                            className="h-7 w-7 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
                             title="Edit configuration"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -960,7 +960,7 @@ export function FulfillmentAllocationDialog({
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                            className="h-7 w-7 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
                             title="Duplicate configuration"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -971,7 +971,7 @@ export function FulfillmentAllocationDialog({
                           </Button>
                           <Badge
                             variant="outline"
-                            className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40"
+                            className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40 hidden sm:block"
                           >
                             Saved
                           </Badge>
