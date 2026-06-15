@@ -12,7 +12,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ViewMode } from "@/lib/pos/types";
-import { GUEST_PALETTE } from "@/lib/pos/ui-utils";
+import { usePreferencesStore } from "@/store/preferences-store";
+import { useVCSStore } from "@/store/vcs-store";
 import { ChevronsUpDown, Clock, Layers, LayoutList, User } from "lucide-react";
 
 interface ActiveCheckActionFilterBarProps {
@@ -56,6 +57,8 @@ export function ActiveCheckActionFilterBar({
   isCompactMode,
   setIsCompactMode,
 }: ActiveCheckActionFilterBarProps) {
+  const globalGuestPalette = usePreferencesStore((state) => state.defaultPrefs.globalDepthColors) || ["#94a3b8"];
+
   return (
     <div className="flex items-center gap-2 pl-4 border-l border-primary/10">
       <Badge variant="secondary" className="text-[10px] h-6 flex items-center">
@@ -136,9 +139,8 @@ export function ActiveCheckActionFilterBar({
                     }`}
                   >
                     <div
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        GUEST_PALETTE[idx % GUEST_PALETTE.length]
-                      }`}
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
                     />
                     <span className="truncate flex-1">
                       {g.alias || `Guest ${g.number}`}
@@ -195,9 +197,8 @@ export function ActiveCheckActionFilterBar({
                     }`}
                   >
                     <div
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        GUEST_PALETTE[idx % GUEST_PALETTE.length]
-                      }`}
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
                     />
                     <span className="truncate flex-1">
                       {g.alias || `Guest ${g.number}`}

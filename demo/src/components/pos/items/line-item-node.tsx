@@ -26,6 +26,7 @@ import { useState } from "react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { LineItemActions } from "./line-item-actions";
 import { LineItemMainQty, LineItemInlineQty } from "./line-item-qty-controls";
+import { usePreferencesStore } from "@/store/preferences-store";
 
 export function LineItemNode({
   item,
@@ -81,7 +82,7 @@ export function LineItemNode({
 
   const catalog = useVCSStore((state) => state.catalog);
   const projectedState = useVCSStore((state) => state.projectedState);
-  const globalDepthColors = useVCSStore((state) => state.globalDepthColors);
+  const globalDepthColors = usePreferencesStore((state) => state.defaultPrefs.globalDepthColors) || ["#94a3b8"];
   const rawAllocations = projectedState.allocations;
   const formatNumber = useFormatNumber();
 
@@ -245,10 +246,12 @@ export function LineItemNode({
                     title={`Assignee: ${assigneeName || "Guest"}\nPayer: ${paymentAllocs.length > 1 ? "Multiple (Split)" : payerName || "Guest"}`}
                   >
                     <div
-                      className={`w-2.5 h-2.5 rounded-full border border-background z-10 ${getGuestColor(assigneeId, guests)}`}
+                      className="w-2.5 h-2.5 rounded-full border border-background z-10"
+                      style={{ background: getGuestColor(assigneeId, guests) }}
                     />
                     <div
-                      className={`w-2.5 h-2.5 rounded-full border border-background ${getGuestColor(payerId, guests)}`}
+                      className="w-2.5 h-2.5 rounded-full border border-background"
+                      style={{ background: getGuestColor(payerId, guests) }}
                     />
                   </div>
                 )}

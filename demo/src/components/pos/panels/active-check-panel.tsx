@@ -289,7 +289,8 @@ export function ActiveCheckPanel(props: any) {
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div
-                            className={`w-2 h-2 rounded-full shrink-0 ${getGuestColor(pb.person, guests)}`}
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: getGuestColor(pb.person, guests) }}
                           />
                           <span className="truncate font-medium">
                             {resolveGuestName(pb.person)}

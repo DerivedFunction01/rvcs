@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { GUEST_PALETTE } from "@/lib/pos/ui-utils";
+import { usePreferencesStore } from "@/store/preferences-store";
 import { useVCSStore } from "@/store/vcs-store";
 import { Minus, Pencil, Plus, Search, User, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -138,6 +138,7 @@ export function GuestPickerDialog({
   const [query, setQuery] = useState("");
   const getGuests = useVCSStore((s) => s.guests);
   const allocationsState = useVCSStore((s) => s.projectedState.allocations);
+  const globalGuestPalette = usePreferencesStore((state) => state.defaultPrefs.globalDepthColors) || ["#94a3b8"];
   const guests = useMemo(() => getGuests(), [getGuests, allocationsState]);
   useEffect(() => {
     if (open) setQuery("");
@@ -188,7 +189,8 @@ export function GuestPickerDialog({
                 >
                   <div className="flex items-center justify-between w-full">
                     <span
-                      className={`w-2.5 h-2.5 rounded-full ${GUEST_PALETTE[idx % GUEST_PALETTE.length]}`}
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
                     />
                     <Button
                       variant="ghost"
