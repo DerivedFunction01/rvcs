@@ -459,11 +459,11 @@ export function LineItemNode({
             <div className="flex flex-col items-end shrink-0 gap-1.5">
               {isCanceled && item.basePrice > 0 ? (
                 <span className="font-mono font-semibold tabular-nums text-muted-foreground line-through opacity-70">
-                  ${formatNumber(item.basePrice * item.canceledQty, 2)}
+                  ${formatNumber(item.basePrice * item.canceledQty, 2, 30)}
                 </span>
               ) : item.totalPrice > 0 ? (
                 <span className="font-mono font-semibold text-foreground tabular-nums">
-                  ${formatNumber(item.totalPrice, 2)}
+                  ${formatNumber(item.totalPrice, 2, 30)}
                 </span>
               ) : null}
               {!isCanceled && !isCompactMode && (
