@@ -2688,6 +2688,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const deltas: Delta[] = [];
       const newLineIds: string[] = [];
       let lockedSkipped = false;
+      let zeroSkipped = false;
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -2711,6 +2712,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           if (splitQty > 0) {
             splitQty = snapQty(splitQty, increment);
             splitQty = Math.min(item.qty, splitQty);
+          } else {
+            zeroSkipped = true;
           }
 
           if (splitQty > 0) {
@@ -2766,10 +2769,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const deltas: Delta[] = [];
       const newLineIds: string[] = [];
       let lockedSkipped = false;
+      let zeroSkipped = false;
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
-        if (item && item.qty > splitQty && splitQty > 0) {
+        if (item) {
+          if (splitQty <= 0) {
+            zeroSkipped = true;
+            continue;
+          }
+          if (item.qty > splitQty) {
           const catalogEntry = store.catalog[item.sku];
 
           if (isMainQtyLocked(catalogEntry)) {
@@ -2811,6 +2820,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                 deltas.push(...cloneDeltas);
               }
             }
+          }
           }
         }
       }
