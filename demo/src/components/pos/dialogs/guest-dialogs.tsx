@@ -13,6 +13,7 @@ import { usePreferencesStore } from "@/store/preferences-store";
 import { useVCSStore } from "@/store/vcs-store";
 import { Minus, Pencil, Plus, Search, User, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { NumberPadDialog } from "./number-pad-dialog";
 
 export function AddGuestDialog({
   open,
@@ -28,6 +29,7 @@ export function AddGuestDialog({
 
   const [count, setCount] = useState(1);
   const [alias, setAlias] = useState("");
+  const [numPadOpen, setNumPadOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -49,9 +51,21 @@ export function AddGuestDialog({
     onOpenChange(false);
   };
 
+  const actionButtons = (
+    <>
+      <Button variant="outline" className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={() => onOpenChange(false)}>
+        Cancel
+      </Button>
+      <Button className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={handleSubmit}>
+        Add {count} Guest{count !== 1 ? "s" : ""}
+      </Button>
+    </>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md landscape:sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" /> Add Guests
@@ -61,42 +75,39 @@ export function AddGuestDialog({
             numbered.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Number of guests to add
-            </label>
-            <div className="flex items-center gap-4 sm:gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-14 w-14 sm:h-8 sm:w-8 shrink-0"
-                onClick={() => setCount(Math.max(1, count - 1))}
-              >
-                <Minus className="w-6 h-6 sm:w-3.5 sm:h-3.5" />
-              </Button>
-              <Input
-                type="number"
-                value={count}
-                onChange={(e) =>
-                  setCount(Math.max(1, parseInt(e.target.value) || 1))
-                }
-                className="h-14 sm:h-8 w-24 sm:w-20 text-center text-xl sm:text-xs font-mono"
-                min={1}
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-14 w-14 sm:h-8 sm:w-8 shrink-0"
-                onClick={() => setCount(count + 1)}
-              >
-                <Plus className="w-6 h-6 sm:w-3.5 sm:h-3.5" />
-              </Button>
+        <div className="flex flex-col landscape:flex-row gap-4 items-end py-2">
+          <div className="flex flex-col landscape:flex-row gap-4 flex-1 min-w-0 w-full">
+            <div className="space-y-1.5 shrink-0">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Number of guests to add
+              </label>
+              <div className="flex items-center gap-4 sm:gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-14 w-14 sm:h-12 sm:w-12 shrink-0"
+                  onClick={() => setCount(Math.max(1, count - 1))}
+                >
+                  <Minus className="w-6 h-6 sm:w-5 sm:h-5" />
+                </Button>
+                <button
+                  className="flex items-center justify-center h-14 sm:h-12 w-24 sm:w-24 text-center text-xl sm:text-lg font-mono border border-input rounded-md bg-background shadow-sm hover:bg-accent transition-colors"
+                  onClick={() => setNumPadOpen(true)}
+                >
+                  {count}
+                </button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-14 w-14 sm:h-12 sm:w-12 shrink-0"
+                  onClick={() => setCount(count + 1)}
+                >
+                  <Plus className="w-6 h-6 sm:w-5 sm:h-5" />
+                </Button>
+              </div>
             </div>
-          </div>
-          {count === 1 && (
-            <>
-              <div className="space-y-1.5 mt-4">
+            {count === 1 && (
+              <div className="space-y-1.5 flex-1 min-w-0 w-full">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Alias / Name (Optional)
                 </label>
@@ -105,25 +116,36 @@ export function AddGuestDialog({
                   value={alias}
                   onChange={(e) => setAlias(e.target.value)}
                   placeholder="e.g. John"
-                  className="h-14 sm:h-9 text-base sm:text-sm"
+                  className="h-14 sm:h-12 text-base"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSubmit();
                   }}
                 />
               </div>
-            </>
-          )}
+            )}
+          </div>
+          <div className="hidden landscape:flex flex-row gap-2 shrink-0">
+            {actionButtons}
+          </div>
         </div>
-        <DialogFooter className="gap-3 sm:gap-2 flex-col sm:flex-row pt-2">
-          <Button variant="outline" className="h-14 sm:h-10 text-base sm:text-sm w-full sm:w-auto" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button className="h-14 sm:h-10 text-base sm:text-sm w-full sm:w-auto" onClick={handleSubmit}>
-            Add {count} Guest{count !== 1 ? "s" : ""}
-          </Button>
+        <DialogFooter className="gap-3 sm:gap-2 flex-row sm:flex-row pt-2 landscape:hidden w-full space-x-0 sm:space-x-0">
+          {actionButtons}
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      {numPadOpen && (
+        <NumberPadDialog
+          open={numPadOpen}
+          onOpenChange={setNumPadOpen}
+          title="Number of Guests"
+          description="Set the number of guests to add"
+          initialValue={count}
+          min={1}
+          increment={1}
+          onConfirm={(val) => setCount(val)}
+        />
+      )}
+    </>
   );
 }
 
@@ -151,30 +173,30 @@ export function GuestPickerDialog({
 
   const searchArea = (
     <div className="relative flex-1 min-w-0">
-      <Search className="absolute left-3 top-4 sm:top-3.5 h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground" />
+      <Search className="absolute left-3 top-4 sm:top-3.5 h-5 w-5 sm:h-5 sm:w-5 text-muted-foreground" />
       <Input
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search guests..."
-        className="pl-10 sm:pl-9 h-14 sm:h-10 text-base sm:text-sm"
+        className="pl-10 sm:pl-10 h-14 sm:h-12 text-base"
       />
     </div>
   );
 
   const actionButtons = (
     <>
-      <Button variant="outline" className="h-14 sm:h-10 text-base sm:text-sm w-full sm:w-auto landscape:w-auto" onClick={() => onOpenChange(false)}>
+      <Button variant="outline" className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={() => onOpenChange(false)}>
         Close
       </Button>
       <Button
-        className="h-14 sm:h-10 text-base sm:text-sm w-full sm:w-auto landscape:w-auto"
+        className="flex-1 sm:flex-none h-14 sm:h-12 text-base"
         onClick={() => {
           onOpenChange(false);
           onOpenAddGuest();
         }}
       >
-        <UserPlus className="w-5 h-5 sm:w-3.5 sm:h-3.5 mr-2 sm:mr-1" /> Add Guest
+        <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 mr-2 sm:mr-1.5" /> Add Guest
       </Button>
     </>
   );
@@ -203,7 +225,7 @@ export function GuestPickerDialog({
               No guests match "{query.trim()}".
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-3">
               {filtered.map((guest: any, idx: number) => (
                 <div
                   key={guest.id}
@@ -211,26 +233,26 @@ export function GuestPickerDialog({
                     onSelectPerson(guest.id);
                     onOpenChange(false);
                   }}
-                  className={`relative group flex flex-col items-start gap-2 sm:gap-1 rounded-lg border p-4 sm:p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 cursor-pointer min-h-24 sm:min-h-0 ${selectedPerson === guest.id ? "border-primary bg-primary/5" : "bg-card"}`}
+                  className={`relative group flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/40 cursor-pointer min-h-24 ${selectedPerson === guest.id ? "border-primary bg-primary/5" : "bg-card"}`}
                 >
                   <div className="flex items-center justify-between w-full">
                     <span
-                      className="w-3 h-3 sm:w-2.5 sm:h-2.5 rounded-full"
+                      className="w-3 h-3 rounded-full"
                       style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
                     />
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-10 w-10 sm:h-6 sm:w-6 opacity-100 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      className="h-10 w-10 sm:h-8 sm:w-8 opacity-100 group-hover:opacity-100 focus:opacity-100 transition-opacity"
                       onClick={(e) => {
                         e.stopPropagation();
                         onEditGuest(guest);
                       }}
                     >
-                      <Pencil className="h-5 w-5 sm:h-3 sm:w-3 text-muted-foreground hover:text-foreground" />
+                      <Pencil className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground sm:hover:text-foreground" />
                     </Button>
                   </div>
-                  <span className="w-full truncate text-base sm:text-sm font-semibold">
+                  <span className="w-full truncate text-base font-semibold">
                     {guest.name}
                   </span>
                 </div>
@@ -238,7 +260,7 @@ export function GuestPickerDialog({
             </div>
           )}
         </ScrollArea>
-        <DialogFooter className="gap-3 sm:gap-2 flex-col sm:flex-row sm:justify-between pt-2 landscape:hidden">
+        <DialogFooter className="gap-3 sm:gap-2 flex-row sm:flex-row sm:justify-between pt-2 landscape:hidden w-full space-x-0 sm:space-x-0">
           {actionButtons}
         </DialogFooter>
       </DialogContent>
@@ -258,16 +280,29 @@ export function EditGuestDialog({ open, onOpenChange, guestToEdit }: any) {
     updateGuest(guestToEdit.id, alias);
     onOpenChange(false);
   };
+
+
+  const actionButtons = (
+    <>
+      <Button variant="outline" className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={() => onOpenChange(false)}>
+        Cancel
+      </Button>
+      <Button className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={handleSave}>
+        Save
+      </Button>
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md landscape:sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-primary" /> Edit Guest
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
+        <div className="flex flex-col landscape:flex-row gap-4 items-end py-2">
+          <div className="space-y-2 flex-1 min-w-0 w-full">
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Guest Name
             </label>
@@ -276,7 +311,7 @@ export function EditGuestDialog({ open, onOpenChange, guestToEdit }: any) {
               value={alias}
               onChange={(e) => setAlias(e.target.value)}
               placeholder={`Guest name`}
-              className="h-14 sm:h-9 text-base sm:text-sm"
+              className="h-14 sm:h-12 text-base"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   handleSave();
@@ -284,16 +319,15 @@ export function EditGuestDialog({ open, onOpenChange, guestToEdit }: any) {
               }}
             />
           </div>
+          <div className="hidden landscape:flex flex-row gap-2 shrink-0">
+            {actionButtons}
+          </div>
         </div>
-        <DialogFooter className="gap-3 sm:gap-2 flex-col sm:flex-row pt-2">
-          <Button variant="outline" className="h-14 sm:h-10 text-base sm:text-sm w-full sm:w-auto" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button className="h-14 sm:h-10 text-base sm:text-sm w-full sm:w-auto" onClick={handleSave}>
-            Save
-          </Button>
+        <DialogFooter className="gap-3 sm:gap-2 flex-row sm:flex-row pt-2 landscape:hidden w-full space-x-0 sm:space-x-0">
+          {actionButtons}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+
 }
