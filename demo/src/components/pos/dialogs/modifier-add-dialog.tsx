@@ -253,6 +253,38 @@ export function ModifierAddDialog({
                     )}
 
                     <div className="flex items-end landscape:items-start landscape:flex-col justify-between w-full md:w-auto landscape:w-full gap-2 md:gap-4">
+                      
+
+                      <div className={`md:pl-4 landscape:pl-0 md:border-l landscape:border-l-0 border-border/50 shrink-0 flex items-center gap-2 landscape:pt-2 landscape:border-t `
+                        + hasInlineQty ? ``: `w-full`
+                      }>
+                        {stats?.allowDuplicates && isApplied && parentItems && parentItems.length === 1 && (
+                          <Button
+                            variant="ghost"
+                            className="h-14 px-3 flex flex-col landscape:flex-row landscape:h-12 gap-1 text-primary hover:text-primary hover:bg-primary/10 flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAdd(lastTouchedMod.sku);
+                            }}
+                          >
+                            <Plus className="w-5 h-5 landscape:w-4 landscape:h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:block">Add Another</span>
+                          </Button>
+                        )}
+                        {isApplied && (
+                          <Button
+                            variant="ghost"
+                            className="h-14 px-3 flex flex-col landscape:flex-row landscape:h-12 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (stats) onRemove(lastTouchedMod.sku, stats.itemsWithIt);
+                            }}
+                          >
+                            <Trash2 className="w-5 h-5 landscape:w-4 landscape:h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:block">Remove</span>
+                          </Button>
+                        )}
+                      </div>
                       {hasInlineQty ? (
                         <div className="flex flex-col gap-1 w-full">
                           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
@@ -261,7 +293,7 @@ export function ModifierAddDialog({
                           <div className="flex items-center rounded-lg border bg-background shadow-sm overflow-hidden w-full">
                             <Button
                               variant="ghost"
-                              className="h-12 w-12 rounded-none border-r hover:bg-muted text-muted-foreground hover:text-foreground"
+                              className="h-12 w-12 rounded-none border-r hover:bg-muted text-muted-foreground hover:text-foreground hidden sm:block"
                               disabled={!isApplied}
                               onClick={() => {
                                 if (onUpdateInlineQty) onUpdateInlineQty(lastTouchedMod.sku, -inlineStep);
@@ -281,7 +313,7 @@ export function ModifierAddDialog({
                             </button>
                             <Button
                               variant="ghost"
-                              className="h-12 w-12 rounded-none border-l hover:bg-muted text-muted-foreground hover:text-foreground"
+                              className="h-12 w-12 rounded-none border-l hover:bg-muted text-muted-foreground hover:text-foreground hidden sm:block"
                               disabled={!isApplied && !isFullyApplied && !stats?.allowDuplicates}
                               onClick={() => {
                                 if (!isApplied) {
@@ -296,35 +328,6 @@ export function ModifierAddDialog({
                           </div>
                         </div>
                       ) : <div className="hidden landscape:block" />}
-
-                      <div className="md:pl-4 landscape:pl-0 md:border-l landscape:border-l-0 border-border/50 shrink-0 flex items-center gap-2 w-full landscape:pt-2 landscape:border-t">
-                        {stats?.allowDuplicates && isApplied && parentItems && parentItems.length === 1 && (
-                          <Button
-                            variant="ghost"
-                            className="h-14 px-3 flex flex-col landscape:flex-row landscape:h-12 gap-1 text-primary hover:text-primary hover:bg-primary/10 flex-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onAdd(lastTouchedMod.sku);
-                            }}
-                          >
-                            <Plus className="w-5 h-5 landscape:w-4 landscape:h-4" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Add Another</span>
-                          </Button>
-                        )}
-                        {isApplied && (
-                          <Button
-                            variant="ghost"
-                            className="h-14 px-3 flex flex-col landscape:flex-row landscape:h-12 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 flex-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (stats) onRemove(lastTouchedMod.sku, stats.itemsWithIt);
-                            }}
-                          >
-                            <Trash2 className="w-5 h-5 landscape:w-4 landscape:h-4" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Remove</span>
-                          </Button>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
