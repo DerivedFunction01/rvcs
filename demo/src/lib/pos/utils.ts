@@ -19,7 +19,7 @@ export function getPaymentAllocDisplayName(
 
   const formatStrategy = (sp: PaymentAllocation) => {
     const strat = sp.paymentStrategy;
-    if (strat?.strategyType === PaymentStrategyType.Fixed) {
+    if (strat?.strategyType === PaymentStrategyType.Fixed || strat?.strategyType === PaymentStrategyType.FixedItem || strat?.strategyType === PaymentStrategyType.FixedGlobal) {
       return `${sp.payer} $${(strat.value ?? 0).toFixed(2)}`;
     } else if (strat?.strategyType === PaymentStrategyType.Remaining) {
       return `${sp.payer} remaining`;
@@ -30,12 +30,41 @@ export function getPaymentAllocDisplayName(
   };
 
   if (siblings.length > 0) {
-    const allSplits = [alloc, ...siblings].sort((a, b) => {
-      const va = ((a as PaymentAllocation).paymentStrategy?.value ?? 1) * 100;
-      const vb = ((b as PaymentAllocation).paymentStrategy?.value ?? 1) * 100;
-      return vb - va;
+    const allSplits = [alloc, ...siblings] as PaymentAllocation[];
+    const groups = new Map<string, { payers: string[]; strat: string; sortValue: number }>();
+
+    for (const sp of allSplits) {
+      const strat = sp.paymentStrategy;
+      let key = "";
+      let stratLabel = "";
+      let sortValue = 0;
+
+      if (strat?.strategyType === PaymentStrategyType.Fixed || strat?.strategyType === PaymentStrategyType.FixedItem || strat?.strategyType === PaymentStrategyType.FixedGlobal) {
+        key = `fixed-${strat.value}`;
+        stratLabel = `$${(strat.value ?? 0).toFixed(2)}`;
+        sortValue = strat.value ?? 0;
+      } else if (strat?.strategyType === PaymentStrategyType.Remaining) {
+        key = `remaining`;
+        stratLabel = `remaining`;
+        sortValue = -1;
+      } else {
+        const pct = Math.round((strat?.value ?? 1) * 100);
+        key = `pct-${pct}`;
+        stratLabel = `${pct}%`;
+        sortValue = pct;
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, { payers: [], strat: stratLabel, sortValue });
+      }
+      groups.get(key)!.payers.push(sp.payer);
+    }
+
+    const sortedGroups = Array.from(groups.values()).sort((a, b) => b.sortValue - a.sortValue);
+    const parts = sortedGroups.map((g) => {
+      const payerStr = g.payers.length > 2 ? `${g.payers.length} Guests` : g.payers.join(", ");
+      return `${payerStr} ${g.strat}`;
     });
-    const parts = allSplits.map((s) => formatStrategy(s as PaymentAllocation));
     return parts.join(" / ");
   }
 

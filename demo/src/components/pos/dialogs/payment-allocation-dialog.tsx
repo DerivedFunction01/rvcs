@@ -235,11 +235,37 @@ export function PaymentAllocationDialog({
       const isSplit = allocs.length > 1;
       let name = "";
       if (isSplit) {
-        name = allocs
-          .sort((a, b) => (b.paymentStrategy.value ?? 0) - (a.paymentStrategy.value ?? 0))
-          .map((a) => {
-             const strat = a.paymentStrategy.strategyType;
-             return `${a.payer} ${strat === "remaining" ? "rem" : strat === "percentage" ? `${Math.round((a.paymentStrategy.value ?? 1) * 100)}%` : `$${formatNumber(a.paymentStrategy.value ?? 0, 2)}`}`;
+        const groupMap = new Map<string, { payers: string[]; strat: string; sortValue: number }>();
+        for (const a of allocs) {
+          const stratType = a.paymentStrategy.strategyType;
+          let key = "";
+          let stratLabel = "";
+          let sortValue = 0;
+          if (stratType === "fixed" || stratType === "fixed_item" || stratType === "fixed_global") {
+            key = `fixed-${a.paymentStrategy.value}`;
+            stratLabel = `$${formatNumber(a.paymentStrategy.value ?? 0, 2)}`;
+            sortValue = a.paymentStrategy.value ?? 0;
+          } else if (stratType === "remaining") {
+            key = "remaining";
+            stratLabel = "rem";
+            sortValue = -1;
+          } else {
+            const pct = Math.round((a.paymentStrategy.value ?? 1) * 100);
+            key = `pct-${pct}`;
+            stratLabel = `${pct}%`;
+            sortValue = pct;
+          }
+          if (!groupMap.has(key)) {
+            groupMap.set(key, { payers: [], strat: stratLabel, sortValue });
+          }
+          groupMap.get(key)!.payers.push(a.payer);
+        }
+        
+        name = Array.from(groupMap.values())
+          .sort((a, b) => b.sortValue - a.sortValue)
+          .map((g) => {
+            const payerStr = g.payers.length > 2 ? `${g.payers.length} Guests` : g.payers.join(", ");
+            return `${payerStr} ${g.strat}`;
           })
           .join(" / ");
       } else {
@@ -571,7 +597,7 @@ export function PaymentAllocationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <CreditCard className="w-5 h-5 text-primary shrink-0" />

@@ -70,6 +70,7 @@ export function SplitEditor({
   }, [getGuests, allocationsState]);
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
   const [showNewGuestInput, setShowNewGuestInput] = useState(false);
+  const [autoRedistribute, setAutoRedistribute] = useState(true);
 
   const formatNumber = useFormatNumber();
 
@@ -220,7 +221,7 @@ export function SplitEditor({
       const allPercentage = newSplits.every(
         (s) => s.strategyType === PaymentStrategyType.Percentage,
       );
-      if (allPercentage) {
+      if (autoRedistribute && allPercentage) {
         const base = Math.round((100 / newSplits.length) * 1000) / 1000;
         newSplits.forEach((s) => {
           s.value = base;
@@ -230,7 +231,7 @@ export function SplitEditor({
       }
       onChange(newSplits);
     },
-    [splits, onChange],
+    [splits, onChange, autoRedistribute],
   );
 
   const handleEntityChange = useCallback(
@@ -326,16 +327,30 @@ export function SplitEditor({
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Split Breakdown
         </div>
-        {splits.length > 1 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px] px-2 text-primary"
-            onClick={handleDistributeEqually}
-          >
-            Split Equally
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          {splits.length > 1 && (
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Checkbox
+                checked={autoRedistribute}
+                onCheckedChange={(c) => setAutoRedistribute(!!c)}
+                className="w-3 h-3"
+              />
+              <span className="text-[10px] text-muted-foreground select-none">
+                Auto-even on remove
+              </span>
+            </label>
+          )}
+          {splits.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px] px-2 text-primary"
+              onClick={handleDistributeEqually}
+            >
+              Split Equally
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
