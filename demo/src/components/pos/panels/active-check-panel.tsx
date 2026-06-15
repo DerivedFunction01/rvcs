@@ -297,7 +297,7 @@ export function ActiveCheckPanel(props: any) {
                           </span>
                         </div>
                         <span className="font-mono font-semibold tabular-nums ml-2">
-                          ${formatNumber(pb.subtotal, 2)}
+                          ${formatNumber(pb.subtotal, 2, 10)}
                         </span>
                       </div>
                     ))}
@@ -312,7 +312,7 @@ export function ActiveCheckPanel(props: any) {
               Subtotal
             </div>
             <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-              ${formatNumber(projectedState.financials.subtotal, 2)}
+              ${formatNumber(projectedState.financials.subtotal, 2, 10)}
             </div>
           </div>
           {projectedState.financials.chargeTotal > 0 && (
@@ -323,7 +323,7 @@ export function ActiveCheckPanel(props: any) {
                     Tax & Fees <ChevronDown className="w-2.5 h-2.5" />
                   </div>
                   <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-                    ${formatNumber(projectedState.financials.chargeTotal, 2)}
+                    ${formatNumber(projectedState.financials.chargeTotal, 2, 10)}
                   </div>
                 </button>
               </PopoverTrigger>
@@ -343,7 +343,7 @@ export function ActiveCheckPanel(props: any) {
                             {charge.label}
                           </span>
                           <span className="font-mono font-medium tabular-nums">
-                            ${formatNumber(charge.chargeAmount, 2)}
+                            ${formatNumber(charge.chargeAmount, 2, 10)}
                           </span>
                         </div>
                       ),
@@ -358,7 +358,7 @@ export function ActiveCheckPanel(props: any) {
               Total
             </div>
             <div className="font-mono font-bold text-lg tabular-nums text-primary leading-tight">
-              ${formatNumber(projectedState.financials.grandTotal, 2)}
+              ${formatNumber(projectedState.financials.grandTotal, 2, 10)}
             </div>
           </div>
         </div>
