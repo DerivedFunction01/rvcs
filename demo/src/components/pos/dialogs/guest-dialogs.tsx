@@ -65,7 +65,7 @@ export function AddGuestDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md landscape:sm:max-w-2xl">
+        <DialogContent className="sm:max-w-md landscape:sm:max-w-2xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" /> Add Guests
@@ -203,8 +203,8 @@ export function GuestPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-3xl landscape:sm:max-w-4xl max-h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-primary" /> Select Guest
           </DialogTitle>
@@ -213,13 +213,14 @@ export function GuestPickerDialog({
             listed.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col landscape:flex-row gap-3 sm:gap-2">
-          {searchArea}
-          <div className="hidden landscape:flex gap-2 shrink-0 flex-row">
-            {actionButtons}
+        <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 flex-1 min-h-0">
+          <div className="flex flex-col gap-3 shrink-0 landscape:w-70">
+            {searchArea}
+            <div className="hidden landscape:flex flex-row gap-2 mt-auto pt-2 w-full">
+              {actionButtons}
+            </div>
           </div>
-        </div>
-        <ScrollArea className="max-h-[52vh] pr-2">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               No guests match "{query.trim()}".
@@ -259,8 +260,9 @@ export function GuestPickerDialog({
               ))}
             </div>
           )}
-        </ScrollArea>
-        <DialogFooter className="gap-3 sm:gap-2 flex-row sm:flex-row sm:justify-between pt-2 landscape:hidden w-full space-x-0 sm:space-x-0">
+          </div>
+        </div>
+        <DialogFooter className="gap-3 sm:gap-2 flex-row sm:flex-row pt-2 landscape:hidden w-full space-x-0 sm:space-x-0 mt-2 shrink-0">
           {actionButtons}
         </DialogFooter>
       </DialogContent>
@@ -295,7 +297,7 @@ export function EditGuestDialog({ open, onOpenChange, guestToEdit }: any) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md landscape:sm:max-w-xl">
+      <DialogContent className="sm:max-w-md landscape:sm:max-w-xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-primary" /> Edit Guest
