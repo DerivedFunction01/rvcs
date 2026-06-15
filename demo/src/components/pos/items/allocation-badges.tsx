@@ -46,10 +46,11 @@ export function AllocationBadges({
             <Badge
               key={id}
               variant="secondary"
-              className="text-[10px] px-1.5 py-0 h-4 font-medium"
+              className="text-[10px] px-1.5 py-0 h-4 font-medium max-w-40"
+              title={entity}
             >
-              <User className="w-2.5 h-2.5 mr-0.5" />
-              {entity}
+              <User className="w-2.5 h-2.5 mr-0.5 shrink-0" />
+              <span className="truncate">{entity}</span>
             </Badge>
           );
         }
@@ -77,11 +78,12 @@ export function AllocationBadges({
             <Badge
               key={id}
               variant={isDefault ? "default" : "outline"}
-              className={`text-[10px] px-1.5 py-0 h-4 font-medium ${isSplit ? "border-primary/50" : ""}`}
+              className={`text-[10px] px-1.5 py-0 h-4 font-medium max-w-48 ${isSplit ? "border-primary/50" : ""}`}
+              title={displayName}
             >
-              {isSplit && <Split className="w-2.5 h-2.5 mr-0.5" />}
-              {!isSplit && <CreditCard className="w-2.5 h-2.5 mr-0.5" />}
-              {displayName}
+              {isSplit && <Split className="w-2.5 h-2.5 mr-0.5 shrink-0" />}
+              {!isSplit && <CreditCard className="w-2.5 h-2.5 mr-0.5 shrink-0" />}
+              <span className="truncate">{displayName}</span>
             </Badge>
           );
         }
@@ -97,10 +99,11 @@ export function AllocationBadges({
             <Badge
               key={id}
               variant="outline"
-              className="text-[10px] px-1.5 py-0 h-4 font-medium border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20"
+              className="text-[10px] px-1.5 py-0 h-4 font-medium border-emerald-500/30 text-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 max-w-48"
+              title={displayLabel}
             >
-              <Clock className="w-2.5 h-2.5 mr-0.5" />
-              {displayLabel}
+              <Clock className="w-2.5 h-2.5 mr-0.5 shrink-0" />
+              <span className="truncate">{displayLabel}</span>
             </Badge>
           );
         }
