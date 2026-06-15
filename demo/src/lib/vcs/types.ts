@@ -353,6 +353,7 @@ export interface ComboChoiceEntry {
   optionSku: string;
   price: number;
   modifierSku?: string;
+  qty?: number;
 }
 
 export interface SkuChargeTagEntry {

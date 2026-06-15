@@ -87,7 +87,7 @@ function buildCloneDeltas(
       ? projItem.qty / parentScaledQty
       : projItem.qty;
 
-  if (!newParentId && options?.overrideRootQty !== undefined) {
+  if (options?.overrideRootQty !== undefined) {
     rawQty = options.overrideRootQty;
   }
 
@@ -384,7 +384,7 @@ interface VCSStore {
   setItemsQty: (lineIds: string[], targetQty: number) => void;
   mergeItems: (lineIds: string[]) => void;
   breakItems: (lineIds: string[]) => string[];
-  combineItems: (comboSku: string, assignments: any[][]) => string[];
+  combineItems: (requests: { comboSku: string; qty: number; assignments: any[] }[]) => string[];
   splitItemsQty: (
     lineIds: string[],
     type: SplitQtyType,
@@ -2630,15 +2630,15 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       return newLineIds;
     },
 
-    combineItems: (comboSku, assignments) => {
+    combineItems: (requests) => {
       const store = get();
       const state = store.projectedState;
       const deltas: Delta[] = [];
       const newLineIds: string[] = [];
       const consumption = new Map<string, number>();
 
-      for (const comboAssignment of assignments) {
-        const firstUnit = comboAssignment[0]?.unit;
+      for (const req of requests) {
+        const firstUnit = req.assignments[0]?.unit;
         const allocations = firstUnit?.item.allocations || [];
 
         const comboLineId = generateLineId();
@@ -2646,28 +2646,32 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           action: DeltaActionType.AddItem,
           lineId: comboLineId,
           parentLineId: null,
-          sku: comboSku,
-          qty: 1,
+          sku: req.comboSku,
+          qty: req.qty,
           allocations: [...allocations],
         });
         newLineIds.push(comboLineId);
 
-        for (const slot of comboAssignment) {
+        for (const slot of req.assignments) {
           const unitItem = slot.unit.item;
+          const neededQty = slot.reqQty;
+          
           buildCloneDeltas(unitItem, comboLineId, unitItem.qty, deltas, {
-            overrideRootQty: 1,
+            overrideRootQty: neededQty,
           });
-          consumption.set(unitItem.lineId, (consumption.get(unitItem.lineId) || 0) + 1);
+          
+          const totalConsumption = req.qty * neededQty;
+          consumption.set(unitItem.lineId, (consumption.get(unitItem.lineId) || 0) + totalConsumption);
         }
       }
 
       for (const [lineId, consumedQty] of consumption.entries()) {
         const item = state.items[lineId];
         if (item) {
-          if (consumedQty >= item.qty) {
+          if (consumedQty >= item.qty - 0.0001) {
             deltas.push({ action: DeltaActionType.RemoveItem, lineId, qty: item.qty });
           } else {
-            deltas.push({ action: DeltaActionType.ModifyQty, lineId, beforeQty: item.qty, afterQty: item.qty - consumedQty });
+            deltas.push({ action: DeltaActionType.ModifyQty, lineId, beforeQty: item.qty, afterQty: Math.round((item.qty - consumedQty) * 1000) / 1000 });
           }
         }
       }

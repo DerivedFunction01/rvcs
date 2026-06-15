@@ -689,17 +689,19 @@ export function LineItemNode({
                       Allocation config
                     </TooltipContent>
                   </Tooltip>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove(item.lineId);
-                    }}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
+                  {!isComboChoice && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove(item.lineId);
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

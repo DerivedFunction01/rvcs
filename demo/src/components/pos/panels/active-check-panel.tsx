@@ -156,30 +156,35 @@ export function ActiveCheckPanel(props: any) {
       );
       
       for (const combo of combos) {
-        const slots: Record<string, Set<string>> = {};
+        const increment = combo.mainQtyIncrement ?? 1;
+
+        const slots: Record<string, Array<{ optionSku: string, reqQty: number }>> = {};
         for (const choice of combo.comboChoices!) {
-          if (!slots[choice.slotSku]) slots[choice.slotSku] = new Set();
-          slots[choice.slotSku].add(choice.optionSku);
+          if (!slots[choice.slotSku]) slots[choice.slotSku] = [];
+          slots[choice.slotSku].push({ optionSku: choice.optionSku, reqQty: choice.qty ?? 1 });
         }
         const requiredSlots = Object.keys(slots);
         
-        const availableSkus: string[] = [];
-        for (const item of selectedItems) {
-          if (item.status !== "canceled") {
-            for (let i = 0; i < item.qty; i++) {
-              availableSkus.push(item.sku);
-            }
-          }
-        }
+        const availablePool = selectedItems
+          .filter((item) => item.status !== "canceled")
+          .map((item) => ({ sku: item.sku, qty: item.qty }));
         
         let matchedAll = true;
-        const usedIndices = new Set<number>();
         for (const slotSku of requiredSlots) {
-          const validSkus = slots[slotSku];
-          const index = availableSkus.findIndex((sku, i) => !usedIndices.has(i) && validSkus.has(sku));
-          if (index !== -1) {
-            usedIndices.add(index);
-          } else {
+          const options = slots[slotSku];
+          let matchedOption = false;
+
+          for (const option of options) {
+            const needed = option.reqQty * increment;
+            const poolItemIdx = availablePool.findIndex(p => p.sku === option.optionSku && p.qty >= needed - 0.0001);
+            if (poolItemIdx !== -1) {
+              availablePool[poolItemIdx].qty -= needed;
+              matchedOption = true;
+              break;
+            }
+          }
+
+          if (!matchedOption) {
             matchedAll = false;
             break;
           }
@@ -677,8 +682,8 @@ export function ActiveCheckPanel(props: any) {
         onOpenChange={setCombineDialogOpen}
         selectedItems={Array.from(selectedLineIds).map(id => projectedState.items[id as string]).filter(Boolean)}
         catalog={useVCSStore.getState().catalog}
-        onCombine={(comboSku, assignments) => {
-          const newIds = combineItems(comboSku, assignments);
+        onCombine={(requests) => {
+          const newIds = combineItems(requests);
           if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
         }}
       />

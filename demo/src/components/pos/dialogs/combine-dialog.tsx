@@ -7,8 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import type { ProjectedLineItem, CatalogItemEntry } from "@/lib/vcs/types";
-import { PackageCheck } from "lucide-react";
+import { PackageCheck, Minus, Plus } from "lucide-react";
 import React, { useMemo, useState } from "react";
 
 export function CombineDialog({
@@ -22,88 +23,172 @@ export function CombineDialog({
   onOpenChange: (open: boolean) => void;
   selectedItems: ProjectedLineItem[];
   catalog: Record<string, CatalogItemEntry>;
-  onCombine: (comboSku: string, assignments: any[][]) => void;
+  onCombine: (requests: { comboSku: string; qty: number; assignments: any[] }[]) => void;
 }) {
-  const compatibleCombos = useMemo(() => {
+  const [comboQtys, setComboQtys] = useState<Record<string, number>>({});
+
+  React.useEffect(() => {
+    if (open) setComboQtys({});
+  }, [open]);
+
+  const { compatibleCombos, totalSelected, finalRequests } = useMemo(() => {
     const combos = Object.values(catalog).filter(
       (c) => c.type === "item" && c.category === "combo" && c.comboChoices && c.comboChoices.length > 0
     );
 
-    const results: {
-      comboSku: string;
-      comboName: string;
-      maxCombos: number;
-      assignments: Array<{ slotSku: string; unit: any }>[]
-    }[] = [];
+    const availablePool = selectedItems
+      .filter((item) => item.status !== "canceled")
+      .map((item) => ({ lineId: item.lineId, sku: item.sku, qty: item.qty, item }));
+
+    let totalSelected = 0;
+    const finalRequests: Array<{ comboSku: string; qty: number; assignments: any[] }> = [];
 
     for (const combo of combos) {
-      const slots: Record<string, Set<string>> = {};
+      const requestedQty = comboQtys[combo.sku] || 0;
+      if (requestedQty <= 0) continue;
+
+      const increment = combo.mainQtyIncrement ?? 1;
+      const slots: Record<string, Array<{ optionSku: string, reqQty: number }>> = {};
       for (const choice of combo.comboChoices!) {
-        if (!slots[choice.slotSku]) slots[choice.slotSku] = new Set();
-        slots[choice.slotSku].add(choice.optionSku);
+        if (!slots[choice.slotSku]) slots[choice.slotSku] = [];
+        slots[choice.slotSku].push({ optionSku: choice.optionSku, reqQty: choice.qty ?? 1 });
       }
-
       const requiredSlots = Object.keys(slots);
-      const availableUnits: { lineId: string; sku: string; item: ProjectedLineItem }[] = [];
-      for (const item of selectedItems) {
-        if (item.status === "canceled") continue;
-        for (let i = 0; i < item.qty; i++) {
-          availableUnits.push({ lineId: item.lineId, sku: item.sku, item });
-        }
-      }
-
+      
       let combosFormed = 0;
-      const assignments: Array<{ slotSku: string; unit: any }>[] = [];
+      const allFormedCombos: Array<{ qty: number, assignments: Array<{ slotSku: string; unit: any, reqQty: number }> }> = [];
 
-      while (true) {
-        const currentAssignment: { slotSku: string; unit: any }[] = [];
-        const usedIndices = new Set<number>();
-
+      while (combosFormed < requestedQty - 0.0001) {
+        const currentAssignment: any[] = [];
         let matchedAll = true;
+
+        const tempPool = availablePool.map(p => ({ ...p }));
+
         for (const slotSku of requiredSlots) {
-          const validSkus = slots[slotSku];
-          const index = availableUnits.findIndex((u, i) => !usedIndices.has(i) && validSkus.has(u.sku));
-          if (index !== -1) {
-            usedIndices.add(index);
-            currentAssignment.push({ slotSku, unit: availableUnits[index] });
-          } else {
+          const options = slots[slotSku];
+          let matchedOption = false;
+
+          for (const option of options) {
+            const needed = option.reqQty * increment;
+            const poolItemIdx = tempPool.findIndex(p => p.sku === option.optionSku && p.qty >= needed - 0.0001);
+            if (poolItemIdx !== -1) {
+              tempPool[poolItemIdx].qty -= needed;
+              currentAssignment.push({ slotSku, unit: tempPool[poolItemIdx], reqQty: option.reqQty });
+              matchedOption = true;
+              break;
+            }
+          }
+
+          if (!matchedOption) {
             matchedAll = false;
             break;
           }
         }
 
         if (matchedAll) {
-          combosFormed++;
-          assignments.push(currentAssignment);
-          const sortedIndices = Array.from(usedIndices).sort((a, b) => b - a);
-          for (const i of sortedIndices) {
-            availableUnits.splice(i, 1);
+          combosFormed += increment;
+          for (let i = 0; i < availablePool.length; i++) availablePool[i].qty = tempPool[i].qty;
+          
+          const last = allFormedCombos[allFormedCombos.length - 1];
+          if (last && last.assignments.every((a, i) => a.unit.lineId === currentAssignment[i].unit.lineId && a.slotSku === currentAssignment[i].slotSku)) {
+            last.qty += increment;
+          } else {
+            allFormedCombos.push({ qty: increment, assignments: currentAssignment });
           }
         } else {
           break;
         }
       }
 
+      totalSelected += combosFormed;
       if (combosFormed > 0) {
+        for (const formed of allFormedCombos) {
+          finalRequests.push({
+            comboSku: combo.sku,
+            qty: Math.round(formed.qty * 1000) / 1000,
+            assignments: formed.assignments
+          });
+        }
+      }
+    }
+
+    const results: {
+      comboSku: string;
+      comboName: string;
+      maxCombos: number;
+      increment: number;
+      currentQty: number;
+    }[] = [];
+
+    for (const combo of combos) {
+      const increment = combo.mainQtyIncrement ?? 1;
+
+      const slots: Record<string, Array<{ optionSku: string, reqQty: number }>> = {};
+      for (const choice of combo.comboChoices!) {
+        if (!slots[choice.slotSku]) slots[choice.slotSku] = [];
+        slots[choice.slotSku].push({ optionSku: choice.optionSku, reqQty: choice.qty ?? 1 });
+      }
+      const requiredSlots = Object.keys(slots);
+      
+      const simPool = availablePool.map(p => ({ ...p }));
+      let additionalFormed = 0;
+
+      while (true) {
+        let matchedAll = true;
+        const tempPool = simPool.map(p => ({ ...p }));
+
+        for (const slotSku of requiredSlots) {
+          const options = slots[slotSku];
+          let matchedOption = false;
+
+          for (const option of options) {
+            const needed = option.reqQty * increment;
+            const poolItemIdx = tempPool.findIndex(p => p.sku === option.optionSku && p.qty >= needed - 0.0001);
+            if (poolItemIdx !== -1) {
+              tempPool[poolItemIdx].qty -= needed;
+              matchedOption = true;
+              break;
+            }
+          }
+
+          if (!matchedOption) {
+            matchedAll = false;
+            break;
+          }
+        }
+
+        if (matchedAll) {
+          additionalFormed += increment;
+          for (let i = 0; i < simPool.length; i++) simPool[i].qty = tempPool[i].qty;
+        } else {
+          break;
+        }
+      }
+
+      const currentQty = comboQtys[combo.sku] || 0;
+      const totalPossible = Math.round((currentQty + additionalFormed) * 1000) / 1000;
+
+      if (totalPossible > 0) {
         results.push({
           comboSku: combo.sku,
           comboName: combo.name,
-          maxCombos: combosFormed,
-          assignments,
+          maxCombos: totalPossible,
+          increment,
+          currentQty,
         });
       }
     }
 
-    return results;
-  }, [selectedItems, catalog]);
+    return { compatibleCombos: results, totalSelected, finalRequests };
+  }, [selectedItems, catalog, comboQtys]);
 
-  const [selectedComboSku, setSelectedComboSku] = useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (open) {
-      setSelectedComboSku(compatibleCombos.length > 0 ? compatibleCombos[0].comboSku : null);
-    }
-  }, [open, compatibleCombos]);
+  const handleQtyChange = (sku: string, qty: number, max: number, increment: number) => {
+    const snapped = Math.max(0, Math.min(Math.floor(qty / increment) * increment, max));
+    setComboQtys((prev) => ({
+      ...prev,
+      [sku]: Math.round(snapped * 1000) / 1000
+    }));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,7 +199,7 @@ export function CombineDialog({
             Combine into Combo
           </DialogTitle>
           <DialogDescription>
-            Selected items can be combined into the following combos.
+            Select the quantity for each compatible combo you want to create.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,20 +209,38 @@ export function CombineDialog({
               No compatible combos found for the selected items.
             </div>
           ) : (
-            compatibleCombos.map((combo) => (
+            compatibleCombos.map((combo) => {
+              const qty = combo.currentQty;
+              return (
               <div
                 key={combo.comboSku}
-                className={`p-3 rounded-lg border cursor-pointer transition-colors ${selectedComboSku === combo.comboSku ? "border-primary bg-primary/5" : "hover:bg-accent"}`}
-                onClick={() => setSelectedComboSku(combo.comboSku)}
+                className={`p-3 rounded-lg border transition-colors ${qty > 0 ? "border-primary bg-primary/5" : "bg-card"}`}
               >
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-sm">{combo.comboName}</span>
-                  <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                    Max: {combo.maxCombos}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleQtyChange(combo.comboSku, combo.maxCombos, combo.maxCombos, combo.increment)}>Max: {combo.maxCombos}</Button>
+                    <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-background">
+                      <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => handleQtyChange(combo.comboSku, qty - combo.increment, combo.maxCombos, combo.increment)} disabled={qty <= 0}>
+                        <Minus className="w-3 h-3" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={combo.maxCombos}
+                        step={combo.increment}
+                        value={qty}
+                        onChange={(e) => handleQtyChange(combo.comboSku, parseFloat(e.target.value) || 0, combo.maxCombos, combo.increment)}
+                        className="w-12 h-5 text-center text-xs p-0 border-none focus-visible:ring-0"
+                      />
+                      <Button variant="ghost" size="icon" className="h-5 w-5 p-0" onClick={() => handleQtyChange(combo.comboSku, qty + combo.increment, combo.maxCombos, combo.increment)} disabled={qty >= combo.maxCombos - 0.0001}>
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
 
@@ -146,14 +249,11 @@ export function CombineDialog({
             Cancel
           </Button>
           <Button
-            disabled={!selectedComboSku}
+            disabled={totalSelected <= 0}
             onClick={() => {
-              if (selectedComboSku) {
-                const match = compatibleCombos.find(c => c.comboSku === selectedComboSku);
-                if (match) {
-                  onCombine(match.comboSku, match.assignments);
-                  onOpenChange(false);
-                }
+              if (totalSelected > 0) {
+                onCombine(finalRequests);
+                onOpenChange(false);
               }
             }}
           >
