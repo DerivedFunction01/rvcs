@@ -451,6 +451,16 @@ export function ActiveCheckPanel(props: any) {
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
                 Qty
               </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
+                onClick={() => {
+                  modifyItemsQty(Array.from(selectedLineIds), -parsedStep);
+                }}
+              >
+                <Minus className="w-3.5 h-3.5 mr-1" />
+              </Button>
               <button
                 className="h-7 w-14 text-[11px] px-2 font-mono font-medium bg-background border shadow-sm hover:bg-accent rounded-md cursor-pointer transition-colors flex items-center justify-center"
                 onClick={() => setQtyStepPadOpen(true)}
@@ -468,16 +478,7 @@ export function ActiveCheckPanel(props: any) {
                   <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  modifyItemsQty(Array.from(selectedLineIds), -parsedStep);
-                }}
-              >
-                <Minus className="w-3.5 h-3.5 mr-1" /> {formatNumber(parsedStep)}
-              </Button>
+              
               <Button
                 variant="ghost"
                 size="sm"
@@ -486,7 +487,7 @@ export function ActiveCheckPanel(props: any) {
                   modifyItemsQty(Array.from(selectedLineIds), parsedStep);
                 }}
               >
-                <Plus className="w-3.5 h-3.5 mr-1" /> {formatNumber(parsedStep)}
+                <Plus className="w-3.5 h-3.5 mr-1" />
               </Button>
               <Button
                 variant="ghost"
