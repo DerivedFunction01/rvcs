@@ -27,18 +27,6 @@ import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { LineItemActions } from "./line-item-actions";
 import { LineItemMainQty, LineItemInlineQty } from "./line-item-qty-controls";
 
-// One color per depth level, cycling past depth 5.
-const DEPTH_COLORS = [
-  "border-muted",
-  "border-primary/30",
-  "border-emerald-500/30",
-  "border-amber-500/30",
-  "border-rose-500/30",
-];
-function depthColor(depth: number) {
-  return DEPTH_COLORS[Math.min(depth, DEPTH_COLORS.length - 1)];
-}
-
 export function LineItemNode({
   item,
   allocations,
@@ -93,6 +81,7 @@ export function LineItemNode({
 
   const catalog = useVCSStore((state) => state.catalog);
   const projectedState = useVCSStore((state) => state.projectedState);
+  const globalDepthColors = useVCSStore((state) => state.globalDepthColors);
   const rawAllocations = projectedState.allocations;
   const formatNumber = useFormatNumber();
 
@@ -209,8 +198,10 @@ export function LineItemNode({
   const validChildren = item.children.filter((child) => child.name !== "");
 
   // Color for the connectors drawn by *this* node's children list.
-  // Children at depth N+1 use depthColor(N).
-  const childConnectorColor = depthColor(depth);
+  // Children at depth N+1 use the color for depth N.
+  const childConnectorColor = globalDepthColors.length > 0 
+    ? globalDepthColors[depth % globalDepthColors.length] 
+    : "#94a3b8";
 
   return (
     <>
@@ -503,7 +494,8 @@ export function LineItemNode({
         */}
         {!isCollapsed && validChildren.length > 0 && (
           <div
-            className={`ml-4 mt-1 flex flex-col gap-1.5 border-l-2 ${childConnectorColor}`}
+            className="ml-4 mt-1 flex flex-col gap-1.5 border-l-2"
+            style={{ borderColor: childConnectorColor }}
           >
             {validChildren.map((child, index) => {
               const isLast = index === validChildren.length - 1;
@@ -518,13 +510,15 @@ export function LineItemNode({
                   {isLast ? (
                     // L-shape: vertical segment from top down to mid, then horizontal to card
                     <span
-                      className={`pointer-events-none absolute -left-px top-0 h-4 w-4 border-b-2 border-l-2 rounded-bl-md ${childConnectorColor}`}
+                      className="pointer-events-none absolute -left-px top-0 h-4 w-4 border-b-2 border-l-2 rounded-bl-md"
+                      style={{ borderColor: childConnectorColor }}
                       aria-hidden
                     />
                   ) : (
                     // Horizontal tick only; the trunk border continues vertically
                     <span
-                      className={`pointer-events-none absolute -left-px top-4 h-px w-4 border-t-2 ${childConnectorColor}`}
+                      className="pointer-events-none absolute -left-px top-4 h-px w-4 border-t-2"
+                      style={{ borderColor: childConnectorColor }}
                       aria-hidden
                     />
                   )}

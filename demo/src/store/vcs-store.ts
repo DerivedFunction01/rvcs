@@ -196,6 +196,9 @@ interface VCSStore {
   updateOrderContext: (context: Partial<OrderContext>) => void;
   updatePreferences: (prefs: Partial<Record<string, unknown>>) => void;
 
+  globalDepthColors: string[];
+  setGlobalDepthColors: (colors: string[]) => void;
+
   // Actions — Default Allocations
   /**
    * Create the initial default allocation pair (assignment + payment).
@@ -461,6 +464,22 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     orderContext: null,
     defaultPaymentMethod: "cash",
     preferences: {},
+
+    globalDepthColors: [
+      "#94a3b8",
+      "#3b82f6",
+      "#10b981",
+      "#f59e0b",
+      "#f43f5e",
+    ],
+    setGlobalDepthColors: (colors) => {
+      set({ globalDepthColors: colors });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("vcs-depth-colors", JSON.stringify(colors));
+        } catch {}
+      }
+    },
 
     // ─── Default Allocation IDs ─────────────────────────────────────────────
     defaultAssignmentAllocId: null,
@@ -3357,6 +3376,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     hydrate: () => {
       if (typeof window === "undefined") return;
       try {
+        const colorsJson = localStorage.getItem("vcs-depth-colors");
+        if (colorsJson) {
+          set({ globalDepthColors: JSON.parse(colorsJson) });
+        }
+
         const json = localStorage.getItem(STORAGE_KEY);
         if (json) {
           const repo = JSON.parse(json) as VCSRepo;
