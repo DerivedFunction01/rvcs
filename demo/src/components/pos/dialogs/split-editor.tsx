@@ -17,6 +17,7 @@ import { useVCSStore } from "@/store/vcs-store";
 import { Plus, Trash2, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import { NumberPadDialog } from "./number-pad-dialog";
 
 export interface PaymentSplitEntry {
   entity: string;
@@ -77,6 +78,7 @@ export function SplitEditor({
   );
   const [quickAddMethod, setQuickAddMethod] = useState<string>("any");
   const [quickAddValue, setQuickAddValue] = useState<string>("");
+  const [padTarget, setPadTarget] = useState<{ type: "split"; index: number } | { type: "quick-add" } | null>(null);
 
   const totalPercentage = useMemo(
     () =>
@@ -409,15 +411,13 @@ export function SplitEditor({
 
             {split.strategyType !== "remaining" ? (
               <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={split.value}
-                  onChange={(e) =>
-                    handleSplitValueChange(idx, Number(e.target.value) || 0)
-                  }
-                  className="h-7 text-xs px-1.5 font-mono text-right"
-                />
+                <button
+                  type="button"
+                  className="flex h-7 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center"
+                  onClick={() => setPadTarget({ type: "split", index: idx })}
+                >
+                  {split.value}
+                </button>
                 <span className="text-[10px] text-muted-foreground">
                   {split.strategyType === "percentage" ? "%" : "$"}
                 </span>
@@ -496,16 +496,13 @@ export function SplitEditor({
 
           {quickAddStrategy !== "remaining" && (
             <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
-              <Input
-                type="number"
-                step="0.001"
-                placeholder={
-                  quickAddStrategy === "percentage" ? "Auto" : "0.00"
-                }
-                value={quickAddValue}
-                onChange={(e) => setQuickAddValue(e.target.value)}
-                className="h-7 text-xs px-1.5 font-mono text-right bg-background"
-              />
+              <button
+                type="button"
+                className={`flex h-7 w-full rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center ${quickAddValue === "" ? "text-muted-foreground" : ""}`}
+                onClick={() => setPadTarget({ type: "quick-add" })}
+              >
+                {quickAddValue === "" ? (quickAddStrategy === "percentage" ? "Auto" : "0.00") : quickAddValue}
+              </button>
               <span className="text-[10px] text-muted-foreground">
                 {quickAddStrategy === "percentage" ? "%" : "$"}
               </span>
@@ -635,6 +632,34 @@ export function SplitEditor({
           </div>
         )}
       </div>
+
+      {padTarget && (
+        <NumberPadDialog
+          open={padTarget !== null}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setPadTarget(null);
+          }}
+          title={
+            padTarget.type === "quick-add"
+              ? quickAddStrategy === PaymentStrategyType.Percentage ? "Percentage" : "Amount"
+              : splits[padTarget.index].strategyType === PaymentStrategyType.Percentage ? "Percentage" : "Amount"
+          }
+          description={`Set the ${padTarget.type === "quick-add" ? (quickAddStrategy === PaymentStrategyType.Percentage ? "percentage" : "amount") : (splits[padTarget.index].strategyType === PaymentStrategyType.Percentage ? "percentage" : "amount")} for this split`}
+          initialValue={
+            padTarget.type === "quick-add"
+              ? (quickAddValue === "" ? null : Number(quickAddValue))
+              : splits[padTarget.index].value
+          }
+          min={0}
+          onConfirm={(val) => {
+            if (padTarget.type === "quick-add") {
+              setQuickAddValue(String(val));
+            } else {
+              handleSplitValueChange(padTarget.index, val);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

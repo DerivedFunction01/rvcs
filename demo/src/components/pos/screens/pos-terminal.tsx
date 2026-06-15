@@ -342,6 +342,20 @@ export function POSTerminalScreen({
     guestFilterOp,
   ]);
 
+  const flattenedVisibleItems = React.useMemo(() => {
+    const list: ProjectedLineItem[] = [];
+    const traverse = (items: ProjectedLineItem[]) => {
+      for (const item of items) {
+        list.push(item);
+        if (item.children) {
+          traverse(item.children);
+        }
+      }
+    };
+    traverse(filteredRootItems);
+    return list;
+  }, [filteredRootItems]);
+
   const {
     selectedLineIds,
     setSelectedLineIds,
@@ -349,7 +363,7 @@ export function POSTerminalScreen({
     checklistRef,
     bulkActionsBarRef,
   } = usePostTerminalSelection(
-    filteredRootItems,
+    flattenedVisibleItems,
     visibleAssignees,
     visiblePayers,
     currentBranchName,
@@ -404,8 +418,8 @@ export function POSTerminalScreen({
   ]);
 
   const selectedItems = React.useMemo(
-    () => rootItems.filter((item) => selectedLineIds.has(item.lineId)),
-    [rootItems, selectedLineIds],
+    () => Array.from(selectedLineIds).map((id) => projectedState.items[id]).filter(Boolean),
+    [projectedState.items, selectedLineIds],
   );
 
   const catalogData = usePostTerminalCatalog(

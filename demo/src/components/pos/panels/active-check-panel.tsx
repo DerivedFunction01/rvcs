@@ -207,6 +207,14 @@ export function ActiveCheckPanel(props: any) {
   const [splitLineDialogOpen, setSplitLineDialogOpen] = useState(false);
   const [qtyStepPadOpen, setQtyStepPadOpen] = useState(false);
 
+  const disableNonModActions = useMemo(() => {
+    for (const id of selectedLineIds) {
+      const item = projectedState.items[id as string];
+      if (item && item.parentLineId) return true;
+    }
+    return false;
+  }, [selectedLineIds, projectedState.items]);
+
   const maxSelectedQty = useMemo(() => {
     let max = 0;
     for (const id of selectedLineIds) {
@@ -401,7 +409,13 @@ export function ActiveCheckPanel(props: any) {
                 modifiers={modifierItems}
                 guests={guests}
                 isSelected={selectedLineIds.has(item.lineId)}
-                onSelectToggle={handleSelectToggle}
+                selectedLineIds={selectedLineIds}
+                onSelectToggle={(lineId) => {
+                  const newSet = new Set(selectedLineIds);
+                  if (newSet.has(lineId)) newSet.delete(lineId);
+                  else newSet.add(lineId);
+                  setSelectedLineIds(newSet);
+                }}
                 isCollapsed={collapsedItems.has(item.lineId)}
                 onToggleCollapse={handleToggleCollapse}
                 collapsedItems={collapsedItems}
@@ -458,12 +472,14 @@ export function ActiveCheckPanel(props: any) {
                 onClick={() => {
                   modifyItemsQty(Array.from(selectedLineIds), -parsedStep);
                 }}
+                disabled={disableNonModActions}
               >
                 <Minus className="w-3.5 h-3.5 mr-1" />
               </Button>
               <button
-                className="h-7 w-14 text-[11px] px-2 font-mono font-medium bg-background border shadow-sm hover:bg-accent rounded-md cursor-pointer transition-colors flex items-center justify-center"
-                onClick={() => setQtyStepPadOpen(true)}
+                className={`h-7 w-14 text-[11px] px-2 font-mono font-medium border shadow-sm rounded-md transition-colors flex items-center justify-center ${disableNonModActions ? "bg-muted/50 text-muted-foreground opacity-50 cursor-not-allowed" : "bg-background hover:bg-accent cursor-pointer"}`}
+                onClick={() => !disableNonModActions && setQtyStepPadOpen(true)}
+                disabled={disableNonModActions}
               >
                 {qtyStep === "" ? "1" : formatNumber(Number(qtyStep))}
               </button>
@@ -474,6 +490,7 @@ export function ActiveCheckPanel(props: any) {
                   className="h-7 w-7 p-0 bg-background border shadow-sm hover:bg-accent shrink-0"
                   onClick={() => setQtyStep(1)}
                   title="Reset to 1"
+                  disabled={disableNonModActions}
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
                 </Button>
@@ -486,6 +503,7 @@ export function ActiveCheckPanel(props: any) {
                 onClick={() => {
                   modifyItemsQty(Array.from(selectedLineIds), parsedStep);
                 }}
+                disabled={disableNonModActions}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
               </Button>
@@ -494,6 +512,7 @@ export function ActiveCheckPanel(props: any) {
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => setQtyPadOpen(true)}
+                disabled={disableNonModActions}
               >
                 <Equal className="w-3.5 h-3.5 mr-1" />
                 Set Qty
@@ -503,6 +522,7 @@ export function ActiveCheckPanel(props: any) {
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => setSplitQtyDialogOpen(true)}
+                disabled={disableNonModActions}
               >
                 <Split className="w-3.5 h-3.5 mr-1" />
                 Split Qty
@@ -512,6 +532,7 @@ export function ActiveCheckPanel(props: any) {
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => setSplitLineDialogOpen(true)}
+                disabled={disableNonModActions}
               >
                 <Split className="w-3.5 h-3.5 mr-1" />
                 Split Line
@@ -529,6 +550,7 @@ export function ActiveCheckPanel(props: any) {
                   const newIds = duplicateItems(Array.from(selectedLineIds));
                   if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
                 }}
+                disabled={disableNonModActions}
               >
                 <Copy className="w-3.5 h-3.5 mr-1" />
                 Duplicate
@@ -538,6 +560,7 @@ export function ActiveCheckPanel(props: any) {
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => setDupMoveDialogOpen(true)}
+                disabled={disableNonModActions}
               >
                 <BringToFront className="w-3.5 h-3.5 mr-1" />
                 Duplicate & Move
@@ -550,6 +573,7 @@ export function ActiveCheckPanel(props: any) {
                   removeItems(Array.from(selectedLineIds));
                   setSelectedLineIds(new Set());
                 }}
+                disabled={disableNonModActions}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" />
                 Remove
@@ -567,7 +591,7 @@ export function ActiveCheckPanel(props: any) {
                   mergeItems(Array.from(selectedLineIds));
                   setSelectedLineIds(new Set());
                 }}
-                disabled={!canMerge}
+                disabled={disableNonModActions || !canMerge}
               >
                 <Combine className="w-3.5 h-3.5 mr-1" />
                 Merge
@@ -580,7 +604,7 @@ export function ActiveCheckPanel(props: any) {
                   const newIds = breakItems(Array.from(selectedLineIds));
                   if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
                 }}
-                disabled={!canBreak}
+                disabled={disableNonModActions || !canBreak}
               >
                 <Unlink className="w-3.5 h-3.5 mr-1" />
                 Break
@@ -590,7 +614,7 @@ export function ActiveCheckPanel(props: any) {
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => setCombineDialogOpen(true)}
-                disabled={!canCombine}
+                disabled={disableNonModActions || !canCombine}
               >
                 <PackageCheck className="w-3.5 h-3.5 mr-1" />
                 Combine
@@ -613,6 +637,7 @@ export function ActiveCheckPanel(props: any) {
                   setAssignmentAllocationContext(AllocationContext.Group);
                   setAssignmentAllocationOpen(true);
                 }}
+                disabled={disableNonModActions}
               >
                 Guest
               </Button>
@@ -629,6 +654,7 @@ export function ActiveCheckPanel(props: any) {
                   setPaymentAllocationContext(AllocationContext.Group);
                   setPaymentAllocationOpen(true);
                 }}
+                disabled={disableNonModActions}
               >
                 Payment
               </Button>
@@ -645,6 +671,7 @@ export function ActiveCheckPanel(props: any) {
                   setFulfillmentAllocationContext(AllocationContext.Group);
                   setFulfillmentAllocationOpen(true);
                 }}
+                disabled={disableNonModActions}
               >
                 Fulfillment
               </Button>
@@ -653,6 +680,7 @@ export function ActiveCheckPanel(props: any) {
                 size="sm"
                 className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
                 onClick={() => onGroupNoteOpen(Array.from(selectedLineIds))}
+                disabled={disableNonModActions}
               >
                 Group Note
               </Button>

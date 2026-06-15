@@ -2,13 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   type Guest,
-  getAssigneeFromItem,
   getGuestColor,
 } from "@/lib/pos/ui-utils";
 import type {
@@ -23,20 +17,15 @@ import {
   ArrowLeftRight,
   ChevronDown,
   ChevronRight,
-  Copy,
-  Minus,
-  Pencil,
-  Plus,
-  Settings2,
   Split,
-  Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { AllocationBadges } from "./allocation-badges";
 import { ViewMode } from "@/lib/pos/types";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { useState } from "react";
-import { NumberPadDialog } from "../dialogs/number-pad-dialog";
+import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
+import { LineItemActions } from "./line-item-actions";
+import { LineItemMainQty, LineItemInlineQty } from "./line-item-qty-controls";
 
 export function LineItemNode({
   item,
@@ -59,6 +48,7 @@ export function LineItemNode({
   detailLevel = ViewMode.Simple,
   isCompactMode = false,
   hideCanceled = false,
+  selectedLineIds = new Set(),
 }: {
   item: ProjectedLineItem;
   allocations: Record<string, AllocationBlock>;
@@ -77,6 +67,7 @@ export function LineItemNode({
   modifiers: CatalogItemEntry[];
   guests: Guest[];
   isSelected?: boolean;
+  selectedLineIds?: Set<string>;
   onSelectToggle?: (lineId: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: (lineId: string) => void;
@@ -95,6 +86,7 @@ export function LineItemNode({
 
   const [qtyPadTarget, setQtyPadTarget] = useState<"main" | "inline" | null>(null);
 
+  // --- Alloc resolution ---
   const rawAssignAlloc = item.allocations
     .map((id) => rawAllocations[id])
     .find((a) => a?.type === AllocationType.Assignment) as any;
@@ -125,6 +117,7 @@ export function LineItemNode({
   const payerName =
     paymentAllocs.length > 0 ? paymentAllocs[0].payer : assigneeName;
 
+  // --- Status flags ---
   const isCanceled = item.status === ItemStatus.Canceled;
   const isPending = item.status === ItemStatus.Pending;
   const isChanged = item.status === ItemStatus.Changed;
@@ -133,25 +126,11 @@ export function LineItemNode({
     item.allocations.filter(
       (id) => allocations[id]?.type === AllocationType.Payment,
     ).length > 1;
-  const hasNonDefaultPayment = item.allocations.some(
-    (id) =>
-      allocations[id]?.type === AllocationType.Payment &&
-      id !== defaultPaymentAllocId,
-  );
 
+  // --- Catalog-derived config ---
   const catalogEntry = catalog[item.sku];
+  const isSelectable = !isCanceled && (isRoot || catalogEntry?.type === CatalogItemType.Item);
   const step = catalogEntry?.mainQtyIncrement ?? 1;
-
-  // console.log(`[LineItemNode Tracer] SKU: ${item.sku}`, {
-  //   catalogEntry: catalogEntry,
-  //   itemQty: item.qty,
-  //   itemInlineQty: item.inlineQty,
-  //   catalogEntryExists: !!catalogEntry,
-  //   inlineQtyType: catalogEntry?.inlineQtyType,
-  //   inlineQtyLabel: catalogEntry?.inlineQtyLabel,
-  //   inlineQtyUnit: catalogEntry?.inlineQtyUnit,
-  //   inlineQtyPricePerUnit: catalogEntry?.inlineQtyPricePerUnit,
-  // });
 
   const hasInlineQty =
     catalogEntry?.inlineQtyType && catalogEntry.inlineQtyType !== "none";
@@ -174,9 +153,7 @@ export function LineItemNode({
       ? inlineQtyLabel.toLowerCase()
       : inlineQtyUnit || inlineQtyLabel.toLowerCase();
   const precision = (() => {
-    const increment = inlineStep;
-    if (!Number.isFinite(increment)) return 0;
-    const text = increment.toString();
+    const text = inlineStep.toString();
     if (text.includes("e-")) {
       const match = text.match(/e-(\d+)$/);
       return match ? Number(match[1]) : 0;
@@ -223,32 +200,31 @@ export function LineItemNode({
         className={`group relative ${depth > 0 ? "ml-4 border-l-2 border-muted pl-3" : ""}`}
       >
         <div
-          className={`rounded-lg border p-3 transition-all ${
-            isRoot
-              ? isSelected && !isCanceled
+          className={`rounded-lg border p-3 transition-all ${isSelectable
+              ? isSelected
                 ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
-                : `border-border cursor-pointer ${
-                    isCanceled
-                      ? "bg-muted/20 hover:bg-muted/30"
-                      : isConfirmed
-                        ? "bg-muted/30 hover:bg-muted/50"
-                        : "bg-card hover:bg-accent/50"
-                  }`
+                : `border-border cursor-pointer ${isConfirmed
+                  ? "bg-muted/30 hover:bg-muted/50"
+                  : isRoot
+                    ? "bg-card hover:bg-accent/50"
+                    : "border-transparent bg-muted/40 hover:bg-accent/30"
+                }`
               : "border-transparent bg-muted/40"
-          }`}
+            }`}
           onClick={
-            isRoot && !isCanceled
+            isSelectable
               ? (e) => {
-                  e.stopPropagation();
-                  onSelectToggle?.(item.lineId);
-                }
+                e.stopPropagation();
+                onSelectToggle?.(item.lineId);
+              }
               : undefined
           }
         >
           <div className="flex items-start justify-between gap-3">
+            {/* ── Left: identity + qty + name ── */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                {isRoot && !isCanceled && (
+                {isSelectable && (
                   <Checkbox
                     checked={isSelected}
                     onCheckedChange={() => onSelectToggle?.(item.lineId)}
@@ -262,16 +238,10 @@ export function LineItemNode({
                     title={`Assignee: ${assigneeName || "Guest"}\nPayer: ${paymentAllocs.length > 1 ? "Multiple (Split)" : payerName || "Guest"}`}
                   >
                     <div
-                      className={`w-2.5 h-2.5 rounded-full border border-background z-10 ${getGuestColor(
-                        assigneeId,
-                        guests,
-                      )}`}
+                      className={`w-2.5 h-2.5 rounded-full border border-background z-10 ${getGuestColor(assigneeId, guests)}`}
                     />
                     <div
-                      className={`w-2.5 h-2.5 rounded-full border border-background ${getGuestColor(
-                        payerId,
-                        guests,
-                      )}`}
+                      className={`w-2.5 h-2.5 rounded-full border border-background ${getGuestColor(payerId, guests)}`}
                     />
                   </div>
                 )}
@@ -292,77 +262,31 @@ export function LineItemNode({
                 ) : (
                   <div className="w-4 h-4 -ml-0.5 -mr-1 shrink-0" />
                 )}
-                {isRoot && !isCanceled && !(inlineQtyMainQtyLocked || isCompactMode) ? (
-                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-muted/40 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-background"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (item.qty > step) {
-                          useVCSStore
-                            .getState()
-                            .modifyItemQty(
-                              item.lineId,
-                              item.qty,
-                              Math.round((item.qty - step) * 1000) / 1000,
-                            );
-                        } else {
-                          useVCSStore.getState().removeItem(item.lineId);
-                        }
-                      }}
-                    >
-                      <Minus className="w-2.5 h-2.5" />
-                    </Button>
-                    <button
-                      className="text-[10px] text-foreground font-mono font-semibold min-w-6 px-1 text-center select-none hover:bg-background rounded transition-colors cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setQtyPadTarget("main");
-                      }}
-                    >
-                      {formatNumber(item.qty)}
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-background"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        useVCSStore
-                          .getState()
-                          .modifyItemQty(
-                            item.lineId,
-                            item.qty,
-                            Math.round((item.qty + step) * 1000) / 1000,
-                          );
-                      }}
-                    >
-                      <Plus className="w-2.5 h-2.5" />
-                    </Button>
-                  </div>
-                ) : isRoot && !isCanceled && (inlineQtyMainQtyLocked || isCompactMode) ? (
-                  <span className="text-[10px] text-muted-foreground font-mono font-semibold min-w-2.5 text-center select-none">
-                    {formatNumber(item.qty)}
-                  </span>
-                ) : isRoot && isCanceled ? (
-                  <div className="flex items-center gap-1 border rounded-md px-1 py-0.5 bg-destructive/10 border-destructive/20 shrink-0">
-                    <span className="text-[10px] text-destructive font-mono font-semibold min-w-2.5 px-2 text-center select-none">
-                      {formatNumber(item.canceledQty)}
-                    </span>
-                  </div>
-                ) : (
+
+                {/* ── Main qty controls ── */}
+                {isRoot && (
+                  <LineItemMainQty
+                    lineId={item.lineId}
+                    qty={item.qty}
+                    step={step}
+                    isCanceled={isCanceled}
+                    canceledQty={item.canceledQty}
+                    isLocked={inlineQtyMainQtyLocked || isCompactMode}
+                    formatNumber={formatNumber}
+                    onOpenPad={() => setQtyPadTarget("main")}
+                  />
+                )}
+                {!isRoot && (
                   <span className="text-xs text-muted-foreground font-mono shrink-0">
                     x{formatNumber(isCanceled ? item.canceledQty : item.qty)}
                   </span>
                 )}
+
                 <span
                   className={`font-medium truncate ${isModifier ? "text-muted-foreground text-sm" : "text-foreground"} ${isCanceled ? "line-through opacity-50" : ""}`}
                 >
                   {item.name}
-                  {inlinePricePerUnit &&
-                  catalogEntry?.basePrice !== undefined ? (
+                  {inlinePricePerUnit && catalogEntry?.basePrice !== undefined ? (
                     <span className="font-semibold text-muted-foreground text-xs ml-2">
                       @
                       {`$${formatNumber(catalogEntry.basePrice, 2)}${inlineQtyRateUnit ? inlineQtyPricePerUnitShowPer ? ` per ${inlineQtyRateUnit}` : ` ${inlineQtyRateUnit}` : ""}`}
@@ -374,6 +298,7 @@ export function LineItemNode({
                     </span>
                   ) : null}
                 </span>
+
                 {isComboChoice && !isCanceled && (
                   <Button
                     variant="ghost"
@@ -382,27 +307,21 @@ export function LineItemNode({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (slotSku) {
-                        onSwapComboChoice?.(
-                          item.lineId,
-                          item.parentLineId!,
-                          slotSku,
-                        );
+                        onSwapComboChoice?.(item.lineId, item.parentLineId!, slotSku);
                       }
                     }}
                   >
                     <ArrowLeftRight className="w-3 h-3" />
                   </Button>
                 )}
+
                 {item.basePrice === 0 && (
                   <Badge variant="secondary" className="text-[9px] h-3.5 px-1">
                     mod
                   </Badge>
                 )}
                 {isCanceled && (
-                  <Badge
-                    variant="destructive"
-                    className="text-[9px] h-3.5 px-1"
-                  >
+                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">
                     Void
                   </Badge>
                 )}
@@ -423,10 +342,7 @@ export function LineItemNode({
                   </Badge>
                 )}
                 {item.qty > 0 && item.canceledQty > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="text-[9px] h-3.5 px-1"
-                  >
+                  <Badge variant="destructive" className="text-[9px] h-3.5 px-1">
                     -{formatNumber(item.canceledQty)} Void
                   </Badge>
                 )}
@@ -440,6 +356,7 @@ export function LineItemNode({
                   </Badge>
                 )}
               </div>
+
               {showSku && (
                 <div className="text-[10px] text-muted-foreground/70 font-mono mt-0.5 truncate">
                   {item.sku}
@@ -453,112 +370,52 @@ export function LineItemNode({
                   guests={guests}
                 />
               )}
-              {isRoot &&
-                sizeGroup &&
-                !isCanceled &&
-                sizeOptions.length > 0 &&
-                activeSizeChild && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <span className="text-[10px] text-muted-foreground mr-1">
-                      Size:
-                    </span>
-                    <div className="flex items-center rounded border p-0.5 bg-muted/20">
-                      {sizeOptions.map((opt) => {
-                        const isActive = activeSku === opt.sku;
-                        return (
-                          <Button
-                            key={opt.sku}
-                            variant={isActive ? "secondary" : "ghost"}
-                            size="sm"
-                            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (activeSizeChild && !isActive) {
-                                useVCSStore
-                                  .getState()
-                                  .modifyItemSku(
-                                    activeSizeChild.lineId,
-                                    activeSizeChild.sku,
-                                    opt.sku,
-                                  );
-                              }
-                            }}
-                          >
-                            {opt.name}
-                            {opt.basePrice > 0 &&
-                              ` (+$${formatNumber(opt.basePrice, 2)})`}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
-              {hasInlineQty && !isCanceled && (
+              {/* ── Size picker ── */}
+              {isRoot && sizeGroup && !isCanceled && sizeOptions.length > 0 && activeSizeChild && (
                 <div className="flex items-center gap-1 mt-2">
-                  <span className="text-[10px] text-muted-foreground mr-1">
-                    {inlineQtyLabel}:
-                  </span>
-                  {(
-                    <div className="flex items-center rounded border p-0.5 bg-muted/20 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 p-0 hover:bg-background"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const currentInline = item.inlineQty ?? 1;
-                          if (currentInline > inlineStep) {
-                            const nextInline =
-                              Math.round((currentInline - inlineStep) * 100) /
-                              100;
-                            useVCSStore
-                              .getState()
-                              .modifyItemInlineQty(
-                                item.lineId,
-                                currentInline,
-                                nextInline,
-                              );
-                          }
-                        }}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <button
-                        className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1 hover:bg-background rounded transition-colors cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQtyPadTarget("inline");
-                        }}
-                      >
-                        {formatInlineQty(item.inlineQty ?? 1)}
-                        {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
-                      </button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 p-0 hover:bg-background"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const currentInline = item.inlineQty ?? 1;
-                          const nextInline =
-                            Math.round((currentInline + inlineStep) * 100) / 100;
-                          useVCSStore
-                            .getState()
-                            .modifyItemInlineQty(
-                              item.lineId,
-                              currentInline,
-                              nextInline,
-                            );
-                        }}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  )}
+                  <span className="text-[10px] text-muted-foreground mr-1">Size:</span>
+                  <div className="flex items-center rounded border p-0.5 bg-muted/20">
+                    {sizeOptions.map((opt) => {
+                      const isActive = activeSku === opt.sku;
+                      return (
+                        <Button
+                          key={opt.sku}
+                          variant={isActive ? "secondary" : "ghost"}
+                          size="sm"
+                          className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeSizeChild && !isActive) {
+                              useVCSStore
+                                .getState()
+                                .modifyItemSku(activeSizeChild.lineId, activeSizeChild.sku, opt.sku);
+                            }
+                          }}
+                        >
+                          {opt.name}
+                          {opt.basePrice > 0 && ` (+$${formatNumber(opt.basePrice, 2)})`}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
+              {/* ── Inline qty controls ── */}
+              {hasInlineQty && !isCanceled && (
+                <LineItemInlineQty
+                  lineId={item.lineId}
+                  inlineQty={item.inlineQty ?? 1}
+                  inlineStep={inlineStep}
+                  inlineQtyLabel={inlineQtyLabel}
+                  inlineQtyUnit={inlineQtyUnit}
+                  formatInlineQty={formatInlineQty}
+                  onOpenPad={() => setQtyPadTarget("inline")}
+                />
+              )}
+
+              {/* ── Modifier state picker ── */}
               {!isRoot &&
                 catalogEntry &&
                 !isCanceled &&
@@ -567,8 +424,7 @@ export function LineItemNode({
                   <div className="flex items-center gap-1 mt-2">
                     <div className="flex items-center rounded border p-0.5 bg-muted/20">
                       {catalogEntry.allowedStates.map((stateOpt) => {
-                        const isActive =
-                          item.selectedModifierState === stateOpt.state;
+                        const isActive = item.selectedModifierState === stateOpt.state;
                         const priceDiff =
                           stateOpt.priceOverride !== null
                             ? stateOpt.priceOverride - catalogEntry.basePrice
@@ -584,19 +440,14 @@ export function LineItemNode({
                               if (!isActive) {
                                 useVCSStore
                                   .getState()
-                                  .modifyModifierState(
-                                    item.lineId,
-                                    item.selectedModifierState,
-                                    stateOpt.state,
-                                  );
+                                  .modifyModifierState(item.lineId, item.selectedModifierState, stateOpt.state);
                               }
                             }}
                           >
                             {stateOpt.state}
                             {priceDiff !== 0 && (
                               <span className="opacity-70 font-mono ml-0.5 text-[8px]">
-                                ({priceDiff > 0 ? "+" : ""}$
-                                {formatNumber(priceDiff, 2)})
+                                ({priceDiff > 0 ? "+" : ""}${formatNumber(priceDiff, 2)})
                               </span>
                             )}
                           </Button>
@@ -607,6 +458,7 @@ export function LineItemNode({
                 )}
             </div>
 
+            {/* ── Right: price + action buttons ── */}
             <div className="flex flex-col items-end shrink-0 gap-1.5">
               {isCanceled && item.basePrice > 0 ? (
                 <span className="font-mono font-semibold tabular-nums text-muted-foreground line-through opacity-70">
@@ -618,112 +470,24 @@ export function LineItemNode({
                 </span>
               ) : null}
               {!isCanceled && !isCompactMode && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {(isRoot || catalogEntry?.type === CatalogItemType.Item) &&
-                    filteredModifiers.length > 0 && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onAddModifier(item);
-                            }}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="text-xs">
-                          Add modifiers
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  {(isRoot ||
-                    catalogEntry?.type === CatalogItemType.Item ||
-                    item.sku === "custom_note") && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddNote(item);
-                          }}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="text-xs">
-                        {item.sku === "custom_note" ? "Edit note" : "Add note"}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {isRoot && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onDuplicateItem) {
-                              onDuplicateItem(item.lineId);
-                            } else {
-                              useVCSStore.getState().duplicateItem(item.lineId);
-                              toast.success("Item duplicated");
-                            }
-                          }}
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="text-xs">
-                        Duplicate item
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAllocConfig(item);
-                        }}
-                      >
-                        <Settings2 className="w-3 h-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="text-xs">
-                      Allocation config
-                    </TooltipContent>
-                  </Tooltip>
-                  {!isComboChoice && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemove(item.lineId);
-                      }}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
+                <LineItemActions
+                  item={item}
+                  catalogEntry={catalogEntry}
+                  filteredModifiers={filteredModifiers}
+                  isComboChoice={isComboChoice}
+                  onRemove={onRemove}
+                  onAddModifier={onAddModifier}
+                  onAddNote={onAddNote}
+                  onAllocConfig={onAllocConfig}
+                  onDuplicateItem={onDuplicateItem}
+                />
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Children ── */}
       {!isCollapsed &&
         item.children
           .filter((child) => child.name !== "")
@@ -742,6 +506,9 @@ export function LineItemNode({
               depth={depth + 1}
               modifiers={modifiers}
               guests={guests}
+              isSelected={selectedLineIds?.has(child.lineId)}
+              selectedLineIds={selectedLineIds}
+              onSelectToggle={onSelectToggle}
               isCollapsed={collapsedItems?.has(child.lineId)}
               onToggleCollapse={onToggleCollapse}
               collapsedItems={collapsedItems}
@@ -750,6 +517,8 @@ export function LineItemNode({
               hideCanceled={hideCanceled}
             />
           ))}
+
+      {/* ── Number pad dialog ── */}
       {qtyPadTarget && (
         <NumberPadDialog
           open={qtyPadTarget !== null}
