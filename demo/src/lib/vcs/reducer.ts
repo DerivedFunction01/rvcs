@@ -378,6 +378,10 @@ function applyDelta(
           break;
         }
 
+        if (delta.afterQty <= 0) {
+          break;
+        }
+
         if (delta.afterQty < item.qty && item.isConfirmed) {
           item.canceledQty += item.qty - delta.afterQty;
         }
@@ -394,6 +398,9 @@ function applyDelta(
         const currentInline = item.inlineQty ?? 1;
         const beforeInline = delta.beforeInlineQty ?? 1;
         if (currentInline === beforeInline) {
+          if (delta.afterInlineQty <= 0) {
+            break;
+          }
           item.inlineQty = delta.afterInlineQty;
           if (!isConfirmedDelta && item.isConfirmed)
             item.hasPendingChanges = true;

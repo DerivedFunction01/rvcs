@@ -2222,7 +2222,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const finalQty = snapQty(afterQty, increment);
 
         if (finalQty <= 0) {
-          get().removeItem(lineId);
+          toast.error("Quantity cannot be zero.");
           return;
         }
 
@@ -2252,6 +2252,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     },
 
     modifyItemInlineQty: (lineId, beforeInlineQty, afterInlineQty) => {
+      if (afterInlineQty <= 0) {
+        toast.error("Measurement cannot be zero.");
+        return;
+      }
       get().commitDeltas(
         [
           {
@@ -2403,6 +2407,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const deltas: Delta[] = [];
       let lockedSkipped = false;
+      let zeroSkipped = false;
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -2418,11 +2423,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           }
 
           if (targetQty <= 0) {
-            deltas.push({
-              action: DeltaActionType.RemoveItem,
-              lineId,
-              qty: item.qty,
-            });
+            zeroSkipped = true;
+            continue;
           } else if (
             item.status === ItemStatus.Confirmed &&
             targetQty > item.qty
@@ -2456,6 +2458,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const deltas: Delta[] = [];
       let lockedSkipped = false;
+      let zeroSkipped = false;
 
       for (const lineId of lineIds) {
         const item = state.items[lineId];
@@ -2471,11 +2474,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           }
 
           if (finalQty <= 0) {
-            deltas.push({
-              action: DeltaActionType.RemoveItem,
-              lineId,
-              qty: item.qty,
-            });
+            zeroSkipped = true;
+            continue;
           } else if (
             item.status === ItemStatus.Confirmed &&
             finalQty > item.qty
@@ -2750,6 +2750,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (lockedSkipped) {
         toast.error("Some items were skipped because their main quantity is locked.");
       }
+      if (zeroSkipped) {
+        toast.error("Quantity cannot be zero.");
+      }
 
       if (deltas.length > 0) {
         store.commitDeltas(deltas, "pos-ui");
@@ -2814,6 +2817,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
       if (lockedSkipped) {
         toast.error("Some items were skipped because their main quantity is locked.");
+      }
+      if (zeroSkipped) {
+        toast.error("Quantity cannot be zero.");
       }
 
       if (deltas.length > 0) {
