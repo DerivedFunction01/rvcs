@@ -153,15 +153,34 @@ export function ModifierAddDialog({
           {/* Left Column (Search + Customization) */}
           <div className="flex flex-col gap-3 shrink-0 landscape:w-[320px] md:landscape:w-100">
             {/* Search Input */}
-            <div className="relative shrink-0 flex flex-row gap-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search modifiers (e.g. Cheese, Onions...)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 text-xs"
-              />
-              <Button variant="outline" size="default" onClick={() => onOpenChange(false)}>
+            <div className="shrink-0 flex flex-row gap-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search modifiers (e.g. Cheese, Onions...)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 text-xs w-full"
+                />
+              </div>
+              {lastTouchedMod && (() => {
+                const stats = modifierStats.get(lastTouchedMod.sku);
+                const isApplied = stats && stats.appliedCount > 0;
+                if (!isApplied) return null;
+                return (
+                  <Button
+                    variant="outline"
+                    className="sm:hidden text-destructive hover:text-destructive hover:bg-destructive/10 px-3 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (stats) onRemove(lastTouchedMod.sku, stats.itemsWithIt);
+                    }}
+                  >
+                    <Trash2 className="w-6 h-6" />
+                  </Button>
+                );
+              })()}
+              <Button variant="default" size="default" onClick={() => onOpenChange(false)} className="sm:hidden shrink-0">
                 Done
               </Button>
             </div>
@@ -255,10 +274,8 @@ export function ModifierAddDialog({
                     <div className="flex items-end landscape:items-start landscape:flex-col justify-between w-full md:w-auto landscape:w-full gap-2 md:gap-4">
 
 
-                      <div className={`md:pl-4 landscape:pl-0 md:border-l landscape:border-l-0 border-border/50 shrink-0 flex items-center gap-2 landscape:pt-2 landscape:border-t `
-                        + hasInlineQty ? `` : `w-full`
-                      }>
-                        {stats?.allowDuplicates && isApplied && parentItems && parentItems.length === 1 && (
+                      {stats?.allowDuplicates && isApplied && parentItems && parentItems.length === 1 && (
+                        <div className={`md:pl-4 landscape:pl-0 md:border-l landscape:border-l-0 border-border/50 shrink-0 flex items-center gap-2 landscape:pt-2 landscape:border-t ${hasInlineQty ? '' : 'w-full'}`}>
                           <Button
                             variant="ghost"
                             className="h-14 px-3 flex flex-col landscape:flex-row landscape:h-12 gap-1 text-primary hover:text-primary hover:bg-primary/10 flex-1"
@@ -270,21 +287,8 @@ export function ModifierAddDialog({
                             <Plus className="w-5 h-5 landscape:w-4 landscape:h-4" />
                             <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:block">Add Another</span>
                           </Button>
-                        )}
-                        {isApplied && (
-                          <Button
-                            variant="ghost"
-                            className="h-14 px-3 flex flex-col landscape:flex-row landscape:h-12 gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 flex-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (stats) onRemove(lastTouchedMod.sku, stats.itemsWithIt);
-                            }}
-                          >
-                            <Trash2 className="w-5 h-5 landscape:w-4 landscape:h-4" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:block">Remove</span>
-                          </Button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       {hasInlineQty ? (
                         <div className="flex flex-col gap-1 w-full">
                           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
@@ -330,6 +334,7 @@ export function ModifierAddDialog({
                       ) : <div className="hidden landscape:block" />}
                     </div>
                   </div>
+                 
                 </div>
               );
             })() : (
@@ -337,6 +342,29 @@ export function ModifierAddDialog({
                 <span className="text-sm font-medium text-muted-foreground text-center">Select a modifier to customize</span>
               </div>
             )}
+            <div className="hidden sm:flex gap-2">
+              {lastTouchedMod && (() => {
+                const stats = modifierStats.get(lastTouchedMod.sku);
+                const isApplied = stats && stats.appliedCount > 0;
+                if (!isApplied) return null;
+                return (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="h-16 w-16 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (stats) onRemove(lastTouchedMod.sku, stats.itemsWithIt);
+                    }}
+                  >
+                    <Trash2 className="w-12 h-12" />
+                  </Button>
+                );
+              })()}
+              <Button variant="default" size="lg" onClick={() => onOpenChange(false)} className="w-full h-16 text-lg flex-1">
+                Done
+              </Button>
+            </div>
           </div>
 
           {/* Right Column (Grid Scroll Area) */}
@@ -347,7 +375,11 @@ export function ModifierAddDialog({
                   No matching modifiers found.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+                <div className={`grid ${
+                  filtered.length <= 2
+                    ? "grid-cols-1"
+                    : "grid-cols-1 sm:grid-cols-2"
+                } md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4`}>
                   {filtered.map((mod) => {
                     const defaultState = mod.allowedStates?.find(
                       (s) => s.state === "Add" || s.state === "With"
@@ -690,4 +722,3 @@ function ModifierCollisionDialog(actionPrompt: { sku: string; defaultState?: str
     </DialogContent>
   </Dialog>;
 }
-

@@ -200,8 +200,8 @@ export function LineItemNode({
 
   // Color for the connectors drawn by *this* node's children list.
   // Children at depth N+1 use the color for depth N.
-  const childConnectorColor = globalDepthColors.length > 0 
-    ? globalDepthColors[depth % globalDepthColors.length] 
+  const childConnectorColor = globalDepthColors.length > 0
+    ? globalDepthColors[depth % globalDepthColors.length]
     : "#94a3b8";
 
   return (
@@ -209,15 +209,15 @@ export function LineItemNode({
       <div className="group relative">
         <div
           className={`rounded-lg border p-3 transition-all ${isSelectable
-              ? isSelected
-                ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
-                : `border-border cursor-pointer ${isConfirmed
-                  ? "bg-muted/30 hover:bg-muted/50"
-                  : isRoot
-                    ? "bg-card hover:bg-accent/50"
-                    : "border-transparent bg-muted/40 hover:bg-accent/30"
-                }`
-              : "border-transparent bg-muted/40"
+            ? isSelected
+              ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
+              : `border-border cursor-pointer ${isConfirmed
+                ? "bg-muted/30 hover:bg-muted/50"
+                : isRoot
+                  ? "bg-card hover:bg-accent/50"
+                  : "border-transparent bg-muted/40 hover:bg-accent/30"
+              }`
+            : "border-transparent bg-muted/40"
             }`}
           onClick={
             isSelectable
@@ -496,61 +496,72 @@ export function LineItemNode({
             are visually distinct.
         */}
         {!isCollapsed && validChildren.length > 0 && (
-          <div
-            className="ml-4 mt-1 flex flex-col gap-1.5 border-l-2"
-            style={{ borderColor: childConnectorColor }}
-          >
-            {validChildren.map((child, index) => {
-              const isLast = index === validChildren.length - 1;
-              return (
-                <div key={child.lineId} className="relative pl-4">
-                  {/*
-                    Horizontal elbow connector.
-                    - For non-last: a simple horizontal tick at mid-card-top (~12px down).
-                    - For last: an L-shape that also terminates the vertical trunk.
-                    Both are pinned to the left edge of pl-4 padding (left: -1px overlaps the trunk border).
-                  */}
-                  {isLast ? (
-                    // L-shape: vertical segment from top down to mid, then horizontal to card
-                    <span
-                      className="pointer-events-none absolute -left-px top-0 h-4 w-4 border-b-2 border-l-2 rounded-bl-md"
-                      style={{ borderColor: childConnectorColor }}
-                      aria-hidden
+          <div className="ml-4 mt-1 relative pl-4">
+            <div className="flex flex-col">
+              {validChildren.map((child, index) => {
+                const isLast = index === validChildren.length - 1;
+                return (
+                  <div
+                    key={child.lineId}
+                    className="relative"
+                    style={{ marginBottom: !isLast ? '6px' : 0 }}
+                  >
+                    {/* Vertical trunk segment — drawn per-child, skipped on last */}
+                    {!isLast && (
+                      <div
+                        className="absolute -left-4 top-4 w-0.5"
+                        style={{
+                          backgroundColor: childConnectorColor,
+                          // Extends from mid-card down through the gap to the next child's mid-point
+                          height: 'calc(100% + 6px)',
+                        }}
+                        aria-hidden
+                      />
+                    )}
+
+                    {isLast ? (
+                      // L-shape terminator — no trunk above this
+                      <span
+                        className="pointer-events-none absolute -left-4 top-0 h-6 w-4 border-b-2 border-l-2 rounded-bl-md"
+                        style={{ borderColor: childConnectorColor }}
+                        aria-hidden
+                      />
+                    ) : (
+                      // Horizontal tick
+                      <span
+                        className="pointer-events-none absolute -left-4 top-4 h-px w-4 border-t-2"
+                        style={{ borderColor: childConnectorColor }}
+                        aria-hidden
+                      />
+                    )}
+
+                    <LineItemNode
+                      item={child}
+                      allocations={allocations}
+                      defaultPaymentAllocId={defaultPaymentAllocId}
+                      onRemove={onRemove}
+                      onAddModifier={onAddModifier}
+                      onAddNote={onAddNote}
+                      onAllocConfig={onAllocConfig}
+                      onSwapComboChoice={onSwapComboChoice}
+                      onDuplicateItem={onDuplicateItem}
+                      depth={depth + 1}
+                      modifiers={modifiers}
+                      guests={guests}
+                      isSelected={selectedLineIds?.has(child.lineId)}
+                      selectedLineIds={selectedLineIds}
+                      onSelectToggle={onSelectToggle}
+                      isCollapsed={collapsedItems?.has(child.lineId)}
+                      onToggleCollapse={onToggleCollapse}
+                      collapsedItems={collapsedItems}
+                      detailLevel={detailLevel}
+                      isCompactMode={isCompactMode}
+                      hideCanceled={hideCanceled}
                     />
-                  ) : (
-                    // Horizontal tick only; the trunk border continues vertically
-                    <span
-                      className="pointer-events-none absolute -left-px top-4 h-px w-4 border-t-2"
-                      style={{ borderColor: childConnectorColor }}
-                      aria-hidden
-                    />
-                  )}
-                  <LineItemNode
-                    item={child}
-                    allocations={allocations}
-                    defaultPaymentAllocId={defaultPaymentAllocId}
-                    onRemove={onRemove}
-                    onAddModifier={onAddModifier}
-                    onAddNote={onAddNote}
-                    onAllocConfig={onAllocConfig}
-                    onSwapComboChoice={onSwapComboChoice}
-                    onDuplicateItem={onDuplicateItem}
-                    depth={depth + 1}
-                    modifiers={modifiers}
-                    guests={guests}
-                    isSelected={selectedLineIds?.has(child.lineId)}
-                    selectedLineIds={selectedLineIds}
-                    onSelectToggle={onSelectToggle}
-                    isCollapsed={collapsedItems?.has(child.lineId)}
-                    onToggleCollapse={onToggleCollapse}
-                    collapsedItems={collapsedItems}
-                    detailLevel={detailLevel}
-                    isCompactMode={isCompactMode}
-                    hideCanceled={hideCanceled}
-                  />
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
