@@ -263,6 +263,13 @@ interface VCSStore {
     }>,
     method?: string | null,
   ) => string;
+  createFulfillmentConfig: (config: {
+    method: string;
+    timeType: TimeBlockType;
+    calculatedAt: string | null;
+    destinationLabel: string;
+    destinationId: string | null;
+  }) => string;
 
   /**
    * Split an item's single payment into multiple payment allocations.
@@ -1472,6 +1479,42 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           store.chargeRules,
           store.catalog,
         ),
+      });
+      store.persist();
+      return correlationId;
+    },
+
+    createFulfillmentConfig: (config) => {
+      const store = get();
+      const correlationId = `fulfillment-custom-${Date.now().toString().slice(-6)}`;
+      const newFulAllocId = generateAllocationId("fulfillment-cfg");
+
+      const newFulAlloc: FulfillmentAllocation = {
+        allocationId: newFulAllocId,
+        correlationId,
+        type: AllocationType.Fulfillment,
+        method: config.method,
+        time: {
+          type: config.timeType,
+          calculatedAt: config.calculatedAt,
+        },
+        fulfillmentMetadata: {
+          destinationLabel: config.destinationLabel,
+          destinationId: config.destinationId,
+        },
+      };
+
+      store.engine.commitSystem(
+        [
+          {
+            action: DeltaActionType.DeclareAllocation,
+            allocation: newFulAlloc,
+          },
+        ],
+        "pos-ui",
+      );
+      set({
+        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
       });
       store.persist();
       return correlationId;

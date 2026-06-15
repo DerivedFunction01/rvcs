@@ -22,21 +22,25 @@ import {
   ProjectedLineItem,
   TimeBlockType,
 } from "@/lib/vcs/types";
+import { useVCSStore } from "@/store/vcs-store";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
   Clock,
+  Copy,
   Grid2x2,
   HelpCircle,
   PackageCheck,
+  Pencil,
   Plus,
   Search,
   Store,
   Truck,
   User,
 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 interface FulfillmentAllocationDialogProps {
   open: boolean;
@@ -431,6 +435,53 @@ export function FulfillmentAllocationDialog({
     onOpenChange(false);
   };
 
+  const handleSaveConfigOnly = useCallback(() => {
+    const customConfig = {
+      method,
+      timeType,
+      calculatedAt: timeType === TimeBlockType.Immediate ? null : calculatedAt,
+      destinationLabel: resolvedDestination.label,
+      destinationId: resolvedDestination.id,
+    };
+    useVCSStore.getState().createFulfillmentConfig(customConfig);
+    toast.success("Fulfillment configuration saved.");
+    setView("main");
+  }, [method, timeType, calculatedAt, resolvedDestination]);
+
+  const loadFulfillmentConfig = useCallback(
+    (configId: string) => {
+      const alloc = Object.values(allocations).find(
+        (a) =>
+          a.type === AllocationType.Fulfillment &&
+          (a.allocationId === configId || a.correlationId === configId),
+      ) as FulfillmentAllocation | undefined;
+
+      if (alloc) {
+        setMethod(alloc.method as OrderType);
+        setTimeType(alloc.time.type);
+        setCalculatedAt(alloc.time.calculatedAt);
+        const meta = alloc.fulfillmentMetadata;
+        if (
+          meta.destinationId &&
+          guests.some((g) => g.id === meta.destinationId)
+        ) {
+          setDestType("guest");
+          setSelectedGuestId(meta.destinationId);
+          setCustomDestLabel("");
+        } else if (meta.destinationId) {
+          setDestType("table");
+          setSelectedTableId(meta.destinationId);
+          setCustomDestLabel("");
+        } else {
+          setDestType(ConfigType.Custom);
+          setCustomDestLabel(meta.destinationLabel || "");
+        }
+        setView("customize");
+      }
+    },
+    [allocations, guests],
+  );
+
   // Find affected items list for global change warning
   const affectedItems = useMemo(() => {
     if (context !== AllocationContext.Global || !activeFulfillmentConfigId)
@@ -452,7 +503,7 @@ export function FulfillmentAllocationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-full sm:max-w-5xl flex flex-col max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Clock className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -725,7 +776,7 @@ export function FulfillmentAllocationDialog({
               </div>
             </div>
 
-            <DialogFooter className="pt-2 border-t mt-4 gap-2 sm:justify-between">
+            <DialogFooter className="pt-2 border-t mt-4 gap-2 sm:justify-end">
               <Button
                 variant="outline"
                 size="sm"
@@ -733,15 +784,24 @@ export function FulfillmentAllocationDialog({
               >
                 Cancel
               </Button>
-              <Button
-                size="sm"
-                onClick={handleApplyCustom}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {context === AllocationContext.Global
-                  ? "Apply default..."
-                  : "Apply to Items"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveConfigOnly}
+                >
+                  Save Config
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleApplyCustom}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {context === AllocationContext.Global
+                    ? "Apply default..."
+                    : "Apply to Items"}
+                </Button>
+              </div>
             </DialogFooter>
           </div>
         ) : (
@@ -857,32 +917,66 @@ export function FulfillmentAllocationDialog({
                     const isActive = choice.id === activeFulfillmentConfigId;
                     const Icon = choice.icon;
                     return (
-                      <button
+                      <div
                         key={choice.id}
                         onClick={() => handleSelectConfig(choice.id)}
-                        className={`flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${
+                        className={`group flex items-center justify-between gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${
                           isActive
                             ? "border-emerald-500 bg-emerald-50/5 dark:bg-emerald-950/10 ring-1 ring-emerald-500/20"
                             : "bg-card"
                         }`}
                       >
-                        <div
-                          className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
-                        >
-                          <Icon className="w-4 h-4" />
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div
+                            className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
+                          >
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1 flex flex-col">
+                            <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1 font-mono">
+                              {choice.label}
+                              {isActive && (
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              )}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate font-mono">
+                              {choice.description}
+                            </span>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1 flex flex-col">
-                          <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1 font-mono">
-                            {choice.label}
-                            {isActive && (
-                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            )}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate font-mono">
-                            {choice.description}
-                          </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                            title="Edit configuration"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              loadFulfillmentConfig(choice.id);
+                            }}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                            title="Duplicate configuration"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              loadFulfillmentConfig(choice.id);
+                            }}
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </Button>
+                          <Badge
+                            variant="outline"
+                            className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40"
+                          >
+                            Saved
+                          </Badge>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                   {filteredSavedConfigs.length === 0 && (
