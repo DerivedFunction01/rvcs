@@ -5,7 +5,7 @@ import { AssignmentAllocationDialog } from "@/components/pos/dialogs/assignment-
 import { PaymentAllocationDialog } from "@/components/pos/dialogs/payment-allocation-dialog";
 import { FulfillmentAllocationDialog } from "@/components/pos/dialogs/fulfillment-allocation-dialog";
 import { useVCSStore } from "@/store/vcs-store";
-import { AllocationContext, ConfigUpdateMode, PaymentUpdateMode, type FloorConfig, type OrderContext } from "@/lib/pos/types";
+import { AllocationContext, ConfigType, ConfigUpdateMode, PaymentUpdateMode, type FloorConfig, type OrderContext } from "@/lib/pos/types";
 import { AllocationType, DeltaActionType, type Delta, type FulfillmentAllocation, type PaymentAllocation, type ProjectedState } from "@/lib/vcs/types";
 import { generateAllocationId } from "@/lib/vcs/id";
 import type { usePostTerminalAllocationDialogs } from "@/components/pos/screens/hooks/use-post-terminal-allocation-dialogs";
@@ -208,14 +208,14 @@ export function PosAllocationDialogs({
         guests={guests}
         onApplyFulfillmentConfig={(selection, mode) => {
           if (dialogs.fulfillmentAllocationContext === AllocationContext.Item) {
-            if (selection.type === "config") {
+            if (selection.type === ConfigType.Config) {
               // logic preserved via store interaction
               store.groupItemsFulfillmentConfig(
                 [dialogs.fulfillmentAllocationItems[0].lineId],
                 selection.configId!
               );
               toast.success("Fulfillment configuration updated for item");
-            } else if (selection.type === "custom" && selection.customConfig) {
+            } else if (selection.type === ConfigType.Custom && selection.customConfig) {
               const c = selection.customConfig;
               actions.handleUpdateFulfillment(
                 dialogs.fulfillmentAllocationItems[0].lineId,
@@ -224,7 +224,7 @@ export function PosAllocationDialogs({
               );
             }
           } else if (dialogs.fulfillmentAllocationContext === AllocationContext.Group) {
-            if (selection.type === "config") {
+            if (selection.type === ConfigType.Config) {
               store.groupItemsFulfillmentConfig(
                 dialogs.fulfillmentAllocationItems.map(i => i.lineId),
                 selection.configId!
@@ -234,7 +234,7 @@ export function PosAllocationDialogs({
             }
           } else {
             // global context
-            if (selection.type === "config") {
+            if (selection.type === ConfigType.Config) {
               store.selectFulfillmentConfig(selection.configId!, mode as ConfigUpdateMode);
               toast.success("Default fulfillment updated");
             }

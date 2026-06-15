@@ -76,6 +76,10 @@ export enum ConfigUpdateMode {
   NewOnly = "new-only",
 }
 
+export enum ConfigType{
+  Config = "config",
+  Custom = "custom"
+}
 export enum AllocationContext {
   Item = "item",
   Group = "group",

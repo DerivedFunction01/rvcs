@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import {
   AllocationContext,
+  ConfigType,
   ConfigUpdateMode,
   PaymentUpdateMode,
 } from "@/lib/pos/types";
@@ -103,7 +104,7 @@ export function PaymentAllocationDialog({
 
   // For the header confirmation flow
   const [pendingSelection, setPendingSelection] = useState<{
-    type: "config" | "custom";
+    type: ConfigType;
     configIdOrMethod?: string;
     customSplits?: PaymentSplitEntry[];
   } | null>(null);
@@ -449,7 +450,7 @@ export function PaymentAllocationDialog({
     if (context === AllocationContext.Header) {
       // Transition to switch confirmation
       setPendingSelection({
-        type: "config",
+        type: ConfigType.Config,
         configIdOrMethod: choiceId,
       });
     } else if (context === AllocationContext.Item) {
@@ -498,7 +499,7 @@ export function PaymentAllocationDialog({
   const handleCustomSplitClick = () => {
     if (context === AllocationContext.Header) {
       setPendingSelection({
-        type: "custom",
+        type: ConfigType.Custom,
         customSplits: splits,
       });
     } else if (context === AllocationContext.Group) {
@@ -510,12 +511,12 @@ export function PaymentAllocationDialog({
   const handleApplyHeaderChoice = (mode: ConfigUpdateMode) => {
     if (!pendingSelection) return;
     if (
-      pendingSelection.type === "config" &&
+      pendingSelection.type === ConfigType.Config &&
       pendingSelection.configIdOrMethod
     ) {
       onApplyConfig(pendingSelection.configIdOrMethod, mode);
     } else if (
-      pendingSelection.type === "custom" &&
+      pendingSelection.type === ConfigType.Custom &&
       pendingSelection.customSplits
     ) {
       const mappedSplits = pendingSelection.customSplits.map((s) => ({

@@ -11,8 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { FloorConfig } from "@/lib/pos/types";
-import { AllocationContext, OrderType } from "@/lib/pos/types";
+import { ConfigType, FloorConfig } from "@/lib/pos/types";
+import { AllocationContext, ConfigUpdateMode, OrderType } from "@/lib/pos/types";
 import type { Guest } from "@/lib/pos/ui-utils";
 import { formatFulfillmentTime } from "@/lib/pos/utils";
 import {
@@ -50,7 +50,7 @@ interface FulfillmentAllocationDialogProps {
   guests: Guest[];
   onApplyFulfillmentConfig: (
     selection: {
-      type: "config" | "custom";
+      type: ConfigType;
       configId?: string;
       customConfig?: {
         method: string;
@@ -60,7 +60,7 @@ interface FulfillmentAllocationDialogProps {
         destinationId: string | null;
       };
     },
-    mode?: "change-existing" | "new-only",
+    mode?: ConfigUpdateMode,
   ) => void;
 }
 
@@ -99,7 +99,7 @@ export function FulfillmentAllocationDialog({
   );
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
 
-  const [destType, setDestType] = useState<"table" | "guest" | "custom">(
+  const [destType, setDestType] = useState<"table" | "guest" | ConfigType.Custom>(
     "guest",
   );
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -108,7 +108,7 @@ export function FulfillmentAllocationDialog({
 
   // For global switch confirmation flow
   const [pendingSelection, setPendingSelection] = useState<{
-    type: "config" | "custom";
+    type: ConfigType;
     configId?: string;
     customConfig?: {
       method: string;
@@ -165,7 +165,7 @@ export function FulfillmentAllocationDialog({
           setSelectedTableId(meta.destinationId);
           setCustomDestLabel("");
         } else {
-          setDestType("custom");
+          setDestType(ConfigType.Custom);
           setCustomDestLabel(meta.destinationLabel || "");
         }
       } else {
@@ -385,9 +385,9 @@ export function FulfillmentAllocationDialog({
   // Save changes handler
   const handleSelectConfig = (configId: string) => {
     if (context === AllocationContext.Global) {
-      setPendingSelection({ type: "config", configId });
+      setPendingSelection({ type: ConfigType.Config, configId });
     } else {
-      onApplyFulfillmentConfig({ type: "config", configId });
+      onApplyFulfillmentConfig({ type: ConfigType.Config, configId });
       onOpenChange(false);
     }
   };
@@ -402,29 +402,29 @@ export function FulfillmentAllocationDialog({
     };
 
     if (context === AllocationContext.Global) {
-      setPendingSelection({ type: "custom", customConfig });
+      setPendingSelection({ type: ConfigType.Custom, customConfig });
     } else {
       onApplyFulfillmentConfig(
-        { type: "custom", customConfig },
-        "change-existing",
+        { type: ConfigType.Custom, customConfig },
+        ConfigUpdateMode.ChangeExisting,
       );
       onOpenChange(false);
     }
   };
 
-  const handleConfirmPending = (mode: "change-existing" | "new-only") => {
+  const handleConfirmPending = (mode: ConfigUpdateMode) => {
     if (!pendingSelection) return;
-    if (pendingSelection.type === "config" && pendingSelection.configId) {
+    if (pendingSelection.type === ConfigType.Config && pendingSelection.configId) {
       onApplyFulfillmentConfig(
-        { type: "config", configId: pendingSelection.configId },
+        { type: ConfigType.Config, configId: pendingSelection.configId },
         mode,
       );
     } else if (
-      pendingSelection.type === "custom" &&
+      pendingSelection.type === ConfigType.Custom &&
       pendingSelection.customConfig
     ) {
       onApplyFulfillmentConfig(
-        { type: "custom", customConfig: pendingSelection.customConfig },
+        { type: ConfigType.Custom, customConfig: pendingSelection.customConfig },
         mode,
       );
     }
@@ -520,13 +520,13 @@ export function FulfillmentAllocationDialog({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => handleConfirmPending("new-only")}
+                onClick={() => handleConfirmPending(ConfigUpdateMode.NewOnly)}
               >
                 New Items Only
               </Button>
               <Button
                 size="sm"
-                onClick={() => handleConfirmPending("change-existing")}
+                onClick={() => handleConfirmPending(ConfigUpdateMode.ChangeExisting)}
                 className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 Apply to Affected Items
@@ -641,7 +641,7 @@ export function FulfillmentAllocationDialog({
                 {[
                   { id: "guest", label: "Guest Pointer", icon: User },
                   { id: "table", label: "Table layout", icon: Grid2x2 },
-                  { id: "custom", label: "Custom Location", icon: Truck },
+                  { id: ConfigType.Custom, label: "Custom Location", icon: Truck },
                 ].map((item) => {
                   const Icon = item.icon;
                   const active = destType === item.id;
@@ -709,7 +709,7 @@ export function FulfillmentAllocationDialog({
                   </div>
                 )}
 
-                {destType === "custom" && (
+                {destType === ConfigType.Custom && (
                   <div className="space-y-1">
                     <span className="text-[10px] text-muted-foreground uppercase font-semibold">
                       Custom Destination / Instructions
