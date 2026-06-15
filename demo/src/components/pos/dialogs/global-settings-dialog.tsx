@@ -44,7 +44,7 @@ export function GlobalSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-3xl flex flex-col max-h-[85vh]">
+      <DialogContent className="w-[95vw] sm:max-w-4xl flex flex-col max-h-[85vh]">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-primary" /> Global Settings

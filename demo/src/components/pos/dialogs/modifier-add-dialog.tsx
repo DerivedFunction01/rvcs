@@ -15,6 +15,7 @@ import { useVCSStore } from "@/store/vcs-store";
 import { Minus, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import { NumberPadDialog } from "./number-pad-dialog";
 
 interface ModifierAddDialogProps {
   open: boolean;
@@ -41,6 +42,7 @@ export function ModifierAddDialog({
 }: ModifierAddDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [actionPrompt, setActionPrompt] = useState<{sku: string, defaultState?: string} | null>(null);
+  const [qtyPadTarget, setQtyPadTarget] = useState<string | null>(null);
 
   const catalog = useVCSStore((s) => s.catalog);
   const formatNumber = useFormatNumber();
@@ -129,7 +131,7 @@ export function ModifierAddDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl w-[95vw] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-8xl w-[95vw] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-5 h-5 text-primary" />
@@ -158,7 +160,7 @@ export function ModifierAddDialog({
               No matching modifiers found.
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
               {filtered.map((mod) => {
                 const defaultState = mod.allowedStates?.find(
                   (s) => s.state === "ADD" || s.state === "WITH"
@@ -384,10 +386,17 @@ export function ModifierAddDialog({
                               >
                                 <Minus className="w-3 h-3" />
                               </button>
-                              <span className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1">
+                              <button
+                                className="text-[10px] text-foreground font-mono font-semibold min-w-8 text-center select-none px-1 hover:bg-muted rounded transition-colors cursor-pointer disabled:opacity-50"
+                                disabled={!isApplied}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setQtyPadTarget(mod.sku);
+                                }}
+                              >
                                 {isApplied ? formatInlineQty(stats?.currentInlineQty ?? 1) : "0"}
                                 {inlineQtyUnit ? ` ${inlineQtyUnit}` : ""}
-                              </span>
+                              </button>
                               <button
                                 className="h-5 w-5 flex items-center justify-center hover:bg-muted hover:text-primary rounded text-muted-foreground transition-colors"
                                 onClick={(e) => {
@@ -414,6 +423,31 @@ export function ModifierAddDialog({
             Done
           </Button>
         </DialogFooter>
+        {qtyPadTarget && (() => {
+          const mod = modifiers.find((m) => m.sku === qtyPadTarget);
+          if (!mod) return null;
+          const stats = modifierStats.get(qtyPadTarget);
+          const inlineStep = mod.inlineQtyIncrement ?? (mod.inlineQtyType === "float" ? 0.05 : 1);
+          return (
+            <NumberPadDialog
+              open={qtyPadTarget !== null}
+              onOpenChange={(isOpen) => {
+                if (!isOpen) setQtyPadTarget(null);
+              }}
+              title="Measurement"
+              description={`Set the measurement for ${mod.name}`}
+              initialValue={stats?.currentInlineQty ?? 1}
+              min={inlineStep}
+              increment={inlineStep}
+              onConfirm={(val) => {
+                if (onUpdateInlineQty) {
+                  const current = stats?.currentInlineQty ?? 1;
+                  onUpdateInlineQty(mod.sku, val - current);
+                }
+              }}
+            />
+          );
+        })()}
       </DialogContent>
     </Dialog>
   );

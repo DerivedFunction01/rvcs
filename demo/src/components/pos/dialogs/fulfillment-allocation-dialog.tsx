@@ -503,7 +503,7 @@ export function FulfillmentAllocationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-5xl flex flex-col max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-5xl flex flex-col max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Clock className="w-5 h-5 text-emerald-600 shrink-0" />
