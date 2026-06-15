@@ -912,7 +912,7 @@ export function PaymentAllocationDialog({
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                                  className="h-7 w-7 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
                                   title="Edit configuration"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -924,7 +924,7 @@ export function PaymentAllocationDialog({
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                                  className="h-7 w-7 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
                                   title="Duplicate configuration"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -935,7 +935,7 @@ export function PaymentAllocationDialog({
                                 </Button>
                                 <Badge
                                   variant="outline"
-                                  className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40"
+                                  className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40 hidden sm:block"
                                 >
                                   Split
                                 </Badge>
