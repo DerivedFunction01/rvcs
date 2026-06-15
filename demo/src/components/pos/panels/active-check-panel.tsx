@@ -327,7 +327,7 @@ export function ActiveCheckPanel(props: any) {
                   </div>
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-64 p-3" align="end">
+              <PopoverContent className="w-l p-3" align="end">
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Charge Breakdown
