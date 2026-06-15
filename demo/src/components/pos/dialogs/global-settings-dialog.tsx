@@ -44,8 +44,8 @@ export function GlobalSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="w-full sm:max-w-3xl flex flex-col max-h-[85vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="w-5 h-5 text-primary" /> Global Settings
           </DialogTitle>
@@ -54,7 +54,7 @@ export function GlobalSettingsDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
           <div className="flex items-center justify-between">
             <label htmlFor="detail-level" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
               Default Detail Level
@@ -291,7 +291,7 @@ export function GlobalSettingsDialog({
           </div>
         </div>
         
-        <DialogFooter>
+        <DialogFooter className="shrink-0 pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
