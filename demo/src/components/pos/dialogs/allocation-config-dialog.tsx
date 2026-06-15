@@ -295,9 +295,7 @@ export function AllocationConfigDialog({
                   PaymentStrategyType.Percentage
                     ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
                     : (payAlloc.paymentStrategy.strategyType as string) ===
-                          PaymentStrategyType.FixedItem ||
-                        (payAlloc.paymentStrategy.strategyType as string) ===
-                          PaymentStrategyType.Fixed
+                          PaymentStrategyType.FixedItem
                       ? `$${formatNumber(payAlloc.paymentStrategy.value ?? 0, 2)}/item`
                       : (payAlloc.paymentStrategy.strategyType as string) ===
                           PaymentStrategyType.FixedGlobal

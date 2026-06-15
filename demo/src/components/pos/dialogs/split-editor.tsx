@@ -26,6 +26,21 @@ export interface PaymentSplitEntry {
   method?: string | null;
 }
 
+const STRATEGY_OPTIONS = [
+  { value: PaymentStrategyType.Percentage, label: "Percentage" },
+  { value: PaymentStrategyType.FixedItem, label: "Fixed/Item" },
+  { value: PaymentStrategyType.FixedGlobal, label: "Fixed Global" },
+  { value: PaymentStrategyType.Remaining, label: "Remaining" },
+];
+
+const METHOD_OPTIONS = [
+  { value: "any", label: "Method..." },
+  ...PAYMENT_METHODS.map((m) => ({
+    value: m,
+    label: m.charAt(0).toUpperCase() + m.slice(1),
+  })),
+];
+
 export function validateSplit(
   splits: PaymentSplitEntry[],
   itemTotalPrice?: number,
@@ -390,18 +405,11 @@ export function SplitEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="percentage" className="text-xs">
-                  Percentage
-                </SelectItem>
-                <SelectItem value="fixed_item" className="text-xs">
-                  Fixed/Item
-                </SelectItem>
-                <SelectItem value="fixed_global" className="text-xs">
-                  Fixed Global
-                </SelectItem>
-                <SelectItem value="remaining" className="text-xs">
-                  Remaining
-                </SelectItem>
+                {STRATEGY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -413,14 +421,11 @@ export function SplitEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="any" className="text-xs">
-                  Method...
-                </SelectItem>
-                {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={m} value={m} className="text-xs">
-                    {m.charAt(0).toUpperCase() + m.slice(1)}
+              {METHOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
                   </SelectItem>
-                ))}
+              ))}
               </SelectContent>
             </Select>
 
@@ -475,18 +480,11 @@ export function SplitEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="percentage" className="text-xs">
-                Percentage
-              </SelectItem>
-              <SelectItem value="fixed_item" className="text-xs">
-                Fixed/Item
-              </SelectItem>
-              <SelectItem value="fixed_global" className="text-xs">
-                Fixed Global
-              </SelectItem>
-              <SelectItem value="remaining" className="text-xs">
-                Remaining
-              </SelectItem>
+              {STRATEGY_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
@@ -498,12 +496,9 @@ export function SplitEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="any" className="text-xs">
-                Method...
-              </SelectItem>
-              {PAYMENT_METHODS.map((m) => (
-                <SelectItem key={m} value={m} className="text-xs">
-                  {m.charAt(0).toUpperCase() + m.slice(1)}
+              {METHOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  {opt.label}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -241,11 +241,11 @@ export function PaymentAllocationDialog({
           let key = "";
           let stratLabel = "";
           let sortValue = 0;
-          if (stratType === "fixed" || stratType === "fixed_item" || stratType === "fixed_global") {
+          if (stratType === PaymentStrategyType.Fixed || stratType === PaymentStrategyType.FixedItem || PaymentStrategyType.FixedGlobal) {
             key = `fixed-${a.paymentStrategy.value}`;
             stratLabel = `$${formatNumber(a.paymentStrategy.value ?? 0, 2)}`;
             sortValue = a.paymentStrategy.value ?? 0;
-          } else if (stratType === "remaining") {
+          } else if (stratType === PaymentStrategyType.Remaining) {
             key = "remaining";
             stratLabel = "rem";
             sortValue = -1;
@@ -431,11 +431,10 @@ export function PaymentAllocationDialog({
       if (matchedAllocs.length > 0) {
         const loadedSplits: PaymentSplitEntry[] = matchedAllocs.map((a) => {
           const strat = a.paymentStrategy;
-          let strategyType: PaymentStrategyType =
-            PaymentStrategyType.Percentage;
-          const rawType = strat.strategyType;
-          if (rawType === PaymentStrategyType.Fixed)
+          let strategyType = strat.strategyType as PaymentStrategyType;
+          if (strategyType === PaymentStrategyType.Fixed) {
             strategyType = PaymentStrategyType.FixedItem;
+          }
           const val =
             strategyType === PaymentStrategyType.Percentage
               ? (strat.value ?? 1) * 100
