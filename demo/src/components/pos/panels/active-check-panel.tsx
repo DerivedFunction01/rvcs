@@ -1,40 +1,7 @@
 import { LineItemNode } from "@/components/pos/items/line-item-node";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Separator as SeparatorUI } from "@/components/ui/separator";
-import { AllocationContext } from "@/lib/pos/types";
-import { getGuestColor } from "@/lib/pos/ui-utils";
 import {
   AlertCircle,
-  ChevronDown,
-  Copy,
-  Minus,
-  Plus,
   ShoppingCart,
-  Trash2,
-  User,
-  Split,
-  XCircle,
-  BringToFront,
-  Combine,
-  Equal,
-  Pencil,
-  RotateCcw,
-  Unlink,
-  PackageCheck,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -43,6 +10,8 @@ import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
 import { SplitIntoLinesDialog } from "@/components/pos/dialogs/split-into-lines-dialog";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
+import { BulkActionsPanel } from "@/components/pos/panels/bulk-actions-panel";
+import { POSHeaderPanel } from "@/components/pos/panels/pos-header-panel";
 
 export function ActiveCheckPanel(props: any) {
   const {
@@ -254,115 +223,12 @@ export function ActiveCheckPanel(props: any) {
 
   return (
     <main className="flex-1 flex flex-col min-w-0">
-      <div className="border-b bg-card px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold">Active Check</h2>
-        </div>
-        <div className="flex items-center gap-4">
-          {(() => {
-            const breakdown = projectedState.financials.personBreakdown;
-            const sorted = [
-              ...breakdown.filter((pb: any) => pb.subtotal > 0),
-            ].sort((a, b) => b.subtotal - a.subtotal);
-            if (sorted.length === 0) return null;
-            return (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[11px] gap-1.5 bg-background border hover:bg-accent"
-                  >
-                    <User className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Paying Guests ({sorted.length})</span>
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Paying Guests Breakdown</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                    {sorted.map((pb: any) => (
-                      <div
-                        key={pb.person}
-                        className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ background: getGuestColor(pb.person, guests) }}
-                          />
-                          <span className="truncate font-medium">
-                            {resolveGuestName(pb.person)}
-                          </span>
-                        </div>
-                        <span className="font-mono font-semibold tabular-nums ml-2">
-                          ${formatNumber(pb.subtotal, 2, 10)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            );
-          })()}
-          <SeparatorUI orientation="vertical" className="h-8" />
-          <div className="text-right">
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-              Subtotal
-            </div>
-            <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-              ${formatNumber(projectedState.financials.subtotal, 2, 10)}
-            </div>
-          </div>
-          {projectedState.financials.chargeTotal > 0 && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="text-right hover:bg-accent px-1 rounded transition-colors cursor-pointer flex flex-col items-end">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1">
-                    Tax & Fees <ChevronDown className="w-2.5 h-2.5" />
-                  </div>
-                  <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground">
-                    ${formatNumber(projectedState.financials.chargeTotal, 2, 10)}
-                  </div>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-l p-3" align="end">
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Charge Breakdown
-                  </h4>
-                  <div className="space-y-1">
-                    {projectedState.financials.chargeBreakdown.map(
-                      (charge: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between items-center text-xs"
-                        >
-                          <span className="truncate pr-2 text-muted-foreground">
-                            {charge.label}
-                          </span>
-                          <span className="font-mono font-medium tabular-nums">
-                            ${formatNumber(charge.chargeAmount, 2, 10)}
-                          </span>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
-          <div className="text-right bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
-            <div className="text-[10px] text-primary/80 uppercase tracking-wider font-bold">
-              Total
-            </div>
-            <div className="font-mono font-bold text-lg tabular-nums text-primary leading-tight">
-              ${formatNumber(projectedState.financials.grandTotal, 2, 10)}
-            </div>
-          </div>
-        </div>
-      </div>
+      <POSHeaderPanel
+        projectedState={projectedState}
+        guests={guests}
+        resolveGuestName={resolveGuestName}
+        formatNumber={formatNumber}
+      />
       {(activeBranch === mainBranchName || isMergedToMain) &&
         !isViewingHistory && (
           <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-900/50 px-6 py-2.5 flex items-start gap-2.5 shrink-0">
@@ -428,284 +294,46 @@ export function ActiveCheckPanel(props: any) {
           </div>
         )}
       </div>
-      {selectedLineIds.size > 0 && (
-        <div
-          ref={bulkActionsBarRef}
-          className="mx-4 my-2 p-3 bg-card/85 backdrop-blur-md border rounded-xl shadow-lg flex flex-col gap-3 animate-in slide-in-from-bottom-2 duration-200 shrink-0"
-        >
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={
-                  selectedLineIds.size > 0 &&
-                  selectedLineIds.size === filteredRootItems.length
-                }
-                onCheckedChange={(c) => {
-                  if (c)
-                    setSelectedLineIds(
-                      new Set(filteredRootItems.map((i: any) => i.lineId)),
-                    );
-                  else setSelectedLineIds(new Set());
-                }}
-              />
-              <span className="text-xs font-semibold text-foreground select-none">
-                {selectedLineIds.size} selected
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
-              onClick={() => setSelectedLineIds(new Set())}
-            >
-              <XCircle className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                Qty
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  modifyItemsQty(Array.from(selectedLineIds), -parsedStep);
-                }}
-                disabled={disableNonModActions}
-              >
-                <Minus className="w-3.5 h-3.5 mr-1" />
-              </Button>
-              <button
-                className={`h-7 w-14 text-[11px] px-2 font-mono font-medium border shadow-sm rounded-md transition-colors flex items-center justify-center ${disableNonModActions ? "bg-muted/50 text-muted-foreground opacity-50 cursor-not-allowed" : "bg-background hover:bg-accent cursor-pointer"}`}
-                onClick={() => !disableNonModActions && setQtyStepPadOpen(true)}
-                disabled={disableNonModActions}
-              >
-                {qtyStep === "" ? "1" : formatNumber(Number(qtyStep))}
-              </button>
-              {qtyStep !== 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 bg-background border shadow-sm hover:bg-accent shrink-0"
-                  onClick={() => setQtyStep(1)}
-                  title="Reset to 1"
-                  disabled={disableNonModActions}
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
-                </Button>
-              )}
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  modifyItemsQty(Array.from(selectedLineIds), parsedStep);
-                }}
-                disabled={disableNonModActions}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => setQtyPadOpen(true)}
-                disabled={disableNonModActions}
-              >
-                <Equal className="w-3.5 h-3.5 mr-1" />
-                Set Qty
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => setSplitQtyDialogOpen(true)}
-                disabled={disableNonModActions}
-              >
-                <Split className="w-3.5 h-3.5 mr-1" />
-                Split Qty
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => setSplitLineDialogOpen(true)}
-                disabled={disableNonModActions}
-              >
-                <Split className="w-3.5 h-3.5 mr-1" />
-                Split Line
-              </Button>
-            </div>
-            <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                Action
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  const newIds = duplicateItems(Array.from(selectedLineIds));
-                  if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
-                }}
-                disabled={disableNonModActions}
-              >
-                <Copy className="w-3.5 h-3.5 mr-1" />
-                Duplicate
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => setDupMoveDialogOpen(true)}
-                disabled={disableNonModActions}
-              >
-                <BringToFront className="w-3.5 h-3.5 mr-1" />
-                Duplicate & Move
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium hover:bg-destructive/90"
-                onClick={() => {
-                  removeItems(Array.from(selectedLineIds));
-                  setSelectedLineIds(new Set());
-                }}
-                disabled={disableNonModActions}
-              >
-                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                Remove
-              </Button>
-            </div>
-            <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                Transform
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  mergeItems(Array.from(selectedLineIds));
-                  setSelectedLineIds(new Set());
-                }}
-                disabled={disableNonModActions || !canMerge}
-              >
-                <Combine className="w-3.5 h-3.5 mr-1" />
-                Merge
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  const newIds = breakItems(Array.from(selectedLineIds));
-                  if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
-                }}
-                disabled={disableNonModActions || !canBreak}
-              >
-                <Unlink className="w-3.5 h-3.5 mr-1" />
-                Break
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => setCombineDialogOpen(true)}
-                disabled={disableNonModActions || !canCombine}
-              >
-                <PackageCheck className="w-3.5 h-3.5 mr-1" />
-                Combine
-              </Button>
-            </div>
-            <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                Assign
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  setAssignmentAllocationItems(
-                    Array.from(selectedLineIds)
-                      .map((id) => projectedState.items[id as string])
-                      .filter(Boolean),
-                  );
-                  setAssignmentAllocationContext(AllocationContext.Group);
-                  setAssignmentAllocationOpen(true);
-                }}
-                disabled={disableNonModActions}
-              >
-                Guest
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  setPaymentAllocationItems(
-                    Array.from(selectedLineIds)
-                      .map((id) => projectedState.items[id as string])
-                      .filter(Boolean),
-                  );
-                  setPaymentAllocationContext(AllocationContext.Group);
-                  setPaymentAllocationOpen(true);
-                }}
-                disabled={disableNonModActions}
-              >
-                Payment
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => {
-                  setFulfillmentAllocationItems(
-                    Array.from(selectedLineIds)
-                      .map((id) => projectedState.items[id as string])
-                      .filter(Boolean),
-                  );
-                  setFulfillmentAllocationContext(AllocationContext.Group);
-                  setFulfillmentAllocationOpen(true);
-                }}
-                disabled={disableNonModActions}
-              >
-                Fulfillment
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm hover:bg-accent"
-                onClick={() => onGroupNoteOpen(Array.from(selectedLineIds))}
-                disabled={disableNonModActions}
-              >
-                Group Note
-              </Button>
-            </div>
-            <div className="flex items-center gap-1 bg-muted/30 border p-1 rounded-lg">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 select-none">
-                Mods
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium bg-background border shadow-sm text-primary hover:bg-primary/5 gap-1"
-                onClick={() => {
-                  setModifierAddItem(null);
-                  setModifierAddOpen(true);
-                }}
-                disabled={compatibleModifiers.length === 0 && activeModifiersOnSelected.length === 0}
-              >
-                <Pencil className="w-3.5 h-3.5" /> Edit
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BulkActionsPanel
+        bulkActionsBarRef={bulkActionsBarRef}
+        selectedLineIds={selectedLineIds}
+        setSelectedLineIds={setSelectedLineIds}
+        filteredRootItems={filteredRootItems}
+        parsedStep={parsedStep}
+        qtyStep={qtyStep}
+        setQtyStep={setQtyStep}
+        setQtyStepPadOpen={setQtyStepPadOpen}
+        setQtyPadOpen={setQtyPadOpen}
+        setSplitQtyDialogOpen={setSplitQtyDialogOpen}
+        setSplitLineDialogOpen={setSplitLineDialogOpen}
+        setDupMoveDialogOpen={setDupMoveDialogOpen}
+        setCombineDialogOpen={setCombineDialogOpen}
+        setAssignmentAllocationItems={setAssignmentAllocationItems}
+        setAssignmentAllocationContext={setAssignmentAllocationContext}
+        setAssignmentAllocationOpen={setAssignmentAllocationOpen}
+        setPaymentAllocationItems={setPaymentAllocationItems}
+        setPaymentAllocationContext={setPaymentAllocationContext}
+        setPaymentAllocationOpen={setPaymentAllocationOpen}
+        setFulfillmentAllocationItems={setFulfillmentAllocationItems}
+        setFulfillmentAllocationContext={setFulfillmentAllocationContext}
+        setFulfillmentAllocationOpen={setFulfillmentAllocationOpen}
+        setModifierAddItem={setModifierAddItem}
+        setModifierAddOpen={setModifierAddOpen}
+        onGroupNoteOpen={onGroupNoteOpen}
+        modifyItemsQty={modifyItemsQty}
+        duplicateItems={duplicateItems}
+        removeItems={removeItems}
+        mergeItems={mergeItems}
+        breakItems={breakItems}
+        disableNonModActions={disableNonModActions}
+        canMerge={canMerge}
+        canBreak={canBreak}
+        canCombine={canCombine}
+        formatNumber={formatNumber}
+        projectedState={projectedState}
+        compatibleModifiers={compatibleModifiers}
+        activeModifiersOnSelected={activeModifiersOnSelected}
+      />
 
       <CombineDialog
         open={combineDialogOpen}
