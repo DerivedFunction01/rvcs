@@ -1717,6 +1717,9 @@ function StepPreview({
     (i) => !i.parentLineId,
   ).length;
 
+  const mainBranchName = useVCSStore.getState().mainActiveBranch();
+  const isMainTarget = targetBranch === mainBranchName;
+
   return (
     <>
       <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 h-full landscape:overflow-hidden py-1">
@@ -1823,8 +1826,9 @@ function StepPreview({
             <ChevronsUpDown className="w-3.5 h-3.5 text-sky-500" />
             Squash source commits before merging
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid ${isMainTarget ? "grid-cols-2" : "grid-cols-3"} gap-2`}>
             {(["none", SquashType.Light, SquashType.Full] as const).map((type) => {
+              if (isMainTarget && type === "none") return null;
               const label = MERGE_SQUASH_DESCRIPTIONS[type].label;
               const desc = type === "none" ? "Merge as-is" : type === SquashType.Light ? "Prune net-zero" : "Compress range";
               const isSelected = squashBeforeMerge === type;
@@ -2020,18 +2024,27 @@ export function MergeBranchDialog({
   const [isCommitting, setIsCommitting] = useState(false);
   const [squashBeforeMerge, setSquashBeforeMerge] = useState<"none" | SquashType>("none");
 
+  const mainBranchName = useVCSStore.getState().mainActiveBranch();
+
+  useEffect(() => {
+    if (targetBranch === mainBranchName && squashBeforeMerge === "none") {
+      setSquashBeforeMerge(SquashType.Light);
+    }
+  }, [targetBranch, mainBranchName, squashBeforeMerge]);
+
   useEffect(() => {
     if (open) {
       const mainBranchName = useVCSStore.getState().mainActiveBranch();
       const isTargetLocked =
         (activeBranch !== mainBranchName && isAlreadyMerged(activeBranch, mainBranchName)) || activeBranch === "system";
+      const initialTarget = isTargetLocked ? mainBranchName : activeBranch;
       setStep("select");
-      setTargetBranch(isTargetLocked ? mainBranchName : activeBranch);
+      setTargetBranch(initialTarget);
       setSelectedSources(new Set());
       setPreview(null);
       setConflicts([]);
       setMergeCommitHash("");
-      setSquashBeforeMerge("none");
+      setSquashBeforeMerge(initialTarget === mainBranchName ? SquashType.Light : "none");
     }
   }, [open, activeBranch, isAlreadyMerged]);
 
@@ -2063,7 +2076,6 @@ export function MergeBranchDialog({
     runPreview(sourceBranches, targetBranch);
   };
 
-  const mainBranchName = useVCSStore.getState().mainActiveBranch();
   const canQuickPreviewToMain =
     step === "select" &&
     activeBranch !== mainBranchName &&
