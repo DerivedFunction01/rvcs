@@ -135,6 +135,17 @@ export function GlobalSettingsDialog({
           </div>
           
           <div className="flex items-center justify-between">
+            <label htmlFor="auto-select-last-clicked" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+              Auto-Select Last Clicked Item
+            </label>
+            <Checkbox 
+              id="auto-select-last-clicked" 
+              checked={localPrefs.autoSelectLastClickedItem}
+              onCheckedChange={(checked) => setLocalPrefs((prev: any) => ({ ...prev, autoSelectLastClickedItem: !!checked }))}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
             <label htmlFor="split-warn-threshold" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
               Split Line Warn Threshold
             </label>

@@ -284,6 +284,9 @@ export function POSTerminalScreen({
   const [isMultiSelectMode, setIsMultiSelectMode] = React.useState(
     !!prefs.defaultMultiSelectMode,
   );
+  const [autoSelectLastClickedItem, setAutoSelectLastClickedItem] = React.useState(
+    !!prefs.autoSelectLastClickedItem,
+  );
 
   const [qtyStep, setQtyStep] = React.useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;
@@ -360,6 +363,26 @@ export function POSTerminalScreen({
     }
     prevRootItemCount.current = rootItems.length;
   }, [rootItems.length]);
+
+  const prevItemsRef = React.useRef(projectedState.items);
+  React.useEffect(() => {
+    if (autoSelectLastClickedItem) {
+      const prevItems = prevItemsRef.current;
+      const currentItems = projectedState.items;
+      const newIds = Object.keys(currentItems).filter((id) => !prevItems[id]);
+      if (newIds.length > 0) {
+        const newRootIds = newIds.filter((id) => !currentItems[id].parentLineId);
+        if (newRootIds.length > 0) {
+          if (isMultiSelectMode) {
+            setSelectedLineIds(new Set([...selectedLineIds, ...newRootIds]));
+          } else {
+            setSelectedLineIds(new Set([newRootIds[newRootIds.length - 1]]));
+          }
+        }
+      }
+    }
+    prevItemsRef.current = projectedState.items;
+  }, [projectedState.items, autoSelectLastClickedItem, isMultiSelectMode, selectedLineIds, setSelectedLineIds]);
 
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
@@ -1012,6 +1035,8 @@ export function POSTerminalScreen({
             setIsBulkActionsCollapsed={setIsBulkActionsCollapsed}
             isMultiSelectMode={isMultiSelectMode}
             setIsMultiSelectMode={setIsMultiSelectMode}
+            autoSelectLastClickedItem={autoSelectLastClickedItem}
+            setAutoSelectLastClickedItem={setAutoSelectLastClickedItem}
           />
           <GroupNotesPanel
             projectedState={projectedState}

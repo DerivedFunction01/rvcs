@@ -77,6 +77,8 @@ export interface BulkActionsPanelProps {
   setIsBulkActionsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
   isMultiSelectMode: boolean;
   setIsMultiSelectMode: (mode: boolean) => void;
+  autoSelectLastClickedItem: boolean;
+  setAutoSelectLastClickedItem: (val: boolean) => void;
 }
 
 export function BulkActionsPanel({
@@ -121,6 +123,8 @@ export function BulkActionsPanel({
   setIsBulkActionsCollapsed,
   isMultiSelectMode,
   setIsMultiSelectMode,
+  autoSelectLastClickedItem,
+  setAutoSelectLastClickedItem,
 }: BulkActionsPanelProps) {
   return (
     <aside
@@ -216,6 +220,17 @@ export function BulkActionsPanel({
               </Button>
             )}
           </div>
+          
+          <label className="flex items-center gap-2 cursor-pointer select-none pt-1 border-t border-muted-foreground/10">
+            <Checkbox
+              checked={autoSelectLastClickedItem}
+              onCheckedChange={(c) => setAutoSelectLastClickedItem(!!c)}
+            />
+            <span className="text-[11px] font-medium text-muted-foreground">
+              Auto-Select Last Clicked Item
+            </span>
+          </label>
+
           {isMultiSelectMode && (
             <label className="flex items-center gap-2 cursor-pointer select-none pt-1 border-t border-muted-foreground/10">
               <Checkbox
@@ -247,7 +262,7 @@ export function BulkActionsPanel({
               <div className="py-16 text-center text-xs text-muted-foreground/60 flex flex-col items-center justify-center gap-2">
                 <Layers className="w-8 h-8 text-muted-foreground/30" />
                 <span className="font-medium">No items selected</span>
-                <p className="text-[10px] text-muted-foreground/45 max-w-[200px] leading-normal mt-1">
+                <p className="text-[10px] text-muted-foreground/45 max-w-50 leading-normal mt-1">
                   Select one or more items in the active check to perform batch edits, transformations, or guest assignments.
                 </p>
               </div>

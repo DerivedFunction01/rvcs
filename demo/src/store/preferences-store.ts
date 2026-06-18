@@ -13,6 +13,8 @@ export interface AppPreferences {
   globalDepthColors: string[];
   globalGuestPalette: string[];
   globalBranchColors: string[];
+  defaultMultiSelectMode: boolean;
+  autoSelectLastClickedItem: boolean;
 }
 
 export const defaultAppPreferences: AppPreferences = {
@@ -59,6 +61,8 @@ export const defaultAppPreferences: AppPreferences = {
     "#06b6d4", // cyan
     "#f97316", // orange
   ],
+  defaultMultiSelectMode: false,
+  autoSelectLastClickedItem: true,
 };
 
 interface PreferencesStore {
