@@ -30,6 +30,7 @@ import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-a
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
 import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
 import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
+import { InlineModifierPanel } from "@/components/pos/panels/inline-modifier-panel";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
 import { BulkActionsPanel } from "@/components/pos/panels/bulk-actions-panel";
 
@@ -105,6 +106,9 @@ export function POSTerminalScreen({
     breakItems,
     combineItems,
     splitItemsIntoIncrements,
+    addModifier,
+    modifyItemInlineQty,
+    modifyModifierState,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
 
@@ -728,6 +732,38 @@ export function POSTerminalScreen({
     handleResetOrder,
   } = terminalActions;
 
+  const handleAddModifierInline = React.useCallback((sku: string, state?: string) => {
+    if (selectedItems.length !== 1) return;
+    addModifier(selectedItems[0].lineId, sku, state);
+  }, [selectedItems, addModifier]);
+
+  const handleRemoveModifierInline = React.useCallback((lineId: string) => {
+    removeItem(lineId);
+  }, [removeItem]);
+
+  const handleUpdateModifierStateInline = React.useCallback((sku: string, state: string) => {
+    if (selectedItems.length !== 1) return;
+    const parentItem = selectedItems[0];
+    const modifierChild = parentItem.children.find(c => c.sku === sku);
+    if (modifierChild) {
+      modifyModifierState(modifierChild.lineId, modifierChild.selectedModifierState, state);
+    }
+  }, [selectedItems, modifyModifierState]);
+
+  const handleUpdateInlineQty = React.useCallback((sku: string, change: number) => {
+    if (selectedItems.length !== 1) return;
+    const item = selectedItems[0];
+    // This handler can update either the main item's inline qty or a modifier's.
+    const targetItem = item.sku === sku ? item : item.children.find(c => c.sku === sku);
+    if (targetItem) {
+      const currentQty = targetItem.inlineQty ?? 1;
+      const newQty = currentQty + change;
+      if (newQty > 0) {
+        modifyItemInlineQty(targetItem.lineId, currentQty, newQty);
+      }
+    }
+  }, [selectedItems, modifyItemInlineQty]);
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -991,6 +1027,15 @@ export function POSTerminalScreen({
             collapsedItems={collapsedItems}
             handleToggleCollapse={handleToggleCollapse}
             checklistRef={checklistRef}
+          />
+          <InlineModifierPanel
+            selectedItems={selectedItems}
+            catalog={catalog}
+            compatibleModifiers={compatibleModifiers}
+            onAddModifier={handleAddModifierInline}
+            onRemoveModifier={handleRemoveModifierInline}
+            onUpdateModifierState={handleUpdateModifierStateInline}
+            onUpdateInlineQty={handleUpdateInlineQty}
           />
           <BulkActionsPanel
             selectedLineIds={selectedLineIds}
