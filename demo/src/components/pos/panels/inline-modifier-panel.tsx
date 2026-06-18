@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Checkbox } from "@/components/ui/checkbox";
 import { NumberFractionOverflow, useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem, SizeGroup } from "@/lib/vcs/types";
 import { ItemStatus } from "@/lib/vcs/types";
 import { Settings2, Minus, Plus, Scale, Scaling, Trash2 } from "lucide-react";
+import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
-import { Dispatch, SetStateAction, useState } from "react";
+import { usePreferencesStore } from "@/store/preferences-store";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 
 export interface InlineModifierPanelProps {
     selectedItems: ProjectedLineItem[];
@@ -27,7 +28,13 @@ export function InlineModifierPanel({
 }: InlineModifierPanelProps) {
     const formatNumber = useFormatNumber();
     const projectedState = useVCSStore((state) => state.projectedState);
-    const [showDeltaPrice, setShowDeltaPrice] = useState(true);
+    const defaultShowDeltaPrice = usePreferencesStore((state) => state.defaultPrefs.inlineModifierPriceDisplayDelta);
+    const [showDeltaPrice, setShowDeltaPrice] = useState(defaultShowDeltaPrice);
+    const [padTarget, setPadTarget] = useState<"main" | "inline" | null>(null);
+
+    useEffect(() => {
+        setShowDeltaPrice(defaultShowDeltaPrice);
+    }, [defaultShowDeltaPrice]);
 
     const emptyState = (
         <aside className="w-80 border-r bg-card flex flex-col shrink-0 h-full">
@@ -97,26 +104,48 @@ export function InlineModifierPanel({
                             catalogEntry.mainQtyIncrement ?? 1,
                             catalogEntry.inlineQtyMainQtyLocked ?? false,
                             formatNumber,
+                            () => setPadTarget("main"),
                         )}
                     </div>
                     {/* Measurement Control Area - Reserved Fixed Space */}
-                    {MeasurementQty(hasInlineQty, inlineQtyLabel, onUpdateInlineQty, item, inlineStep, formatNumber, currentInlineQty, precision, inlineQtyUnit)}
+                    {MeasurementQty(hasInlineQty, inlineQtyLabel, onUpdateInlineQty, item, inlineStep, formatNumber, currentInlineQty, precision, inlineQtyUnit, () => setPadTarget("inline"))}
                     {/* Remove Button */}
                     {removeButton(onRemoveModifier, item, isComboLinkedChild)}
+                    {DeltaNetToggle(showDeltaPrice, setShowDeltaPrice)}
 
                     {/* Size Selection Area - Stacked Vertical Column */}
                     {sizeGroup && sizeOptions.length > 0 && (() => {
                         const activeSizePrice = activeSizeChild ? (catalog[activeSizeChild.sku]?.basePrice ?? 0) : 0;
                         return (
-                            SizeSelection(sizeGroup, showDeltaPrice, formatNumber, activeSizePrice, setShowDeltaPrice, sizeOptions, activeSizeChild, catalog, catalogEntry, handleSizeChange)
+                            SizeSelection(sizeGroup, showDeltaPrice, formatNumber, activeSizePrice, sizeOptions, activeSizeChild, catalog, catalogEntry, handleSizeChange)
                         );
                     })()}
 
                     {catalogEntry.allowedStates && catalogEntry.allowedStates.length > 0 && (
-                        ModifierState(showDeltaPrice, formatNumber, catalogEntry, setShowDeltaPrice, item, onUpdateModifierState)
+                        ModifierState(showDeltaPrice, formatNumber, catalogEntry, item, onUpdateModifierState)
                     )}
                 </div>
             </ScrollArea>
+            {padTarget && (
+                <NumberPadDialog
+                    open={padTarget !== null}
+                    onOpenChange={(open) => {
+                        if (!open) setPadTarget(null);
+                    }}
+                    title={padTarget === "main" ? "Quantity" : "Measurement"}
+                    description={`Set the ${padTarget === "main" ? "quantity" : "measurement"} for ${item.name}`}
+                    initialValue={padTarget === "main" ? item.qty : (item.inlineQty ?? 1)}
+                    min={padTarget === "main" ? (catalogEntry.mainQtyIncrement ?? 1) : inlineStep}
+                    increment={padTarget === "main" ? (catalogEntry.mainQtyIncrement ?? 1) : inlineStep}
+                    onConfirm={(val) => {
+                        if (padTarget === "main") {
+                            useVCSStore.getState().modifyItemQty(item.lineId, item.qty, val);
+                        } else {
+                            useVCSStore.getState().modifyItemInlineQty(item.lineId, item.inlineQty ?? 1, val);
+                        }
+                    }}
+                />
+            )}
         </aside>
     );
 }
@@ -127,6 +156,7 @@ function MainQtyControl(
     step: number,
     isLocked: boolean,
     formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string,
+    onOpenPad: () => void,
 ) {
     if (!isEligible) {
         return (
@@ -172,14 +202,21 @@ function MainQtyControl(
                         <Minus className="w-8 h-8" />
                     </Button>
                 </div>
-                <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-muted/10">
+                <button
+                    type="button"
+                    className="flex-1 min-h-0 self-stretch flex flex-col items-center justify-center gap-1 bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors px-2 py-2"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenPad();
+                    }}
+                >
                     <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">
                         Locked
                     </span>
                     <span className="text-2xl font-mono font-bold text-foreground">
                         {formatNumber(item.qty)}
                     </span>
-                </div>
+                </button>
                 <div className="flex w-20 items-center justify-center border-l bg-muted/20">
                     <Button
                         variant="ghost"
@@ -212,14 +249,21 @@ function MainQtyControl(
             >
                 <Minus className="w-8 h-8" />
             </Button>
-                <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-muted/10">
-                    <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">
+            <button
+                type="button"
+                className="flex-1 min-h-0 self-stretch flex flex-col items-center justify-center gap-1 bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors px-2 py-2"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenPad();
+                }}
+            >
+                <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">
                     Qty
-                    </span>
-                    <span className="text-2xl font-mono font-bold text-foreground">
-                        {formatNumber(item.qty)}
-                    </span>
-                </div>
+                </span>
+                <span className="text-2xl font-mono font-bold text-foreground">
+                    {formatNumber(item.qty)}
+                </span>
+            </button>
             <Button
                 variant="ghost"
                 className="h-full w-20 rounded-none border-l hover:bg-muted"
@@ -253,7 +297,40 @@ function removeButton(onRemoveModifier: (lineId: string) => void, item: Projecte
     </div>;
 }
 
-function ModifierState(showDeltaPrice: boolean, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string, catalogEntry: CatalogItemEntry, setShowDeltaPrice: Dispatch<SetStateAction<boolean>>, item: ProjectedLineItem, onUpdateModifierState: (sku: string, state: string) => void): import("react").ReactNode {
+function DeltaNetToggle(showDeltaPrice: boolean, setShowDeltaPrice: Dispatch<SetStateAction<boolean>>) {
+    return (
+        <div className="rounded-xl border bg-muted/20 px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Price Display
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/70">
+                        Toggle delta or net pricing
+                    </span>
+                </div>
+                <div className="inline-flex items-stretch rounded-full border bg-background p-1 shadow-sm">
+                    <button
+                        type="button"
+                        onClick={() => setShowDeltaPrice(true)}
+                        className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${showDeltaPrice ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                        Delta
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowDeltaPrice(false)}
+                        className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${!showDeltaPrice ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                        Net
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ModifierState(showDeltaPrice: boolean, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string, catalogEntry: CatalogItemEntry, item: ProjectedLineItem, onUpdateModifierState: (sku: string, state: string) => void): import("react").ReactNode {
     return <div className="space-y-3">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -266,15 +343,6 @@ function ModifierState(showDeltaPrice: boolean, formatNumber: (value: number, de
                     </span>
                 )}
             </div>
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <Checkbox
-                    checked={showDeltaPrice}
-                    onCheckedChange={(v) => setShowDeltaPrice(!!v)}
-                    className="h-3 w-3" />
-                <span className="text-[10px] text-muted-foreground">
-                    {showDeltaPrice ? "Delta price" : "Net price"}
-                </span>
-            </label>
         </div>
         <div className="flex flex-col gap-2">
             {catalogEntry.allowedStates?.map((stateOpt) => {
@@ -309,7 +377,7 @@ function ModifierState(showDeltaPrice: boolean, formatNumber: (value: number, de
     </div>;
 }
 
-function SizeSelection(sizeGroup: SizeGroup, showDeltaPrice: boolean, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string, activeSizePrice: number, setShowDeltaPrice: Dispatch<SetStateAction<boolean>>, sizeOptions: CatalogItemEntry[], activeSizeChild: ProjectedLineItem | undefined, catalog: Record<string, CatalogItemEntry>, catalogEntry: CatalogItemEntry, handleSizeChange: (newSizeSku: string) => void): import("react").ReactNode {
+function SizeSelection(sizeGroup: SizeGroup, showDeltaPrice: boolean, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string, activeSizePrice: number, sizeOptions: CatalogItemEntry[], activeSizeChild: ProjectedLineItem | undefined, catalog: Record<string, CatalogItemEntry>, catalogEntry: CatalogItemEntry, handleSizeChange: (newSizeSku: string) => void): import("react").ReactNode {
     return <div className="space-y-3">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -323,15 +391,6 @@ function SizeSelection(sizeGroup: SizeGroup, showDeltaPrice: boolean, formatNumb
                     </span>
                 )}
             </div>
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <Checkbox
-                    checked={showDeltaPrice}
-                    onCheckedChange={(v) => setShowDeltaPrice(!!v)}
-                    className="h-3 w-3" />
-                <span className="text-[10px] text-muted-foreground">
-                    {showDeltaPrice ? "Delta price" : "Net price"}
-                </span>
-            </label>
         </div>
         <div className="flex flex-col gap-2">
             {sizeOptions.map((opt) => {
@@ -372,7 +431,7 @@ function SizeSelection(sizeGroup: SizeGroup, showDeltaPrice: boolean, formatNumb
     </div>;
 }
 
-function MeasurementQty(hasInlineQty: boolean | null | undefined, inlineQtyLabel: string, onUpdateInlineQty: (sku: string, change: number) => void, item: ProjectedLineItem, inlineStep: number, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string, currentInlineQty: number, precision: number, inlineQtyUnit: string) {
+function MeasurementQty(hasInlineQty: boolean | null | undefined, inlineQtyLabel: string, onUpdateInlineQty: (sku: string, change: number) => void, item: ProjectedLineItem, inlineStep: number, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string, currentInlineQty: number, precision: number, inlineQtyUnit: string, onOpenPad: () => void) {
     return <div className="space-y-3">
         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
             <Scale className="w-3.5 h-3.5" />
@@ -384,10 +443,19 @@ function MeasurementQty(hasInlineQty: boolean | null | undefined, inlineQtyLabel
                 <Button variant="ghost" className="h-full w-20 rounded-none border-r hover:bg-muted" onClick={() => onUpdateInlineQty(item.sku, -inlineStep)}>
                     <Minus className="w-8 h-8" />
                 </Button>
-                <div className="flex-1 flex flex-col items-center justify-center bg-muted/10">
-                    <span className="text-3xl font-mono font-bold text-foreground">{formatNumber(currentInlineQty, precision)}</span>
+                <button
+                    type="button"
+                    className="flex-1 min-h-0 self-stretch flex flex-col items-center justify-center bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors px-2 py-2"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenPad();
+                    }}
+                >
+                    <span className="text-3xl font-mono font-bold text-foreground">
+                        {formatNumber(currentInlineQty, precision)}
+                    </span>
                     {inlineQtyUnit && <span className="text-[10px] font-medium text-muted-foreground uppercase">{inlineQtyUnit}</span>}
-                </div>
+                </button>
                 <Button variant="ghost" className="h-full w-20 rounded-none border-l hover:bg-muted" onClick={() => onUpdateInlineQty(item.sku, inlineStep)}>
                     <Plus className="w-8 h-8" />
                 </Button>

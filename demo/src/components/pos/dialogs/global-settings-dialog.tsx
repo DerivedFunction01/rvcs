@@ -122,6 +122,29 @@ export function GlobalSettingsDialog({
               onCheckedChange={(checked) => setLocalPrefs((prev: any) => ({ ...prev, useCommaDecimal: !!checked }))}
             />
           </div>
+
+          <div className="flex items-center justify-between">
+            <label htmlFor="inline-mod-price-display" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+              Inline Modifier Price Display
+            </label>
+            <div className="inline-flex items-stretch rounded-full border bg-background p-1 shadow-sm">
+              <button
+                id="inline-mod-price-display"
+                type="button"
+                onClick={() => setLocalPrefs((prev: any) => ({ ...prev, inlineModifierPriceDisplayDelta: true }))}
+                className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${localPrefs.inlineModifierPriceDisplayDelta ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Delta
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocalPrefs((prev: any) => ({ ...prev, inlineModifierPriceDisplayDelta: false }))}
+                className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${!localPrefs.inlineModifierPriceDisplayDelta ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Net
+              </button>
+            </div>
+          </div>
           
           <div className="flex items-center justify-between">
             <label htmlFor="default-multi-select" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">

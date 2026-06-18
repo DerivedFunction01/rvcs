@@ -9,6 +9,7 @@ export interface AppPreferences {
   isBulkActionsCollapsed: boolean;
   isCompactMode: boolean;
   useCommaDecimal: boolean;
+  inlineModifierPriceDisplayDelta: boolean;
   splitLineWarnThreshold: number;
   globalDepthColors: string[];
   globalGuestPalette: string[];
@@ -24,6 +25,7 @@ export const defaultAppPreferences: AppPreferences = {
   isBulkActionsCollapsed: false,
   isCompactMode: false,
   useCommaDecimal: false,
+  inlineModifierPriceDisplayDelta: true,
   splitLineWarnThreshold: 10,
   globalDepthColors: [
     "#94a3b8",

@@ -22,6 +22,12 @@ function snapQty(qty: number, increment: number): number {
   return Math.round(snapped * 1000) / 1000;
 }
 
+function normalizeNumberDisplay(value: number, precision = 6): string {
+  if (!Number.isFinite(value)) return "";
+  const normalized = Number.parseFloat(value.toFixed(precision));
+  return normalized.toString();
+}
+
 interface NumberPadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -64,7 +70,7 @@ export function NumberPadDialog({
 
   const normalizedInitialValue = useMemo(() => {
     if (initialValue === null || Number.isNaN(initialValue)) return "";
-    let str = String(Math.max(min, Math.min(max, initialValue)));
+    let str = normalizeNumberDisplay(Math.max(min, Math.min(max, initialValue)));
     if (useCommaDecimal) {
       str = str.replace(".", ",");
     }
