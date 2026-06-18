@@ -190,79 +190,99 @@ export function AssignmentAllocationDialog({
           </div>
         )}
 
-        <div className="flex flex-col gap-4 flex-1 min-h-0">
-          <div className="rounded-xl border p-4 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search guests..."
-                  className="pl-9 h-11"
-                />
-                {query !== debouncedQuery && (
-                  <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-muted-foreground" />
+        <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 flex-1 min-h-0 landscape:overflow-hidden">
+          <div className="flex flex-col gap-4 shrink-0 landscape:w-72 landscape:md:w-96">
+            <div className="rounded-xl border p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search guests..."
+                    className="pl-9 h-11"
+                  />
+                  {query !== debouncedQuery && (
+                    <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                {!showAddGuestInput && (
+                  <Button
+                    variant="outline"
+                    className="h-11 shrink-0"
+                    onClick={() => setShowAddGuestInput(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Add Guest
+                  </Button>
                 )}
               </div>
-              {!showAddGuestInput && (
-                <Button
-                  variant="outline"
-                  className="h-11 shrink-0"
-                  onClick={() => setShowAddGuestInput(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Add Guest
-                </Button>
+
+              {showAddGuestInput && (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    autoFocus
+                    placeholder="New guest name..."
+                    value={newGuestInputName}
+                    onChange={(e) => setNewGuestInputName(e.target.value)}
+                    className="h-11 flex-1"
+                    onKeyDown={(e) => e.key === "Enter" && handleAddNewGuest()}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      className="h-11"
+                      onClick={handleAddNewGuest}
+                      disabled={!newGuestInputName.trim()}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-11 w-11"
+                      onClick={() => setShowAddGuestInput(false)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 
-            {showAddGuestInput && (
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  autoFocus
-                  placeholder="New guest name..."
-                  value={newGuestInputName}
-                  onChange={(e) => setNewGuestInputName(e.target.value)}
-                  className="h-11 flex-1"
-                  onKeyDown={(e) => e.key === "Enter" && handleAddNewGuest()}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    className="h-11"
-                    onClick={handleAddNewGuest}
-                    disabled={!newGuestInputName.trim()}
-                  >
-                    Add
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-11 w-11"
-                    onClick={() => setShowAddGuestInput(false)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+            <div className="hidden landscape:flex flex-col gap-2 pt-2 mt-auto">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Assigned Guests
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {selectedIds.length} selected
                 </div>
               </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Assigned Guests
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {selectedIds.length} selected
+              <Button
+                size="sm"
+                onClick={handleApply}
+                disabled={selectedIds.length === 0}
+                className="w-full"
+              >
+                Apply
+              </Button>
             </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="flex items-center justify-between pb-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Assigned Guests
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {selectedIds.length} selected
+              </div>
+            </div>
             {filteredGuests.length === 0 ? (
               <div className="py-12 text-center text-sm text-muted-foreground">
                 No guests match "{query.trim()}".
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 landscape:md:grid-cols-3 md:grid-cols-4 gap-3 pb-1">
                 {filteredGuests.map((g) => {
                   const guestLabel = g.alias || `Guest ${g.number}`;
                   const isSelected = selectedIds.includes(g.id);
@@ -311,7 +331,7 @@ export function AssignmentAllocationDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex items-center justify-between gap-2 sm:justify-between border-t pt-4 mt-1 shrink-0">
+        <DialogFooter className="flex items-center justify-between gap-2 sm:justify-between border-t pt-4 mt-1 shrink-0 landscape:hidden">
           <span className="text-xs text-muted-foreground">
             {selectedIds.length} selected
           </span>
