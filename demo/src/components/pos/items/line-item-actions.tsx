@@ -118,7 +118,7 @@ export function LineItemActions({
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="text-xs">
-                    Allocation config
+                    Allocation configuration
                 </TooltipContent>
             </Tooltip>
             {!isComboChoice && (

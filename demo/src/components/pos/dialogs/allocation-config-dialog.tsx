@@ -152,7 +152,7 @@ export function AllocationConfigDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="w-5 h-5 text-primary" />
-            Allocation Config
+            Allocation Configuration
           </DialogTitle>
           <DialogDescription>
             Manage assignment and payment allocation for this item.

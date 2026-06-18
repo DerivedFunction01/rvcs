@@ -76,8 +76,8 @@ export function InlineModifierPanel({
         }
     };
 
-    const sizePageSize = 4;
-    const statePageSize = 6;
+    const sizePageSize = 6;
+    const statePageSize = 8;
 
     const pagedSizeOptions = useMemo(() => {
         const start = sizePage * sizePageSize;
@@ -107,7 +107,7 @@ export function InlineModifierPanel({
     }, [shouldDefaultToInline, item?.lineId, item?.sku]);
 
     const emptyState = (
-        <aside className="w-80 border-r bg-card flex flex-col shrink-0 h-full">
+        <aside className="w-96 border-r bg-card flex flex-col shrink-0 h-full">
             <div className="p-3 border-b flex items-center gap-2">
                 <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
                 <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Edit</h2>
@@ -122,7 +122,7 @@ export function InlineModifierPanel({
     if (!item || !catalogEntry) return emptyState;
 
     return (
-        <aside className="w-80 border-r bg-card flex flex-col shrink-0 shadow-sm h-full overflow-hidden" id="inline-mod-panel">
+        <aside className="w-96 border-r bg-card flex flex-col shrink-0 shadow-sm h-full overflow-hidden" id="inline-mod-panel">
             <div className="p-3 border-b flex items-center gap-2 bg-muted/20">
                 <Settings2 className="w-3.5 h-3.5 text-primary" />
                 <h2 className="text-xs font-semibold text-primary uppercase tracking-wider truncate">
@@ -451,7 +451,7 @@ function ModifierState(showDeltaPrice: boolean, formatNumber: (value: number, de
                 )}
             </div>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
             {states.map((stateOpt) => {
                 const isActive = item.selectedModifierState === stateOpt.state;
                 const hasPrice = stateOpt.priceOverride !== null;
@@ -545,7 +545,7 @@ function SizeSelection(sizeGroup: SizeGroup, showDeltaPrice: boolean, formatNumb
                 )}
             </div>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
             {sizeOptions.map((opt) => {
                 const isActive = activeSizeChild?.sku === opt.sku;
 
