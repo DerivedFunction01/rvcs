@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { NumberFractionOverflow, useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem, SizeGroup } from "@/lib/vcs/types";
 import { ItemStatus } from "@/lib/vcs/types";
-import { Settings2, Minus, Pencil, Plus, Scale, Scaling, StickyNote, Trash2 } from "lucide-react";
+import { Settings2, Minus, Pencil, Plus, Scale, Scaling, StickyNote, Trash2, Workflow } from "lucide-react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
 import { usePreferencesStore } from "@/store/preferences-store";
@@ -364,7 +364,7 @@ function actionGrid(
 ) {
     return <div className="space-y-3">
         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Trash2 className="w-3.5 h-3.5" />
+            <Workflow className="w-3.5 h-3.5" />
             Actions
         </span>
         <div className="grid grid-cols-2 gap-2">
