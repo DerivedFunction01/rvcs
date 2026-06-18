@@ -120,6 +120,7 @@ export function BulkActionsPanel({
 }: BulkActionsPanelProps) {
   return (
     <aside
+      id="bulk-actions"
       className={`bg-card flex flex-col shrink-0 transition-all duration-200 ${isBulkActionsCollapsed ? "w-0 overflow-hidden border-l-0" : "w-80 border-l"}`}
     >
       {/* Header */}

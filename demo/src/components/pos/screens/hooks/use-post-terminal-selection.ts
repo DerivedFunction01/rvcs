@@ -61,7 +61,9 @@ export function usePostTerminalSelection(
         target.closest("[role=\"dialog\"]") ||
         target.closest("[role=\"menu\"]") ||
         target.closest(".bg-popover") ||
-        target.closest(".radix-select-content")
+        target.closest(".radix-select-content") ||
+        target.closest("#bulk-actions") ||
+        target.closest("#bulk-actions-toggle") 
       )
         return;
 

@@ -843,59 +843,6 @@ export function POSTerminalScreen({
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             </Button>
             <SeparatorUI orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-1 border bg-muted/30 p-0.5 rounded-lg">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isBulkActionsCollapsed ? "ghost" : "secondary"}
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => setIsBulkActionsCollapsed((prev) => !prev)}
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {isBulkActionsCollapsed
-                    ? "Expand Bulk Actions"
-                    : "Collapse Bulk Actions"}
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isGroupNotesCollapsed ? "ghost" : "secondary"}
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => setIsGroupNotesCollapsed((prev) => !prev)}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {isGroupNotesCollapsed
-                    ? "Expand Group Notes"
-                    : "Collapse Group Notes"}
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isLedgerCollapsed ? "ghost" : "secondary"}
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={() => setIsLedgerCollapsed((prev) => !prev)}
-                  >
-                    <GitCommitHorizontal className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {isLedgerCollapsed ? "Expand Ledger" : "Collapse Ledger"}
-                </TooltipContent>
-              </Tooltip>
-            </div>
             <SeparatorUI orientation="vertical" className="h-6" />
             <Button
               variant="outline"

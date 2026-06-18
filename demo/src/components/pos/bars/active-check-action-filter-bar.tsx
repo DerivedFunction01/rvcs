@@ -13,7 +13,15 @@ import {
 } from "@/components/ui/tooltip";
 import { ViewMode } from "@/lib/pos/types";
 import { usePreferencesStore } from "@/store/preferences-store";
-import { ChevronsUpDown, Clock, Layers, LayoutList, User, GitCommitHorizontal, MessageSquare } from "lucide-react";
+import {
+  ChevronsUpDown,
+  Clock,
+  Layers,
+  LayoutList,
+  User,
+  GitCommitHorizontal,
+  MessageSquare,
+} from "lucide-react";
 import { useState } from "react";
 import { GuestFilterDialog } from "../dialogs/filter-guest-dialog";
 
@@ -37,11 +45,17 @@ interface ActiveCheckActionFilterBarProps {
   isCompactMode: boolean;
   setIsCompactMode: (compact: boolean) => void;
   isBulkActionsCollapsed: boolean;
-  setIsBulkActionsCollapsed: React.Dispatch<React.SetStateAction<boolean>> | ((v: boolean | ((prev: boolean) => boolean)) => void);
+  setIsBulkActionsCollapsed:
+    | React.Dispatch<React.SetStateAction<boolean>>
+    | ((v: boolean | ((prev: boolean) => boolean)) => void);
   isGroupNotesCollapsed: boolean;
-  setIsGroupNotesCollapsed: React.Dispatch<React.SetStateAction<boolean>> | ((v: boolean | ((prev: boolean) => boolean)) => void);
+  setIsGroupNotesCollapsed:
+    | React.Dispatch<React.SetStateAction<boolean>>
+    | ((v: boolean | ((prev: boolean) => boolean)) => void);
   isLedgerCollapsed: boolean;
-  setIsLedgerCollapsed: React.Dispatch<React.SetStateAction<boolean>> | ((v: boolean | ((prev: boolean) => boolean)) => void);
+  setIsLedgerCollapsed:
+    | React.Dispatch<React.SetStateAction<boolean>>
+    | ((v: boolean | ((prev: boolean) => boolean)) => void);
 }
 
 export function ActiveCheckActionFilterBar({
@@ -78,7 +92,10 @@ export function ActiveCheckActionFilterBar({
   return (
     <div className="flex-1 flex items-center justify-between pl-4 border-l border-primary/10">
       <div className="flex items-center gap-2">
-        <Badge variant="secondary" className="text-[10px] h-6 flex items-center">
+        <Badge
+          variant="secondary"
+          className="text-[10px] h-6 flex items-center"
+        >
           <Layers className="w-2.5 h-2.5 mr-1" />
           {activeBranch}
         </Badge>
@@ -190,7 +207,9 @@ export function ActiveCheckActionFilterBar({
                   onCheckedChange={(v) => setIsCompactMode(!!v)}
                   className="w-3.5 h-3.5"
                 />
-                <span className="font-medium text-foreground">Compact view</span>
+                <span className="font-medium text-foreground">
+                  Compact view
+                </span>
               </label>
             </div>
           </PopoverContent>
@@ -205,13 +224,16 @@ export function ActiveCheckActionFilterBar({
               variant={isBulkActionsCollapsed ? "ghost" : "secondary"}
               size="sm"
               className="h-6 w-6 p-0 hover:bg-background/80"
-              onClick={() => setIsBulkActionsCollapsed(prev => !prev)}
+              onClick={() => setIsBulkActionsCollapsed((prev) => !prev)}
+              id="bulk-actions-toggle"
             >
               <Layers className="w-3.5 h-3.5 text-primary" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">
-            {isBulkActionsCollapsed ? "Expand Bulk Actions" : "Collapse Bulk Actions"}
+            {isBulkActionsCollapsed
+              ? "Expand Bulk Actions"
+              : "Collapse Bulk Actions"}
           </TooltipContent>
         </Tooltip>
 
@@ -221,13 +243,15 @@ export function ActiveCheckActionFilterBar({
               variant={isGroupNotesCollapsed ? "ghost" : "secondary"}
               size="sm"
               className="h-6 w-6 p-0 hover:bg-background/80"
-              onClick={() => setIsGroupNotesCollapsed(prev => !prev)}
+              onClick={() => setIsGroupNotesCollapsed((prev) => !prev)}
             >
               <MessageSquare className="w-3.5 h-3.5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">
-            {isGroupNotesCollapsed ? "Expand Group Notes" : "Collapse Group Notes"}
+            {isGroupNotesCollapsed
+              ? "Expand Group Notes"
+              : "Collapse Group Notes"}
           </TooltipContent>
         </Tooltip>
 
@@ -237,7 +261,7 @@ export function ActiveCheckActionFilterBar({
               variant={isLedgerCollapsed ? "ghost" : "secondary"}
               size="sm"
               className="h-6 w-6 p-0 hover:bg-background/80"
-              onClick={() => setIsLedgerCollapsed(prev => !prev)}
+              onClick={() => setIsLedgerCollapsed((prev) => !prev)}
             >
               <GitCommitHorizontal className="w-3.5 h-3.5" />
             </Button>
