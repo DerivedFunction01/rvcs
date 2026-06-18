@@ -281,7 +281,9 @@ export function POSTerminalScreen({
 
   const [hideCanceled, setHideCanceled] = React.useState(false);
   const [globalSettingsOpen, setGlobalSettingsOpen] = React.useState(false);
-  const [isMultiSelectMode, setIsMultiSelectMode] = React.useState(false);
+  const [isMultiSelectMode, setIsMultiSelectMode] = React.useState(
+    !!prefs.defaultMultiSelectMode,
+  );
 
   const [qtyStep, setQtyStep] = React.useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;

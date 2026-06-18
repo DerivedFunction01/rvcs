@@ -124,6 +124,17 @@ export function GlobalSettingsDialog({
           </div>
           
           <div className="flex items-center justify-between">
+            <label htmlFor="default-multi-select" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+              Default to Multi-Select
+            </label>
+            <Checkbox 
+              id="default-multi-select" 
+              checked={localPrefs.defaultMultiSelectMode}
+              onCheckedChange={(checked) => setLocalPrefs((prev: any) => ({ ...prev, defaultMultiSelectMode: !!checked }))}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
             <label htmlFor="split-warn-threshold" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
               Split Line Warn Threshold
             </label>
