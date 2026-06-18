@@ -229,7 +229,7 @@ interface VCSStore {
    */
   changeDefaultPayment: (newMethod: string, mode: ConfigUpdateMode) => void;
 
-  addGroupNote: (lineIds: string[], text: string) => void;
+  addGroupNote: (lineIds: string[], text: string) => string[];
   removeGroupNote: (lineIds: string[], noteId: string) => void;
   cleanupStaleNotes: (noteIds: string[]) => void;
   attachNoteToOrder: (noteId: string, attached: boolean) => void;
@@ -389,7 +389,7 @@ interface VCSStore {
   removeItems: (lineIds: string[]) => void;
   modifyItemsQty: (lineIds: string[], change: number) => void;
   setItemsQty: (lineIds: string[], targetQty: number) => void;
-  mergeItems: (lineIds: string[]) => void;
+  mergeItems: (lineIds: string[]) => string[];
   breakItems: (lineIds: string[]) => string[];
   combineItems: (requests: { comboSku: string; qty: number; assignments: any[] }[]) => string[];
   splitItemsQty: (
@@ -1160,6 +1160,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         });
         store.persist();
       }
+      return lineIds;
     },
 
     removeGroupNote: (lineIds, noteId) => {
@@ -2552,6 +2553,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const state = store.projectedState;
       const deltas: Delta[] = [];
       let lockedSkipped = false;
+      const survivorIds: string[] = [];
 
       const getSignature = (item: ProjectedLineItem): string => {
         const childrenSig = item.children
@@ -2574,9 +2576,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
 
       for (const group of groups.values()) {
+        const survivor = group[0];
+        survivorIds.push(survivor.lineId);
         if (group.length < 2) continue;
 
-        const survivor = group[0];
         const catalogEntry = store.catalog[survivor.sku];
 
         if (isMainQtyLocked(catalogEntry)) {
@@ -2623,6 +2626,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       if (deltas.length > 0) {
         store.commitDeltas(deltas, "pos-ui");
       }
+      
+      return survivorIds;
     },
 
     breakItems: (lineIds) => {

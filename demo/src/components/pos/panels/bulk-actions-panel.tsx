@@ -63,7 +63,7 @@ export interface BulkActionsPanelProps {
   modifyItemsQty: (ids: string[], change: number) => void;
   duplicateItems: (ids: string[]) => string[];
   removeItems: (ids: string[]) => void;
-  mergeItems: (ids: string[]) => void;
+  mergeItems: (ids: string[]) => string[];
   breakItems: (ids: string[]) => string[];
   disableNonModActions: boolean;
   canMerge: boolean;
@@ -425,8 +425,12 @@ export function BulkActionsPanel({
                       variant="outline"
                       className="w-full h-12 justify-start px-3 text-left hover:bg-accent/60 flex items-center gap-3 shadow-xs"
                       onClick={() => {
-                        mergeItems(Array.from(selectedLineIds));
-                        setSelectedLineIds(new Set());
+                        const survivorIds = mergeItems(Array.from(selectedLineIds));
+                        if (survivorIds && survivorIds.length > 0) {
+                          setSelectedLineIds(new Set(survivorIds));
+                        } else {
+                          setSelectedLineIds(new Set());
+                        }
                       }}
                       disabled={disableNonModActions || !canMerge}
                     >
