@@ -232,8 +232,8 @@ export function ActiveCheckActionFilterBar({
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">
             {isBulkActionsCollapsed
-              ? "Expand Advanced Options"
-              : "Collapse Advanced Options"}
+              ? "Expand Advanced Actions"
+              : "Collapse Advanced Actions"}
           </TooltipContent>
         </Tooltip>
 

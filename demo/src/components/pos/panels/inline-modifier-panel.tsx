@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { NumberFractionOverflow, useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem, SizeGroup } from "@/lib/vcs/types";
 import { ItemStatus } from "@/lib/vcs/types";
-import { Settings2, Minus, Pencil, Plus, Scale, Scaling, StickyNote, Trash2, Workflow } from "lucide-react";
+import { Settings2, Minus, Pencil, Plus, Scale, Scaling, StickyNote, Trash2, Workflow, Zap } from "lucide-react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
 import { usePreferencesStore } from "@/store/preferences-store";
@@ -16,6 +16,7 @@ export interface InlineModifierPanelProps {
     onAddModifier: (sku: string, state?: string) => void;
     onEditModifiers: (item: ProjectedLineItem) => void;
     onAllocConfig: (item: ProjectedLineItem) => void;
+    onSwapComboChoice: (lineId: string, parentLineId: string, slotSku: string) => void;
     onRemoveModifier: (lineId: string) => void;
     onGroupNoteOpen: (ids: string[]) => void;
     onUpdateModifierState: (sku: string, state: string) => void;
@@ -25,9 +26,11 @@ export interface InlineModifierPanelProps {
 export function InlineModifierPanel({
     selectedItems,
     catalog,
+    compatibleModifiers,
     onRemoveModifier,
     onEditModifiers,
     onAllocConfig,
+    onSwapComboChoice,
     onGroupNoteOpen,
     onUpdateModifierState,
     onUpdateInlineQty,
@@ -53,6 +56,14 @@ export function InlineModifierPanel({
     const activeSizeChild = item ? item.children.find((child) => catalog[child.sku]?.sizeGroupId === sizeGroup?.id) : undefined;
     const parentItem = item?.parentLineId ? projectedState.items[item.parentLineId] : null;
     const isComboLinkedChild = !!parentItem && !!catalog[parentItem.sku]?.comboChoices?.length;
+    const hasEditableModifiers = !!item && (
+        (catalogEntry?.allowedModifiers?.length ?? 0) > 0 ||
+        compatibleModifiers.length > 0 ||
+        item.children.some((child) => {
+            const childEntry = catalog[child.sku];
+            return !!childEntry && childEntry.basePrice === 0;
+        })
+    );
     const isRootItem = !item?.parentLineId;
     const mainQtyLocked = catalogEntry?.inlineQtyMainQtyLocked ?? false;
 
@@ -144,27 +155,55 @@ export function InlineModifierPanel({
                                         Type
                                     </span>
                                 </div>
-                                <div className="inline-flex items-stretch rounded-full border bg-background p-1 shadow-sm">
-                                    <button
-                                        type="button"
-                                        onClick={() => setQtyMode("main")}
-                                        disabled={mainQtyDisabled}
-                                        className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "main" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
-                                    >
-                                        Main
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setQtyMode("inline")}
-                                        className={`min-w-20 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "inline" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
-                                    >
-                                        Measurement
-                                    </button>
-                                </div>
+                                {hasInlineQty ? (
+                                    <div className="inline-flex items-stretch rounded-full border bg-background p-1 shadow-sm">
+                                        <button
+                                            type="button"
+                                            onClick={() => setQtyMode("main")}
+                                            disabled={mainQtyDisabled}
+                                            className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "main" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+                                        >
+                                            Main
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setQtyMode("inline")}
+                                            className={`min-w-20 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "inline" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+                                        >
+                                            Measurement
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                        Main only
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        {qtyMode === "main" && !shouldDefaultToInline
-                            ? MainQtyControl(
+                        {hasInlineQty ? (
+                            qtyMode === "main" && !shouldDefaultToInline
+                                ? MainQtyControl(
+                                    item,
+                                    isRootItem,
+                                    catalogEntry.mainQtyIncrement ?? 1,
+                                    catalogEntry.inlineQtyMainQtyLocked ?? false,
+                                    formatNumber,
+                                    () => setPadTarget("main"),
+                                )
+                                : MeasurementQty(
+                                    hasInlineQty,
+                                    inlineQtyLabel,
+                                    onUpdateInlineQty,
+                                    item,
+                                    inlineStep,
+                                    formatNumber,
+                                    currentInlineQty,
+                                    precision,
+                                    inlineQtyUnit,
+                                    () => setPadTarget("inline"),
+                                )
+                        ) : (
+                            MainQtyControl(
                                 item,
                                 isRootItem,
                                 catalogEntry.mainQtyIncrement ?? 1,
@@ -172,21 +211,10 @@ export function InlineModifierPanel({
                                 formatNumber,
                                 () => setPadTarget("main"),
                             )
-                            : MeasurementQty(
-                                hasInlineQty,
-                                inlineQtyLabel,
-                                onUpdateInlineQty,
-                                item,
-                                inlineStep,
-                                formatNumber,
-                                currentInlineQty,
-                                precision,
-                                inlineQtyUnit,
-                                () => setPadTarget("inline"),
-                            )}
+                        )}
                     </div>
                     {/* Actions */}
-                    {actionGrid(item, onEditModifiers, onAllocConfig, onRemoveModifier, onGroupNoteOpen, isComboLinkedChild)}
+                    {actionGrid(item, onEditModifiers, onAllocConfig, onSwapComboChoice, onRemoveModifier, onGroupNoteOpen, isComboLinkedChild, hasEditableModifiers)}
                     {DeltaNetToggle(showDeltaPrice, setShowDeltaPrice)}
 
                     {/* Size Selection Area - Stacked Vertical Column */}
@@ -358,19 +386,41 @@ function actionGrid(
     item: ProjectedLineItem,
     onEditModifiers: (item: ProjectedLineItem) => void,
     onAllocConfig: (item: ProjectedLineItem) => void,
+    onSwapComboChoice: (lineId: string, parentLineId: string, slotSku: string) => void,
     onRemoveModifier: (lineId: string) => void,
     onGroupNoteOpen: (ids: string[]) => void,
     isComboLinkedChild: boolean,
+    hasEditableModifiers: boolean,
 ) {
+    const comboSwapTarget = isComboLinkedChild && item.parentLineId
+        ? (() => {
+            const parentItem = useVCSStore.getState().projectedState.items[item.parentLineId!];
+            const parentCatalogEntry = parentItem ? useVCSStore.getState().catalog[parentItem.sku] : null;
+            return parentCatalogEntry?.comboChoices?.find((choice) => choice.optionSku === item.sku) ?? null;
+        })()
+        : null;
+    const canSwitchCombo = !!comboSwapTarget;
     return <div className="space-y-3">
         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Workflow className="w-3.5 h-3.5" />
+            <Zap className="w-3.5 h-3.5" />
             Actions
         </span>
         <div className="grid grid-cols-2 gap-2">
             <Button
                 variant="outline"
-                className="h-14 flex flex-col items-center justify-center gap-1.5 border-primary/20 hover:border-primary/45 shadow-xs hover:bg-accent/60"
+                className="h-14 flex flex-col items-center justify-center gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive/70"
+                disabled={isComboLinkedChild}
+                title={isComboLinkedChild ? "Combo-linked children cannot be removed here" : "Remove item"}
+                onClick={() => onRemoveModifier(item.lineId)}
+            >
+                <Trash2 className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-tight">Remove</span>
+            </Button>
+            <Button
+                variant="outline"
+                className="h-14 flex flex-col items-center justify-center gap-1.5 border-primary/20 hover:border-primary/45 shadow-xs hover:bg-accent/60 disabled:opacity-40 disabled:pointer-events-none"
+                disabled={!hasEditableModifiers}
+                title={hasEditableModifiers ? "Manage ingredients and options" : "No editable modifiers available"}
                 onClick={() => onEditModifiers(item)}
             >
                 <Pencil className="w-5 h-5 text-primary" />
@@ -394,13 +444,17 @@ function actionGrid(
             </Button>
             <Button
                 variant="outline"
-                className="h-14 flex flex-col items-center justify-center gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive/70"
-                disabled={isComboLinkedChild}
-                title={isComboLinkedChild ? "Combo-linked children cannot be removed here" : "Remove item"}
-                onClick={() => onRemoveModifier(item.lineId)}
+                className="h-14 flex flex-col items-center justify-center gap-1.5 shadow-xs hover:bg-accent/60 disabled:opacity-40 disabled:pointer-events-none"
+                disabled={!canSwitchCombo}
+                title={canSwitchCombo ? "Switch combo choice" : "No alternate combo choice available"}
+                onClick={() => {
+                    if (comboSwapTarget && item.parentLineId) {
+                        onSwapComboChoice(item.lineId, item.parentLineId, comboSwapTarget.slotSku);
+                    }
+                }}
             >
-                <Trash2 className="w-5 h-5" />
-                <span className="text-[10px] font-semibold leading-tight">Remove</span>
+                <Workflow className="w-5 h-5 text-muted-foreground" />
+                <span className="text-[10px] font-semibold leading-tight">Switch</span>
             </Button>
         </div>
     </div>;

@@ -1041,6 +1041,7 @@ export function POSTerminalScreen({
             onAddModifier={handleAddModifierInline}
             onEditModifiers={handleOpenModifierDialog}
             onAllocConfig={handleAllocConfig}
+            onSwapComboChoice={handleOpenSwapDialog}
             onRemoveModifier={handleRemoveModifierInline}
             onGroupNoteOpen={handleOpenGroupNoteDialog}
             onUpdateModifierState={handleUpdateModifierStateInline}

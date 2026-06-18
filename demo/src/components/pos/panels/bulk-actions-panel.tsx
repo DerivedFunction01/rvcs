@@ -150,7 +150,7 @@ export function BulkActionsPanel({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left">
-                  <p>Advanced Options</p>
+                  <p>Advanced Actions</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -159,7 +159,7 @@ export function BulkActionsPanel({
               size="sm"
               className="h-6 w-6 p-0"
               onClick={() => setIsBulkActionsCollapsed((prev: any) => !prev)}
-              title="Expand Advanced Options"
+              title="Expand Advanced Actions"
             >
               <PanelRightOpen className="w-3.5 h-3.5" />
             </Button>
@@ -168,7 +168,7 @@ export function BulkActionsPanel({
           <>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-primary" />
-              Advanced Options
+              Advanced Actions
             </h2>
             <div className="flex items-center gap-1.5">
               {selectedLineIds.size > 0 && (
@@ -181,7 +181,7 @@ export function BulkActionsPanel({
                 size="sm"
                 className="h-6 w-6 p-0"
                 onClick={() => setIsBulkActionsCollapsed((prev: any) => !prev)}
-                title="Minimize Advanced Options"
+                title="Minimize Advanced Actions"
               >
                 <PanelRightClose className="w-3.5 h-3.5" />
               </Button>
@@ -220,7 +220,7 @@ export function BulkActionsPanel({
               </Button>
             )}
           </div>
-
+          
           <label className="flex items-center gap-2 cursor-pointer select-none pt-1 border-t border-muted-foreground/10">
             <Checkbox
               checked={autoSelectLastClickedItem}
@@ -276,26 +276,26 @@ export function BulkActionsPanel({
                   </span>
 
                   {/* Main +/- Control */}
-                  <div className="flex items-stretch rounded-xl border bg-background shadow-sm overflow-hidden h-20">
+                  <div className="flex items-stretch rounded-xl border bg-background shadow-sm overflow-hidden h-14">
                     <Button
                       variant="ghost"
-                      className="h-full w-20 rounded-none border-r hover:bg-muted"
+                      className="h-full w-14 rounded-none border-r hover:bg-muted"
                       onClick={() => {
                         modifyItemsQty(Array.from(selectedLineIds), -parsedStep);
                       }}
                       disabled={disableNonModActions}
                       title={`Decrease by ${parsedStep}`}
                     >
-                      <Minus className="w-8 h-8" />
+                      <Minus className="w-5 h-5" />
                     </Button>
                     <button
-                      className={`flex-1 flex flex-col items-center justify-center gap-1 bg-muted/10 transition-colors ${disableNonModActions ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/20"}`}
+                      className={`flex-1 min-h-0 self-stretch flex flex-col items-center justify-center gap-0.5 bg-muted/10 px-2 py-1 transition-colors ${disableNonModActions ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/20"}`}
                       onClick={() => !disableNonModActions && setQtyStepPadOpen(true)}
                       disabled={disableNonModActions}
                       title="Tap to set step"
                     >
-                      <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">Step</span>
-                      <span className="text-2xl font-mono font-bold text-foreground">{qtyStep === "" ? "1" : formatNumber(Number(qtyStep))}</span>
+                      <span className="text-[8px] font-medium text-muted-foreground uppercase tracking-wide">Step</span>
+                      <span className="text-xl font-mono font-bold text-foreground leading-none">{qtyStep === "" ? "1" : formatNumber(Number(qtyStep))}</span>
                       {qtyStep !== 1 && (
                         <div
                           className="absolute p-1 rounded hover:bg-muted text-muted-foreground"
@@ -311,14 +311,14 @@ export function BulkActionsPanel({
                     </button>
                     <Button
                       variant="ghost"
-                      className="h-full w-20 rounded-none border-l hover:bg-muted"
+                      className="h-full w-14 rounded-none border-l hover:bg-muted"
                       onClick={() => {
                         modifyItemsQty(Array.from(selectedLineIds), parsedStep);
                       }}
                       disabled={disableNonModActions}
                       title={`Increase by ${parsedStep}`}
                     >
-                      <Plus className="w-8 h-8" />
+                      <Plus className="w-5 h-5" />
                     </Button>
                   </div>
 
