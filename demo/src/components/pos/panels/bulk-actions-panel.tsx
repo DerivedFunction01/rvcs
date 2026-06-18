@@ -150,7 +150,7 @@ export function BulkActionsPanel({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left">
-                  <p>Bulk Actions</p>
+                  <p>Advanced Options</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -159,7 +159,7 @@ export function BulkActionsPanel({
               size="sm"
               className="h-6 w-6 p-0"
               onClick={() => setIsBulkActionsCollapsed((prev: any) => !prev)}
-              title="Expand bulk actions"
+              title="Expand Advanced Options"
             >
               <PanelRightOpen className="w-3.5 h-3.5" />
             </Button>
@@ -168,7 +168,7 @@ export function BulkActionsPanel({
           <>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-primary" />
-              Bulk Actions
+              Advanced Options
             </h2>
             <div className="flex items-center gap-1.5">
               {selectedLineIds.size > 0 && (
@@ -181,7 +181,7 @@ export function BulkActionsPanel({
                 size="sm"
                 className="h-6 w-6 p-0"
                 onClick={() => setIsBulkActionsCollapsed((prev: any) => !prev)}
-                title="Minimize bulk actions"
+                title="Minimize Advanced Options"
               >
                 <PanelRightClose className="w-3.5 h-3.5" />
               </Button>
