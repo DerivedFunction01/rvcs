@@ -369,7 +369,7 @@ export function LineItemNode({
               )}
 
               {/* ── Size picker ── */}
-              {isRoot && sizeGroup && !isCanceled && sizeOptions.length > 0 && activeSizeChild && (
+              {isRoot && sizeGroup && !isCanceled && sizeOptions.length > 0 && activeSizeChild && !isCompactMode && (
                 <div className="flex items-center gap-1 mt-2">
                   <span className="text-[10px] text-muted-foreground mr-1">Size:</span>
                   <div className="flex items-center rounded border p-0.5 bg-muted/20">
@@ -400,7 +400,7 @@ export function LineItemNode({
               )}
 
               {/* ── Inline qty controls ── */}
-              {hasInlineQty && !isCanceled && (
+              {hasInlineQty && !isCanceled && !isCompactMode && (
                 <LineItemInlineQty
                   lineId={item.lineId}
                   inlineQty={item.inlineQty ?? 1}
@@ -417,7 +417,7 @@ export function LineItemNode({
                 catalogEntry &&
                 !isCanceled &&
                 catalogEntry.allowedStates &&
-                catalogEntry.allowedStates.length > 0 && (
+                catalogEntry.allowedStates.length > 0 && !isCompactMode && (
                   <div className="flex items-center gap-1 mt-2">
                     <div className="flex items-center rounded border p-0.5 bg-muted/20">
                       {catalogEntry.allowedStates.map((stateOpt) => {
