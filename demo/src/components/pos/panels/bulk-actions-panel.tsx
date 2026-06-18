@@ -75,6 +75,8 @@ export interface BulkActionsPanelProps {
   activeModifiersOnSelected: any[];
   isBulkActionsCollapsed: boolean;
   setIsBulkActionsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  isMultiSelectMode: boolean;
+  setIsMultiSelectMode: (mode: boolean) => void;
 }
 
 export function BulkActionsPanel({
@@ -117,6 +119,8 @@ export function BulkActionsPanel({
   activeModifiersOnSelected,
   isBulkActionsCollapsed,
   setIsBulkActionsCollapsed,
+  isMultiSelectMode,
+  setIsMultiSelectMode,
 }: BulkActionsPanelProps) {
   return (
     <aside
@@ -184,34 +188,53 @@ export function BulkActionsPanel({
 
       {/* Select All Row */}
       {!isBulkActionsCollapsed && (
-        <div className="px-3 py-2 border-b bg-muted/20 flex items-center justify-between gap-2">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <Checkbox
-              checked={
-                selectedLineIds.size > 0 &&
-                selectedLineIds.size === filteredRootItems.length
-              }
-              onCheckedChange={(c) => {
-                if (c)
-                  setSelectedLineIds(
-                    new Set(filteredRootItems.map((i: any) => i.lineId)),
-                  );
-                else setSelectedLineIds(new Set());
-              }}
-            />
-            <span className="text-xs font-semibold text-muted-foreground">
-              Select All ({filteredRootItems.length})
-            </span>
-          </label>
-          {selectedLineIds.size > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
-              onClick={() => setSelectedLineIds(new Set())}
-            >
-              Clear selection
-            </Button>
+        <div className="px-3 py-2 border-b bg-muted/20 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox
+                checked={isMultiSelectMode}
+                onCheckedChange={(c) => {
+                  setIsMultiSelectMode(!!c);
+                  if (!c && selectedLineIds.size > 1) {
+                    const first = Array.from(selectedLineIds)[0];
+                    setSelectedLineIds(new Set([first]));
+                  }
+                }}
+              />
+              <span className="text-xs font-semibold text-muted-foreground">
+                Multi-Select Mode
+              </span>
+            </label>
+            {selectedLineIds.size > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                onClick={() => setSelectedLineIds(new Set())}
+              >
+                Clear selection
+              </Button>
+            )}
+          </div>
+          {isMultiSelectMode && (
+            <label className="flex items-center gap-2 cursor-pointer select-none pt-1 border-t border-muted-foreground/10">
+              <Checkbox
+                checked={
+                  selectedLineIds.size > 0 &&
+                  selectedLineIds.size === filteredRootItems.length
+                }
+                onCheckedChange={(c) => {
+                  if (c)
+                    setSelectedLineIds(
+                      new Set(filteredRootItems.map((i: any) => i.lineId)),
+                    );
+                  else setSelectedLineIds(new Set());
+                }}
+              />
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Select All ({filteredRootItems.length})
+              </span>
+            </label>
           )}
         </div>
       )}

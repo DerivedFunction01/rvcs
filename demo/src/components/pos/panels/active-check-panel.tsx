@@ -21,6 +21,7 @@ export function ActiveCheckPanel(props: any) {
     hideCanceled,
     detailLevel,
     isCompactMode,
+    isMultiSelectMode,
     filteredRootItems,
     resolvedAllocations,
     defaultPaymentAllocId,
@@ -99,7 +100,12 @@ export function ActiveCheckPanel(props: any) {
                 onSelectToggle={(lineId) => {
                   const newSet = new Set(selectedLineIds);
                   if (newSet.has(lineId)) newSet.delete(lineId);
-                  else newSet.add(lineId);
+                  else {
+                    if (!isMultiSelectMode) {
+                      newSet.clear();
+                    }
+                    newSet.add(lineId);
+                  }
                   setSelectedLineIds(newSet);
                 }}
                 isCollapsed={collapsedItems.has(item.lineId)}

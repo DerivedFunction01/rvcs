@@ -281,6 +281,7 @@ export function POSTerminalScreen({
 
   const [hideCanceled, setHideCanceled] = React.useState(false);
   const [globalSettingsOpen, setGlobalSettingsOpen] = React.useState(false);
+  const [isMultiSelectMode, setIsMultiSelectMode] = React.useState(false);
 
   const [qtyStep, setQtyStep] = React.useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;
@@ -948,6 +949,7 @@ export function POSTerminalScreen({
             canceledCount={canceledCount}
             detailLevel={detailLevel}
             isCompactMode={isCompactMode}
+            isMultiSelectMode={isMultiSelectMode}
             setDetailLevel={setDetailLevel}
             selectedPerson={selectedPerson}
             filteredRootItems={filteredRootItems}
@@ -1006,6 +1008,8 @@ export function POSTerminalScreen({
             projectedState={projectedState}
             isBulkActionsCollapsed={isBulkActionsCollapsed}
             setIsBulkActionsCollapsed={setIsBulkActionsCollapsed}
+            isMultiSelectMode={isMultiSelectMode}
+            setIsMultiSelectMode={setIsMultiSelectMode}
           />
           <GroupNotesPanel
             projectedState={projectedState}
