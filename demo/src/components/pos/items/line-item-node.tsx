@@ -131,7 +131,7 @@ export function LineItemNode({
 
   // --- Catalog-derived config ---
   const catalogEntry = catalog[item.sku];
-  const isSelectable = !isCanceled && (isRoot || catalogEntry?.type === CatalogItemType.Item);
+  const isSelectable = !isCanceled // && (isRoot || catalogEntry?.type === CatalogItemType.Item);
   const step = catalogEntry?.mainQtyIncrement ?? 1;
 
   const hasInlineQty =

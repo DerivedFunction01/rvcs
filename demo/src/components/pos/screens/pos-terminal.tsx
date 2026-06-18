@@ -744,6 +744,12 @@ export function POSTerminalScreen({
   const handleUpdateModifierStateInline = React.useCallback((sku: string, state: string) => {
     if (selectedItems.length !== 1) return;
     const parentItem = selectedItems[0];
+    // If the selected item itself has the matching sku, update its state directly
+    if (parentItem.sku === sku) {
+      modifyModifierState(parentItem.lineId, parentItem.selectedModifierState, state);
+      return;
+    }
+    // Otherwise look for a modifier child with that sku
     const modifierChild = parentItem.children.find(c => c.sku === sku);
     if (modifierChild) {
       modifyModifierState(modifierChild.lineId, modifierChild.selectedModifierState, state);
