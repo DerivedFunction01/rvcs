@@ -10,6 +10,7 @@ import { useVCSStore } from "@/store/vcs-store";
 import type { usePostTerminalDialogs } from "@/components/pos/screens/hooks/use-post-terminal-dialogs";
 import type { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
 import type { usePostTerminalCatalog } from "@/components/pos/screens/hooks/use-post-terminal-catalog";
+import type { NoteAllocation } from "@/lib/vcs/types";
 
 export function PosOtherDialogs({
   dialogs,
@@ -45,6 +46,58 @@ export function PosOtherDialogs({
       .filter((a) => a.type === "note")
       .map((a) => ({ id: a.allocationId, text: (a as any).text }));
   }, [store.projectedState.allocations]);
+
+  const groupNoteContext = React.useMemo(() => {
+    const selectedItems = selectedLineIdsArray
+      .map((id) => store.projectedState.items[id])
+      .filter(Boolean);
+
+    const linkedNotes = new Map<string, { id: string; text: string }>();
+    const orderedNotes = Object.values(store.projectedState.allocations).filter(
+      (a): a is NoteAllocation => a.type === "note",
+    );
+
+    for (const note of orderedNotes) {
+      if (
+        selectedItems.some((item) => item.allocations.includes(note.allocationId))
+      ) {
+        linkedNotes.set(note.allocationId, {
+          id: note.allocationId,
+          text: note.text,
+        });
+      }
+    }
+
+    const linkedList = [...linkedNotes.values()];
+    const selectedNoteId =
+      linkedList.length === 1
+        ? linkedList[0]?.id ?? null
+        : linkedList[linkedList.length - 1]?.id ?? null;
+
+    const mode: "edit" | "add" | "attach" =
+      linkedList.length === 1
+        ? "edit"
+        : linkedList.length > 1
+          ? "attach"
+          : "add";
+
+    return {
+      mode,
+      selectedNoteId,
+    };
+  }, [existingNotes, selectedLineIdsArray, store.projectedState.allocations, store.projectedState.items]);
+
+  React.useEffect(() => {
+    if (!dialogs.groupNoteOpen) return;
+    dialogs.setGroupNoteMode(groupNoteContext.mode);
+    dialogs.setGroupNoteSelectedNoteId(groupNoteContext.selectedNoteId);
+  }, [
+    dialogs.groupNoteOpen,
+    dialogs.setGroupNoteMode,
+    dialogs.setGroupNoteSelectedNoteId,
+    groupNoteContext.mode,
+    groupNoteContext.selectedNoteId,
+  ]);
 
   return (
     <>
@@ -157,23 +210,12 @@ export function PosOtherDialogs({
       <GroupNoteDialog
         open={dialogs.groupNoteOpen}
         onOpenChange={dialogs.setGroupNoteOpen}
-        onSave={actions.handleSaveGroupNote}
-        onLinkExisting={(noteId) => {
-          const deltas: Delta[] = [];
-          for (const lineId of dialogs.groupNoteLineIds) {
-            const item = store.projectedState.items[lineId];
-            if (item && !item.allocations.includes(noteId)) {
-              deltas.push({
-                action: DeltaActionType.ModifyItemAllocations,
-                lineId,
-                beforeAllocations: item.allocations,
-                afterAllocations: [...item.allocations, noteId],
-              });
-            }
-          }
-          if (deltas.length > 0) store.commitDeltas(deltas, "pos-ui");
-          toast.success("Linked note to selected items");
-        }}
+        mode={dialogs.groupNoteMode}
+        onModeChange={dialogs.setGroupNoteMode}
+        selectedNoteId={dialogs.groupNoteSelectedNoteId ?? groupNoteContext.selectedNoteId}
+        onCreateNote={actions.handleSaveGroupNote}
+        onUpdateNote={actions.handleUpdateGroupNote}
+        onAttachExisting={actions.handleAttachExistingGroupNote}
         selectedCount={dialogs.groupNoteLineIds.length}
         existingNotes={existingNotes}
       />

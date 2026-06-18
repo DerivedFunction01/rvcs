@@ -230,6 +230,7 @@ interface VCSStore {
   changeDefaultPayment: (newMethod: string, mode: ConfigUpdateMode) => void;
 
   addGroupNote: (lineIds: string[], text: string) => string[];
+  updateGroupNote: (noteId: string, text: string) => void;
   removeGroupNote: (lineIds: string[], noteId: string) => void;
   cleanupStaleNotes: (noteIds: string[]) => void;
   attachNoteToOrder: (noteId: string, attached: boolean) => void;
@@ -1161,6 +1162,39 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         store.persist();
       }
       return lineIds;
+    },
+
+    updateGroupNote: (noteId, text) => {
+      const store = get();
+      const currentAlloc = store.projectedState.allocations[noteId];
+      if (!currentAlloc || currentAlloc.type !== AllocationType.Note) return;
+
+      store.engine.commitSystem(
+        [
+          {
+            action: DeltaActionType.UndeclareAllocation,
+            allocationId: noteId,
+          },
+          {
+            action: DeltaActionType.DeclareAllocation,
+            allocation: {
+              ...currentAlloc,
+              text: text.trim(),
+            },
+          },
+        ],
+        "pos-ui",
+      );
+
+      set({
+        projectedState: evaluateBusinessRules(
+          store.engine.projectCurrent(),
+          store.chargeRules,
+          store.catalog,
+        ),
+      });
+      store.persist();
+      toast.success("Note updated");
     },
 
     removeGroupNote: (lineIds, noteId) => {

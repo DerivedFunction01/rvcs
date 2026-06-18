@@ -10,6 +10,8 @@ export function usePostTerminalDialogs() {
   const [removeModDialogOpen, setRemoveModDialogOpen] = useState(false);
   const [groupNoteOpen, setGroupNoteOpen] = useState(false);
   const [groupNoteLineIds, setGroupNoteLineIds] = useState<string[]>([]);
+  const [groupNoteMode, setGroupNoteMode] = useState<"edit" | "add" | "attach">("add");
+  const [groupNoteSelectedNoteId, setGroupNoteSelectedNoteId] = useState<string | null>(null);
 
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
 
@@ -73,6 +75,10 @@ export function usePostTerminalDialogs() {
     setGroupNoteOpen,
     groupNoteLineIds,
     setGroupNoteLineIds,
+    groupNoteMode,
+    setGroupNoteMode,
+    groupNoteSelectedNoteId,
+    setGroupNoteSelectedNoteId,
     customerDialogOpen,
     setCustomerDialogOpen,
     modifierAddOpen,

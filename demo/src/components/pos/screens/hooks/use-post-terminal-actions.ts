@@ -4,7 +4,8 @@ import { useVCSStore } from "@/store/vcs-store";
 import { formatFulfillmentTime } from "@/lib/pos/utils";
 import {
   BranchType,
-
+  Delta,
+  DeltaActionType,
   PaymentStrategyType,
   type ProjectedLineItem,
   SquashType,
@@ -56,6 +57,7 @@ export function usePostTerminalActions({
     resetItemPaymentToDefault,
     setItemsQty,
     addGroupNote,
+    updateGroupNote,
     removeGroupNote,
     cleanupStaleNotes,
     attachNoteToOrder,
@@ -263,6 +265,37 @@ export function usePostTerminalActions({
     [addGroupNote, groupNoteLineIds, setSelectedLineIds],
   );
 
+  const handleUpdateGroupNote = useCallback(
+    (noteId: string, text: string) => {
+      updateGroupNote(noteId, text);
+    },
+    [updateGroupNote],
+  );
+
+  const handleAttachExistingGroupNote = useCallback(
+    (noteId: string) => {
+      const store = useVCSStore.getState();
+      const deltas: Delta[] = [];
+      for (const lineId of groupNoteLineIds) {
+        const item = store.projectedState.items[lineId];
+        if (item && !item.allocations.includes(noteId)) {
+          deltas.push({
+            action: DeltaActionType.ModifyItemAllocations,
+            lineId,
+            beforeAllocations: item.allocations,
+            afterAllocations: [...item.allocations, noteId],
+          });
+        }
+      }
+      if (deltas.length > 0) {
+        store.commitDeltas(deltas, "pos-ui");
+      }
+      toast.success("Linked note to selected items");
+      setSelectedLineIds(new Set());
+    },
+    [groupNoteLineIds, setSelectedLineIds],
+  );
+
   const handleRemoveNoteFromItems = useCallback(
     (lineIds: string[], noteId: string) => {
       removeGroupNote(lineIds, noteId);
@@ -330,6 +363,8 @@ export function usePostTerminalActions({
     handleSetBulkQty,
     handleSplitQty,
     handleSaveGroupNote,
+    handleUpdateGroupNote,
+    handleAttachExistingGroupNote,
     handleRemoveNoteFromItems,
     handleCleanupStaleNotes,
     handleAttachNoteToOrder,
