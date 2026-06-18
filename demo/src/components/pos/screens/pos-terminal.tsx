@@ -364,26 +364,6 @@ export function POSTerminalScreen({
     prevRootItemCount.current = rootItems.length;
   }, [rootItems.length]);
 
-  const prevItemsRef = React.useRef(projectedState.items);
-  React.useEffect(() => {
-    if (autoSelectLastClickedItem) {
-      const prevItems = prevItemsRef.current;
-      const currentItems = projectedState.items;
-      const newIds = Object.keys(currentItems).filter((id) => !prevItems[id]);
-      if (newIds.length > 0) {
-        const newRootIds = newIds.filter((id) => !currentItems[id].parentLineId);
-        if (newRootIds.length > 0) {
-          if (isMultiSelectMode) {
-            setSelectedLineIds(new Set([...selectedLineIds, ...newRootIds]));
-          } else {
-            setSelectedLineIds(new Set([newRootIds[newRootIds.length - 1]]));
-          }
-        }
-      }
-    }
-    prevItemsRef.current = projectedState.items;
-  }, [projectedState.items, autoSelectLastClickedItem, isMultiSelectMode, selectedLineIds, setSelectedLineIds]);
-
   const filteredRootItems = React.useMemo(() => {
     return rootItems.filter((item) => {
       if (hideCanceled && item.status === ItemStatus.Canceled) return false;
@@ -403,12 +383,12 @@ export function POSTerminalScreen({
       const payerIds =
         rawPaymentAllocs.length > 0
           ? rawPaymentAllocs.map((a) => {
-              const rawPayer = a.payer;
-              const matchedPayer = guests.find(
-                (g) => g.id === rawPayer || g.alias === rawPayer,
-              );
-              return matchedPayer ? matchedPayer.id : rawPayer;
-            })
+            const rawPayer = a.payer;
+            const matchedPayer = guests.find(
+              (g) => g.id === rawPayer || g.alias === rawPayer,
+            );
+            return matchedPayer ? matchedPayer.id : rawPayer;
+          })
           : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
@@ -457,6 +437,25 @@ export function POSTerminalScreen({
     currentBranchName,
     viewingHash,
   );
+  const prevItemsRef = React.useRef(projectedState.items);
+  React.useEffect(() => {
+    if (autoSelectLastClickedItem) {
+      const prevItems = prevItemsRef.current;
+      const currentItems = projectedState.items;
+      const newIds = Object.keys(currentItems).filter((id) => !prevItems[id]);
+      if (newIds.length > 0) {
+        const newRootIds = newIds.filter((id) => !currentItems[id].parentLineId);
+        if (newRootIds.length > 0) {
+          if (isMultiSelectMode) {
+            setSelectedLineIds(new Set([...selectedLineIds, ...newRootIds]));
+          } else {
+            setSelectedLineIds(new Set([newRootIds[newRootIds.length - 1]]));
+          }
+        }
+      }
+    }
+    prevItemsRef.current = projectedState.items;
+  }, [projectedState.items, autoSelectLastClickedItem, isMultiSelectMode, selectedLineIds, setSelectedLineIds]);
 
   const canceledCount = React.useMemo(() => {
     let count = 0;
@@ -480,12 +479,12 @@ export function POSTerminalScreen({
       const payerIds =
         rawPaymentAllocs.length > 0
           ? rawPaymentAllocs.map((a) => {
-              const rawPayer = a.payer;
-              const matchedPayer = guests.find(
-                (g) => g.id === rawPayer || g.alias === rawPayer,
-              );
-              return matchedPayer ? matchedPayer.id : rawPayer;
-            })
+            const rawPayer = a.payer;
+            const matchedPayer = guests.find(
+              (g) => g.id === rawPayer || g.alias === rawPayer,
+            );
+            return matchedPayer ? matchedPayer.id : rawPayer;
+          })
           : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
