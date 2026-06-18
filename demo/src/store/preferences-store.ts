@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ViewMode } from "@/lib/pos/types";
+import { CatalogNavigationMode, type CatalogDetailDisplayPrefs, ViewMode } from "@/lib/pos/types";
 
 export interface AppPreferences {
   detailLevel: ViewMode;
@@ -10,6 +10,10 @@ export interface AppPreferences {
   isCompactMode: boolean;
   useCommaDecimal: boolean;
   inlineModifierPriceDisplayDelta: boolean;
+  catalogDetailDisplay: CatalogDetailDisplayPrefs;
+  catalogNavigationMode: CatalogNavigationMode;
+  catalogGridRows: number;
+  catalogGridCols: number;
   splitLineWarnThreshold: number;
   globalDepthColors: string[];
   globalGuestPalette: string[];
@@ -26,6 +30,14 @@ export const defaultAppPreferences: AppPreferences = {
   isCompactMode: false,
   useCommaDecimal: false,
   inlineModifierPriceDisplayDelta: true,
+  catalogDetailDisplay: {
+    showSku: true,
+    showIcons: true,
+    showPrice: false,
+  },
+  catalogNavigationMode: CatalogNavigationMode.Scroll,
+  catalogGridRows: 4,
+  catalogGridCols: 5,
   splitLineWarnThreshold: 10,
   globalDepthColors: [
     "#94a3b8",

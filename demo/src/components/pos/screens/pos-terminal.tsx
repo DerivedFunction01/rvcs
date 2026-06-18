@@ -994,6 +994,7 @@ export function POSTerminalScreen({
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <CatalogPanel
+            repoId={repoId}
             catalogItems={catalogItems}
             groupedCatalog={groupedCatalog}
             availableTags={availableTags}

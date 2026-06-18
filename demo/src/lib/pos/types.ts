@@ -142,6 +142,24 @@ export enum ViewMode {
   Full = "Full",
 }
 
+export enum CatalogDetailLevel {
+  Name = "Name",
+  Sku = "Sku",
+  SkuIcons = "SkuIcons",
+  Full = "Full",
+}
+
+export enum CatalogNavigationMode {
+  Scroll = "Scroll",
+  Page = "Page",
+}
+
+export interface CatalogDetailDisplayPrefs {
+  showSku: boolean;
+  showIcons: boolean;
+  showPrice: boolean;
+}
+
 export enum SplitQtyType {
   Amount = "amount",
   Percentage = "percentage",

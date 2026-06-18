@@ -17,6 +17,7 @@ import { ViewMode } from "@/lib/pos/types";
 import { useEffect, useRef, useState } from "react";
 import { NumberPadDialog } from "./number-pad-dialog";
 import { Input } from "@/components/ui/input";
+import { CatalogDetailDialog } from "./catalog-detail-dialog";
 
 export function GlobalSettingsDialog({
   open,
@@ -29,6 +30,7 @@ export function GlobalSettingsDialog({
 
   const [localPrefs, setLocalPrefs] = useState<any>(defaultPrefs);
   const [splitWarnPadOpen, setSplitWarnPadOpen] = useState(false);
+  const [catalogDetailOpen, setCatalogDetailOpen] = useState(false);
 
   const prevOpen = useRef(open);
   useEffect(() => {
@@ -144,6 +146,21 @@ export function GlobalSettingsDialog({
                 Net
               </button>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label htmlFor="catalog-detail-level" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+              Catalog Layout
+            </label>
+            <Button
+              id="catalog-detail-level"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs px-3"
+              onClick={() => setCatalogDetailOpen(true)}
+            >
+              Customize
+            </Button>
           </div>
           
           <div className="flex items-center justify-between">
@@ -356,6 +373,25 @@ export function GlobalSettingsDialog({
         onConfirm={(val) => {
           setLocalPrefs((prev: any) => ({ ...prev, splitLineWarnThreshold: val }));
         }}
+      />
+      <CatalogDetailDialog
+        open={catalogDetailOpen}
+        onOpenChange={setCatalogDetailOpen}
+        value={{
+          detailDisplay: localPrefs.catalogDetailDisplay,
+          navigationMode: localPrefs.catalogNavigationMode,
+          gridRows: localPrefs.catalogGridRows,
+          gridCols: localPrefs.catalogGridCols,
+        }}
+        onChange={(next) =>
+          setLocalPrefs((prev: any) => ({
+            ...prev,
+            catalogDetailDisplay: next.detailDisplay,
+            catalogNavigationMode: next.navigationMode,
+            catalogGridRows: next.gridRows,
+            catalogGridCols: next.gridCols,
+          }))
+        }
       />
     </>
   );
