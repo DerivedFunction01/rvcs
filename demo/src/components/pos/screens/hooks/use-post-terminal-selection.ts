@@ -63,7 +63,8 @@ export function usePostTerminalSelection(
         target.closest(".bg-popover") ||
         target.closest(".radix-select-content") ||
         target.closest("#bulk-actions") ||
-        target.closest("#bulk-actions-toggle") 
+        target.closest("#bulk-actions-toggle") ||
+        target.closest("#inline-mod-panel")
       )
         return;
 

@@ -69,7 +69,7 @@ export function InlineModifierPanel({
     };
 
     return (
-        <aside className="w-80 border-r bg-card flex flex-col shrink-0 shadow-sm h-full overflow-hidden">
+        <aside className="w-80 border-r bg-card flex flex-col shrink-0 shadow-sm h-full overflow-hidden" id="inline-mod-panel">
             <div className="p-3 border-b flex items-center gap-2 bg-muted/20">
                 <Settings2 className="w-3.5 h-3.5 text-primary" />
                 <h2 className="text-xs font-semibold text-primary uppercase tracking-wider truncate">

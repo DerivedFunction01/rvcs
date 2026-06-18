@@ -58,7 +58,9 @@ export function CommitLedgerPanel(props: any) {
     React.useState<Set<string> | null>(null);
 
   const uniqueBranches = React.useMemo<string[]>(() => {
-    return Array.from(new Set(log.map((c: any) => c.branch as string))).filter((b: any) => String(b) !== "system") as string[];
+    return Array.from(new Set(log.map((c: any) => c.branch as string))).filter(
+      (b: any) => String(b) !== "system",
+    ) as string[];
   }, [log]);
 
   const filteredLog = React.useMemo(() => {
@@ -431,7 +433,7 @@ export function CommitLedgerPanel(props: any) {
                                     className={`text-[8px] px-1 py-0 h-4 font-semibold cursor-pointer shrink-0 transition-all flex items-center gap-0.5 select-none ${getBranchColorInfo(commit.branch).badge} ${activeBranch === commit.branch ? "ring-1 ring-offset-0 ring-primary/30 font-bold" : ""}`}
                                   >
                                     {branches[commit.branch]?.type ===
-                                      "hypothetical" ? (
+                                    "hypothetical" ? (
                                       <Lightbulb className="w-2.5 h-2.5" />
                                     ) : (
                                       <GitBranch className="w-2.5 h-2.5" />
