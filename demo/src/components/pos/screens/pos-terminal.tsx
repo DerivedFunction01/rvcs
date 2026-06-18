@@ -1039,7 +1039,10 @@ export function POSTerminalScreen({
             catalog={catalog}
             compatibleModifiers={compatibleModifiers}
             onAddModifier={handleAddModifierInline}
+            onEditModifiers={handleOpenModifierDialog}
+            onAllocConfig={handleAllocConfig}
             onRemoveModifier={handleRemoveModifierInline}
+            onGroupNoteOpen={handleOpenGroupNoteDialog}
             onUpdateModifierState={handleUpdateModifierStateInline}
             onUpdateInlineQty={handleUpdateInlineQty}
           />
