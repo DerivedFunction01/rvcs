@@ -79,7 +79,7 @@ export function CommitLedgerPanel(props: any) {
 
   return (
     <aside
-      className={`border-l bg-card flex flex-col shrink-0 transition-all duration-200 ${isLedgerCollapsed ? "w-12" : "w-72"}`}
+      className={`bg-card flex flex-col shrink-0 transition-all duration-200 ${isLedgerCollapsed ? "w-0 overflow-hidden border-l-0" : "w-72 border-l"}`}
     >
       <div
         className={`p-3 border-b flex ${isLedgerCollapsed ? "flex-col items-center gap-3" : "items-center justify-between gap-2"}`}

@@ -4,6 +4,11 @@ import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
 import React from "react";
 
+import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
+import { SplitIntoLinesDialog } from "@/components/pos/dialogs/split-into-lines-dialog";
+import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
+import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+
 import { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
 import { usePostTerminalAllocationDialogs } from "@/components/pos/screens/hooks/use-post-terminal-allocation-dialogs";
 import { usePostTerminalBranchDialogs } from "@/components/pos/screens/hooks/use-post-terminal-branch-dialogs";
@@ -26,18 +31,24 @@ import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
 import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
 import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
+import { BulkActionsPanel } from "@/components/pos/panels/bulk-actions-panel";
 
 import { OrderContextBanner } from "@/components/pos/bars/order-context-banner";
 import { PosQtyDialogs } from "@/components/pos/screens/dialogs/pos-qty-dialogs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator as SeparatorUI } from "@/components/ui/separator";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   AllocationContext,
   type FloorConfig,
   type OrderTypeConfig,
-  ViewMode
+  ViewMode,
 } from "@/lib/pos/types";
 import {
   AllocationType,
@@ -51,8 +62,10 @@ import {
   CreditCard,
   GitBranch,
   GitCommitHorizontal,
+  Layers,
   Lightbulb,
   Lock,
+  MessageSquare,
   Settings2,
   User,
   XCircle,
@@ -98,7 +111,10 @@ export function POSTerminalScreen({
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const currentBranchName = activeBranch();
 
-  const terminalGuests = usePostTerminalGuests(projectedState.allocations, defaultAssignmentAllocId);
+  const terminalGuests = usePostTerminalGuests(
+    projectedState.allocations,
+    defaultAssignmentAllocId,
+  );
   const {
     storeGuests,
     guests,
@@ -165,11 +181,8 @@ export function POSTerminalScreen({
   } = allocationDialogs;
 
   const qtyDialogs = usePostTerminalQtyDialogs();
-  const {
-    setQtyPadOpen,
-    setSplitQtyDialogOpen,
-    setDupMoveDialogOpen,
-  } = qtyDialogs;
+  const { setQtyPadOpen, setSplitQtyDialogOpen, setDupMoveDialogOpen } =
+    qtyDialogs;
 
   const branchDialogs = usePostTerminalBranchDialogs();
   const {
@@ -181,58 +194,100 @@ export function POSTerminalScreen({
     setShowResetConfirm,
   } = branchDialogs;
 
-
   const repoId = engine.getRepo().contextId;
   const { getPreferences, updateRepoPreferences } = usePreferencesStore();
-  const prefs = React.useMemo(() => getPreferences(repoId), [getPreferences, repoId]);
+  const prefs = React.useMemo(
+    () => getPreferences(repoId),
+    [getPreferences, repoId],
+  );
 
-  const [isLedgerCollapsedState, setIsLedgerCollapsedState] = React.useState(prefs.isLedgerCollapsed);
-  const [isGroupNotesCollapsedState, setIsGroupNotesCollapsedState] = React.useState(prefs.isGroupNotesCollapsed);
+  const [isLedgerCollapsedState, setIsLedgerCollapsedState] = React.useState(
+    prefs.isLedgerCollapsed,
+  );
+  const [isGroupNotesCollapsedState, setIsGroupNotesCollapsedState] =
+    React.useState(prefs.isGroupNotesCollapsed);
+  const [isBulkActionsCollapsedState, setIsBulkActionsCollapsedState] =
+    React.useState(prefs.isBulkActionsCollapsed);
   const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(
     new Set(),
   );
-  const [detailLevelState, setDetailLevelState] = React.useState<ViewMode>(prefs.detailLevel);
-  const [isCompactModeState, setIsCompactModeState] = React.useState(prefs.isCompactMode);
+  const [detailLevelState, setDetailLevelState] = React.useState<ViewMode>(
+    prefs.detailLevel,
+  );
+  const [isCompactModeState, setIsCompactModeState] = React.useState(
+    prefs.isCompactMode,
+  );
 
   const isLedgerCollapsed = isLedgerCollapsedState;
   const isGroupNotesCollapsed = isGroupNotesCollapsedState;
+  const isBulkActionsCollapsed = isBulkActionsCollapsedState;
   const detailLevel = detailLevelState;
   const isCompactMode = isCompactModeState;
 
-  const setIsLedgerCollapsed = React.useCallback((val: boolean | ((prev: boolean) => boolean)) => {
-    setIsLedgerCollapsedState(prev => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      updateRepoPreferences(repoId, { isLedgerCollapsed: next });
-      return next;
-    });
-  }, [repoId, updateRepoPreferences]);
+  const setIsLedgerCollapsed = React.useCallback(
+    (val: boolean | ((prev: boolean) => boolean)) => {
+      setIsLedgerCollapsedState((prev) => {
+        const next = typeof val === "function" ? val(prev) : val;
+        updateRepoPreferences(repoId, { isLedgerCollapsed: next });
+        return next;
+      });
+    },
+    [repoId, updateRepoPreferences],
+  );
 
-  const setIsGroupNotesCollapsed = React.useCallback((val: boolean | ((prev: boolean) => boolean)) => {
-    setIsGroupNotesCollapsedState(prev => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      updateRepoPreferences(repoId, { isGroupNotesCollapsed: next });
-      return next;
-    });
-  }, [repoId, updateRepoPreferences]);
+  const setIsGroupNotesCollapsed = React.useCallback(
+    (val: boolean | ((prev: boolean) => boolean)) => {
+      setIsGroupNotesCollapsedState((prev) => {
+        const next = typeof val === "function" ? val(prev) : val;
+        updateRepoPreferences(repoId, { isGroupNotesCollapsed: next });
+        return next;
+      });
+    },
+    [repoId, updateRepoPreferences],
+  );
 
-  const setDetailLevel = React.useCallback((val: ViewMode | ((prev: ViewMode) => ViewMode)) => {
-    setDetailLevelState(prev => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      updateRepoPreferences(repoId, { detailLevel: next });
-      return next;
-    });
-  }, [repoId, updateRepoPreferences]);
+  const setIsBulkActionsCollapsed = React.useCallback(
+    (val: boolean | ((prev: boolean) => boolean)) => {
+      setIsBulkActionsCollapsedState((prev) => {
+        const next = typeof val === "function" ? val(prev) : val;
+        updateRepoPreferences(repoId, { isBulkActionsCollapsed: next });
+        return next;
+      });
+    },
+    [repoId, updateRepoPreferences],
+  );
 
-  const setIsCompactMode = React.useCallback((val: boolean | ((prev: boolean) => boolean)) => {
-    setIsCompactModeState(prev => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      updateRepoPreferences(repoId, { isCompactMode: next });
-      return next;
-    });
-  }, [repoId, updateRepoPreferences]);
+  const setDetailLevel = React.useCallback(
+    (val: ViewMode | ((prev: ViewMode) => ViewMode)) => {
+      setDetailLevelState((prev) => {
+        const next = typeof val === "function" ? val(prev) : val;
+        updateRepoPreferences(repoId, { detailLevel: next });
+        return next;
+      });
+    },
+    [repoId, updateRepoPreferences],
+  );
+
+  const setIsCompactMode = React.useCallback(
+    (val: boolean | ((prev: boolean) => boolean)) => {
+      setIsCompactModeState((prev) => {
+        const next = typeof val === "function" ? val(prev) : val;
+        updateRepoPreferences(repoId, { isCompactMode: next });
+        return next;
+      });
+    },
+    [repoId, updateRepoPreferences],
+  );
 
   const [hideCanceled, setHideCanceled] = React.useState(false);
   const [globalSettingsOpen, setGlobalSettingsOpen] = React.useState(false);
+
+  const [qtyStep, setQtyStep] = React.useState<number | "">(1);
+  const parsedStep = Number(qtyStep) || 1;
+  const [combineDialogOpen, setCombineDialogOpen] = React.useState(false);
+  const [splitLineDialogOpen, setSplitLineDialogOpen] = React.useState(false);
+  const [qtyStepPadOpen, setQtyStepPadOpen] = React.useState(false);
+  const formatNumber = useFormatNumber();
 
   const hasCollapsedItems = collapsedItems.size > 0;
   const handleToggleCollapse = React.useCallback((lineId: string) => {
@@ -310,18 +365,25 @@ export function POSTerminalScreen({
       const rawAssignAlloc = item.allocations
         .map((id) => projectedState.allocations[id])
         .find((a) => a?.type === AllocationType.Assignment) as any;
-      const assigneeId = rawAssignAlloc ? rawAssignAlloc.allocationId : (guests[0]?.id || "Guest");
+      const assigneeId = rawAssignAlloc
+        ? rawAssignAlloc.allocationId
+        : guests[0]?.id || "Guest";
 
       const rawPaymentAllocs = item.allocations
         .map((id) => projectedState.allocations[id])
-        .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
-      const payerIds = rawPaymentAllocs.length > 0
-        ? rawPaymentAllocs.map((a) => {
-          const rawPayer = a.payer;
-          const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
-          return matchedPayer ? matchedPayer.id : rawPayer;
-        })
-        : [assigneeId];
+        .filter(
+          (a) => a?.type === AllocationType.Payment,
+        ) as PaymentAllocation[];
+      const payerIds =
+        rawPaymentAllocs.length > 0
+          ? rawPaymentAllocs.map((a) => {
+              const rawPayer = a.payer;
+              const matchedPayer = guests.find(
+                (g) => g.id === rawPayer || g.alias === rawPayer,
+              );
+              return matchedPayer ? matchedPayer.id : rawPayer;
+            })
+          : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
       const matchesPayer = payerIds.some((id) => visiblePayers.has(id));
@@ -380,18 +442,25 @@ export function POSTerminalScreen({
       const rawAssignAlloc = item.allocations
         .map((id) => projectedState.allocations[id])
         .find((a) => a?.type === AllocationType.Assignment) as any;
-      const assigneeId = rawAssignAlloc ? rawAssignAlloc.allocationId : (guests[0]?.id || "Guest");
+      const assigneeId = rawAssignAlloc
+        ? rawAssignAlloc.allocationId
+        : guests[0]?.id || "Guest";
 
       const rawPaymentAllocs = item.allocations
         .map((id) => projectedState.allocations[id])
-        .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
-      const payerIds = rawPaymentAllocs.length > 0
-        ? rawPaymentAllocs.map((a) => {
-          const rawPayer = a.payer;
-          const matchedPayer = guests.find((g) => g.id === rawPayer || g.alias === rawPayer);
-          return matchedPayer ? matchedPayer.id : rawPayer;
-        })
-        : [assigneeId];
+        .filter(
+          (a) => a?.type === AllocationType.Payment,
+        ) as PaymentAllocation[];
+      const payerIds =
+        rawPaymentAllocs.length > 0
+          ? rawPaymentAllocs.map((a) => {
+              const rawPayer = a.payer;
+              const matchedPayer = guests.find(
+                (g) => g.id === rawPayer || g.alias === rawPayer,
+              );
+              return matchedPayer ? matchedPayer.id : rawPayer;
+            })
+          : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
       const matchesPayer = payerIds.some((id) => visiblePayers.has(id));
@@ -418,7 +487,10 @@ export function POSTerminalScreen({
   ]);
 
   const selectedItems = React.useMemo(
-    () => Array.from(selectedLineIds).map((id) => projectedState.items[id]).filter(Boolean),
+    () =>
+      Array.from(selectedLineIds)
+        .map((id) => projectedState.items[id])
+        .filter(Boolean),
     [projectedState.items, selectedLineIds],
   );
 
@@ -427,7 +499,7 @@ export function POSTerminalScreen({
     selectedItems,
     modifierAddItem,
     swapChoiceState,
-    projectedState.items
+    projectedState.items,
   );
   const {
     catalogItems,
@@ -445,9 +517,141 @@ export function POSTerminalScreen({
   const selectedIncrement = React.useMemo(() => {
     if (selectedItems.length === 0) return 1;
     const firstInc = catalog[selectedItems[0].sku]?.mainQtyIncrement ?? 1;
-    const allSame = selectedItems.every(i => (catalog[i.sku]?.mainQtyIncrement ?? 1) === firstInc);
+    const allSame = selectedItems.every(
+      (i) => (catalog[i.sku]?.mainQtyIncrement ?? 1) === firstInc,
+    );
     return allSame ? firstInc : 1;
   }, [selectedItems, catalog]);
+
+  const disableNonModActions = React.useMemo(() => {
+    for (const id of selectedLineIds) {
+      const item = projectedState.items[id as string];
+      if (item && item.parentLineId) return true;
+    }
+    return false;
+  }, [selectedLineIds, projectedState.items]);
+
+  const selectedQtys = React.useMemo(() => {
+    const qtys: number[] = [];
+    for (const id of selectedLineIds) {
+      const item = projectedState.items[id as string];
+      if (item) qtys.push(item.qty);
+    }
+    return qtys;
+  }, [selectedLineIds, projectedState.items]);
+
+  const { canMerge, canBreak, canCombine } = React.useMemo(() => {
+    let canMerge = false;
+    let canBreak = false;
+    let canCombine = false;
+
+    if (selectedLineIds.size === 0) return { canMerge, canBreak, canCombine };
+
+    const selectedItemsList = Array.from(selectedLineIds)
+      .map((id) => projectedState.items[id as string])
+      .filter(Boolean);
+
+    // Check Merge
+    if (selectedItemsList.length >= 2) {
+      const getSignature = (item: any): string => {
+        const childrenSig = item.children
+          .filter((c: any) => c.status !== "canceled")
+          .map((c: any) => getSignature(c))
+          .sort()
+          .join("|");
+        const allocSig = [...item.allocations].sort().join(",");
+        return `${item.sku}::${item.inlineQty}::${item.selectedModifierState}::${allocSig}::${childrenSig}`;
+      };
+
+      const sigs = new Set<string>();
+      for (const item of selectedItemsList) {
+        if (item.status !== "canceled") {
+          const sig = getSignature(item);
+          if (sigs.has(sig)) {
+            const entry = catalog[item.sku];
+            if (!entry?.inlineQtyMainQtyLocked) {
+              canMerge = true;
+              break;
+            }
+          }
+          sigs.add(sig);
+        }
+      }
+    }
+
+    // Check Break
+    for (const item of selectedItemsList) {
+      if (item.status !== "canceled") {
+        const entry = catalog[item.sku];
+        if (entry?.comboChoices && entry.comboChoices.length > 0) {
+          canBreak = true;
+          break;
+        }
+      }
+    }
+
+    // Check Combine
+    if (selectedItemsList.length >= 2) {
+      const combos = Object.values(catalog).filter(
+        (c) =>
+          c.type === "item" &&
+          c.category === "combo" &&
+          c.comboChoices &&
+          c.comboChoices.length > 0,
+      );
+
+      for (const combo of combos) {
+        const increment = combo.mainQtyIncrement ?? 1;
+
+        const slots: Record<
+          string,
+          Array<{ optionSku: string; reqQty: number }>
+        > = {};
+        for (const choice of combo.comboChoices!) {
+          if (!slots[choice.slotSku]) slots[choice.slotSku] = [];
+          slots[choice.slotSku].push({
+            optionSku: choice.optionSku,
+            reqQty: choice.qty ?? 1,
+          });
+        }
+        const requiredSlots = Object.keys(slots);
+
+        const availablePool = selectedItemsList
+          .filter((item) => item.status !== "canceled")
+          .map((item) => ({ sku: item.sku, qty: item.qty }));
+
+        let matchedAll = true;
+        for (const slotSku of requiredSlots) {
+          const options = slots[slotSku];
+          let matchedOption = false;
+
+          for (const option of options) {
+            const needed = option.reqQty * increment;
+            const poolItemIdx = availablePool.findIndex(
+              (p) => p.sku === option.optionSku && p.qty >= needed - 0.0001,
+            );
+            if (poolItemIdx !== -1) {
+              availablePool[poolItemIdx].qty -= needed;
+              matchedOption = true;
+              break;
+            }
+          }
+
+          if (!matchedOption) {
+            matchedAll = false;
+            break;
+          }
+        }
+
+        if (matchedAll) {
+          canCombine = true;
+          break;
+        }
+      }
+    }
+
+    return { canMerge, canBreak, canCombine };
+  }, [selectedLineIds, projectedState.items, catalog]);
 
   const log = commitLog();
   const confirmedHash = engine.getConfirmedHash();
@@ -639,6 +843,60 @@ export function POSTerminalScreen({
               <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
             </Button>
             <SeparatorUI orientation="vertical" className="h-6" />
+            <div className="flex items-center gap-1 border bg-muted/30 p-0.5 rounded-lg">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isBulkActionsCollapsed ? "ghost" : "secondary"}
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setIsBulkActionsCollapsed((prev) => !prev)}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isBulkActionsCollapsed
+                    ? "Expand Bulk Actions"
+                    : "Collapse Bulk Actions"}
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isGroupNotesCollapsed ? "ghost" : "secondary"}
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setIsGroupNotesCollapsed((prev) => !prev)}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isGroupNotesCollapsed
+                    ? "Expand Group Notes"
+                    : "Collapse Group Notes"}
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isLedgerCollapsed ? "ghost" : "secondary"}
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setIsLedgerCollapsed((prev) => !prev)}
+                  >
+                    <GitCommitHorizontal className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isLedgerCollapsed ? "Expand Ledger" : "Collapse Ledger"}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <SeparatorUI orientation="vertical" className="h-6" />
             <Button
               variant="outline"
               size="sm"
@@ -709,6 +967,12 @@ export function POSTerminalScreen({
               setGuestFilterOp={setGuestFilterOp}
               isCompactMode={isCompactMode}
               setIsCompactMode={setIsCompactMode}
+              isBulkActionsCollapsed={isBulkActionsCollapsed}
+              setIsBulkActionsCollapsed={setIsBulkActionsCollapsed}
+              isGroupNotesCollapsed={isGroupNotesCollapsed}
+              setIsGroupNotesCollapsed={setIsGroupNotesCollapsed}
+              isLedgerCollapsed={isLedgerCollapsed}
+              setIsLedgerCollapsed={setIsLedgerCollapsed}
             />
           </OrderContextBanner>
         )}
@@ -754,17 +1018,20 @@ export function POSTerminalScreen({
             collapsedItems={collapsedItems}
             handleToggleCollapse={handleToggleCollapse}
             checklistRef={checklistRef}
-            bulkActionsBarRef={bulkActionsBarRef}
-            modifyItemsQty={modifyItemsQty}
-            mergeItems={mergeItems}
-            breakItems={breakItems}
-            combineItems={combineItems}
-            splitItemsIntoIncrements={splitItemsIntoIncrements}
+          />
+          <BulkActionsPanel
+            selectedLineIds={selectedLineIds}
+            setSelectedLineIds={setSelectedLineIds}
+            filteredRootItems={filteredRootItems}
+            parsedStep={parsedStep}
+            qtyStep={qtyStep}
+            setQtyStep={setQtyStep}
+            setQtyStepPadOpen={setQtyStepPadOpen}
             setQtyPadOpen={setQtyPadOpen}
             setSplitQtyDialogOpen={setSplitQtyDialogOpen}
-            duplicateItems={duplicateItems}
+            setSplitLineDialogOpen={setSplitLineDialogOpen}
             setDupMoveDialogOpen={setDupMoveDialogOpen}
-            removeItems={removeItems}
+            setCombineDialogOpen={setCombineDialogOpen}
             setAssignmentAllocationItems={setAssignmentAllocationItems}
             setAssignmentAllocationContext={setAssignmentAllocationContext}
             setAssignmentAllocationOpen={setAssignmentAllocationOpen}
@@ -778,8 +1045,20 @@ export function POSTerminalScreen({
             setModifierAddItem={setModifierAddItem}
             setModifierAddOpen={setModifierAddOpen}
             activeModifiersOnSelected={activeModifiersOnSelected}
-            setRemoveModDialogOpen={setRemoveModDialogOpen}
             onGroupNoteOpen={handleOpenGroupNoteDialog}
+            modifyItemsQty={modifyItemsQty}
+            duplicateItems={duplicateItems}
+            removeItems={removeItems}
+            mergeItems={mergeItems}
+            breakItems={breakItems}
+            disableNonModActions={disableNonModActions}
+            canMerge={canMerge}
+            canBreak={canBreak}
+            canCombine={canCombine}
+            formatNumber={formatNumber}
+            projectedState={projectedState}
+            isBulkActionsCollapsed={isBulkActionsCollapsed}
+            setIsBulkActionsCollapsed={setIsBulkActionsCollapsed}
           />
           <GroupNotesPanel
             projectedState={projectedState}
@@ -854,7 +1133,9 @@ export function POSTerminalScreen({
         dialogs={qtyDialogs}
         actions={terminalActions}
         selectedItemsLength={selectedItems.length}
-        firstSelectedQty={selectedItems.length === 1 ? selectedItems[0].qty : null}
+        firstSelectedQty={
+          selectedItems.length === 1 ? selectedItems[0].qty : null
+        }
         maxSelectedQty={maxSelectedQty}
         increment={selectedIncrement}
       />
@@ -878,6 +1159,42 @@ export function POSTerminalScreen({
       <GlobalSettingsDialog
         open={globalSettingsOpen}
         onOpenChange={setGlobalSettingsOpen}
+      />
+      <CombineDialog
+        open={combineDialogOpen}
+        onOpenChange={setCombineDialogOpen}
+        selectedItems={Array.from(selectedLineIds)
+          .map((id) => projectedState.items[id as string])
+          .filter(Boolean)}
+        catalog={useVCSStore.getState().catalog}
+        onCombine={(requests) => {
+          const newIds = combineItems(requests);
+          if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
+        }}
+      />
+      <SplitIntoLinesDialog
+        open={splitLineDialogOpen}
+        onOpenChange={setSplitLineDialogOpen}
+        maxQty={maxSelectedQty}
+        selectedQtys={selectedQtys}
+        increment={selectedIncrement}
+        onConfirm={(val) => {
+          const newIds = splitItemsIntoIncrements(
+            Array.from(selectedLineIds),
+            val,
+          );
+          if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
+        }}
+      />
+      <NumberPadDialog
+        open={qtyStepPadOpen}
+        onOpenChange={setQtyStepPadOpen}
+        title="Quantity Increment"
+        description="Set the increment step for bulk quantity adjustments"
+        initialValue={qtyStep === "" ? 1 : Number(qtyStep)}
+        min={selectedIncrement}
+        increment={selectedIncrement}
+        onConfirm={(val) => setQtyStep(val)}
       />
     </TooltipProvider>
   );

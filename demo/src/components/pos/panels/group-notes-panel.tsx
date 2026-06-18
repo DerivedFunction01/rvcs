@@ -80,7 +80,7 @@ export function GroupNotesPanel({
 
   return (
     <aside
-      className={`border-l bg-card flex flex-col shrink-0 transition-all duration-200 ${isGroupNotesCollapsed ? "w-12" : "w-80"}`}
+      className={`bg-card flex flex-col shrink-0 transition-all duration-200 ${isGroupNotesCollapsed ? "w-0 overflow-hidden border-l-0" : "w-80 border-l"}`}
     >
       <div
         className={`p-3 border-b flex ${isGroupNotesCollapsed ? "flex-col items-center gap-3" : "items-center justify-between gap-2"}`}
