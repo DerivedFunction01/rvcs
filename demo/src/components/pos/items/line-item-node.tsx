@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { AllocationBadges } from "./allocation-badges";
 import { ViewMode } from "@/lib/pos/types";
-import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import { NumberFractionOverflow, useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { useState } from "react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { LineItemActions } from "./line-item-actions";
@@ -208,7 +208,7 @@ export function LineItemNode({
     <>
       <div className="group relative">
         <div
-          className={`rounded-lg border p-3 transition-all ${isSelectable
+          className={`border pr-3 pl-3 pt-1.5 pb-1.5 transition-all ${isSelectable
             ? isSelected
               ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
               : `border-border cursor-pointer ${isConfirmed
@@ -370,33 +370,7 @@ export function LineItemNode({
 
               {/* ── Size picker ── */}
               {isRoot && sizeGroup && !isCanceled && sizeOptions.length > 0 && activeSizeChild && !isCompactMode && (
-                <div className="flex items-center gap-1 mt-2">
-                  <span className="text-[10px] text-muted-foreground mr-1">Size:</span>
-                  <div className="flex items-center rounded border p-0.5 bg-muted/20">
-                    {sizeOptions.map((opt) => {
-                      const isActive = activeSku === opt.sku;
-                      return (
-                        <Button
-                          key={opt.sku}
-                          variant={isActive ? "secondary" : "ghost"}
-                          size="sm"
-                          className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (activeSizeChild && !isActive) {
-                              useVCSStore
-                                .getState()
-                                .modifyItemSku(activeSizeChild.lineId, activeSizeChild.sku, opt.sku);
-                            }
-                          }}
-                        >
-                          {opt.name}
-                          {opt.basePrice > 0 && ` (+$${formatNumber(opt.basePrice, 2)})`}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
+                getsize(sizeOptions, activeSku, activeSizeChild, formatNumber)
               )}
 
               {/* ── Inline qty controls ── */}
@@ -418,68 +392,12 @@ export function LineItemNode({
                 !isCanceled &&
                 catalogEntry.allowedStates &&
                 catalogEntry.allowedStates.length > 0 && !isCompactMode && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <div className="flex items-center rounded border p-0.5 bg-muted/20">
-                      {catalogEntry.allowedStates.map((stateOpt) => {
-                        const isActive = item.selectedModifierState === stateOpt.state;
-                        const priceDiff =
-                          stateOpt.priceOverride !== null
-                            ? stateOpt.priceOverride - catalogEntry.basePrice
-                            : 0;
-                        return (
-                          <Button
-                            key={stateOpt.state}
-                            variant={isActive ? "secondary" : "ghost"}
-                            size="sm"
-                            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isActive) {
-                                useVCSStore
-                                  .getState()
-                                  .modifyModifierState(item.lineId, item.selectedModifierState, stateOpt.state);
-                              }
-                            }}
-                          >
-                            {stateOpt.state}
-                            {priceDiff !== 0 && (
-                              <span className="opacity-70 font-mono ml-0.5 text-[8px]">
-                                ({priceDiff > 0 ? "+" : ""}${formatNumber(priceDiff, 2)})
-                              </span>
-                            )}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  getModifierState(catalogEntry, item, formatNumber)
                 )}
             </div>
 
             {/* ── Right: price + action buttons ── */}
-            <div className="flex flex-col items-end shrink-0 gap-1.5">
-              {isCanceled && item.basePrice > 0 ? (
-                <span className="font-mono font-semibold tabular-nums text-muted-foreground line-through opacity-70">
-                  ${formatNumber(item.basePrice * item.canceledQty, 2, 30)}
-                </span>
-              ) : item.totalPrice > 0 ? (
-                <span className="font-mono font-semibold text-foreground tabular-nums">
-                  ${formatNumber(item.totalPrice, 2, 30)}
-                </span>
-              ) : null}
-              {!isCanceled && !isCompactMode && (
-                <LineItemActions
-                  item={item}
-                  catalogEntry={catalogEntry}
-                  filteredModifiers={filteredModifiers}
-                  isComboChoice={isComboChoice}
-                  onRemove={onRemove}
-                  onAddModifier={onAddModifier}
-                  onAddNote={onAddNote}
-                  onAllocConfig={onAllocConfig}
-                  onDuplicateItem={onDuplicateItem}
-                />
-              )}
-            </div>
+            {getActions(isCanceled, item, formatNumber, isCompactMode, catalogEntry, filteredModifiers, isComboChoice, onRemove, onAddModifier, onAddNote, onAllocConfig, onDuplicateItem)}
           </div>
         </div>
 
@@ -496,7 +414,7 @@ export function LineItemNode({
             are visually distinct.
         */}
         {!isCollapsed && validChildren.length > 0 && (
-          <div className="ml-4 mt-1 relative pl-4">
+          <div className="ml-4 relative pl-4">
             <div className="flex flex-col">
               {validChildren.map((child, index) => {
                 const isLast = index === validChildren.length - 1;
@@ -589,4 +507,96 @@ export function LineItemNode({
       )}
     </>
   );
+}
+
+function getsize(sizeOptions: CatalogItemEntry[], activeSku: string | undefined, activeSizeChild: ProjectedLineItem, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string): import("react").ReactNode {
+  return <div className="flex items-center gap-1 mt-2">
+    <span className="text-[10px] text-muted-foreground mr-1">Size:</span>
+    <div className="flex items-center rounded border p-0.5 bg-muted/20">
+      {sizeOptions.map((opt) => {
+        const isActive = activeSku === opt.sku;
+        return (
+          <Button
+            key={opt.sku}
+            variant={isActive ? "secondary" : "ghost"}
+            size="sm"
+            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (activeSizeChild && !isActive) {
+                useVCSStore
+                  .getState()
+                  .modifyItemSku(activeSizeChild.lineId, activeSizeChild.sku, opt.sku);
+              }
+            } }
+          >
+            {opt.name}
+            {opt.basePrice > 0 && ` (+$${formatNumber(opt.basePrice, 2)})`}
+          </Button>
+        );
+      })}
+    </div>
+  </div>;
+}
+
+function getModifierState(catalogEntry: CatalogItemEntry, item: ProjectedLineItem, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string): import("react").ReactNode {
+  return <div className="flex items-center gap-1 mt-2">
+    <div className="flex items-center rounded border p-0.5 bg-muted/20">
+      {catalogEntry.allowedStates?.map((stateOpt) => {
+        const isActive = item.selectedModifierState === stateOpt.state;
+        const priceDiff = stateOpt.priceOverride !== null
+          ? stateOpt.priceOverride - catalogEntry.basePrice
+          : 0;
+        return (
+          <Button
+            key={stateOpt.state}
+            variant={isActive ? "secondary" : "ghost"}
+            size="sm"
+            className={`h-5 text-[9px] px-1.5 font-medium ${isActive ? "bg-background shadow-xs hover:bg-background" : "hover:bg-accent"}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isActive) {
+                useVCSStore
+                  .getState()
+                  .modifyModifierState(item.lineId, item.selectedModifierState, stateOpt.state);
+              }
+            } }
+          >
+            {stateOpt.state}
+            {priceDiff !== 0 && (
+              <span className="opacity-70 font-mono ml-0.5 text-[8px]">
+                ({priceDiff > 0 ? "+" : ""}${formatNumber(priceDiff, 2)})
+              </span>
+            )}
+          </Button>
+        );
+      })}
+    </div>
+  </div>;
+}
+
+function getActions(isCanceled: boolean, item: ProjectedLineItem, formatNumber: (value: number, decimals?: number, overflow_precision?: number, overflow_fraction_strategy?: NumberFractionOverflow) => string, isCompactMode: boolean, catalogEntry: CatalogItemEntry, filteredModifiers: CatalogItemEntry[], isComboChoice: boolean, onRemove: (lineId: string) => void, onAddModifier: (item: ProjectedLineItem) => void, onAddNote: (item: ProjectedLineItem) => void, onAllocConfig: (item: ProjectedLineItem) => void, onDuplicateItem: ((lineId: string) => void) | undefined) {
+  return <div className="flex flex-col items-end shrink-0 gap-1.5">
+    {isCanceled && item.basePrice > 0 ? (
+      <span className="font-mono font-semibold tabular-nums text-muted-foreground line-through opacity-70">
+        ${formatNumber(item.basePrice * item.canceledQty, 2, 30)}
+      </span>
+    ) : item.totalPrice > 0 ? (
+      <span className="font-mono font-semibold text-foreground tabular-nums">
+        ${formatNumber(item.totalPrice, 2, 30)}
+      </span>
+    ) : null}
+    {!isCanceled && !isCompactMode && (
+      <LineItemActions
+        item={item}
+        catalogEntry={catalogEntry}
+        filteredModifiers={filteredModifiers}
+        isComboChoice={isComboChoice}
+        onRemove={onRemove}
+        onAddModifier={onAddModifier}
+        onAddNote={onAddNote}
+        onAllocConfig={onAllocConfig}
+        onDuplicateItem={onDuplicateItem} />
+    )}
+  </div>;
 }
