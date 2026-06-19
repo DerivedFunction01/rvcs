@@ -269,7 +269,6 @@ export function LineItemNode({
                 <div
                   key={child.lineId}
                   className="relative"
-                  style={{ marginBottom: !isLast ? "6px" : 0 }}
                 >
                   {!isLast && (
                     <div

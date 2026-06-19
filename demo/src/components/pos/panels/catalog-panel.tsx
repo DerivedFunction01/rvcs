@@ -202,7 +202,7 @@ export function CatalogPanel({
 
   return (
     <aside
-      className={`${widthClass} border-r bg-card flex flex-col shrink-0 h-full overflow-hidden`}
+      className={`${widthClass} border-r-2 border-r-slate-300 dark:border-r-slate-700 bg-card flex flex-col shrink-0 h-full overflow-hidden`}
     >
 
       {/* Main Panel Content split into Column Layout */}
@@ -327,7 +327,7 @@ function getCategoryColumn(
   setCategoryPage: Dispatch<SetStateAction<number>>,
 ): import("react").ReactNode {
   return (
-    <div className="w-36 xl:w-48 shrink-0 flex flex-col h-full border-r">
+    <div className="w-36 xl:w-48 shrink-0 flex flex-col h-full border-r-2 border-r-neutral-300 dark:border-r-neutral-700">
       <div className="flex-1 flex flex-col min-h-0">
         <div className="grid grid-rows-8 grid-cols-2 flex-1 min-h-0 border-t border-l">
           {visibleCategories.map((section) => {

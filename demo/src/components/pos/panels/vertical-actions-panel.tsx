@@ -200,7 +200,7 @@ export function VerticalActionsPanel({
     <TooltipProvider>
       <aside
         id="vertical-actions-panel"
-        className="w-20 border-r bg-card/90 backdrop-blur-sm flex flex-col shrink-0 h-full overflow-hidden z-10 shadow-sm"
+        className="w-20 border-l-2 border-r-2 border-l-slate-300 border-r-slate-300 dark:border-l-slate-700 dark:border-r-slate-700 bg-card/90 backdrop-blur-sm flex flex-col shrink-0 h-full overflow-hidden z-10 shadow-sm"
       >
         {/* SECTION 0: SEARCH & FILTER (Always at the very top) */}
         <Tooltip>

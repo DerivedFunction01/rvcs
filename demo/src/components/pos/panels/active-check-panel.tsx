@@ -48,7 +48,7 @@ export function ActiveCheckPanel(props: any) {
             </p>
           </div>
         ) : (
-          <div className="p-4">
+          <div className="flex flex-col">
             {filteredRootItems.map((item: any) => (
               <LineItemNode
                 key={item.lineId}
