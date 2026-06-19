@@ -223,7 +223,19 @@ export function VerticalActionsPanel({
                   ? "bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500/20"
                   : "text-muted-foreground hover:text-foreground"
               }`}
-              onClick={() => setTrayMode((prev) => (prev === "item" ? "advanced" : "item"))}
+              onClick={() => {
+                setTrayMode((prev) => {
+                  const next = prev === "item" ? "advanced" : "item";
+                  if (next === "item") {
+                    setIsMultiSelectMode(false);
+                    if (selectedLineIds.size > 1) {
+                      const first = Array.from(selectedLineIds)[0];
+                      setSelectedLineIds(new Set([first]));
+                    }
+                  }
+                  return next;
+                });
+              }}
             >
               <Layers className="w-4.5 h-4.5" />
             </Button>
