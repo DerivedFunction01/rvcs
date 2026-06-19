@@ -202,14 +202,6 @@ export function LineItemNode({
               ) : null}
             </span>
 
-            {item.basePrice === 0 && (
-              <Badge
-                variant="secondary"
-                className="text-[9px] h-3.5 px-1 shrink-0"
-              >
-                mod
-              </Badge>
-            )}
             {isCanceled && (
               <Badge
                 variant="destructive"
@@ -232,14 +224,6 @@ export function LineItemNode({
                 className="text-[9px] h-3.5 px-1 shrink-0"
               >
                 -{formatNumber(item.canceledQty)} Void
-              </Badge>
-            )}
-            {hasSplitPayment && (
-              <Badge
-                variant="outline"
-                className="text-[9px] h-3.5 px-1 border-primary/40 text-primary shrink-0"
-              >
-                split
               </Badge>
             )}
           </div>
