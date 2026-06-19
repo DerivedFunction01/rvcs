@@ -329,22 +329,28 @@ function getCategoryColumn(
   return (
     <div className="w-36 xl:w-48 shrink-0 flex flex-col h-full border-r">
       <div className="flex-1 flex flex-col min-h-0">
-        {/* Removed gap-2 and padding to make the grid flush */}
-        <div className="grid grid-rows-8 grid-cols-2 flex-1 min-h-0 border-b">
+        <div className="grid grid-rows-8 grid-cols-2 flex-1 min-h-0 border-t border-l">
           {visibleCategories.map((section) => {
             const isActive = section.category === activeCategory;
             return (
               <Button
                 key={section.category}
                 variant={isActive ? "default" : "outline"}
-                // Added rounded-none and -m-[1px] / border adjustment to handle inner-grid overlaps seamlessly
-                className="h-full min-h-8 px-3 text-sm justify-center w-full rounded-none -mb-[1px] -mr-[1px]"
+                className={`h-full min-h-8 px-3 text-sm justify-center w-full rounded-none border-b border-r border-t-0 border-l-0 shadow-none bg-background ${
+                  isActive ? "bg-primary text-primary-foreground font-bold" : "border-border/80 hover:bg-accent/40"
+                }`}
                 onClick={() => setActiveCategory(section.category)}
               >
-                <span className="text-center">{section.category}</span>
+                <span className="text-center truncate">{section.category}</span>
               </Button>
             );
           })}
+          {Array.from({ length: Math.max(0, 16 - visibleCategories.length) }).map((_, idx) => (
+            <div
+              key={`category-ghost-${idx}`}
+              className="h-full w-full border-b border-r border-t-0 border-l-0 border-border/80 bg-muted/5 pointer-events-none"
+            />
+          ))}
         </div>
 
         {/* Navigation row below the flat grid layout */}
