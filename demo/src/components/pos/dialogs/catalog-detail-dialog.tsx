@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -8,10 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CatalogCategoryMode, CatalogNavigationMode, type CatalogDetailDisplayPrefs } from "@/lib/pos/types";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { NumberPadDialog } from "./number-pad-dialog";
 
 export interface CatalogLayoutPrefs {
   detailDisplay: CatalogDetailDisplayPrefs;
@@ -36,6 +36,7 @@ export function CatalogDetailDialog({
   title?: string;
   description?: string;
 }) {
+  const [activeGridField, setActiveGridField] = useState<"rows" | "cols" | null>(null);
   const summary = useMemo(() => {
     const displayParts = ["Name"];
     if (value.detailDisplay.showSku) displayParts.push("SKU");
@@ -112,89 +113,69 @@ export function CatalogDetailDialog({
               <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Navigation
               </div>
-              <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/50 px-3 py-3">
-                <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
-                  Mode
-                </label>
-                <Select
-                  value={value.navigationMode}
-                  onValueChange={(val) =>
-                    onChange({
-                      ...value,
-                      navigationMode: val as CatalogNavigationMode,
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-32 h-9 text-xs md:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={CatalogNavigationMode.Scroll}>Scroll Grid</SelectItem>
-                    <SelectItem value={CatalogNavigationMode.Page}>Paged Grid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SegmentedToggle
+                label="Mode"
+                leftLabel="Paged Grid"
+                rightLabel="Scroll Grid"
+                leftSelected={value.navigationMode === CatalogNavigationMode.Page}
+                rightSelected={value.navigationMode === CatalogNavigationMode.Scroll}
+                onLeftClick={() =>
+                  onChange({
+                    ...value,
+                    navigationMode: CatalogNavigationMode.Page,
+                  })
+                }
+                onRightClick={() =>
+                  onChange({
+                    ...value,
+                    navigationMode: CatalogNavigationMode.Scroll,
+                  })
+                }
+              />
 
-              <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/50 px-3 py-3">
-                <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
-                  Categories
-                </label>
-                <Select
-                  value={value.categoryMode}
-                  onValueChange={(val) =>
-                    onChange({
-                      ...value,
-                      categoryMode: val as CatalogCategoryMode,
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-32 h-9 text-xs md:text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={CatalogCategoryMode.Hidden}>Hidden</SelectItem>
-                    <SelectItem value={CatalogCategoryMode.Buttons}>Buttons</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SegmentedToggle
+                label="Categories"
+                leftLabel="Buttons"
+                rightLabel="Hidden"
+                leftSelected={value.categoryMode === CatalogCategoryMode.Buttons}
+                rightSelected={value.categoryMode === CatalogCategoryMode.Hidden}
+                onLeftClick={() =>
+                  onChange({
+                    ...value,
+                    categoryMode: CatalogCategoryMode.Buttons,
+                  })
+                }
+                onRightClick={() =>
+                  onChange({
+                    ...value,
+                    categoryMode: CatalogCategoryMode.Hidden,
+                  })
+                }
+              />
 
               <div className="grid grid-cols-2 gap-3 md:gap-4">
-                <div className="flex items-center justify-between gap-2 rounded-lg border bg-background/50 px-3 py-3">
-                  <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto min-h-16 justify-between px-3 py-3 bg-background/50 text-left"
+                  onClick={() => setActiveGridField("rows")}
+                >
+                  <span className="text-xs md:text-sm font-semibold uppercase text-muted-foreground">
                     Grid Rows
-                  </label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={8}
-                    value={value.gridRows}
-                    onChange={(e) =>
-                      onChange({
-                        ...value,
-                        gridRows: Math.max(1, Math.min(8, Math.floor(Number(e.target.value) || 1))),
-                      })
-                    }
-                    className="h-9 w-18 text-xs md:text-sm font-mono"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2 rounded-lg border bg-background/50 px-3 py-3">
-                  <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
+                  </span>
+                  <span className="font-mono text-base md:text-lg">{value.gridRows}</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto min-h-16 justify-between px-3 py-3 bg-background/50 text-left"
+                  onClick={() => setActiveGridField("cols")}
+                >
+                  <span className="text-xs md:text-sm font-semibold uppercase text-muted-foreground">
                     Grid Cols
-                  </label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={8}
-                    value={value.gridCols}
-                    onChange={(e) =>
-                      onChange({
-                        ...value,
-                        gridCols: Math.max(1, Math.min(8, Math.floor(Number(e.target.value) || 1))),
-                      })
-                    }
-                    className="h-9 w-18 text-xs md:text-sm font-mono"
-                  />
-                </div>
+                  </span>
+                  <span className="font-mono text-base md:text-lg">{value.gridCols}</span>
+                </Button>
               </div>
             </div>
           </div>
@@ -220,6 +201,29 @@ export function CatalogDetailDialog({
             Close
           </button>
         </div>
+
+        <NumberPadDialog
+          open={activeGridField !== null}
+          onOpenChange={(open) => {
+            if (!open) setActiveGridField(null);
+          }}
+          title={activeGridField === "rows" ? "Grid Rows" : "Grid Cols"}
+          description="Set the catalog grid size."
+          confirmLabel="Apply"
+          initialValue={activeGridField === "rows" ? value.gridRows : value.gridCols}
+          min={1}
+          max={8}
+          increment={1}
+          onConfirm={(next) => {
+            const clamped = Math.max(1, Math.min(8, Math.round(next)));
+            onChange({
+              ...value,
+              gridRows: activeGridField === "rows" ? clamped : value.gridRows,
+              gridCols: activeGridField === "cols" ? clamped : value.gridCols,
+            });
+          }}
+          resetDependency={activeGridField}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -252,6 +256,52 @@ function ToggleRow({
         {label}
       </span>
       <Checkbox checked={checked} />
+    </div>
+  );
+}
+
+function SegmentedToggle({
+  label,
+  leftLabel,
+  rightLabel,
+  leftSelected,
+  rightSelected,
+  onLeftClick,
+  onRightClick,
+}: {
+  label: string;
+  leftLabel: string;
+  rightLabel: string;
+  leftSelected: boolean;
+  rightSelected: boolean;
+  onLeftClick: () => void;
+  onRightClick: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="grid grid-cols-2 rounded-lg border overflow-hidden bg-background/50">
+        <button
+          type="button"
+          className={`min-h-16 px-4 py-3 text-center text-sm md:text-base font-semibold transition-colors ${
+            leftSelected ? "bg-primary text-primary-foreground" : "hover:bg-accent/60 text-foreground"
+          }`}
+          onClick={onLeftClick}
+        >
+          {leftLabel}
+        </button>
+        <button
+          type="button"
+          className={`min-h-16 px-4 py-3 text-center text-sm md:text-base font-semibold transition-colors border-l ${
+            rightSelected ? "bg-primary text-primary-foreground" : "hover:bg-accent/60 text-foreground"
+          }`}
+          onClick={onRightClick}
+        >
+          {rightLabel}
+        </button>
+      </div>
     </div>
   );
 }

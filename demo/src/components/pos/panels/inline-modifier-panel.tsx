@@ -70,6 +70,11 @@ export function InlineModifierPanel({
     const hasInlineQty = catalogEntry?.inlineQtyType && catalogEntry.inlineQtyType !== "none";
     const shouldDefaultToInline = !!hasInlineQty && (!isRootItem || mainQtyLocked);
     const mainQtyDisabled = mainQtyLocked || !isRootItem;
+    const quantityTypeLabel = hasInlineQty
+        ? mainQtyLocked
+            ? "Measurement only"
+            : "Main / Measurement"
+        : "Main only";
     const inlineStep = catalogEntry?.inlineQtyIncrement ?? (catalogEntry?.inlineQtyType === "float" ? 0.05 : 1);
     const inlineQtyLabel = catalogEntry?.inlineQtyLabel ?? "Quantity";
     const inlineQtyUnit = catalogEntry?.inlineQtyUnit ?? "";
@@ -156,26 +161,32 @@ export function InlineModifierPanel({
                                     </span>
                                 </div>
                                 {hasInlineQty ? (
-                                    <div className="inline-flex items-stretch rounded-full border bg-background p-1 shadow-sm">
-                                        <button
-                                            type="button"
-                                            onClick={() => setQtyMode("main")}
-                                            disabled={mainQtyDisabled}
-                                            className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "main" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
-                                        >
-                                            Main
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setQtyMode("inline")}
-                                            className={`min-w-20 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "inline" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
-                                        >
-                                            Measurement
-                                        </button>
-                                    </div>
+                                    mainQtyLocked ? (
+                                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                            {quantityTypeLabel}
+                                        </div>
+                                    ) : (
+                                        <div className="inline-flex items-stretch rounded-full border bg-background p-1 shadow-sm">
+                                            <button
+                                                type="button"
+                                                onClick={() => setQtyMode("main")}
+                                                disabled={mainQtyDisabled}
+                                                className={`min-w-16 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "main" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+                                            >
+                                                Main
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setQtyMode("inline")}
+                                                className={`min-w-20 rounded-full px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${qtyMode === "inline" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+                                            >
+                                                Measurement
+                                            </button>
+                                        </div>
+                                    )
                                 ) : (
                                     <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                        Main only
+                                        {quantityTypeLabel}
                                     </div>
                                 )}
                             </div>
