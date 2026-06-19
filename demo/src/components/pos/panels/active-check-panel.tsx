@@ -75,7 +75,7 @@ export function ActiveCheckPanel(props: any) {
             </p>
           </div>
         ) : (
-          <div className="p-4 space-y-2">
+          <div className="p-4">
             {filteredRootItems.map((item: any) => (
               <LineItemNode
                 key={item.lineId}
