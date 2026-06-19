@@ -4,15 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -46,6 +40,162 @@ const METHOD_OPTIONS = [
     label: m.charAt(0).toUpperCase() + m.slice(1),
   })),
 ];
+
+type ChoiceOption = {
+  value: string;
+  label: string;
+};
+
+function ChoiceDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  options,
+  value,
+  onSelect,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description?: string;
+  options: ChoiceOption[];
+  value: string;
+  onSelect: (next: string) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg w-[95vw] max-h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="text-lg md:text-xl">{title}</DialogTitle>
+          {description && (
+            <DialogDescription className="text-sm md:text-base">
+              {description}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto min-h-0">
+          {options.map((option) => {
+            const active = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onSelect(option.value);
+                  onOpenChange(false);
+                }}
+                className={`min-h-12 md:min-h-14 rounded-xl border px-4 py-3 text-left text-sm md:text-base transition-all ${
+                  active
+                    ? "border-primary bg-primary/5 font-semibold shadow-sm"
+                    : "border-border bg-card hover:bg-accent"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SplitControlSet({
+  strategyType,
+  method,
+  value,
+  valueUnit,
+  valueLabel,
+  strategyOptions,
+  methodOptions,
+  onStrategyChange,
+  onMethodChange,
+  onValueClick,
+  hideValue,
+  compact = false,
+}: {
+  strategyType: PaymentStrategyType;
+  method: string | null | undefined;
+  value: number;
+  valueUnit: string;
+  valueLabel: string;
+  strategyOptions: ChoiceOption[];
+  methodOptions: ChoiceOption[];
+  onStrategyChange: (next: PaymentStrategyType) => void;
+  onMethodChange: (next: string | null) => void;
+  onValueClick: () => void;
+  hideValue?: boolean;
+  compact?: boolean;
+}) {
+  const [strategyOpen, setStrategyOpen] = useState(false);
+  const [methodOpen, setMethodOpen] = useState(false);
+
+  const selectedStrategy = strategyOptions.find((opt) => opt.value === strategyType)?.label ?? "Select";
+  const selectedMethod = methodOptions.find((opt) => opt.value === (method ?? "any"))?.label ?? "Method...";
+
+  return (
+    <>
+      <div className={`flex flex-wrap items-center gap-2 ${compact ? "w-full" : ""}`}>
+        <button
+          type="button"
+          className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-28 md:min-w-32 hover:bg-accent transition-colors"
+          onClick={() => setStrategyOpen(true)}
+        >
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="text-[10px] md:text-xs uppercase tracking-wider text-muted-foreground">Type</span>
+            <span className="truncate w-full">{selectedStrategy}</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-28 md:min-w-32 hover:bg-accent transition-colors"
+          onClick={() => setMethodOpen(true)}
+        >
+          <div className="flex flex-col items-start gap-0.5">
+            <span className="text-[10px] md:text-xs uppercase tracking-wider text-muted-foreground">Method</span>
+            <span className="truncate w-full">{selectedMethod}</span>
+          </div>
+        </button>
+
+        {!hideValue && (
+          <button
+            type="button"
+            className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-24 md:min-w-28 font-mono hover:bg-accent transition-colors flex items-center justify-between gap-2"
+            onClick={onValueClick}
+          >
+            <div className="flex flex-col items-start gap-0.5 min-w-0">
+              <span className="text-[10px] md:text-xs uppercase tracking-wider text-muted-foreground font-sans">Number</span>
+              <span className="truncate w-full">{valueLabel}</span>
+            </div>
+            <span className="text-xs md:text-sm text-muted-foreground font-sans shrink-0">{valueUnit}</span>
+          </button>
+        )}
+      </div>
+
+      <ChoiceDialog
+        open={strategyOpen}
+        onOpenChange={setStrategyOpen}
+        title="Choose Split Type"
+        description="Select how this split should be calculated."
+        options={strategyOptions}
+        value={strategyType}
+        onSelect={(next) => onStrategyChange(next as PaymentStrategyType)}
+      />
+
+      <ChoiceDialog
+        open={methodOpen}
+        onOpenChange={setMethodOpen}
+        title="Choose Payment Method"
+        description="Select the payment method for this split."
+        options={methodOptions}
+        value={method ?? "any"}
+        onSelect={(next) => onMethodChange(next === "any" ? null : next)}
+      />
+    </>
+  );
+}
 
 export function validateSplit(
   splits: PaymentSplitEntry[],
@@ -448,84 +598,52 @@ export function SplitEditor({
         {splits.map((split, idx) => (
           <div
             key={`${split.entity}-${idx}`}
-            className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border bg-card p-3 md:p-4"
+            className="flex flex-col xl:flex-row xl:items-start gap-3 xl:gap-4 rounded-xl border bg-card p-4 md:p-5 shadow-sm"
           >
             {/* Entity Name */}
-            <div className="flex-1 min-w-0 text-xs md:text-sm font-medium truncate">
-              {split.entity}
-            </div>
-
-            {/* Strategy Selector */}
-            <div className="flex items-center gap-2 min-w-max">
-              <Select
-                value={split.strategyType}
-                onValueChange={(val) => handleSplitStrategyChange(idx, val as any)}
-              >
-                <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm w-28 md:w-32 bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STRATEGY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Value Input */}
-            {split.strategyType !== PaymentStrategyType.Remaining && (
-              <div className="flex items-center gap-1.5 min-w-max">
-                <button
-                  type="button"
-                  className="flex h-10 md:h-12 w-20 md:w-24 rounded-md border border-input bg-background px-2 md:px-3 py-1 text-xs md:text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center"
-                  onClick={() => setPadTarget({ type: "split", index: idx })}
-                >
-                  {String(split.value).replace(".", ".")}
-                </button>
-                <span className="text-xs md:text-sm text-muted-foreground font-medium min-w-max">
-                  {split.strategyType === PaymentStrategyType.Percentage ? "%" : "$"}
-                </span>
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <div className="text-xs md:text-sm font-semibold truncate">
+                {split.entity}
               </div>
-            )}
-
-            {/* Payment Method */}
-            <div className="flex items-center gap-2 min-w-max">
-              <Select
-                value={split.method ?? "any"}
-                onValueChange={(val) => handleSplitMethodChange(idx, val)}
-              >
-                <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm w-24 md:w-28 bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {METHOD_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider">
+                Customize split controls
+              </div>
             </div>
 
-            {/* Remaining Badge / Delete Button */}
-            {split.strategyType === PaymentStrategyType.Remaining && (
-              <div className="text-xs md:text-sm font-medium text-muted-foreground px-2 py-1 bg-muted/30 rounded min-w-max">
-                Rem.
-              </div>
-            )}
+            <div className="flex flex-col gap-3 xl:items-end">
+              <SplitControlSet
+                strategyType={split.strategyType}
+                method={split.method}
+                value={split.value}
+                valueLabel={formatNumber(split.value, split.strategyType === PaymentStrategyType.Percentage ? 2 : 2)}
+                valueUnit={split.strategyType === PaymentStrategyType.Percentage ? "%" : "$"}
+                strategyOptions={STRATEGY_OPTIONS}
+                methodOptions={METHOD_OPTIONS}
+                onStrategyChange={(next) => handleSplitStrategyChange(idx, next)}
+                onMethodChange={(next) => handleSplitMethodChange(idx, next ?? "any")}
+                onValueClick={() => setPadTarget({ type: "split", index: idx })}
+                hideValue={split.strategyType === PaymentStrategyType.Remaining}
+                compact
+              />
 
-            {splits.length > 1 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-10 md:h-12 w-10 md:w-12 p-0 text-destructive shrink-0 hover:text-destructive hover:bg-destructive/10"
-                onClick={() => handleRemoveSplitEntry(idx)}
-              >
-                <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
-              </Button>
-            )}
+              <div className="flex items-center gap-2 justify-end w-full">
+                {split.strategyType === PaymentStrategyType.Remaining && (
+                  <div className="text-xs md:text-sm font-medium text-muted-foreground px-3 py-2 bg-muted/30 rounded-lg min-w-max">
+                    Rem.
+                  </div>
+                )}
+                {splits.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-12 md:h-14 w-12 md:w-14 p-0 text-destructive shrink-0 hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleRemoveSplitEntry(idx)}
+                  >
+                    <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -541,53 +659,23 @@ export function SplitEditor({
         </div>
 
         {/* Strategy & Method Selectors */}
-        <div className="flex flex-col sm:flex-row gap-2 pb-3 border-b border-border/50">
-          <Select
-            value={quickAddStrategy}
-            onValueChange={(val) => setQuickAddStrategy(val as any)}
-          >
-            <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm bg-background flex-1 sm:flex-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STRATEGY_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={quickAddMethod}
-            onValueChange={(val) => setQuickAddMethod(val)}
-          >
-            <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm bg-background flex-1 sm:flex-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {METHOD_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {quickAddStrategy !== "remaining" && (
-            <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
-              <button
-                type="button"
-                className={`flex h-10 md:h-12 flex-1 rounded-md border border-input bg-background px-2 md:px-3 py-1 text-xs md:text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center ${quickAddValue === "" ? "text-muted-foreground" : ""}`}
-                onClick={() => setPadTarget({ type: "quick-add" })}
-              >
-                {quickAddValue === "" ? (quickAddStrategy === "percentage" ? "Auto" : "0.00") : quickAddValue}
-              </button>
-              <span className="text-xs md:text-sm text-muted-foreground font-medium">
-                {quickAddStrategy === "percentage" ? "%" : "$"}
-              </span>
-            </div>
-          )}
+        <div className="flex flex-col gap-3 pb-3 border-b border-border/50">
+          <SplitControlSet
+            strategyType={quickAddStrategy}
+            method={quickAddMethod}
+            value={quickAddValue === "" ? 0 : Number(quickAddValue)}
+            valueLabel={quickAddValue === "" ? (quickAddStrategy === "percentage" ? "Auto" : "0.00") : quickAddValue}
+            valueUnit={quickAddStrategy === "percentage" ? "%" : "$"}
+            strategyOptions={STRATEGY_OPTIONS}
+            methodOptions={METHOD_OPTIONS}
+            onStrategyChange={(next) => setQuickAddStrategy(next)}
+            onMethodChange={(next) => setQuickAddMethod(next ?? "any")}
+            onValueClick={() => setPadTarget({ type: "quick-add" })}
+            hideValue={quickAddStrategy === "remaining"}
+          />
+          <div className="text-[10px] md:text-xs text-muted-foreground">
+            Use the buttons to pick split type and payment method. Tap the value to open the keypad.
+          </div>
         </div>
 
         {/* Add Payer Section */}

@@ -91,7 +91,7 @@ export function CatalogPanel({
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
-              className="h-6 w-[7.5rem] text-[10px] px-2 justify-between gap-2"
+              className="h-6 w-30 text-[10px] px-2 justify-between gap-2"
               onClick={() => setCatalogLayoutOpen(true)}
             >
               <span>Layout</span>

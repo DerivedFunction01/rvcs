@@ -773,7 +773,7 @@ export function PaymentAllocationDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                className="h-10 md:h-12 px-3 md:px-4 text-xs md:text-sm text-muted-foreground hover:text-foreground"
                 onClick={() => setView("splits")}
               >
                 Back to Splits
@@ -786,7 +786,7 @@ export function PaymentAllocationDialog({
               itemTotalPrice={totalContextPrice}
             />
 
-            <DialogFooter className="pt-2 gap-2 sm:justify-between border-t mt-4">
+            <DialogFooter className="pt-3 gap-2 sm:justify-between border-t mt-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -794,6 +794,7 @@ export function PaymentAllocationDialog({
                   setView("splits");
                   setSplits([]);
                 }}
+                className="h-10 md:h-12 text-sm md:text-base px-4 md:px-5"
               >
                 Cancel
               </Button>
@@ -804,6 +805,7 @@ export function PaymentAllocationDialog({
                   size="sm"
                   disabled={!isValidSplit}
                   onClick={handleSaveConfigOnly}
+                  className="h-10 md:h-12 text-sm md:text-base px-4 md:px-5"
                 >
                   Save Config
                 </Button>
@@ -816,6 +818,7 @@ export function PaymentAllocationDialog({
                       onClick={() =>
                         handleSaveCustomSplit(PaymentUpdateMode.Item)
                       }
+                      className="h-10 md:h-12 text-sm md:text-base px-4 md:px-5"
                     >
                       Apply to Item Only
                     </Button>
@@ -825,6 +828,7 @@ export function PaymentAllocationDialog({
                       onClick={() =>
                         handleSaveCustomSplit(PaymentUpdateMode.Group)
                       }
+                      className="h-10 md:h-12 text-sm md:text-base px-4 md:px-5"
                     >
                       Update Entire Group
                     </Button>
@@ -834,6 +838,7 @@ export function PaymentAllocationDialog({
                     size="sm"
                     disabled={!isValidSplit}
                     onClick={handleCustomSplitClick}
+                    className="h-10 md:h-12 text-sm md:text-base px-4 md:px-5"
                   >
                     {context === AllocationContext.Header
                       ? "Continue..."
