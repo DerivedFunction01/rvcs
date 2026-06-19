@@ -5,10 +5,10 @@ import {
 } from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
 import { ItemStatus } from "@/lib/vcs/types";
-import { Minus, Plus, ChevronDown } from "lucide-react";
+import { Minus, Plus, ChevronDown, ArrowUpDown } from "lucide-react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Popover,
   PopoverContent,
@@ -32,6 +32,7 @@ export function ActiveCheckBottom({
   const formatNumber = useFormatNumber();
   const [padTarget, setPadTarget] = useState<"main" | "inline" | null>(null);
   const [qtyMode, setQtyMode] = useState<"main" | "inline">("main");
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const item = selectedItems.length === 1 ? selectedItems[0] : null;
   const catalogEntry = item ? catalog[item.sku] : null;
@@ -60,150 +61,38 @@ export function ActiveCheckBottom({
     setQtyMode(shouldDefaultToInline ? "inline" : "main");
   }, [shouldDefaultToInline, item?.lineId, item?.sku]);
 
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div
-      className="border-t bg-card flex flex-col justify-between px-6 py-2.5 shrink-0 shadow-sm h-32 overflow-hidden"
+      className="border-t bg-card flex flex-col justify-between shrink-0 shadow-sm h-64 overflow-hidden"
       id="active-check-bottom"
     >
-      {/* Top Row: Quantity Editor */}
-      <div className="flex-1 flex items-center justify-center">
-        {selectedItems.length === 1 && item && catalogEntry ? (
-          <div className="flex items-center gap-4">
-            {hasInlineQty && !mainQtyLocked && (
-              <div className="inline-flex items-stretch rounded-full border bg-background p-0.5 shadow-xs shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setQtyMode("main")}
-                  disabled={mainQtyDisabled}
-                  className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                    qtyMode === "main"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Main
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQtyMode("inline")}
-                  className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                    qtyMode === "inline"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Measure
-                </button>
-              </div>
-            )}
-
-            {hasInlineQty ? (
-              qtyMode === "main" && !shouldDefaultToInline ? (
-                <MainQtyControl
-                  item={item}
-                  isEligible={isRootItem}
-                  step={catalogEntry.mainQtyIncrement ?? 1}
-                  isLocked={catalogEntry.inlineQtyMainQtyLocked ?? false}
-                  formatNumber={formatNumber}
-                  onOpenPad={() => setPadTarget("main")}
-                />
-              ) : (
-                <MeasurementQty
-                  hasInlineQty={hasInlineQty}
-                  onUpdateInlineQty={onUpdateInlineQty}
-                  item={item}
-                  inlineStep={inlineStep}
-                  formatNumber={formatNumber}
-                  currentInlineQty={currentInlineQty}
-                  precision={precision}
-                  inlineQtyUnit={inlineQtyUnit}
-                  onOpenPad={() => setPadTarget("inline")}
-                />
-              )
-            ) : (
-              <MainQtyControl
-                item={item}
-                isEligible={isRootItem}
-                step={catalogEntry.mainQtyIncrement ?? 1}
-                isLocked={catalogEntry.inlineQtyMainQtyLocked ?? false}
-                formatNumber={formatNumber}
-                onOpenPad={() => setPadTarget("main")}
-              />
-            )}
-          </div>
-        ) : selectedItems.length > 1 ? (
-          <div className="flex items-stretch rounded-xl border bg-background shadow-xs overflow-hidden h-12">
-            <Button
-              variant="ghost"
-              className="h-full w-12 p-0 rounded-none border-r hover:bg-muted"
-              onClick={(e) => {
-                e.stopPropagation();
-                const ids = selectedItems.map((i) => i.lineId);
-                useVCSStore.getState().modifyItemsQty(ids, -1);
-              }}
-            >
-              <Minus className="w-4 h-4" />
-            </Button>
-            <button
-              type="button"
-              className="px-6 min-h-0 self-stretch flex flex-col items-center justify-center bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                setPadTarget("main");
-              }}
-            >
-              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider leading-none mb-0.5">
-                Set Qty ({selectedItems.length} items)
-              </span>
-              <span className="text-base font-mono font-bold text-foreground leading-none">
-                Multiple
-              </span>
-            </button>
-            <Button
-              variant="ghost"
-              className="h-full w-12 p-0 rounded-none border-l hover:bg-muted"
-              onClick={(e) => {
-                e.stopPropagation();
-                const ids = selectedItems.map((i) => i.lineId);
-                useVCSStore.getState().modifyItemsQty(ids, 1);
-              }}
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
-        ) : (
-          <span className="text-xs font-semibold text-muted-foreground/50 tracking-wide select-none">
-            Select items to edit quantity
+      {/* Top Section: Stacked Financials */}
+      <div className="space-y-1.5 px-6 pt-3 pb-1 text-sm font-semibold select-none">
+        {/* Subtotal */}
+        <div className="flex justify-between items-center text-xs">
+          <span className="text-muted-foreground uppercase tracking-wider">
+            Subtotal
           </span>
-        )}
-      </div>
+          <span className="font-mono font-bold text-muted-foreground">
+            ${formatNumber(projectedState.financials.subtotal, 2, 10)}
+          </span>
+        </div>
 
-      {/* Divider */}
-      <div className="border-t border-border/80 w-full" />
-
-      {/* Bottom Row: Relocated Financials (always visible) */}
-      <div className="flex items-center justify-between shrink-0 py-1">
-        <div className="flex items-center gap-6">
-          <div className="text-left flex flex-col">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-none mb-1">
-              Subtotal
-            </span>
-            <span className="font-mono font-bold text-sm tabular-nums text-muted-foreground leading-none">
-              ${formatNumber(projectedState.financials.subtotal, 2, 10)}
-            </span>
-          </div>
-
-          {projectedState.financials.chargeTotal > 0 && (
+        {/* Taxes & Fees */}
+        <div className="flex justify-between items-center text-xs">
+          {projectedState.financials.chargeTotal > 0 ? (
             <Popover>
               <PopoverTrigger asChild>
-                <button className="text-left hover:bg-accent px-2 py-1 rounded transition-colors cursor-pointer flex flex-col justify-center">
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1 leading-none mb-1">
-                    Tax & Fees <ChevronDown className="w-2.5 h-2.5" />
-                  </div>
-                  <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground leading-none">
-                    $
-                    {formatNumber(projectedState.financials.chargeTotal, 2, 10)}
-                  </div>
+                <button className="text-muted-foreground uppercase tracking-wider hover:underline cursor-pointer flex items-center gap-1">
+                  Taxes, Fees <ChevronDown className="w-3 h-3" />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-56 p-3" align="start">
@@ -231,16 +120,197 @@ export function ActiveCheckBottom({
                 </div>
               </PopoverContent>
             </Popover>
+          ) : (
+            <span className="text-muted-foreground uppercase tracking-wider">
+              Taxes, Fees
+            </span>
           )}
+          <span className="font-mono font-bold text-muted-foreground">
+            ${formatNumber(projectedState.financials.chargeTotal, 2, 10)}
+          </span>
         </div>
 
-        <div className="text-right bg-primary/5 px-4 py-1.5 rounded-lg border border-primary/10 flex items-center gap-2">
-          <span className="text-[10px] text-primary/80 uppercase tracking-wider font-bold">
+        {/* Total */}
+        <div className="flex justify-between items-center border-t pt-1 border-border/80">
+          <span className="text-primary uppercase tracking-wider font-bold">
             Total
           </span>
-          <span className="font-mono font-bold text-lg tabular-nums text-primary leading-none">
+          <span className="font-mono font-bold text-base text-primary">
             ${formatNumber(projectedState.financials.grandTotal, 2, 10)}
           </span>
+        </div>
+      </div>
+
+      {/* Bottom Section: Quantity Controls */}
+      <div className="flex-1 flex flex-col justify-end gap-1.5">
+        <div className="grid grid-cols-3 grid-rows-2 gap-px bg-border/80 border-t overflow-hidden w-full h-32 rounded-none">
+          {/* Row 1, Col 1: Minus Button */}
+          <Button
+            variant="outline"
+            disabled={
+              selectedItems.length === 0 ||
+              (selectedItems.length === 1 &&
+                (item?.status === ItemStatus.Canceled ||
+                  (qtyMode === "main" && (!isRootItem || mainQtyLocked))))
+            }
+            className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (selectedItems.length === 1 && item) {
+                if (qtyMode === "inline") {
+                  onUpdateInlineQty(item.sku, -inlineStep);
+                } else {
+                  const step = catalogEntry?.mainQtyIncrement ?? 1;
+                  if (item.qty > step) {
+                    useVCSStore
+                      .getState()
+                      .modifyItemQty(
+                        item.lineId,
+                        item.qty,
+                        Math.round((item.qty - step) * 1000) / 1000,
+                      );
+                  } else {
+                    useVCSStore.getState().removeItem(item.lineId);
+                  }
+                }
+              } else if (selectedItems.length > 1) {
+                const ids = selectedItems.map((i) => i.lineId);
+                useVCSStore.getState().modifyItemsQty(ids, -1);
+              }
+            }}
+          >
+            <Minus className="w-5 h-5" />
+          </Button>
+
+          {/* Row 1, Col 2: Plus Button */}
+          <Button
+            variant="outline"
+            disabled={
+              selectedItems.length === 0 ||
+              (selectedItems.length === 1 &&
+                (item?.status === ItemStatus.Canceled ||
+                  (qtyMode === "main" && (!isRootItem || mainQtyLocked))))
+            }
+            className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (selectedItems.length === 1 && item) {
+                if (qtyMode === "inline") {
+                  onUpdateInlineQty(item.sku, inlineStep);
+                } else {
+                  const step = catalogEntry?.mainQtyIncrement ?? 1;
+                  useVCSStore
+                    .getState()
+                    .modifyItemQty(
+                      item.lineId,
+                      item.qty,
+                      Math.round((item.qty + step) * 1000) / 1000,
+                    );
+                }
+              } else if (selectedItems.length > 1) {
+                const ids = selectedItems.map((i) => i.lineId);
+                useVCSStore.getState().modifyItemsQty(ids, 1);
+              }
+            }}
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+
+          {/* Row 1, Col 3: Qty display/trigger */}
+          <Button
+            variant="outline"
+            disabled={
+              selectedItems.length === 0 ||
+              (selectedItems.length === 1 &&
+                item?.status === ItemStatus.Canceled)
+            }
+            className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background font-mono font-bold text-xs cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (selectedItems.length === 0) return;
+
+              if (
+                selectedItems.length === 1 &&
+                hasInlineQty &&
+                !mainQtyLocked
+              ) {
+                if (clickTimeoutRef.current) {
+                  clearTimeout(clickTimeoutRef.current);
+                  clickTimeoutRef.current = null;
+                  // Double click: Toggle mode
+                  setQtyMode((prev) => (prev === "main" ? "inline" : "main"));
+                } else {
+                  clickTimeoutRef.current = setTimeout(() => {
+                    clickTimeoutRef.current = null;
+                    // Single click: Open number pad
+                    setPadTarget(qtyMode);
+                  }, 250);
+                }
+              } else {
+                setPadTarget(qtyMode);
+              }
+            }}
+          >
+            {selectedItems.length === 0 ? (
+              <span>qty: -</span>
+            ) : selectedItems.length === 1 && item ? (
+              hasInlineQty && !mainQtyLocked ? (
+                qtyMode === "main" ? (
+                  <>
+                    <span>qty: {formatNumber(item.qty)}</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-0.5 font-normal">
+                      <ArrowUpDown className="w-2.5 h-2.5" />
+                      {formatNumber(currentInlineQty, precision)}
+                      {inlineQtyUnit}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      qty: {formatNumber(currentInlineQty, precision)}
+                      {inlineQtyUnit}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-0.5 font-normal">
+                      <ArrowUpDown className="w-2.5 h-2.5" />
+                      main: {formatNumber(item.qty)}
+                    </span>
+                  </>
+                )
+              ) : qtyMode === "inline" ? (
+                <span>
+                  qty: {formatNumber(currentInlineQty, precision)}
+                  {inlineQtyUnit}
+                </span>
+              ) : (
+                <span>qty: {formatNumber(item.qty)}</span>
+              )
+            ) : (
+              <span>qty: ({selectedItems.length})</span>
+            )}
+          </Button>
+
+          {/* Row 2: Placeholders for custom buttons */}
+          <Button
+            variant="outline"
+            disabled
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40 bg-background hover:bg-muted cursor-default"
+          >
+            Action 1
+          </Button>
+          <Button
+            variant="outline"
+            disabled
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40 bg-background hover:bg-muted cursor-default"
+          >
+            Action 2
+          </Button>
+          <Button
+            variant="outline"
+            disabled
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40 bg-background hover:bg-muted cursor-default"
+          >
+            Action 3
+          </Button>
         </div>
       </div>
 

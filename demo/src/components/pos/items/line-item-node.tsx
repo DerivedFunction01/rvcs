@@ -117,7 +117,7 @@ export function LineItemNode({
   return (
     <div className="group relative">
       <div
-        className={`border pr-3 pl-3 pt-1.5 pb-1.5 transition-all ${
+        className={`border pr-2 pl-2 pt-0.5 pb-0.5 transition-all ${
           isSelectable
             ? isSelected
               ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
@@ -184,8 +184,8 @@ export function LineItemNode({
             </span>
 
             <span
-              className={`font-semibold truncate ${
-                isModifier ? "text-muted-foreground text-sm" : "text-foreground"
+              className={`font-semibold truncate text-xs ${
+                isModifier ? "text-muted-foreground" : "text-foreground"
               } ${isCanceled ? "line-through opacity-50" : ""}`}
             >
               {item.name}
