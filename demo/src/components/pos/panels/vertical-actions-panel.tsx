@@ -200,7 +200,7 @@ export function VerticalActionsPanel({
     <TooltipProvider>
       <aside
         id="vertical-actions-panel"
-        className="w-16 border-r bg-card/90 backdrop-blur-sm flex flex-col items-center py-3 gap-3 shrink-0 h-full overflow-hidden z-10 shadow-sm"
+        className="w-20 border-r bg-card/90 backdrop-blur-sm flex flex-col shrink-0 h-full overflow-hidden z-10 shadow-sm"
       >
         {/* SECTION 0: SEARCH & FILTER (Always at the very top) */}
         <Tooltip>
@@ -209,9 +209,9 @@ export function VerticalActionsPanel({
               variant={isFilterActive ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setFilterDialogOpen(true)}
-              className={`h-9 w-9 p-0 rounded-lg transition-all relative ${
+              className={`h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none transition-all relative ${
                 isFilterActive
-                  ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
+                  ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                   : "hover:bg-accent text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -242,7 +242,7 @@ export function VerticalActionsPanel({
                   onGroupNoteOpen(Array.from(selectedLineIds));
                 }
               }}
-              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+              className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
             >
               <StickyNote className="w-4 h-4" />
             </Button>
@@ -276,7 +276,7 @@ export function VerticalActionsPanel({
                   onDuplicateItems(Array.from(selectedLineIds));
                 }
               }}
-              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+              className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
             >
               <Copy className="w-4 h-4" />
             </Button>
@@ -304,7 +304,7 @@ export function VerticalActionsPanel({
                   : !hasSelection || disableNonModActions
               }
               onClick={onDupMoveOpen}
-              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+              className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
             >
               <BringToFront className="w-4 h-4" />
             </Button>
@@ -332,7 +332,7 @@ export function VerticalActionsPanel({
                   : !hasSelection || disableNonModActions
               }
               onClick={onSplitQtyOpen}
-              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+              className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
             >
               <Split className="w-4 h-4 rotate-90" />
             </Button>
@@ -360,7 +360,7 @@ export function VerticalActionsPanel({
                   : !hasSelection || disableNonModActions
               }
               onClick={onSplitLineOpen}
-              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+              className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
             >
               <Split className="w-4 h-4" />
             </Button>
@@ -376,20 +376,15 @@ export function VerticalActionsPanel({
           </TooltipContent>
         </Tooltip>
 
-
-
-        {/* Divider */}
-        <div className="w-8 border-b border-border/80" />
-
         {/* SECTION 2: TRAY SWITCHER */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant={trayMode === "advanced" ? "secondary" : "ghost"}
               size="sm"
-              className={`h-9 w-9 p-0 rounded-lg transition-all ${
+              className={`h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none transition-all ${
                 trayMode === "advanced"
-                  ? "bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500/20"
+                  ? "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               onClick={() => {
@@ -419,17 +414,16 @@ export function VerticalActionsPanel({
         {/* SECTION 1: SELECTION CONTROLS (Only visible in advanced/multi-select mode) */}
         {trayMode === "advanced" && (
           <>
-            <div className="w-8 border-b border-border/80" />
-            <div className="flex flex-col items-center gap-2 animate-in fade-in duration-200">
+            <div className="flex flex-col w-full animate-in fade-in duration-200">
               {/* Multi-Select Toggle */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant={isMultiSelectMode ? "secondary" : "ghost"}
                     size="sm"
-                    className={`h-9 w-9 p-0 rounded-lg transition-all ${
+                    className={`h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none transition-all ${
                       isMultiSelectMode
-                        ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
+                        ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => {
@@ -457,7 +451,7 @@ export function VerticalActionsPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-9 w-9 p-0 rounded-lg text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none text-muted-foreground hover:text-foreground disabled:opacity-30"
                     onClick={() => {
                       if (hasSelection) {
                         setSelectedLineIds(new Set());
@@ -484,11 +478,8 @@ export function VerticalActionsPanel({
           </>
         )}
 
-        {/* Divider */}
-        <div className="w-8 border-b border-border/80" />
-
         {/* SECTION 3: ACTIONS TRAY */}
-        <div className="flex-1 flex flex-col items-center gap-3 overflow-y-auto w-full px-1">
+        <div className="flex-1 flex flex-col w-full overflow-y-auto">
           {trayMode === "item" ? (
             /* TRAY A: DEFAULT SINGLE ITEM ACTIONS */
             <>
@@ -500,7 +491,7 @@ export function VerticalActionsPanel({
                     size="sm"
                     disabled={!item}
                     onClick={() => item && onAllocConfig(item)}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <Settings2 className="w-4 h-4" />
                   </Button>
@@ -528,7 +519,7 @@ export function VerticalActionsPanel({
                         );
                       }
                     }}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <Workflow className="w-4 h-4" />
                   </Button>
@@ -555,7 +546,7 @@ export function VerticalActionsPanel({
                       !hasSelection || disableNonModActions || !canMerge
                     }
                     onClick={() => onMergeItems(Array.from(selectedLineIds))}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <Combine className="w-4 h-4" />
                   </Button>
@@ -579,7 +570,7 @@ export function VerticalActionsPanel({
                       !hasSelection || disableNonModActions || !canBreak
                     }
                     onClick={() => onBreakItems(Array.from(selectedLineIds))}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <Unlink className="w-4 h-4" />
                   </Button>
@@ -603,7 +594,7 @@ export function VerticalActionsPanel({
                       !hasSelection || disableNonModActions || !canCombine
                     }
                     onClick={onCombineOpen}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <PackageCheck className="w-4 h-4" />
                   </Button>
@@ -625,7 +616,7 @@ export function VerticalActionsPanel({
                     size="sm"
                     disabled={!hasSelection || disableNonModActions}
                     onClick={onAssignGuestOpen}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <User className="w-4 h-4" />
                   </Button>
@@ -645,7 +636,7 @@ export function VerticalActionsPanel({
                     size="sm"
                     disabled={!hasSelection || disableNonModActions}
                     onClick={onAssignPaymentOpen}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <CreditCard className="w-4 h-4" />
                   </Button>
@@ -665,7 +656,7 @@ export function VerticalActionsPanel({
                     size="sm"
                     disabled={!hasSelection || disableNonModActions}
                     onClick={onAssignFulfillmentOpen}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
                     <Clock className="w-4 h-4" />
                   </Button>
