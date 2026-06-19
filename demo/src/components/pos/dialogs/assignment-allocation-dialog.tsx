@@ -1,12 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -20,10 +18,11 @@ import {
   type ProjectedLineItem,
   AllocationType,
 } from "@/lib/vcs/types";
-import { Loader2, Plus, Search, User, X } from "lucide-react";
+import { Plus, User, X } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import { GuestGridPicker } from "./guest-picker";
 
 interface AssignmentAllocationDialogProps {
   open: boolean;
@@ -54,9 +53,6 @@ export function AssignmentAllocationDialog({
     usePreferencesStore((state) => state.defaultPrefs.globalGuestPalette) || [
       "#94a3b8",
     ];
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-
   const currentAssignment = useMemo(() => {
     if (items.length === 0) return null;
     for (const id of items[0].allocations) {
@@ -73,8 +69,6 @@ export function AssignmentAllocationDialog({
     if (open) {
       setShowAddGuestInput(false);
       setNewGuestInputName("");
-      setQuery("");
-      setDebouncedQuery("");
       if (currentAssignment) {
         if (currentAssignment.allocationId.startsWith("alloc-assign-")) {
           const idsOrNames = currentAssignment.entity
@@ -100,20 +94,6 @@ export function AssignmentAllocationDialog({
       }
     }
   }, [open, currentAssignment, guests]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 250);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  const filteredGuests = useMemo(() => {
-    const q = debouncedQuery.trim().toLowerCase();
-    if (!q) return guests;
-    return guests.filter((g) => {
-      const label = g.alias || `Guest ${g.number}`;
-      return label.toLowerCase().includes(q);
-    });
-  }, [guests, debouncedQuery]);
 
   const getGuestDotColor = useCallback(
     (guestId: string) => {
@@ -193,29 +173,15 @@ export function AssignmentAllocationDialog({
         <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 flex-1 min-h-0 landscape:overflow-hidden">
           <div className="flex flex-col gap-4 shrink-0 landscape:w-72 landscape:md:w-96">
             <div className="rounded-xl border p-4 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search guests..."
-                    className="pl-9 h-11"
-                  />
-                  {query !== debouncedQuery && (
-                    <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
-                </div>
-                {!showAddGuestInput && (
-                  <Button
-                    variant="outline"
-                    className="h-11 shrink-0"
-                    onClick={() => setShowAddGuestInput(true)}
-                  >
-                    <Plus className="w-4 h-4 mr-2" /> Add Guest
-                  </Button>
-                )}
-              </div>
+              {!showAddGuestInput && (
+                <Button
+                  variant="outline"
+                  className="h-11 w-full shrink-0"
+                  onClick={() => setShowAddGuestInput(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Add Guest
+                </Button>
+              )}
 
               {showAddGuestInput && (
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -248,110 +214,55 @@ export function AssignmentAllocationDialog({
               )}
             </div>
 
-            <div className="hidden landscape:flex flex-col gap-2 pt-2 mt-auto">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Assigned Guests
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {selectedIds.length} selected
-                </div>
-              </div>
-              <Button
-                size="sm"
-                onClick={handleApply}
-                disabled={selectedIds.length === 0}
-                className="w-full"
-              >
-                Apply
-              </Button>
-            </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            <div className="flex items-center justify-between pb-3">
+          <GuestGridPicker
+            open={open}
+            items={guests.map((g) => ({
+              id: g.id,
+              label: g.alias || `Guest ${g.number ?? ""}`.trim(),
+              secondary: g.number != null ? `Guest ${g.number}` : undefined,
+            }))}
+            selectedIds={new Set(selectedIds)}
+            onToggle={toggleGuestSelection}
+            palette={globalGuestPalette}
+            searchPlaceholder="Search guests..."
+            emptyText="No guests match the current search."
+            showSelectAll
+            showClearAll
+            onSelectAll={() => setSelectedIds(guests.map((g) => g.id))}
+            onClearAll={() => setSelectedIds([])}
+            showCheckbox
+            header={
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Assigned Guests
               </div>
-              <div className="text-xs text-muted-foreground">
-                {selectedIds.length} selected
+            }
+            footer={
+              <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.length} selected
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="h-11 md:h-12"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="h-11 md:h-12"
+                    onClick={handleApply}
+                    disabled={selectedIds.length === 0}
+                  >
+                    Apply
+                  </Button>
+                </div>
               </div>
-            </div>
-            {filteredGuests.length === 0 ? (
-              <div className="py-12 text-center text-sm text-muted-foreground">
-                No guests match "{query.trim()}".
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 landscape:md:grid-cols-3 md:grid-cols-4 gap-3 pb-1">
-                {filteredGuests.map((g) => {
-                  const guestLabel = g.alias || `Guest ${g.number}`;
-                  const isSelected = selectedIds.includes(g.id);
-                  return (
-                    <div
-                      key={g.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => toggleGuestSelection(g.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          toggleGuestSelection(g.id);
-                        }
-                      }}
-                      className={`relative flex flex-col items-start gap-3 rounded-xl border p-4 text-left transition-all min-h-24 ${
-                        isSelected
-                          ? "border-primary bg-primary/5 shadow-sm"
-                          : "bg-card hover:border-primary/40 hover:bg-accent/40"
-                      }`}
-                    >
-                      <div className="flex w-full items-start justify-between gap-3">
-                        <span
-                          className="h-3 w-3 rounded-full shrink-0"
-                          aria-hidden="true"
-                          style={{ backgroundColor: getGuestDotColor(g.id) }}
-                        />
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleGuestSelection(g.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-4 w-4"
-                        />
-                      </div>
-                      <span className="w-full truncate text-sm font-semibold">
-                        {guestLabel}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Guest {g.number}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            }
+          />
         </div>
-
-        <DialogFooter className="flex items-center justify-between gap-2 sm:justify-between border-t pt-4 mt-1 shrink-0 landscape:hidden">
-          <span className="text-xs text-muted-foreground">
-            {selectedIds.length} selected
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleApply}
-              disabled={selectedIds.length === 0}
-            >
-              Apply
-            </Button>
-          </div>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

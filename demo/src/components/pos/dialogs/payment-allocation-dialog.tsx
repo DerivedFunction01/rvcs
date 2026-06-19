@@ -26,6 +26,7 @@ import {
   ProjectedLineItem,
 } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
+import { usePreferencesStore } from "@/store/preferences-store";
 import {
   ArrowLeft,
   ArrowRight,
@@ -43,6 +44,7 @@ import {
 } from "lucide-react";
 import React, { useCallback, useMemo, useState } from "react";
 import { PaymentSplitEntry, SplitEditor, validateSplit } from "./split-editor";
+import { GuestGridPicker } from "./guest-picker";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 interface PaymentAllocationDialogProps {
@@ -91,6 +93,10 @@ export function PaymentAllocationDialog({
 }: PaymentAllocationDialogProps) {
   const allocationsState = useVCSStore((s) => s.projectedState.allocations);
   const getGuests = useVCSStore((s) => s.guests);
+  const globalGuestPalette =
+    usePreferencesStore((state) => state.defaultPrefs.globalGuestPalette) || [
+      "#94a3b8",
+    ];
   const guests = useMemo(() => {
     return getGuests().map((g) => g.name);
   }, [getGuests, allocationsState]);
@@ -1223,25 +1229,24 @@ export function PaymentAllocationDialog({
                       <div className="text-[10px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Other Guests ({guests.length - 1})
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
-                        {filteredOtherGuests.map((guest) => (
-                          <button
-                            key={guest}
-                            onClick={() => {
-                              setSelectedGuest(guest);
-                              setView("guest-methods");
-                              setSearchQuery("");
-                            }}
-                            className="flex items-center gap-2 rounded-lg border bg-card p-3 md:p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full min-h-14 md:min-h-16"
-                          >
-                            <User className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground shrink-0" />
-                            <span className="min-w-0 truncate text-xs md:text-sm font-semibold text-foreground">
-                              {guest}
-                            </span>
-                            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground shrink-0 ml-auto" />
-                          </button>
-                        ))}
-                      </div>
+                      <GuestGridPicker
+                        open={open}
+                        items={filteredOtherGuests.map((guest) => ({
+                          id: guest,
+                          label: guest,
+                        }))}
+                        selectedIds={new Set([selectedGuest ?? ""])}
+                        onToggle={(guest) => {
+                          setSelectedGuest(guest);
+                          setView("guest-methods");
+                          setSearchQuery("");
+                        }}
+                        palette={globalGuestPalette}
+                        searchPlaceholder="Search guests..."
+                        emptyText="No guests match the current search."
+                        showCheckbox={false}
+                        itemClassName="min-h-14 md:min-h-16"
+                      />
                     </div>
                   )}
                 </div>

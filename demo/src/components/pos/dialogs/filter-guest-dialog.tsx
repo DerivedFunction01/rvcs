@@ -6,9 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Search, User } from "lucide-react";
+import { User } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
+import { GuestGridPicker } from "./guest-picker";
 
 export function FullGuestSelectionDialog({
     open,
@@ -31,78 +31,34 @@ export function FullGuestSelectionDialog({
     onClearAll: () => void;
     globalGuestPalette: string[];
 }) {
-    const [query, setQuery] = useState("");
-    const [debouncedQuery, setDebouncedQuery] = useState("");
-
-    useEffect(() => {
-        if (open) {
-            setQuery("");
-            setDebouncedQuery("");
-        }
-    }, [open]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedQuery(query), 250);
-        return () => clearTimeout(timer);
-    }, [query]);
-
-    const filtered = useMemo(() => {
-        const q = debouncedQuery.trim().toLowerCase();
-        return guests.filter((g) => (g.alias || `Guest ${g.number}`).toLowerCase().includes(q));
-    }, [guests, debouncedQuery]);
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[95vh] flex flex-col overflow-hidden">
                 <DialogHeader className="shrink-0">
                     <DialogTitle className="text-lg md:text-xl">{title}</DialogTitle>
                 </DialogHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search guests..."
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            className="pl-9 text-sm h-10 md:h-11"
-                        />
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={onSelectAll} className="h-10 md:h-11 px-4 text-sm">Select All</Button>
-                        <Button variant="outline" size="sm" onClick={onClearAll} className="h-10 md:h-11 px-4 text-sm text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10">Clear All</Button>
-                    </div>
-                </div>
-                <div className="flex-1 min-h-0 overflow-y-auto pr-1 mt-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-2">
-                        {filtered.map((g) => {
-                            const isVisible = selectedIds.has(g.id);
-                            const originalIdx = guests.findIndex((orig) => orig.id === g.id);
-                            return (
-                                <button
-                                    key={g.id}
-                                    onClick={() => onToggle(g.id)}
-                                    className={`flex items-center gap-3 px-4 py-3 md:px-5 md:py-4 border rounded-xl text-left text-sm transition-all min-h-14 md:min-h-16 ${isVisible
-                                            ? "border-primary bg-primary/5 font-medium shadow-sm"
-                                            : "border-border bg-card opacity-60 hover:opacity-100 hover:bg-accent"
-                                        }`}
-                                >
-                                    <div
-                                        className="w-3 h-3 rounded-full shrink-0"
-                                        style={{ background: globalGuestPalette[originalIdx % Math.max(1, globalGuestPalette.length)] }}
-                                    />
-                                    <span className="truncate flex-1">
-                                        {g.alias || `Guest ${g.number}`}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-                <div className="pt-4 border-t mt-auto shrink-0">
-                    <Button className="w-full h-12 text-sm md:text-base" onClick={() => onOpenChange(false)}>
-                        Done
-                    </Button>
-                </div>
+                <GuestGridPicker
+                    open={open}
+                    items={guests.map((g) => ({
+                        id: g.id,
+                        label: g.alias || `Guest ${g.number ?? ""}`.trim(),
+                        secondary: g.number != null ? `Guest ${g.number}` : undefined,
+                    }))}
+                    selectedIds={selectedIds}
+                    onToggle={onToggle}
+                    palette={globalGuestPalette}
+                    searchPlaceholder="Search guests..."
+                    emptyText="No guests match the current search."
+                    showSelectAll
+                    showClearAll
+                    onSelectAll={onSelectAll}
+                    onClearAll={onClearAll}
+                    footer={
+                        <Button className="w-full h-12 text-sm md:text-base" onClick={() => onOpenChange(false)}>
+                            Done
+                        </Button>
+                    }
+                />
             </DialogContent>
         </Dialog>
     );
@@ -163,69 +119,43 @@ export function GuestFilterDialog({
     }, [localPayers, setVisiblePayers]);
 
     const renderAssignees = (keyPrefix: string) => (
-        <>
-                <div className="flex items-center justify-between sticky top-0 bg-background z-10 py-1 pb-2">
+        <GuestGridPicker
+            open={open}
+            items={assigneesToShow.map((g) => ({
+                id: g.id,
+                label: g.alias || `Guest ${g.number}`,
+                secondary: `Guest ${g.number}`,
+            }))}
+            selectedIds={localAssignees}
+            onToggle={(id) =>
+                setLocalAssignees((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                })
+            }
+            palette={globalGuestPalette}
+            searchPlaceholder="Search guests..."
+            emptyText="No guests match the current search."
+            showSelectAll
+            showClearAll
+            onSelectAll={() => setLocalAssignees(new Set(guests.map((g) => g.id)))}
+            onClearAll={() => setLocalAssignees(new Set())}
+            header={
                 <span className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider select-none">
                     Assignees
                 </span>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-primary"
-                        onClick={() => setLocalAssignees(new Set(guests.map((g) => g.id)))}
-                    >
-                        All
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => setLocalAssignees(new Set())}
-                    >
-                        Clear
-                    </Button>
-                </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 gap-3 pb-2">
-                {assigneesToShow.map((g, idx) => {
-                    const isVisible = localAssignees.has(g.id);
-                    return (
-                        <button
-                            key={`${keyPrefix}-${g.id}`}
-                            onClick={() =>
-                                setLocalAssignees((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(g.id)) next.delete(g.id);
-                                    else next.add(g.id);
-                                    return next;
-                                })
-                            }
-                            className={`flex items-center gap-3 px-4 py-3 md:px-5 md:py-4 border rounded-xl text-left text-sm transition-all min-h-14 md:min-h-16 ${isVisible
-                                    ? "border-primary bg-primary/5 font-medium shadow-sm"
-                                    : "border-border bg-card opacity-60 hover:opacity-100 hover:bg-accent"
-                                }`}
-                        >
-                            <div
-                                className="w-3 h-3 rounded-full shrink-0"
-                                style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
-                            />
-                            <span className="truncate flex-1">
-                                {g.alias || `Guest ${g.number}`}
-                            </span>
-                        </button>
-                    );
-                })}
-                {hasMoreAssignees && (
-                    <button
-                        onClick={() => setMoreAssigneesOpen(true)}
-                        className="flex items-center justify-center gap-2 px-4 py-3 md:px-5 md:py-4 border border-dashed rounded-xl text-sm hover:bg-accent text-muted-foreground hover:text-foreground transition-all min-h-14 md:min-h-16"
-                    >
-                        View {guests.length - MAX_VISIBLE} more...
-                    </button>
-                )}
-            </div>
-        </>
+            }
+            footer={hasMoreAssignees ? (
+                <button
+                    onClick={() => setMoreAssigneesOpen(true)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground transition-all min-h-14 md:min-h-16 hover:bg-accent hover:text-foreground"
+                >
+                    View {guests.length - MAX_VISIBLE} more...
+                </button>
+            ) : undefined}
+        />
     );
 
     return (
@@ -303,67 +233,43 @@ export function GuestFilterDialog({
                             {renderAssignees('right')}
                         </div>
                         <div className={`flex-1 min-h-0 flex flex-col overflow-y-auto ${activeTab === 'assignees' ? 'landscape:hidden landscape:md:flex' : ''}`}>
-                            <div className="flex items-center justify-between sticky top-0 bg-background z-10 py-1 pb-2">
-                                <span className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider select-none">
-                                    Payers
-                                </span>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-primary"
-                                        onClick={() => setLocalPayers(new Set(guests.map((g) => g.id)))}
-                                    >
-                                        All
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                                        onClick={() => setLocalPayers(new Set())}
-                                    >
-                                        Clear
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 gap-3 pb-2">
-                                {payersToShow.map((g, idx) => {
-                                    const isVisible = localPayers.has(g.id);
-                                    return (
-                                        <button
-                                            key={`p-${g.id}`}
-                                            onClick={() =>
-                                                setLocalPayers((prev) => {
-                                                    const next = new Set(prev);
-                                                    if (next.has(g.id)) next.delete(g.id);
-                                                    else next.add(g.id);
-                                                    return next;
-                                                })
-                                            }
-                                            className={`flex items-center gap-3 px-4 py-3 md:px-5 md:py-4 border rounded-xl text-left text-sm transition-all min-h-14 md:min-h-16 ${isVisible
-                                                    ? "border-primary bg-primary/5 font-medium shadow-sm"
-                                                    : "border-border bg-card opacity-60 hover:opacity-100 hover:bg-accent"
-                                                }`}
-                                        >
-                                            <div
-                                                className="w-3 h-3 rounded-full shrink-0"
-                                                style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
-                                            />
-                                            <span className="truncate flex-1">
-                                                {g.alias || `Guest ${g.number}`}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                                {hasMorePayers && (
+                            <GuestGridPicker
+                                open={open}
+                                items={payersToShow.map((g) => ({
+                                    id: g.id,
+                                    label: g.alias || `Guest ${g.number ?? ""}`.trim(),
+                                    secondary: g.number != null ? `Guest ${g.number}` : undefined,
+                                }))}
+                                selectedIds={localPayers}
+                                onToggle={(id) => {
+                                    setLocalPayers((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(id)) next.delete(id);
+                                        else next.add(id);
+                                        return next;
+                                    });
+                                }}
+                                palette={globalGuestPalette}
+                                searchPlaceholder="Search guests..."
+                                emptyText="No guests match the current search."
+                                showSelectAll
+                                showClearAll
+                                onSelectAll={() => setLocalPayers(new Set(guests.map((g) => g.id)))}
+                                onClearAll={() => setLocalPayers(new Set())}
+                                header={
+                                    <span className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider select-none">
+                                        Payers
+                                    </span>
+                                }
+                                footer={hasMorePayers ? (
                                     <button
                                         onClick={() => setMorePayersOpen(true)}
-                                        className="flex items-center justify-center gap-2 px-4 py-3 md:px-5 md:py-4 border border-dashed rounded-xl text-sm hover:bg-accent text-muted-foreground hover:text-foreground transition-all min-h-14 md:min-h-16"
+                                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground transition-all min-h-14 md:min-h-16 hover:bg-accent hover:text-foreground"
                                     >
                                         View {guests.length - MAX_VISIBLE} more...
                                     </button>
-                                )}
-                            </div>
+                                ) : undefined}
+                            />
                         </div>
                     </div>
                 </div>

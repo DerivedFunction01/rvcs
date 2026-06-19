@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -13,11 +12,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { PAYMENT_METHODS } from "@/lib/pos/ui-utils";
 import { PaymentStrategyType } from "@/lib/vcs/types";
+import { usePreferencesStore } from "@/store/preferences-store";
 import { useVCSStore } from "@/store/vcs-store";
-import { Plus, Trash2, X, Search } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { NumberPadDialog } from "./number-pad-dialog";
+import { GuestGridPicker } from "./guest-picker";
 
 export interface PaymentSplitEntry {
   entity: string;
@@ -231,23 +232,17 @@ function GuestSelectionDialog({
   onOpenChange,
   availableGuests,
   onSelectGuests,
+  palette,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   availableGuests: string[];
   onSelectGuests: (guests: string[]) => void;
+  palette?: string[];
 }) {
-  const [query, setQuery] = useState("");
   const [selectedGuests, setSelectedGuests] = useState<Set<string>>(new Set());
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return availableGuests;
-    const q = query.toLowerCase();
-    return availableGuests.filter((g) => g.toLowerCase().includes(q));
-  }, [query, availableGuests]);
-
   const handleClose = () => {
-    setQuery("");
     setSelectedGuests(new Set());
     onOpenChange(false);
   };
@@ -267,98 +262,48 @@ function GuestSelectionDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Search Bar */}
-        <div className="relative shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            autoFocus
-            placeholder="Search guests..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9 h-10 md:h-12 text-xs md:text-sm"
-          />
-        </div>
-
-        {/* Quick Actions */}
-        {availableGuests.length > 1 && (
-          <div className="flex gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedGuests(new Set(filtered))}
-              className="h-10 md:h-12 text-xs md:text-sm flex-1"
-            >
-              Select All {filtered.length > availableGuests.length ? `(${filtered.length})` : ""}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedGuests(new Set())}
-              className="h-10 md:h-12 text-xs md:text-sm text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10 flex-1"
-            >
-              Clear All
-            </Button>
-          </div>
-        )}
-
-        {/* Guest Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {filtered.length === 0 ? (
-            <div className="py-12 text-center text-xs md:text-sm text-muted-foreground">
-              No guests found
+        <GuestGridPicker
+          open={open}
+          items={availableGuests.map((guestName) => ({
+            id: guestName,
+            label: guestName,
+          }))}
+          selectedIds={selectedGuests}
+          onToggle={(guestName) => {
+            setSelectedGuests((prev) => {
+              const next = new Set(prev);
+              if (next.has(guestName)) next.delete(guestName);
+              else next.add(guestName);
+              return next;
+            });
+          }}
+          searchPlaceholder="Search guests..."
+          emptyText="No guests found."
+          palette={palette}
+          showSelectAll
+          showClearAll
+          onSelectAll={() => setSelectedGuests(new Set(availableGuests))}
+          onClearAll={() => setSelectedGuests(new Set())}
+          showCheckbox
+          footer={
+            <div className="flex gap-2 shrink-0 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                className="h-12 md:h-14 flex-1 text-sm md:text-base"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirm}
+                disabled={selectedGuests.size === 0}
+                className="h-12 md:h-14 flex-1 text-sm md:text-base"
+              >
+                Add {selectedGuests.size > 0 ? `(${selectedGuests.size})` : ""} Guest{selectedGuests.size !== 1 ? "s" : ""}
+              </Button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-3 pb-2">
-              {filtered.map((guestName) => {
-                const isSelected = selectedGuests.has(guestName);
-                return (
-                  <label
-                    key={guestName}
-                    className={`flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 border rounded-lg text-left text-xs md:text-sm transition-all min-h-10 md:min-h-12 cursor-pointer ${isSelected
-                        ? "border-primary bg-primary/5 font-medium shadow-sm"
-                        : "border-border bg-card hover:border-primary/50 hover:bg-accent/40"
-                      }`}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => {
-                        setSelectedGuests((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(guestName)) {
-                            next.delete(guestName);
-                          } else {
-                            next.add(guestName);
-                          }
-                          return next;
-                        });
-                      }}
-                      className="w-4 h-4 md:w-5 md:h-5"
-                    />
-                    <span className="truncate flex-1">{guestName}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Footer Buttons */}
-        <div className="flex gap-2 shrink-0 pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            className="h-12 md:h-14 flex-1 text-sm md:text-base"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={selectedGuests.size === 0}
-            className="h-12 md:h-14 flex-1 text-sm md:text-base"
-          >
-            Add {selectedGuests.size > 0 ? `(${selectedGuests.size})` : ""} Guest{selectedGuests.size !== 1 ? "s" : ""}
-          </Button>
-        </div>
+          }
+        />
       </DialogContent>
     </Dialog>
   );
@@ -378,6 +323,10 @@ export function SplitEditor({
   const allocationsState = useVCSStore((s) => s.projectedState.allocations);
   const getGuests = useVCSStore((s) => s.guests);
   const onAddGuest = useVCSStore((s) => s.addGuest);
+  const globalGuestPalette =
+    usePreferencesStore((state) => state.defaultPrefs.globalGuestPalette) || [
+      "#94a3b8",
+    ];
   const guests = useMemo(() => {
     return getGuests().map((g) => g.name);
   }, [getGuests, allocationsState]);
@@ -783,6 +732,7 @@ export function SplitEditor({
         onOpenChange={setGuestSelectionOpen}
         availableGuests={availableGuests}
         onSelectGuests={handleAddMultipleGuests}
+        palette={globalGuestPalette}
       />
 
       {/* Number Pad Dialog */}

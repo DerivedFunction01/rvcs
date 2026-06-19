@@ -8,12 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePreferencesStore } from "@/store/preferences-store";
 import { useVCSStore } from "@/store/vcs-store";
-import { Loader2, Minus, Pencil, Plus, Search, User, UserPlus } from "lucide-react";
+import { Minus, Pencil, Plus, User, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NumberPadDialog } from "./number-pad-dialog";
+import { GuestGridPicker } from "./guest-picker";
 
 export function AddGuestDialog({
   open,
@@ -157,63 +157,10 @@ export function GuestPickerDialog({
   onEditGuest,
   onOpenAddGuest,
 }: any) {
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const getGuests = useVCSStore((s) => s.guests);
   const allocationsState = useVCSStore((s) => s.projectedState.allocations);
   const globalGuestPalette = usePreferencesStore((state) => state.defaultPrefs.globalDepthColors) || ["#94a3b8"];
   const guests = useMemo(() => getGuests(), [getGuests, allocationsState]);
-
-  useEffect(() => {
-    if (open) {
-      setQuery("");
-      setDebouncedQuery("");
-    }
-  }, [open]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 250);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  const filtered = useMemo(() => {
-    const q = debouncedQuery.trim().toLowerCase();
-    if (!q) return guests;
-    return guests.filter((g) => g.name.toLowerCase().includes(q));
-  }, [guests, debouncedQuery]);
-
-  const searchArea = (
-    <div className="relative flex-1 min-w-0">
-      <Search className="absolute left-3 top-4 sm:top-3.5 h-5 w-5 sm:h-5 sm:w-5 text-muted-foreground" />
-      <Input
-        autoFocus
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search guests..."
-        className="pl-10 pr-10 sm:pl-10 h-14 sm:h-12 text-base"
-      />
-      {query !== debouncedQuery && (
-        <Loader2 className="absolute right-3 top-4 sm:top-3.5 h-5 w-5 sm:h-5 sm:w-5 animate-spin text-muted-foreground" />
-      )}
-    </div>
-  );
-
-  const actionButtons = (
-    <>
-      <Button variant="outline" className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={() => onOpenChange(false)}>
-        Close
-      </Button>
-      <Button
-        className="flex-1 sm:flex-none h-14 sm:h-12 text-base"
-        onClick={() => {
-          onOpenChange(false);
-          onOpenAddGuest();
-        }}
-      >
-        <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 mr-2 sm:mr-1.5" /> Add Guest
-      </Button>
-    </>
-  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,58 +174,61 @@ export function GuestPickerDialog({
             listed.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 flex-1 min-h-0">
-          <div className="flex flex-col gap-3 shrink-0 landscape:w-70">
-            {searchArea}
-            <div className="hidden landscape:flex flex-row gap-2 mt-auto pt-2 w-full">
-              {actionButtons}
+        <GuestGridPicker
+          open={open}
+          items={guests.map((guest: any) => ({
+            id: guest.id,
+            label: guest.name || guest.alias || `Guest ${guest.number ?? ""}`.trim(),
+            secondary: guest.alias || (guest.number != null ? `Guest ${guest.number}` : undefined),
+          }))}
+          selectedIds={new Set([selectedPerson])}
+          onToggle={(id) => {
+            onSelectPerson(id);
+            onOpenChange(false);
+          }}
+          palette={globalGuestPalette}
+          searchPlaceholder="Search guests..."
+          emptyText='No guests match the current search.'
+          showCheckbox={false}
+          renderTrailingAction={(item) => {
+            const guest = guests.find((g: any) => g.id === item.id);
+            if (!guest) return null;
+            return (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 sm:h-8 sm:w-8 shrink-0 opacity-100 transition-opacity"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditGuest(guest);
+                }}
+              >
+                <Pencil className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground sm:hover:text-foreground" />
+              </Button>
+            );
+          }}
+          footer={
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 sm:flex-none h-14 sm:h-12 text-base"
+                onClick={() => onOpenChange(false)}
+              >
+                Close
+              </Button>
+              <Button
+                className="flex-1 sm:flex-none h-14 sm:h-12 text-base"
+                onClick={() => {
+                  onOpenChange(false);
+                  onOpenAddGuest();
+                }}
+              >
+                <UserPlus className="w-5 h-5 sm:w-4 sm:h-4 mr-2 sm:mr-1.5" /> Add Guest
+              </Button>
             </div>
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-          {filtered.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              No guests match "{query.trim()}".
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-3">
-              {filtered.map((guest: any, idx: number) => (
-                <div
-                  key={guest.id}
-                  onClick={() => {
-                    onSelectPerson(guest.id);
-                    onOpenChange(false);
-                  }}
-                  className={`relative group flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/40 cursor-pointer min-h-24 ${selectedPerson === guest.id ? "border-primary bg-primary/5" : "bg-card"}`}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-10 w-10 sm:h-8 sm:w-8 opacity-100 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEditGuest(guest);
-                      }}
-                    >
-                      <Pencil className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground sm:hover:text-foreground" />
-                    </Button>
-                  </div>
-                  <span className="w-full truncate text-base font-semibold">
-                    {guest.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-          </div>
-        </div>
-        <DialogFooter className="gap-3 sm:gap-2 flex-row sm:flex-row pt-2 landscape:hidden w-full space-x-0 sm:space-x-0 mt-2 shrink-0">
-          {actionButtons}
-        </DialogFooter>
+          }
+          onItemClick={() => undefined}
+        />
       </DialogContent>
     </Dialog>
   );
