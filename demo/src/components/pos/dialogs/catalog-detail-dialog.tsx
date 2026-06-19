@@ -191,10 +191,21 @@ export function CatalogDetailDialog({
           </div>
         </div>
 
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex justify-end landscape:hidden">
           <button
             type="button"
-            className="h-9 rounded-md border bg-background px-4 text-sm font-medium hover:bg-accent"
+            className="h-12 rounded-md border bg-background px-4 text-sm font-medium hover:bg-accent"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </button>
+        </div>
+
+        {/* Large button for landscape/desktop touchscreens */}
+        <div className="hidden landscape:flex justify-end mt-2">
+          <button
+            type="button"
+            className="h-16 md:h-20 rounded-md border bg-background px-6 md:px-8 text-base md:text-lg font-medium hover:bg-accent"
             onClick={() => onOpenChange(false)}
           >
             Close
