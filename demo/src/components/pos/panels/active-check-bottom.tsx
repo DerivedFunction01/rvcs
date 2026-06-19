@@ -5,7 +5,14 @@ import {
 } from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
 import { ItemStatus } from "@/lib/vcs/types";
-import { Minus, Plus, ChevronDown, ArrowUpDown } from "lucide-react";
+import {
+  Minus,
+  Plus,
+  ChevronDown,
+  ArrowUpDown,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
 import { useEffect, useState, useRef } from "react";
@@ -21,6 +28,8 @@ export interface ActiveCheckBottomProps {
   compatibleModifiers: CatalogItemEntry[];
   onUpdateInlineQty: (sku: string, change: number) => void;
   projectedState: any;
+  onEditModifiers: (item: ProjectedLineItem) => void;
+  onRemoveModifier: (lineId: string) => void;
 }
 
 export function ActiveCheckBottom({
@@ -28,6 +37,8 @@ export function ActiveCheckBottom({
   catalog,
   onUpdateInlineQty,
   projectedState,
+  onEditModifiers,
+  onRemoveModifier,
 }: ActiveCheckBottomProps) {
   const formatNumber = useFormatNumber();
   const [padTarget, setPadTarget] = useState<"main" | "inline" | null>(null);
@@ -289,20 +300,32 @@ export function ActiveCheckBottom({
             )}
           </Button>
 
-          {/* Row 2: Placeholders for custom buttons */}
+          {/* Row 2: Action buttons */}
           <Button
             variant="outline"
-            disabled
-            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40 bg-background hover:bg-muted cursor-default"
+            disabled={selectedItems.length !== 1}
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-muted cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (selectedItems.length === 1 && item) {
+                onEditModifiers(item);
+              }
+            }}
           >
-            Action 1
+            <Pencil className="w-4 h-4 mb-1" />
+            <span>Modifiers</span>
           </Button>
           <Button
             variant="outline"
-            disabled
-            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40 bg-background hover:bg-muted cursor-default"
+            disabled={selectedItems.length === 0}
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-destructive/15 text-destructive disabled:text-muted-foreground/40 cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              selectedItems.forEach((i) => onRemoveModifier(i.lineId));
+            }}
           >
-            Action 2
+            <Trash2 className="w-4 h-4 mb-1" />
+            <span>Remove</span>
           </Button>
           <Button
             variant="outline"

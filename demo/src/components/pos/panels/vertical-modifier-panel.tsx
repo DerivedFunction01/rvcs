@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
-import type { CatalogItemEntry, ProjectedLineItem, SizeGroup } from "@/lib/vcs/types";
+import type {
+  CatalogItemEntry,
+  ProjectedLineItem,
+  SizeGroup,
+} from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
 import { usePreferencesStore } from "@/store/preferences-store";
 import { Scaling, Settings2, Sparkles } from "lucide-react";
@@ -91,7 +95,7 @@ export function VerticalModifierPanel({
   }
 
   const activeSizePrice = activeSizeChild
-    ? catalog[activeSizeChild.sku]?.basePrice ?? 0
+    ? (catalog[activeSizeChild.sku]?.basePrice ?? 0)
     : 0;
 
   // Ghost buttons to reserve rows/space and keep layout stable
@@ -103,220 +107,191 @@ export function VerticalModifierPanel({
       id="vertical-modifier-panel"
       className="w-56 border-r bg-card flex flex-col shrink-0 h-full overflow-hidden shadow-sm"
     >
-      {/* Header */}
-      <div className="p-3 border-b flex items-center justify-between bg-muted/20">
-        <div className="flex items-center gap-2 min-w-0">
-          <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
-          <h2 className="text-xs font-bold text-primary uppercase tracking-wider truncate">
-            Options: {item.name}
-          </h2>
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col justify-between p-3 space-y-4 overflow-y-auto">
+      <div className="flex-1 flex flex-col justify-start overflow-y-auto">
         {/* SIZE SECTION (TOP HALF) */}
-        <div className="flex-1 flex flex-col min-h-0 border rounded-lg p-2.5 bg-muted/5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <Scaling className="w-3.5 h-3.5 text-primary" />
-              {sizeGroup?.name || "Sizing"}
-            </span>
-            {sizeGroup && showDeltaPrice && (
-              <span className="text-[9px] font-mono text-muted-foreground/60">
-                base ${formatNumber(activeSizePrice, 2)}
-              </span>
-            )}
-          </div>
-
-          {!sizeGroup || sizeOptions.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center border border-dashed rounded-md bg-muted/5">
-              <span className="text-[10px] text-muted-foreground/60 font-medium">
-                No sizes available
-              </span>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col justify-between">
-              <div className="grid grid-cols-2 gap-1.5">
-                {pagedSizeOptions.map((opt) => {
-                  const isActive = activeSizeChild?.sku === opt.sku;
-                  const netPrice = catalogEntry.basePrice + opt.basePrice;
-                  const delta = opt.basePrice - activeSizePrice;
-                  const priceLabel = showDeltaPrice
-                    ? delta === 0
-                      ? null
-                      : `${delta > 0 ? "+" : "-"}$${formatNumber(
-                          Math.abs(delta),
-                          2,
-                        )}`
-                    : `$${formatNumber(netPrice, 2)}`;
-
-                  return (
-                    <Button
-                      key={opt.sku}
-                      variant={isActive ? "default" : "outline"}
-                      className={`h-11 flex flex-col items-center justify-center p-1.5 rounded-lg border transition-all text-center ${
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
-                          : "hover:bg-accent/40"
-                      }`}
-                      onClick={() => handleSizeChange(opt.sku)}
-                    >
-                      <span className="text-[10px] font-semibold truncate w-full">
-                        {opt.name}
-                      </span>
-                      {priceLabel && (
-                        <span className="text-[8px] font-mono opacity-80 mt-0.5 leading-none">
-                          {priceLabel}
-                        </span>
-                      )}
-                    </Button>
-                  );
-                })}
-
-                {/* Reserved ghost rows */}
-                {Array.from({ length: ghostSizeCount }).map((_, idx) => (
-                  <div
-                    key={`ghost-size-${idx}`}
-                    className="h-11 rounded-lg border border-dashed border-transparent opacity-0 pointer-events-none"
-                  />
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {sizeOptions.length > sizePageSize && (
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[10px] uppercase font-bold"
-                    onClick={() => setSizePage((prev) => Math.max(0, prev - 1))}
-                    disabled={sizePage === 0}
-                  >
-                    Prev
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[10px] uppercase font-bold"
-                    onClick={() => setSizePage((prev) => prev + 1)}
-                    disabled={(sizePage + 1) * sizePageSize >= sizeOptions.length}
-                  >
-                    Next
-                  </Button>
-                </div>
+        {sizeGroup && sizeOptions.length > 0 && (
+          <div className="flex flex-col min-h-0">
+            {/* Minimal Section Label */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/10 border-b text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+              <span>{sizeGroup?.name || "Sizing"}</span>
+              {showDeltaPrice && (
+                <span className="text-[9px] font-mono text-muted-foreground/60 normal-case font-normal">
+                  base ${formatNumber(activeSizePrice, 2)}
+                </span>
               )}
             </div>
-          )}
-        </div>
+
+            <div className="grid grid-cols-2 gap-px bg-border/80 border-b overflow-hidden">
+              {pagedSizeOptions.map((opt) => {
+                const isActive = activeSizeChild?.sku === opt.sku;
+                const netPrice = catalogEntry.basePrice + opt.basePrice;
+                const delta = opt.basePrice - activeSizePrice;
+                const priceLabel = showDeltaPrice
+                  ? delta === 0
+                    ? null
+                    : `${delta > 0 ? "+" : "-"}$${formatNumber(
+                        Math.abs(delta),
+                        2,
+                      )}`
+                  : `$${formatNumber(netPrice, 2)}`;
+
+                return (
+                  <Button
+                    key={opt.sku}
+                    variant={isActive ? "default" : "outline"}
+                    className={`h-16 flex flex-col items-center justify-center p-1.5 rounded-none border-0 shadow-none transition-all text-center cursor-pointer bg-background ${
+                      isActive
+                        ? "bg-primary text-primary-foreground font-bold"
+                        : "hover:bg-accent/40"
+                    }`}
+                    onClick={() => handleSizeChange(opt.sku)}
+                  >
+                    <span className="text-[10px] font-semibold truncate w-full">
+                      {opt.name}
+                    </span>
+                    {priceLabel && (
+                      <span className="text-[8px] font-mono opacity-80 mt-0.5 leading-none">
+                        {priceLabel}
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
+
+              {/* Reserved ghost rows */}
+              {Array.from({ length: ghostSizeCount }).map((_, idx) => (
+                <div
+                  key={`ghost-size-${idx}`}
+                  className="h-16 bg-background opacity-20 pointer-events-none"
+                />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {sizeOptions.length > sizePageSize && (
+              <div className="grid grid-cols-2 gap-px bg-border/80 border-b">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[10px] uppercase font-bold rounded-none border-0 bg-background cursor-pointer"
+                  onClick={() => setSizePage((prev) => Math.max(0, prev - 1))}
+                  disabled={sizePage === 0}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[10px] uppercase font-bold rounded-none border-0 bg-background cursor-pointer"
+                  onClick={() => setSizePage((prev) => prev + 1)}
+                  disabled={(sizePage + 1) * sizePageSize >= sizeOptions.length}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* MODIFIER STATES SECTION (BOTTOM HALF) */}
-        <div className="flex-1 flex flex-col min-h-0 border rounded-lg p-2.5 bg-muted/5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <Settings2 className="w-3.5 h-3.5 text-primary" />
-              Modifier State
-            </span>
-            {allowedStates.length > 0 && showDeltaPrice && (
-              <span className="text-[9px] font-mono text-muted-foreground/60">
-                base ${formatNumber(catalogEntry.basePrice, 2)}
-              </span>
-            )}
-          </div>
-
-          {allowedStates.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center border border-dashed rounded-md bg-muted/5">
-              <span className="text-[10px] text-muted-foreground/60 font-medium">
-                No modifiers available
-              </span>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col justify-between">
-              <div className="grid grid-cols-2 gap-1.5">
-                {pagedStates.map((stateOpt) => {
-                  const isActive =
-                    item.selectedModifierState === stateOpt.state;
-                  const hasPrice = stateOpt.priceOverride !== null;
-                  const netPrice =
-                    stateOpt.priceOverride ?? catalogEntry.basePrice;
-                  const delta = hasPrice
-                    ? netPrice - catalogEntry.basePrice
-                    : null;
-                  const priceLabel = hasPrice
-                    ? showDeltaPrice
-                      ? delta === 0
-                        ? null
-                        : `${delta! > 0 ? "+" : "-"}$${formatNumber(
-                            Math.abs(delta!),
-                            2,
-                          )}`
-                      : `$${formatNumber(netPrice, 2)}`
-                    : null;
-
-                  return (
-                    <Button
-                      key={stateOpt.state}
-                      variant={isActive ? "default" : "outline"}
-                      className={`h-11 flex flex-col items-center justify-center p-1.5 rounded-lg border transition-all text-center ${
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/30"
-                          : "hover:bg-accent/40"
-                      }`}
-                      onClick={() =>
-                        onUpdateModifierState(item.sku, stateOpt.state)
-                      }
-                    >
-                      <span className="text-[10px] font-semibold truncate w-full">
-                        {stateOpt.state}
-                      </span>
-                      {priceLabel && (
-                        <span className="text-[8px] font-mono opacity-80 mt-0.5 leading-none">
-                          {priceLabel}
-                        </span>
-                      )}
-                    </Button>
-                  );
-                })}
-
-                {/* Reserved ghost rows */}
-                {Array.from({ length: ghostStateCount }).map((_, idx) => (
-                  <div
-                    key={`ghost-state-${idx}`}
-                    className="h-11 rounded-lg border border-dashed border-transparent opacity-0 pointer-events-none"
-                  />
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {allowedStates.length > statePageSize && (
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[10px] uppercase font-bold"
-                    onClick={() => setStatePage((prev) => Math.max(0, prev - 1))}
-                    disabled={statePage === 0}
-                  >
-                    Prev
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[10px] uppercase font-bold"
-                    onClick={() => setStatePage((prev) => prev + 1)}
-                    disabled={(statePage + 1) * statePageSize >= allowedStates.length}
-                  >
-                    Next
-                  </Button>
-                </div>
+        {allowedStates.length > 0 && (
+          <div className="flex flex-col min-h-0">
+            {/* Minimal Section Label */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/10 border-b text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+              <span>Modifier State</span>
+              {showDeltaPrice && (
+                <span className="text-[9px] font-mono text-muted-foreground/60 normal-case font-normal">
+                  base ${formatNumber(catalogEntry.basePrice, 2)}
+                </span>
               )}
             </div>
-          )}
-        </div>
+
+            <div className="grid grid-cols-2 gap-px bg-border/80 border-b overflow-hidden">
+              {pagedStates.map((stateOpt) => {
+                const isActive = item.selectedModifierState === stateOpt.state;
+                const hasPrice = stateOpt.priceOverride !== null;
+                const netPrice =
+                  stateOpt.priceOverride ?? catalogEntry.basePrice;
+                const delta = hasPrice
+                  ? netPrice - catalogEntry.basePrice
+                  : null;
+                const priceLabel = hasPrice
+                  ? showDeltaPrice
+                    ? delta === 0
+                      ? null
+                      : `${delta! > 0 ? "+" : "-"}$${formatNumber(
+                          Math.abs(delta!),
+                          2,
+                        )}`
+                    : `$${formatNumber(netPrice, 2)}`
+                  : null;
+
+                return (
+                  <Button
+                    key={stateOpt.state}
+                    variant={isActive ? "default" : "outline"}
+                    className={`h-16 flex flex-col items-center justify-center p-1.5 rounded-none border-0 shadow-none transition-all text-center cursor-pointer bg-background ${
+                      isActive
+                        ? "bg-primary text-primary-foreground font-bold"
+                        : "hover:bg-accent/40"
+                    }`}
+                    onClick={() =>
+                      onUpdateModifierState(item.sku, stateOpt.state)
+                    }
+                  >
+                    <span className="text-[10px] font-semibold truncate w-full">
+                      {stateOpt.state}
+                    </span>
+                    {priceLabel && (
+                      <span className="text-[8px] font-mono opacity-80 mt-0.5 leading-none">
+                        {priceLabel}
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
+
+              {/* Reserved ghost rows */}
+              {Array.from({ length: ghostStateCount }).map((_, idx) => (
+                <div
+                  key={`ghost-state-${idx}`}
+                  className="h-16 bg-background opacity-20 pointer-events-none"
+                />
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {allowedStates.length > statePageSize && (
+              <div className="grid grid-cols-2 gap-px bg-border/80 border-b">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[10px] uppercase font-bold rounded-none border-0 bg-background cursor-pointer"
+                  onClick={() => setStatePage((prev) => Math.max(0, prev - 1))}
+                  disabled={statePage === 0}
+                >
+                  Prev
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-[10px] uppercase font-bold rounded-none border-0 bg-background cursor-pointer"
+                  onClick={() => setStatePage((prev) => prev + 1)}
+                  disabled={
+                    (statePage + 1) * statePageSize >= allowedStates.length
+                  }
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Delta/Net Toggle at bottom */}
       {item && (sizeGroup || allowedStates.length > 0) && (
-        <div className="p-3 border-t bg-muted/10 flex items-center justify-between">
+        <div className="p-3 border-t bg-muted/10 flex items-center justify-between shrink-0">
           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
             Price Mode
           </span>
@@ -324,7 +299,7 @@ export function VerticalModifierPanel({
             <button
               type="button"
               onClick={() => setShowDeltaPrice(true)}
-              className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+              className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
                 showDeltaPrice
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -335,7 +310,7 @@ export function VerticalModifierPanel({
             <button
               type="button"
               onClick={() => setShowDeltaPrice(false)}
-              className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+              className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
                 !showDeltaPrice
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"

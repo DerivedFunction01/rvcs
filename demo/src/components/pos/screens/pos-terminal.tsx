@@ -1162,6 +1162,8 @@ export function POSTerminalScreen({
               compatibleModifiers={compatibleModifiers}
               onUpdateInlineQty={handleUpdateInlineQty}
               projectedState={projectedState}
+              onEditModifiers={handleOpenModifierDialog}
+              onRemoveModifier={handleRemoveModifierInline}
             />
           </div>
           <VerticalActionsPanel
