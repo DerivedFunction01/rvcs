@@ -28,10 +28,12 @@ import { GlobalSettingsDialog } from "@/components/pos/dialogs/global-settings-d
 
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
 import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
+import { VerticalModifierPanel } from "@/components/pos/panels/vertical-modifier-panel";
 import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
-import { InlineModifierPanel } from "@/components/pos/panels/inline-modifier-panel";
+import { ActiveCheckBottom } from "@/components/pos/panels/active-check-bottom";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
 import { BulkActionsPanel } from "@/components/pos/panels/bulk-actions-panel";
+import { VerticalActionsPanel } from "@/components/pos/panels/vertical-actions-panel";
 
 import { OrderDefaultsDialog } from "@/components/pos/dialogs/order-defaults-dialog";
 import { GuestFilterDialog } from "@/components/pos/dialogs/filter-guest-dialog";
@@ -40,6 +42,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { getGuestColor } from "@/lib/pos/ui-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PosQtyDialogs } from "@/components/pos/screens/dialogs/pos-qty-dialogs";
 import { Badge } from "@/components/ui/badge";
@@ -303,6 +313,10 @@ export function POSTerminalScreen({
   const [globalSettingsOpen, setGlobalSettingsOpen] = React.useState(false);
   const [orderDefaultsOpen, setOrderDefaultsOpen] = React.useState(false);
   const [guestFilterOpen, setGuestFilterOpen] = React.useState(false);
+  const [catalogFilter, setCatalogFilter] = React.useState("");
+  const [requireTags, setRequireTags] = React.useState<Set<string>>(new Set());
+  const [avoidTags, setAvoidTags] = React.useState<Set<string>>(new Set());
+  const [catalogLayoutOpen, setCatalogLayoutOpen] = React.useState(false);
   const globalGuestPalette = usePreferencesStore(
     (state) => state.defaultPrefs.globalDepthColors,
   ) || ["#94a3b8"];
@@ -906,6 +920,57 @@ export function POSTerminalScreen({
               </span>
             </Button>
 
+            {/* Paying Guests Trigger */}
+            {(() => {
+              const breakdown = projectedState.financials.personBreakdown;
+              const sorted = [
+                ...breakdown.filter((pb: any) => pb.subtotal > 0),
+              ].sort((a, b) => b.subtotal - a.subtotal);
+              if (sorted.length === 0) return null;
+              return (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[10px] gap-1 px-2 bg-background border hover:bg-accent"
+                    >
+                      <User className="w-3 h-3 text-muted-foreground" />
+                      <span>Paying Guests ({sorted.length})</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Paying Guests Breakdown</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                      {sorted.map((pb: any) => (
+                        <div
+                          key={pb.person}
+                          className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{
+                                background: getGuestColor(pb.person, guests),
+                              }}
+                            />
+                            <span className="truncate font-medium">
+                              {resolveGuestName(pb.person)}
+                            </span>
+                          </div>
+                          <span className="font-mono font-semibold tabular-nums ml-2">
+                            ${formatNumber(pb.subtotal, 2, 10)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              );
+            })()}
+
             {/* Unified Order Defaults Dialog Trigger */}
             <Button
               variant="outline"
@@ -1116,53 +1181,82 @@ export function POSTerminalScreen({
             availableTags={availableTags}
             iconConfigs={iconConfigs}
             onAddItem={handleAddItem}
+            catalogFilter={catalogFilter}
+            setCatalogFilter={setCatalogFilter}
+            requireTags={requireTags}
+            setRequireTags={setRequireTags}
+            avoidTags={avoidTags}
+            setAvoidTags={setAvoidTags}
+            catalogLayoutOpen={catalogLayoutOpen}
+            setCatalogLayoutOpen={setCatalogLayoutOpen}
           />
-          <ActiveCheckPanel
-            activeBranch={activeBranch()}
-            mainBranchName={mainBranchName}
-            isMergedToMain={isMergedToMain}
-            isViewingHistory={isViewingHistory}
-            projectedState={projectedState}
-            guests={guests}
-            resolveGuestName={resolveGuestName}
-            toggleAllCollapsed={toggleAllCollapsed}
-            hasCollapsedItems={hasCollapsedItems}
-            hideCanceled={hideCanceled}
-            setHideCanceled={setHideCanceled}
-            canceledCount={canceledCount}
-            detailLevel={detailLevel}
-            isCompactMode={isCompactMode}
-            isMultiSelectMode={isMultiSelectMode}
-            setDetailLevel={setDetailLevel}
-            selectedPerson={selectedPerson}
-            filteredRootItems={filteredRootItems}
-            resolvedAllocations={resolvedAllocations}
-            defaultPaymentAllocId={defaultPaymentAllocId}
-            removeItem={removeItem}
-            handleOpenModifierDialog={handleOpenModifierDialog}
-            handleOpenNoteDialog={handleOpenNoteDialog}
-            handleAllocConfig={handleAllocConfig}
-            handleOpenSwapDialog={handleOpenSwapDialog}
-            modifierItems={modifierItems}
-            selectedLineIds={selectedLineIds}
-            setSelectedLineIds={setSelectedLineIds}
-            handleSelectToggle={handleSelectToggle}
-            collapsedItems={collapsedItems}
-            handleToggleCollapse={handleToggleCollapse}
-            checklistRef={checklistRef}
-          />
-          <InlineModifierPanel
+          <VerticalModifierPanel
             selectedItems={selectedItems}
             catalog={catalog}
             compatibleModifiers={compatibleModifiers}
-            onAddModifier={handleAddModifierInline}
+            onUpdateModifierState={handleUpdateModifierStateInline}
+          />
+          <div className="flex-1 flex flex-col min-w-0 min-h-0">
+            <ActiveCheckPanel
+              activeBranch={activeBranch()}
+              mainBranchName={mainBranchName}
+              isMergedToMain={isMergedToMain}
+              isViewingHistory={isViewingHistory}
+              projectedState={projectedState}
+              guests={guests}
+              resolveGuestName={resolveGuestName}
+              toggleAllCollapsed={toggleAllCollapsed}
+              hasCollapsedItems={hasCollapsedItems}
+              hideCanceled={hideCanceled}
+              setHideCanceled={setHideCanceled}
+              canceledCount={canceledCount}
+              detailLevel={detailLevel}
+              isCompactMode={isCompactMode}
+              isMultiSelectMode={isMultiSelectMode}
+              setDetailLevel={setDetailLevel}
+              selectedPerson={selectedPerson}
+              filteredRootItems={filteredRootItems}
+              resolvedAllocations={resolvedAllocations}
+              defaultPaymentAllocId={defaultPaymentAllocId}
+              removeItem={removeItem}
+              handleOpenModifierDialog={handleOpenModifierDialog}
+              handleOpenNoteDialog={handleOpenNoteDialog}
+              handleAllocConfig={handleAllocConfig}
+              handleOpenSwapDialog={handleOpenSwapDialog}
+              modifierItems={modifierItems}
+              selectedLineIds={selectedLineIds}
+              setSelectedLineIds={setSelectedLineIds}
+              handleSelectToggle={handleSelectToggle}
+              collapsedItems={collapsedItems}
+              handleToggleCollapse={handleToggleCollapse}
+              checklistRef={checklistRef}
+            />
+            <ActiveCheckBottom
+              selectedItems={selectedItems}
+              catalog={catalog}
+              compatibleModifiers={compatibleModifiers}
+              onUpdateInlineQty={handleUpdateInlineQty}
+              projectedState={projectedState}
+            />
+          </div>
+          <VerticalActionsPanel
+            catalogFilter={catalogFilter}
+            setCatalogFilter={setCatalogFilter}
+            requireTags={requireTags}
+            setRequireTags={setRequireTags}
+            avoidTags={avoidTags}
+            setAvoidTags={setAvoidTags}
+            availableTags={availableTags}
+            iconConfigs={iconConfigs}
+            selectedItems={selectedItems}
+            catalog={catalog}
+            compatibleModifiers={compatibleModifiers}
+            projectedState={projectedState}
+            onRemoveModifier={handleRemoveModifierInline}
             onEditModifiers={handleOpenModifierDialog}
             onAllocConfig={handleAllocConfig}
             onSwapComboChoice={handleOpenSwapDialog}
-            onRemoveModifier={handleRemoveModifierInline}
             onGroupNoteOpen={handleOpenGroupNoteDialog}
-            onUpdateModifierState={handleUpdateModifierStateInline}
-            onUpdateInlineQty={handleUpdateInlineQty}
           />
           <BulkActionsPanel
             selectedLineIds={selectedLineIds}

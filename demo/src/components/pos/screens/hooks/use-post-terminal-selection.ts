@@ -10,7 +10,9 @@ export function usePostTerminalSelection(
   currentBranchName: string,
   viewingHash: string | null,
 ) {
-  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(new Set());
+  const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
+    new Set(),
+  );
   const checklistRef = useRef<HTMLDivElement | null>(null);
   const bulkActionsBarRef = useRef<HTMLDivElement | null>(null);
 
@@ -56,15 +58,17 @@ export function usePostTerminalSelection(
       if (
         target.closest("[data-radix-portal]") ||
         target.closest("[data-radix-popper-content-wrapper]") ||
-        target.closest("[role=\"listbox\"]") ||
-        target.closest("[role=\"combobox\"]") ||
-        target.closest("[role=\"dialog\"]") ||
-        target.closest("[role=\"menu\"]") ||
+        target.closest('[role="listbox"]') ||
+        target.closest('[role="combobox"]') ||
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="menu"]') ||
         target.closest(".bg-popover") ||
         target.closest(".radix-select-content") ||
         target.closest("#bulk-actions") ||
         target.closest("#bulk-actions-toggle") ||
-        target.closest("#inline-mod-panel")
+        target.closest("#active-check-bottom") ||
+        target.closest("#vertical-actions-panel") ||
+        target.closest("#vertical-modifier-panel")
       )
         return;
 
@@ -72,7 +76,8 @@ export function usePostTerminalSelection(
     };
 
     document.addEventListener("click", handleClickOutside, true);
-    return () => document.removeEventListener("click", handleClickOutside, true);
+    return () =>
+      document.removeEventListener("click", handleClickOutside, true);
   }, [selectedLineIds]);
 
   return {

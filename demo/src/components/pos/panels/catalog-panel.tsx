@@ -44,6 +44,14 @@ export function CatalogPanel({
   availableTags,
   iconConfigs,
   onAddItem,
+  catalogFilter,
+  setCatalogFilter,
+  requireTags,
+  setRequireTags,
+  avoidTags,
+  setAvoidTags,
+  catalogLayoutOpen,
+  setCatalogLayoutOpen,
 }: {
   repoId: string;
   catalogItems: CatalogItemEntry[];
@@ -51,6 +59,14 @@ export function CatalogPanel({
   availableTags: string[];
   iconConfigs: Record<string, IconConfig>;
   onAddItem: (sku: string) => void;
+  catalogFilter: string;
+  setCatalogFilter: Dispatch<SetStateAction<string>>;
+  requireTags: Set<string>;
+  setRequireTags: Dispatch<SetStateAction<Set<string>>>;
+  avoidTags: Set<string>;
+  setAvoidTags: Dispatch<SetStateAction<Set<string>>>;
+  catalogLayoutOpen: boolean;
+  setCatalogLayoutOpen: Dispatch<SetStateAction<boolean>>;
 }) {
   const getPreferences = usePreferencesStore((state) => state.getPreferences);
   const updateRepoPreferences = usePreferencesStore(
@@ -58,13 +74,9 @@ export function CatalogPanel({
   );
   const prefs = getPreferences(repoId);
 
-  const [catalogFilter, setCatalogFilter] = useState("");
-  const [requireTags, setRequireTags] = useState<Set<string>>(new Set());
-  const [avoidTags, setAvoidTags] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
   const [categoryPage, setCategoryPage] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [catalogLayoutOpen, setCatalogLayoutOpen] = useState(false);
 
   const formatNumber = useFormatNumber();
   const detailDisplay = prefs.catalogDetailDisplay;
@@ -192,24 +204,6 @@ export function CatalogPanel({
     <aside
       className={`${widthClass} border-r bg-card flex flex-col shrink-0 h-full overflow-hidden`}
     >
-      {/* Top Filter and Search Controls */}
-      {SearchControls(
-        setCatalogLayoutOpen,
-        detailDisplay,
-        navigationMode,
-        categoryMode,
-        gridRows,
-        gridCols,
-        catalogFilter,
-        setCatalogFilter,
-        requireTags,
-        avoidTags,
-        setRequireTags,
-        setAvoidTags,
-        availableTags,
-        iconConfigs,
-        flatFilteredItems,
-      )}
 
       {/* Main Panel Content split into Column Layout */}
       <div className="flex-1 min-h-0 flex flex-row p-2 gap-3 dynamic-content-area">
@@ -402,162 +396,7 @@ function getCategoryColumn(
     </div>
   );
 }
-function SearchControls(
-  setCatalogLayoutOpen: Dispatch<SetStateAction<boolean>>,
-  detailDisplay: CatalogDetailDisplayPrefs,
-  navigationMode: CatalogNavigationMode,
-  categoryMode: CatalogCategoryMode,
-  gridRows: number,
-  gridCols: number,
-  catalogFilter: string,
-  setCatalogFilter: Dispatch<SetStateAction<string>>,
-  requireTags: Set<string>,
-  avoidTags: Set<string>,
-  setRequireTags: Dispatch<SetStateAction<Set<string>>>,
-  setAvoidTags: Dispatch<SetStateAction<Set<string>>>,
-  availableTags: string[],
-  iconConfigs: Record<string, IconConfig>,
-  flatFilteredItems: CatalogRow[],
-) {
-  return (
-    <div className="p-3 border-b space-y-2 shrink-0">
-      {/* <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Catalog
-        </h2>
-         <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            className="h-6 w-30 text-[10px] px-2 justify-between gap-2"
-            onClick={() => setCatalogLayoutOpen(true)}
-          >
-            <span>Layout</span>
-            <span className="text-muted-foreground truncate">
-              {summarizeCatalogLayout(
-                detailDisplay,
-                navigationMode,
-                categoryMode,
-                gridRows,
-                gridCols,
-              )}
-            </span>
-          </Button>
-        </div>
-      </div> */}
 
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 flex-1 relative">
-          <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search items..."
-            value={catalogFilter}
-            onChange={(e) => setCatalogFilter(e.target.value)}
-            className="h-8 text-xs pl-8"
-          />
-        </div>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={`h-6 text-[10px] px-2 gap-1.5 ${requireTags.size > 0 || avoidTags.size > 0 ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
-            >
-              <Filter className="w-3 h-3" />
-              {requireTags.size > 0 || avoidTags.size > 0
-                ? `Filters (${requireTags.size + avoidTags.size})`
-                : "Filters"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-2" align="start">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between px-1 pb-1 border-b">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Filter Items
-                </span>
-                {(requireTags.size > 0 || avoidTags.size > 0) && (
-                  <Button
-                    variant="link"
-                    className="h-auto p-0 text-[10px]"
-                    onClick={() => {
-                      setRequireTags(new Set());
-                      setAvoidTags(new Set());
-                    }}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-              <div className="max-h-64 overflow-y-auto pt-1 space-y-1">
-                {availableTags.map((tag) => {
-                  const config = iconConfigs[tag];
-                  const Icon = config
-                    ? (LucideIcons as any)[config.icon] || LucideIcons.Info
-                    : LucideIcons.Info;
-                  const isRequired = requireTags.has(tag);
-                  const isAvoided = avoidTags.has(tag);
-                  let stateClass = "hover:bg-accent text-foreground";
-                  let iconColor = config
-                    ? config.color
-                    : "text-muted-foreground";
-                  if (isRequired) {
-                    stateClass =
-                      "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
-                    iconColor = "text-emerald-600 dark:text-emerald-400";
-                  } else if (isAvoided) {
-                    stateClass =
-                      "bg-rose-500/10 text-rose-700 dark:text-rose-400";
-                    iconColor = "text-rose-600 dark:text-rose-400";
-                  }
-
-                  return (
-                    <button
-                      key={tag}
-                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${stateClass}`}
-                      onClick={() => {
-                        if (!isRequired && !isAvoided) {
-                          setRequireTags((prev) => new Set(prev).add(tag));
-                        } else if (isRequired) {
-                          setRequireTags((prev) => {
-                            const n = new Set(prev);
-                            n.delete(tag);
-                            return n;
-                          });
-                          setAvoidTags((prev) => new Set(prev).add(tag));
-                        } else if (isAvoided) {
-                          setAvoidTags((prev) => {
-                            const n = new Set(prev);
-                            n.delete(tag);
-                            return n;
-                          });
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
-                        <span className="text-xs font-medium capitalize">
-                          {config ? config.label : formatLabel(tag)}
-                        </span>
-                      </div>
-                      {isRequired && (
-                        <Plus className="w-3.5 h-3.5 opacity-70" />
-                      )}
-                      {isAvoided && (
-                        <Minus className="w-3.5 h-3.5 opacity-70" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-        {/* <div className="text-[10px] text-muted-foreground ml-auto">
-          {flatFilteredItems.length} items
-        </div> */}
-      </div>
-    </div>
-  );
-}
 
 function summarizeCatalogLayout(
   detailDisplay: CatalogDetailDisplayPrefs,

@@ -7,8 +7,6 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useVCSStore } from "@/store/vcs-store";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
-import { POSHeaderPanel } from "@/components/pos/panels/pos-header-panel";
-
 export function ActiveCheckPanel(props: any) {
   const {
     activeBranch,
@@ -42,13 +40,7 @@ export function ActiveCheckPanel(props: any) {
   const formatNumber = useFormatNumber();
 
   return (
-    <main className="flex-1 flex flex-col min-w-0">
-      <POSHeaderPanel
-        projectedState={projectedState}
-        guests={guests}
-        resolveGuestName={resolveGuestName}
-        formatNumber={formatNumber}
-      />
+    <main className="flex-1 flex flex-col min-w-0 min-h-0">
       {(activeBranch === mainBranchName || isMergedToMain) &&
         !isViewingHistory && (
           <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200/50 dark:border-amber-900/50 px-6 py-2.5 flex items-start gap-2.5 shrink-0">
