@@ -24,7 +24,7 @@ import { SplitQtyUnit } from "@/lib/pos/types";
 export interface PaymentSplitEntry {
   entity: string;
   strategyType: PaymentStrategyType;
-  value: number; // Always stored internally as the base PER-UNIT (per-seat) value
+  value: number; // Stored internally as the base PER-UNIT (per-seat) value
   method?: string | null;
   multiplier?: number;
   multiplierMode?: SplitQtyUnit; // SplitQtyUnit.PerUnit (each pays X), SplitQtyUnit.Collective (group pays X total)
@@ -89,11 +89,10 @@ function ChoiceDialog({
                   onSelect(option.value);
                   onOpenChange(false);
                 }}
-                className={`min-h-12 md:min-h-14 rounded-xl border px-4 py-3 text-left text-sm md:text-base transition-all ${
-                  active
+                className={`min-h-12 md:min-h-14 rounded-xl border px-4 py-3 text-left text-sm md:text-base transition-all ${active
                     ? "border-primary bg-primary/5 font-semibold shadow-sm"
                     : "border-border bg-card hover:bg-accent"
-                }`}
+                  }`}
               >
                 {option.label}
               </button>
@@ -140,10 +139,10 @@ function SplitControlSet({
 
   return (
     <>
-      <div className={`flex flex-wrap items-center gap-2 ${compact ? "w-full" : ""}`}>
+      <div className={`flex flex-wrap items-center gap-2 ${compact ? "w-full sm:w-auto" : ""}`}>
         <button
           type="button"
-          className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-28 md:min-w-32 hover:bg-accent transition-colors"
+          className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-28 md:min-w-32 hover:bg-accent transition-colors shrink-0"
           onClick={() => setStrategyOpen(true)}
         >
           <div className="flex flex-col items-start gap-0.5">
@@ -154,7 +153,7 @@ function SplitControlSet({
 
         <button
           type="button"
-          className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-28 md:min-w-32 hover:bg-accent transition-colors"
+          className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-28 md:min-w-32 hover:bg-accent transition-colors shrink-0"
           onClick={() => setMethodOpen(true)}
         >
           <div className="flex flex-col items-start gap-0.5">
@@ -166,7 +165,7 @@ function SplitControlSet({
         {!hideValue && (
           <button
             type="button"
-            className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-24 md:min-w-28 font-mono hover:bg-accent transition-colors flex items-center justify-between gap-2"
+            className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-24 md:min-w-28 font-mono hover:bg-accent transition-colors flex items-center justify-between gap-2 shrink-0"
             onClick={onValueClick}
           >
             <div className="flex flex-col items-start gap-0.5 min-w-0">
@@ -252,12 +251,10 @@ function redistributePercentages(
   updated.forEach((s) => {
     const mode = s.multiplierMode ?? SplitQtyUnit.PerUnit;
     const mult = s.multiplier ?? 1;
-    
+
     if (mode === SplitQtyUnit.Collective) {
-      // The whole group gets 1 equal weight unit, split internally
       s.value = Math.round((baseUnitPercent / mult) * 1000) / 1000;
     } else {
-      // Each seat in the group represents 1 distinct weight unit
       s.value = Math.round(baseUnitPercent * 1000) / 1000;
     }
   });
@@ -415,8 +412,7 @@ export function SplitEditor({
   );
   const [quickAddMethod, setQuickAddMethod] = useState<string>("any");
   const [quickAddValue, setQuickAddValue] = useState<string>("");
-  
-  // Pad targets updated to support multiplier editing inside main rows
+
   const [padTarget, setPadTarget] = useState<
     | { type: "split"; index: number }
     | { type: "quick-add" }
@@ -489,7 +485,7 @@ export function SplitEditor({
         {
           entity: trimmed,
           multiplier,
-          multiplierMode: SplitQtyUnit.PerUnit as const, // default to per-unit on add
+          multiplierMode: SplitQtyUnit.PerUnit as const,
           strategyType: quickAddStrategy,
           value: isAutoPercent ? 0 : valueToUse,
           method: quickAddMethod === "any" ? null : quickAddMethod,
@@ -525,7 +521,7 @@ export function SplitEditor({
         newSplits.push({
           entity: trimmed,
           multiplier: Math.max(1, entry.multiplier),
-          multiplierMode: SplitQtyUnit.PerUnit as const, // default
+          multiplierMode: SplitQtyUnit.PerUnit as const,
           strategyType: quickAddStrategy,
           value: 0,
           method: quickAddMethod === "any" ? null : quickAddMethod,
@@ -608,17 +604,11 @@ export function SplitEditor({
     (index: number, mode: SplitQtyUnit.PerUnit | SplitQtyUnit.Collective) => {
       const updated = [...splits];
       const entry = updated[index];
-      const mult = entry.multiplier ?? 1;
 
       if (entry.multiplierMode === mode) return;
 
-      if (mode === SplitQtyUnit.Collective) {
-        entry.multiplierMode = SplitQtyUnit.Collective;
-      } else {
-        entry.multiplierMode = SplitQtyUnit.PerUnit;
-      }
+      entry.multiplierMode = mode;
 
-      // If everyone is on percentages, run the redistribution engine
       if (updated.every((s) => s.strategyType === PaymentStrategyType.Percentage)) {
         const redistributed = redistributePercentages(updated);
         onChange(redistributed);
@@ -631,7 +621,7 @@ export function SplitEditor({
 
   return (
     <div className="space-y-4">
-      
+
       {/* Dynamic Global Action Bar */}
       <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-xl border border-border/50">
         <div className="space-y-0.5">
@@ -642,12 +632,13 @@ export function SplitEditor({
           variant="outline"
           size="sm"
           onClick={handleDistributeEqually}
-          className="h-8 text-xs px-3 font-semibold"
+          className="h-12 md:h-14 text-sm px-3 font-semibold"
         >
           Distribute Equally
         </Button>
       </div>
 
+      { }
       {/* Existing Splits List */}
       <div className="space-y-3">
         {splits.map((split, idx) => {
@@ -666,70 +657,67 @@ export function SplitEditor({
           return (
             <div
               key={`${split.entity}-${idx}`}
-              className="flex flex-col xl:flex-row xl:items-start gap-4 rounded-xl border bg-card p-4 md:p-5 shadow-sm hover:shadow-md/5 transition-all"
+              className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl border bg-card p-4 md:p-5 shadow-sm hover:shadow-md/5 transition-all"
             >
-              {/* Entity Info Section */}
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold truncate text-foreground">{split.entity}</span>
-                  
-                  {/* INTERACTIVE MULTIPLIER BUTTONS */}
-                  {hasMult ? (
-                    <button
-                      type="button"
-                      onClick={() => setPadTarget({ type: "multiplier", index: idx })}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-mono font-bold hover:bg-primary/20 transition-all border border-primary/10 hover:border-primary/20 active:scale-95"
-                      title="Edit number of seats"
-                    >
-                      <Users className="w-3.5 h-3.5" />
-                      x{mult} seats
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPadTarget({ type: "multiplier", index: idx })}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-dashed text-muted-foreground hover:text-primary hover:border-primary/50 text-[10px] font-semibold transition-all hover:bg-primary/5 active:scale-95"
-                      title="Add multi-seat parameters"
-                    >
-                      + Add seats
-                    </button>
-                  )}
+              {/* Left Column: Identity & Granular Configuration Buttons */}
+              <div className="flex-1 min-w-0 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-base font-bold text-foreground truncate">{split.entity}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Guest Configuration</span>
+                  </div>
+
+                  {/* Premium-styled Seats Button (Matches height of right side card buttons) */}
+                  <button
+                    type="button"
+                    onClick={() => setPadTarget({ type: "multiplier", index: idx })}
+                    className="h-12 md:h-14 rounded-lg border bg-background px-3 md:px-4 text-xs md:text-sm font-semibold text-left min-w-28 hover:bg-accent transition-colors flex items-center justify-between gap-3 active:scale-[0.98]"
+                    title="Edit number of seats"
+                  >
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Seats</span>
+                      <span className="truncate font-mono font-bold text-primary text-sm">x{mult}</span>
+                    </div>
+                    <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </button>
                 </div>
 
-                {/* Granular Individual Row Multiplier Selector */}
+                {/* Multiplier Logic Segmented Button (Sized/Styled to eliminate deadspace) */}
                 {hasMult ? (
                   <div className="flex flex-col gap-1.5 pt-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Multiplier logic</span>
-                    <div className="flex gap-0.5 bg-muted p-1 rounded-lg border w-fit">
+                    <div className="flex h-12 md:h-14 bg-muted/60 p-1 rounded-lg border border-border/60 w-full sm:max-w-md">
                       <button
                         type="button"
                         onClick={() => handleRowMultiplierModeToggle(idx, SplitQtyUnit.PerUnit)}
-                        className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${mode === SplitQtyUnit.PerUnit
-                            ? "bg-background shadow-sm text-foreground font-semibold"
+                        className={`flex-1 h-full rounded-md transition-all flex flex-col justify-center items-start px-3 ${mode === SplitQtyUnit.PerUnit
+                            ? "bg-background shadow-sm text-foreground border border-border/40 font-semibold"
                             : "text-muted-foreground hover:text-foreground"
                           }`}
                       >
-                        Per Seat ({unitLabel}{formatNumber(split.value, 2)} each)
+                        <span className="text-[9px] uppercase tracking-wider font-semibold opacity-80 leading-none">Per Seat</span>
+                        <span className="font-mono text-xs font-bold mt-0.5">{unitLabel}{formatNumber(split.value, 2)} each</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRowMultiplierModeToggle(idx, SplitQtyUnit.Collective)}
-                        className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${mode === SplitQtyUnit.Collective
-                            ? "bg-background shadow-sm text-foreground font-semibold"
+                        className={`flex-1 h-full rounded-md transition-all flex flex-col justify-center items-start px-3 ${mode === SplitQtyUnit.Collective
+                            ? "bg-background shadow-sm text-foreground border border-border/40 font-semibold"
                             : "text-muted-foreground hover:text-foreground"
                           }`}
                       >
-                        Collective Total ({unitLabel}{formatNumber(split.value * mult, 2)} group)
+                        <span className="text-[9px] uppercase tracking-wider font-semibold opacity-80 leading-none">Collective</span>
+                        <span className="font-mono text-xs font-bold mt-0.5">{unitLabel}{formatNumber(split.value * mult, 2)} group</span>
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Single payer</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider block font-semibold">Single seat payer</span>
                 )}
               </div>
 
-              {/* Controls and Inputs */}
-              <div className="flex flex-col gap-3 xl:items-end shrink-0 w-full xl:w-auto">
+              {/* Right Column: Premium Form Selection Controls */}
+              <div className="flex flex-col gap-3 lg:items-end shrink-0 w-full lg:w-auto">
                 <SplitControlSet
                   strategyType={split.strategyType}
                   method={split.method}
@@ -760,7 +748,7 @@ export function SplitEditor({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-10 w-10 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                        className="h-10 w-10 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg active:scale-95"
                         onClick={() => handleRemoveSplitEntry(idx)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -956,7 +944,7 @@ export function SplitEditor({
               const idx = padTarget.index;
               const updated = [...splits];
               const entry = updated[idx];
-              
+
               const oldMult = entry.multiplier ?? 1;
               const newMult = Math.max(1, Math.round(val)); // Must be integer >= 1
 
