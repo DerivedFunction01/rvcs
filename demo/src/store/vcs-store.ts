@@ -41,6 +41,7 @@ import {
   PaymentUpdateMode,
   ConfigUpdateMode,
   SplitQtyType,
+  PosScreen,
 } from "@/lib/pos/types";
 import { generateAllocationId, generateLineId } from "@/lib/vcs/id";
 import { generateDraftBranchName } from "@/lib/pos/id";
@@ -166,6 +167,8 @@ interface VCSStore {
   orderContext: OrderContext | null;
   defaultPaymentMethod: string; // from POS config
   preferences: Record<string, unknown>;
+  currentScreen: PosScreen;
+  setScreen: (screen: PosScreen) => void;
 
   // Default Allocation IDs (shared across items)
   defaultAssignmentAllocId: string | null;
@@ -392,7 +395,9 @@ interface VCSStore {
   setItemsQty: (lineIds: string[], targetQty: number) => void;
   mergeItems: (lineIds: string[]) => string[];
   breakItems: (lineIds: string[]) => string[];
-  combineItems: (requests: { comboSku: string; qty: number; assignments: any[] }[]) => string[];
+  combineItems: (
+    requests: { comboSku: string; qty: number; assignments: any[] }[],
+  ) => string[];
   splitItemsQty: (
     lineIds: string[],
     type: SplitQtyType,
@@ -412,6 +417,7 @@ interface VCSStore {
   // Actions — Branching
   createBranch: (name: string, fromCommitHash?: string | null) => void;
   checkoutBranch: (name: string) => void;
+  deleteBranch: (name: string) => void;
   viewRevision: (hash: string | null) => void; // null = HEAD
   setMainActiveBranch: (name: string) => void;
   mainActiveBranch: () => string;
@@ -431,6 +437,7 @@ interface VCSStore {
     targetBranch: string,
     resolutionDeltas: Delta[],
   ) => void;
+  autoMergeActiveBranchToMain: () => boolean;
 
   // Actions — History Management
   /**
@@ -469,6 +476,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     orderContext: null,
     defaultPaymentMethod: "cash",
     preferences: {},
+    currentScreen: PosScreen.Terminal,
+    setScreen: (screen) => set({ currentScreen: screen }),
 
     // ─── Default Allocation IDs ─────────────────────────────────────────────
     defaultAssignmentAllocId: null,
@@ -672,6 +681,14 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       newEngine.createBranch(draftBranchName, "main");
       newEngine.checkout(draftBranchName);
 
+      const nextPreferences = {
+        ...store.preferences,
+        branchContexts: {
+          ...((store.preferences.branchContexts as Record<string, any>) || {}),
+          [draftBranchName]: orderContext,
+        },
+      };
+
       set({
         engine: newEngine,
         projectedState: evaluateBusinessRules(
@@ -683,6 +700,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         isInitialized: true,
         orderContext,
         defaultPaymentMethod,
+        preferences: nextPreferences,
         defaultAssignmentAllocId: assignAllocId,
         defaultPaymentAllocId: mainPayAllocId,
         activePaymentConfigId: activePayGroupId,
@@ -746,8 +764,18 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const repo = store.engine.getRepo();
       repo.orderContext = updatedContext;
 
+      const active = store.engine.getActiveBranch();
+      const updatedPrefs = {
+        ...store.preferences,
+        branchContexts: {
+          ...((store.preferences.branchContexts as Record<string, any>) || {}),
+          [active]: updatedContext,
+        },
+      };
+
       set({
         orderContext: updatedContext,
+        preferences: updatedPrefs,
       });
       store.persist();
     },
@@ -763,8 +791,18 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const repo = store.engine.getRepo();
       repo.orderContext = updatedContext;
 
+      const active = store.engine.getActiveBranch();
+      const updatedPrefs = {
+        ...store.preferences,
+        branchContexts: {
+          ...((store.preferences.branchContexts as Record<string, any>) || {}),
+          [active]: updatedContext,
+        },
+      };
+
       set({
         orderContext: updatedContext,
+        preferences: updatedPrefs,
       });
       store.persist();
     },
@@ -789,7 +827,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     guests: () => {
       const state = get().projectedState;
-      const guestsList: Array<{ id: string; name: string; multiplier?: number }> = [];
+      const guestsList: Array<{
+        id: string;
+        name: string;
+        multiplier?: number;
+      }> = [];
       for (const alloc of Object.values(state.allocations)) {
         if (alloc.type === AllocationType.Assignment && !alloc.hidden) {
           if (alloc.allocationId.startsWith("alloc-assign-")) {
@@ -865,7 +907,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const alloc = store.projectedState.allocations[id];
       if (alloc && alloc.type === AllocationType.Assignment) {
-      const updatedAlloc: AssignmentAllocation = {
+        const updatedAlloc: AssignmentAllocation = {
           ...alloc,
           entity: name,
         };
@@ -1554,7 +1596,11 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         "pos-ui",
       );
       set({
-        projectedState: evaluateBusinessRules(store.engine.projectCurrent(), store.chargeRules, store.catalog),
+        projectedState: evaluateBusinessRules(
+          store.engine.projectCurrent(),
+          store.chargeRules,
+          store.catalog,
+        ),
       });
       store.persist();
       return correlationId;
@@ -2301,7 +2347,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
 
         const increment = catalogEntry?.mainQtyIncrement ?? 1;
-        
+
         const finalQty = snapQty(afterQty, increment);
 
         if (finalQty <= 0) {
@@ -2309,10 +2355,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           return;
         }
 
-        if (
-          item.status === ItemStatus.Confirmed &&
-          finalQty > beforeQty
-        ) {
+        if (item.status === ItemStatus.Confirmed && finalQty > beforeQty) {
           const change = finalQty - beforeQty;
           const deltas: Delta[] = [];
 
@@ -2528,7 +2571,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
 
       if (lockedSkipped) {
-        toast.error("Some items were skipped because their main quantity is locked.");
+        toast.error(
+          "Some items were skipped because their main quantity is locked.",
+        );
       }
 
       if (deltas.length > 0) {
@@ -2548,7 +2593,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         if (item) {
           const catalogEntry = store.catalog[item.sku];
           const increment = catalogEntry?.mainQtyIncrement ?? 1;
-          
+
           const finalQty = snapQty(targetQty, increment);
 
           if (isMainQtyLocked(catalogEntry, finalQty)) {
@@ -2579,7 +2624,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
 
       if (lockedSkipped) {
-        toast.error("Some items were skipped because their main quantity is locked.");
+        toast.error(
+          "Some items were skipped because their main quantity is locked.",
+        );
       }
 
       if (deltas.length > 0) {
@@ -2659,13 +2706,15 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
 
       if (lockedSkipped) {
-        toast.error("Some items could not be merged because their main quantity is locked.");
+        toast.error(
+          "Some items could not be merged because their main quantity is locked.",
+        );
       }
 
       if (deltas.length > 0) {
         store.commitDeltas(deltas, "pos-ui");
       }
-      
+
       return survivorIds;
     },
 
@@ -2680,7 +2729,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         if (!item || item.status === ItemStatus.Canceled) continue;
 
         const entry = store.catalog[item.sku];
-        if (!entry || !entry.comboChoices || entry.comboChoices.length === 0) continue;
+        if (!entry || !entry.comboChoices || entry.comboChoices.length === 0)
+          continue;
 
         let broken = false;
         for (const child of item.children) {
@@ -2694,7 +2744,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
               rootAllocations: item.allocations,
             });
             const addRootDelta = cloneDeltas.find(
-              (d) => d.action === DeltaActionType.AddItem && d.parentLineId === null,
+              (d) =>
+                d.action === DeltaActionType.AddItem && d.parentLineId === null,
             ) as Extract<Delta, { action: DeltaActionType.AddItem }>;
             if (addRootDelta) newLineIds.push(addRootDelta.lineId);
             deltas.push(...cloneDeltas);
@@ -2742,13 +2793,16 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         for (const slot of req.assignments) {
           const unitItem = slot.unit.item;
           const neededQty = slot.reqQty;
-          
+
           buildCloneDeltas(unitItem, comboLineId, unitItem.qty, deltas, {
             overrideRootQty: neededQty,
           });
-          
+
           const totalConsumption = req.qty * neededQty;
-          consumption.set(unitItem.lineId, (consumption.get(unitItem.lineId) || 0) + totalConsumption);
+          consumption.set(
+            unitItem.lineId,
+            (consumption.get(unitItem.lineId) || 0) + totalConsumption,
+          );
         }
       }
 
@@ -2756,9 +2810,18 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const item = state.items[lineId];
         if (item) {
           if (consumedQty >= item.qty - 0.0001) {
-            deltas.push({ action: DeltaActionType.RemoveItem, lineId, qty: item.qty });
+            deltas.push({
+              action: DeltaActionType.RemoveItem,
+              lineId,
+              qty: item.qty,
+            });
           } else {
-            deltas.push({ action: DeltaActionType.ModifyQty, lineId, beforeQty: item.qty, afterQty: Math.round((item.qty - consumedQty) * 1000) / 1000 });
+            deltas.push({
+              action: DeltaActionType.ModifyQty,
+              lineId,
+              beforeQty: item.qty,
+              afterQty: Math.round((item.qty - consumedQty) * 1000) / 1000,
+            });
           }
         }
       }
@@ -2838,7 +2901,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
 
       if (lockedSkipped) {
-        toast.error("Some items were skipped because their main quantity is locked.");
+        toast.error(
+          "Some items were skipped because their main quantity is locked.",
+        );
       }
       if (zeroSkipped) {
         toast.error("Quantity cannot be zero.");
@@ -2866,54 +2931,57 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             continue;
           }
           if (item.qty > splitQty) {
-          const catalogEntry = store.catalog[item.sku];
+            const catalogEntry = store.catalog[item.sku];
 
-          if (isMainQtyLocked(catalogEntry)) {
-            lockedSkipped = true;
-            continue;
-          }
-          
-          let remainingQty = item.qty;
-          const pieces: number[] = [];
-          while (remainingQty > 0.0001) { // Floating point mitigation
-            if (remainingQty >= splitQty) {
-              pieces.push(splitQty);
-              remainingQty -= splitQty;
-            } else {
-              pieces.push(Math.round(remainingQty * 1000) / 1000);
-              remainingQty = 0;
+            if (isMainQtyLocked(catalogEntry)) {
+              lockedSkipped = true;
+              continue;
             }
-          }
 
-          if (pieces.length > 1) {
-            deltas.push({
-              action: DeltaActionType.ModifyQty,
-              lineId,
-              beforeQty: item.qty,
-              afterQty: pieces[0],
-            });
-
-            for (let i = 1; i < pieces.length; i++) {
-              const cloneDeltas: Delta[] = [];
-              buildCloneDeltas(item, null, 1, cloneDeltas, {
-                overrideRootQty: pieces[i],
-              });
-              if (cloneDeltas.length > 0) {
-                const addedRootDelta = cloneDeltas[0] as Extract<
-                  Delta,
-                  { action: DeltaActionType.AddItem }
-                >;
-                newLineIds.push(addedRootDelta.lineId);
-                deltas.push(...cloneDeltas);
+            let remainingQty = item.qty;
+            const pieces: number[] = [];
+            while (remainingQty > 0.0001) {
+              // Floating point mitigation
+              if (remainingQty >= splitQty) {
+                pieces.push(splitQty);
+                remainingQty -= splitQty;
+              } else {
+                pieces.push(Math.round(remainingQty * 1000) / 1000);
+                remainingQty = 0;
               }
             }
-          }
+
+            if (pieces.length > 1) {
+              deltas.push({
+                action: DeltaActionType.ModifyQty,
+                lineId,
+                beforeQty: item.qty,
+                afterQty: pieces[0],
+              });
+
+              for (let i = 1; i < pieces.length; i++) {
+                const cloneDeltas: Delta[] = [];
+                buildCloneDeltas(item, null, 1, cloneDeltas, {
+                  overrideRootQty: pieces[i],
+                });
+                if (cloneDeltas.length > 0) {
+                  const addedRootDelta = cloneDeltas[0] as Extract<
+                    Delta,
+                    { action: DeltaActionType.AddItem }
+                  >;
+                  newLineIds.push(addedRootDelta.lineId);
+                  deltas.push(...cloneDeltas);
+                }
+              }
+            }
           }
         }
       }
 
       if (lockedSkipped) {
-        toast.error("Some items were skipped because their main quantity is locked.");
+        toast.error(
+          "Some items were skipped because their main quantity is locked.",
+        );
       }
       if (zeroSkipped) {
         toast.error("Quantity cannot be zero.");
@@ -3267,6 +3335,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.engine.checkout(name);
       set({
         viewingHash: null,
+        currentScreen: PosScreen.Terminal,
         projectedState: evaluateBusinessRules(
           store.engine.projectCurrent(),
           store.chargeRules,
@@ -3283,8 +3352,17 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       }
       const store = get();
       store.engine.checkout(name);
+      const branchContexts =
+        (store.preferences.branchContexts as Record<string, any>) || {};
+      const nextContext = branchContexts[name] || null;
+
+      // Update the engine's internal order context reference too
+      store.engine.getRepo().orderContext = nextContext;
+
       set({
         viewingHash: null,
+        currentScreen: PosScreen.Terminal,
+        orderContext: nextContext,
         projectedState: evaluateBusinessRules(
           store.engine.projectCurrent(),
           store.chargeRules,
@@ -3292,6 +3370,34 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         ),
       });
       store.persist();
+    },
+
+    deleteBranch: (name) => {
+      if (name === "main" || name === "system") {
+        toast.error("Cannot delete main or system branch.");
+        return;
+      }
+      const store = get();
+      if (store.engine.getActiveBranch() === name) {
+        toast.error("Cannot delete currently checked out branch.");
+        return;
+      }
+      delete store.engine.getRepo().branches[name];
+
+      // Clean up branch contexts preference if it exists
+      const branchContexts = {
+        ...((store.preferences.branchContexts as Record<string, any>) || {}),
+      };
+      delete branchContexts[name];
+
+      set({
+        preferences: {
+          ...store.preferences,
+          branchContexts,
+        },
+      });
+      store.persist();
+      toast.success(`Deleted branch "${name}"`);
     },
 
     viewRevision: (hash) => {
@@ -3389,6 +3495,29 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         });
       }
       store.persist();
+    },
+
+    autoMergeActiveBranchToMain: () => {
+      const store = get();
+      const active = store.engine.getActiveBranch();
+      if (active === "main") return true;
+      try {
+        const head = store.engine.getRepo().branches[active]?.headHash;
+        if (!head) return true;
+
+        const preview = store.previewMerge([active], "main");
+        if (preview.isUpToDate) {
+          store.checkoutBranch("main");
+          return true;
+        }
+
+        store.commitMerge([active], "main", []);
+        store.checkoutBranch("main");
+        return true;
+      } catch (err: any) {
+        toast.error(`Auto-merge failed: ${err.message || err}`);
+        return false;
+      }
     },
 
     // ─── History Management ─────────────────────────────────────────────────

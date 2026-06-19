@@ -2,13 +2,14 @@
 
 import { OrderInitScreen } from "@/components/pos/screens/order-init-screen";
 import { POSTerminalScreen } from "@/components/pos/screens/pos-terminal";
+import { OrderHistoryScreen } from "@/components/pos/screens/order-history-screen";
 import { useVCSStore } from "@/store/vcs-store";
 import React, { useCallback } from "react";
-import { type FloorConfig, type OrderTypeConfig } from "@/lib/pos/types";
+import { type FloorConfig, type OrderTypeConfig, PosScreen } from "@/lib/pos/types";
 import { toast } from "sonner";
 
 export default function POSTerminal() {
-  const { isInitialized, initRepo, loadCatalog, catalogLoaded, hydrate } =
+  const { isInitialized, initRepo, loadCatalog, catalogLoaded, hydrate, currentScreen } =
     useVCSStore();
 
   const [storeLabel, setStoreLabel] = React.useState("Main Location");
@@ -75,6 +76,10 @@ export default function POSTerminal() {
         storeLabel={storeLabel}
       />
     );
+
+  if (currentScreen === PosScreen.History) {
+    return <OrderHistoryScreen />;
+  }
 
   const currentBranchName = useVCSStore.getState().activeBranch();
   const viewingHash = useVCSStore.getState().viewingHash;

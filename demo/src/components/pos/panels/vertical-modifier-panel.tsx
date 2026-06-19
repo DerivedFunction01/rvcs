@@ -85,7 +85,7 @@ export function VerticalModifierPanel({
     return (
       <aside
         id="vertical-modifier-panel"
-        className="w-56 border-r-2 border-r-slate-300 dark:border-r-slate-700 bg-card flex flex-col shrink-0 h-full overflow-hidden shadow-sm"
+        className="w-56 border-r bg-card flex flex-col shrink-0 h-full overflow-hidden shadow-sm"
       >
         <div className="p-3 border-b flex items-center gap-2 bg-muted/10">
           <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
@@ -112,7 +112,7 @@ export function VerticalModifierPanel({
   return (
     <aside
       id="vertical-modifier-panel"
-      className="w-56 border-r-2 border-r-slate-300 dark:border-r-slate-700 bg-card flex flex-col shrink-0 h-full overflow-hidden shadow-sm"
+      className="w-56 border-r bg-card flex flex-col shrink-0 h-full overflow-hidden shadow-sm"
     >
       <div className="flex-1 flex flex-col justify-start overflow-y-auto">
         {/* SIZE SECTION (TOP HALF) */}

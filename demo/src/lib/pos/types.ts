@@ -174,3 +174,8 @@ export enum SplitQtyUnit {
   PerUnit = "per-unit",
   Collective = "collective"
 }
+
+export enum PosScreen {
+  Terminal = "Terminal",
+  History = "History",
+}

@@ -3,6 +3,7 @@
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
 import React from "react";
+import { toast } from "sonner";
 
 import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
 import { SplitIntoLinesDialog } from "@/components/pos/dialogs/split-into-lines-dialog";
@@ -33,6 +34,8 @@ import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
 import { ActiveCheckBottom } from "@/components/pos/panels/active-check-bottom";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
 import { VerticalActionsPanel } from "@/components/pos/panels/vertical-actions-panel";
+import { PosScreen } from "@/lib/pos/types";
+import { PaymentDialog, printReceipt } from "@/components/pos/dialogs/payment-dialog";
 
 import { OrderDefaultsDialog } from "@/components/pos/dialogs/order-defaults-dialog";
 import { GuestFilterDialog } from "@/components/pos/dialogs/filter-guest-dialog";
@@ -301,6 +304,7 @@ export function POSTerminalScreen({
   const [combineDialogOpen, setCombineDialogOpen] = React.useState(false);
   const [splitLineDialogOpen, setSplitLineDialogOpen] = React.useState(false);
   const [qtyStepPadOpen, setQtyStepPadOpen] = React.useState(false);
+  const [paymentOpen, setPaymentOpen] = React.useState(false);
   const formatNumber = useFormatNumber();
 
   const hasCollapsedItems = collapsedItems.size > 0;
@@ -1165,6 +1169,24 @@ export function POSTerminalScreen({
               projectedState={projectedState}
               onEditModifiers={handleOpenModifierDialog}
               onRemoveModifier={handleRemoveModifierInline}
+              onSave={() => {
+                useVCSStore.getState().setScreen(PosScreen.History);
+              }}
+              onSend={() => {
+                const store = useVCSStore.getState();
+                const success = store.autoMergeActiveBranchToMain();
+                if (success) {
+                  toast.success("Order sent and merged to main!");
+                  printReceipt(store.projectedState, formatNumber);
+                }
+              }}
+              onPayment={() => {
+                const store = useVCSStore.getState();
+                const success = store.autoMergeActiveBranchToMain();
+                if (success) {
+                  setPaymentOpen(true);
+                }
+              }}
             />
           </div>
           <VerticalActionsPanel
@@ -1422,6 +1444,15 @@ export function POSTerminalScreen({
         min={selectedIncrement}
         increment={selectedIncrement}
         onConfirm={(val) => setQtyStep(val)}
+      />
+      <PaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        projectedState={projectedState}
+        guests={guests.map((g) => ({ id: g.id, name: g.alias || g.id }))}
+        onCompletePayment={() => {
+          useVCSStore.getState().resetOrder();
+        }}
       />
     </TooltipProvider>
   );

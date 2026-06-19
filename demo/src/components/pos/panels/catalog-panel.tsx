@@ -472,14 +472,10 @@ function CatalogItemCard({
   onAddItem: (sku: string) => void;
   isCategoryMode: boolean;
 }) {
-  const detailCount = [
-    detailDisplay.showSku && item.sku,
-    detailDisplay.showPrice,
-    detailDisplay.showIcons &&
-      (item.dietaryFlags.length > 0 || item.allergens.length > 0),
-  ].filter(Boolean).length;
-
-  const isMinimal = detailCount <= 1;
+  const isMinimal =
+    !detailDisplay.showSku &&
+    !detailDisplay.showIcons &&
+    !detailDisplay.showPrice;
 
   return (
     <Tooltip>
@@ -494,15 +490,13 @@ function CatalogItemCard({
         >
           <div
             className={`min-w-0 w-full flex-1 flex flex-col ${
-              isMinimal
-                ? "justify-center items-center gap-1"
-                : "space-y-1 min-h-0"
+              isMinimal ? "justify-center items-center" : "space-y-1 min-h-0"
             }`}
           >
             <div
               className={`flex w-full ${
                 isMinimal
-                  ? "justify-center items-center text-center flex-col gap-0.5"
+                  ? "justify-center items-center text-center"
                   : "items-start justify-between gap-2"
               }`}
             >
@@ -515,34 +509,20 @@ function CatalogItemCard({
               >
                 {item.name}
               </span>
-              {detailDisplay.showPrice && (
-                <span
-                  className={`${
-                    isMinimal
-                      ? "font-mono text-xs text-muted-foreground"
-                      : "font-mono text-[10px] text-muted-foreground shrink-0"
-                  }`}
-                >
+              {!isMinimal && detailDisplay.showPrice && (
+                <span className="font-mono text-[10px] text-muted-foreground shrink-0">
                   {formatNumber(item.basePrice, 2)}
                 </span>
               )}
             </div>
             {detailDisplay.showSku && (
-              <div
-                className={`text-[10px] text-muted-foreground font-mono truncate w-full ${
-                  isMinimal ? "text-center" : ""
-                }`}
-              >
+              <div className="text-[10px] text-muted-foreground font-mono truncate w-full">
                 {item.sku}
               </div>
             )}
             {detailDisplay.showIcons &&
               (item.dietaryFlags.length > 0 || item.allergens.length > 0) && (
-                <div
-                  className={`flex flex-wrap gap-1 pt-1 min-h-4 w-full ${
-                    isMinimal ? "justify-center" : ""
-                  }`}
-                >
+                <div className="flex flex-wrap gap-1 pt-1 min-h-4 w-full">
                   {item.dietaryFlags.map((flag) => {
                     const config = iconConfigs[flag];
                     if (!config) return null;

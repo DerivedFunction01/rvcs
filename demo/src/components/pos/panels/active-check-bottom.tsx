@@ -14,6 +14,10 @@ import {
   Pencil,
   Trash2,
   Undo2,
+  Save,
+  Send,
+  CreditCard,
+  Printer,
 } from "lucide-react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
@@ -32,6 +36,9 @@ export interface ActiveCheckBottomProps {
   projectedState: any;
   onEditModifiers: (item: ProjectedLineItem) => void;
   onRemoveModifier: (lineId: string) => void;
+  onSave?: () => void;
+  onSend?: () => void;
+  onPayment?: () => void;
 }
 
 export function ActiveCheckBottom({
@@ -42,7 +49,11 @@ export function ActiveCheckBottom({
   projectedState,
   onEditModifiers,
   onRemoveModifier,
+  onSave,
+  onSend,
+  onPayment,
 }: ActiveCheckBottomProps) {
+  const activeBranchName = useVCSStore((state) => state.activeBranch());
   const formatNumber = useFormatNumber();
   const [padTarget, setPadTarget] = useState<"main" | "inline" | null>(null);
   const [qtyMode, setQtyMode] = useState<"main" | "inline">("main");
@@ -176,7 +187,7 @@ export function ActiveCheckBottom({
 
   return (
     <div
-      className="border-t bg-card flex flex-col justify-between shrink-0 shadow-sm h-64 overflow-hidden"
+      className="border-t bg-card flex flex-col justify-between shrink-0 shadow-sm h-[19rem] overflow-hidden"
       id="active-check-bottom"
     >
       {/* Top Section: Stacked Financials */}
@@ -248,7 +259,7 @@ export function ActiveCheckBottom({
 
       {/* Bottom Section: Quantity Controls */}
       <div className="flex-1 flex flex-col justify-end gap-1.5">
-        <div className="grid grid-cols-3 grid-rows-2 gap-px bg-border/80 border-t overflow-hidden w-full h-32 rounded-none">
+        <div className="grid grid-cols-3 grid-rows-3 gap-px bg-border/80 border-t overflow-hidden w-full h-[12rem] rounded-none">
           {/* Row 1, Col 1: Minus Button */}
           <Button
             variant="outline"
@@ -482,9 +493,50 @@ export function ActiveCheckBottom({
           >
             <Undo2 className="w-4 h-4 mb-1" />
             <span>Undo</span>
-            {/* <span className="text-[8px] text-muted-foreground/60 font-normal mt-0.5 normal-case">
-              Auto: {autoSquash ? "ON" : "OFF"}
-            </span> */}
+          </Button>
+
+          {/* Row 3: Save, Send, Payment */}
+          <Button
+            variant="outline"
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-muted cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSave?.();
+            }}
+          >
+            <Save className="w-4 h-4 mb-1 text-primary" />
+            <span>Save</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-muted cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSend?.();
+            }}
+          >
+            {activeBranchName === "main" ? (
+              <>
+                <Printer className="w-4 h-4 mb-1 text-primary" />
+                <span>Print</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 mb-1 text-primary" />
+                <span>Send</span>
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              onPayment?.();
+            }}
+          >
+            <CreditCard className="w-4 h-4 mb-1 text-emerald-600 dark:text-emerald-400" />
+            <span>Payment</span>
           </Button>
         </div>
       </div>
