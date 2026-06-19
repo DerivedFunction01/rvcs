@@ -227,43 +227,6 @@ export function VerticalActionsPanel({
         </Tooltip>
 
         {/* SHARED ACTIONS SECTION (Always visible, adapts function based on mode) */}
-        {/* 1. Edit Modifiers */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={
-                trayMode === "item"
-                  ? !item || !hasEditableModifiers
-                  : !hasSelection || !canEditModifiersBulk
-              }
-              onClick={() => {
-                if (trayMode === "item") {
-                  if (item) onEditModifiers(item);
-                } else {
-                  onEditModifiersBulk();
-                }
-              }}
-              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-primary"
-            >
-              <Pencil className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="text-xs">
-            {trayMode === "item"
-              ? !item
-                ? "Select exactly one item to edit modifiers"
-                : !hasEditableModifiers
-                  ? "No editable modifiers available"
-                  : `Edit modifiers for ${item.name}`
-              : !hasSelection
-                ? "Select items to edit modifiers"
-                : !canEditModifiersBulk
-                  ? "No editable modifiers available"
-                  : "Edit modifiers for selected items"}
-          </TooltipContent>
-        </Tooltip>
 
         {/* 2. Add Note */}
         <Tooltip>
@@ -413,42 +376,7 @@ export function VerticalActionsPanel({
           </TooltipContent>
         </Tooltip>
 
-        {/* 3. Remove Item / Modifier */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={
-                trayMode === "item"
-                  ? !item || isComboLinkedChild
-                  : !hasSelection || disableNonModActions
-              }
-              onClick={() => {
-                if (trayMode === "item") {
-                  if (item) onRemoveModifier(item.lineId);
-                } else {
-                  onRemoveModifier(Array.from(selectedLineIds)[0]);
-                  setSelectedLineIds(new Set());
-                }
-              }}
-              className="h-9 w-9 p-0 rounded-lg hover:bg-destructive/15 text-destructive disabled:opacity-30"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="text-xs">
-            {trayMode === "item"
-              ? !item
-                ? "Select exactly one item to remove"
-                : isComboLinkedChild
-                  ? "Combo-linked children cannot be removed here"
-                  : `Remove ${item.name}`
-              : !hasSelection
-                ? "Select items to remove"
-                : `Remove selected items`}
-          </TooltipContent>
-        </Tooltip>
+
 
         {/* Divider */}
         <div className="w-8 border-b border-border/80" />

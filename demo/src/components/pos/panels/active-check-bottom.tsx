@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import {
   Popover,
   PopoverContent,
@@ -37,6 +37,7 @@ export interface ActiveCheckBottomProps {
 export function ActiveCheckBottom({
   selectedItems,
   catalog,
+  compatibleModifiers,
   onUpdateInlineQty,
   projectedState,
   onEditModifiers,
@@ -53,6 +54,24 @@ export function ActiveCheckBottom({
 
   const item = selectedItems.length === 1 ? selectedItems[0] : null;
   const catalogEntry = item ? catalog[item.sku] : null;
+
+  const parentItem = item?.parentLineId
+    ? projectedState.items[item.parentLineId]
+    : null;
+  const isComboLinkedChild =
+    !!parentItem && !!catalog[parentItem.sku]?.comboChoices?.length;
+
+  const hasEditableModifiers = useMemo(() => {
+    if (!item || !catalogEntry) return false;
+    return (
+      (catalogEntry.allowedModifiers?.length ?? 0) > 0 ||
+      compatibleModifiers.length > 0 ||
+      item.children.some((child) => {
+        const childEntry = catalog[child.sku];
+        return !!childEntry && childEntry.basePrice === 0;
+      })
+    );
+  }, [item, catalogEntry, compatibleModifiers, catalog]);
 
   const isRootItem = !item?.parentLineId;
   const mainQtyLocked = catalogEntry?.inlineQtyMainQtyLocked ?? false;
@@ -389,7 +408,7 @@ export function ActiveCheckBottom({
           {/* Row 2: Action buttons */}
           <Button
             variant="outline"
-            disabled={selectedItems.length !== 1}
+            disabled={selectedItems.length !== 1 || !hasEditableModifiers}
             className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-muted cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
             onClick={(e) => {
               e.stopPropagation();
@@ -403,7 +422,10 @@ export function ActiveCheckBottom({
           </Button>
           <Button
             variant="outline"
-            disabled={selectedItems.length === 0}
+            disabled={
+              selectedItems.length === 0 ||
+              (selectedItems.length === 1 && isComboLinkedChild)
+            }
             className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-destructive/15 text-destructive disabled:text-muted-foreground/40 cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
             onClick={(e) => {
               e.stopPropagation();
