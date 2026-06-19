@@ -53,9 +53,9 @@ export function FullGuestSelectionDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
+            <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[95vh] flex flex-col overflow-hidden">
+                <DialogHeader className="shrink-0">
+                    <DialogTitle className="text-lg md:text-xl">{title}</DialogTitle>
                 </DialogHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2">
                     <div className="relative flex-1">
@@ -64,16 +64,16 @@ export function FullGuestSelectionDialog({
                             placeholder="Search guests..."
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            className="pl-9 text-xs h-9"
+                            className="pl-9 text-sm h-10 md:h-11"
                         />
                     </div>
                     <div className="flex gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={onSelectAll} className="h-9">Select All</Button>
-                        <Button variant="outline" size="sm" onClick={onClearAll} className="h-9 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10">Clear All</Button>
+                        <Button variant="outline" size="sm" onClick={onSelectAll} className="h-10 md:h-11 px-4 text-sm">Select All</Button>
+                        <Button variant="outline" size="sm" onClick={onClearAll} className="h-10 md:h-11 px-4 text-sm text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10">Clear All</Button>
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto pr-1 mt-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 pb-2">
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 mt-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pb-2">
                         {filtered.map((g) => {
                             const isVisible = selectedIds.has(g.id);
                             const originalIdx = guests.findIndex((orig) => orig.id === g.id);
@@ -81,13 +81,13 @@ export function FullGuestSelectionDialog({
                                 <button
                                     key={g.id}
                                     onClick={() => onToggle(g.id)}
-                                    className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-left text-xs transition-all ${isVisible
+                                    className={`flex items-center gap-3 px-4 py-3 md:px-5 md:py-4 border rounded-xl text-left text-sm transition-all min-h-14 md:min-h-16 ${isVisible
                                             ? "border-primary bg-primary/5 font-medium shadow-sm"
                                             : "border-border bg-card opacity-60 hover:opacity-100 hover:bg-accent"
                                         }`}
                                 >
                                     <div
-                                        className="w-2 h-2 rounded-full shrink-0"
+                                        className="w-3 h-3 rounded-full shrink-0"
                                         style={{ background: globalGuestPalette[originalIdx % Math.max(1, globalGuestPalette.length)] }}
                                     />
                                     <span className="truncate flex-1">
@@ -99,7 +99,7 @@ export function FullGuestSelectionDialog({
                     </div>
                 </div>
                 <div className="pt-4 border-t mt-auto shrink-0">
-                    <Button className="w-full" onClick={() => onOpenChange(false)}>
+                    <Button className="w-full h-12 text-sm md:text-base" onClick={() => onOpenChange(false)}>
                         Done
                     </Button>
                 </div>
@@ -164,28 +164,30 @@ export function GuestFilterDialog({
 
     const renderAssignees = (keyPrefix: string) => (
         <>
-            <div className="flex items-center justify-between sticky top-0 bg-background z-10 py-1 pb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
+                <div className="flex items-center justify-between sticky top-0 bg-background z-10 py-1 pb-2">
+                <span className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider select-none">
                     Assignees
                 </span>
                 <div className="flex gap-2">
                     <Button
-                        variant="link"
-                        className="h-auto p-0 text-xs font-semibold text-primary"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-primary"
                         onClick={() => setLocalAssignees(new Set(guests.map((g) => g.id)))}
                     >
                         All
                     </Button>
                     <Button
-                        variant="link"
-                        className="h-auto p-0 text-xs font-semibold text-destructive"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => setLocalAssignees(new Set())}
                     >
                         Clear
                     </Button>
                 </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 gap-2 pb-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 gap-3 pb-2">
                 {assigneesToShow.map((g, idx) => {
                     const isVisible = localAssignees.has(g.id);
                     return (
@@ -199,13 +201,13 @@ export function GuestFilterDialog({
                                     return next;
                                 })
                             }
-                            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-left text-xs transition-all ${isVisible
+                            className={`flex items-center gap-3 px-4 py-3 md:px-5 md:py-4 border rounded-xl text-left text-sm transition-all min-h-14 md:min-h-16 ${isVisible
                                     ? "border-primary bg-primary/5 font-medium shadow-sm"
                                     : "border-border bg-card opacity-60 hover:opacity-100 hover:bg-accent"
                                 }`}
                         >
                             <div
-                                className="w-2 h-2 rounded-full shrink-0"
+                                className="w-3 h-3 rounded-full shrink-0"
                                 style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
                             />
                             <span className="truncate flex-1">
@@ -217,7 +219,7 @@ export function GuestFilterDialog({
                 {hasMoreAssignees && (
                     <button
                         onClick={() => setMoreAssigneesOpen(true)}
-                        className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed rounded-lg text-xs hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
+                        className="flex items-center justify-center gap-2 px-4 py-3 md:px-5 md:py-4 border border-dashed rounded-xl text-sm hover:bg-accent text-muted-foreground hover:text-foreground transition-all min-h-14 md:min-h-16"
                     >
                         View {guests.length - MAX_VISIBLE} more...
                     </button>
@@ -228,35 +230,35 @@ export function GuestFilterDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md md:max-w-lg landscape:sm:max-w-2xl landscape:md:max-w-4xl max-h-[95vh] landscape:md:min-h-95 overflow-y-auto landscape:max-h-[95vh] landscape:overflow-hidden flex flex-col p-6">
-                <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 h-full landscape:h-full landscape:overflow-hidden">
+            <DialogContent className="sm:max-w-4xl w-[95vw] landscape:sm:max-w-6xl landscape:md:max-w-7xl max-h-[95vh] landscape:max-h-[95vh] landscape:overflow-hidden flex flex-col p-6">
+                <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 flex-1 min-h-0 landscape:overflow-hidden">
 
                     {/* Left Column */}
-                    <div className="flex flex-col gap-3 flex-1 min-w-0 landscape:overflow-y-auto landscape:min-h-0">
+                    <div className="flex flex-col gap-3 flex-1 min-w-0 min-h-0 landscape:overflow-y-auto">
                         <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <User className="w-5 h-5 text-primary" />
+                            <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+                                <User className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                                 Filter by Guest
                             </DialogTitle>
-                            <DialogDescription>
+                            <DialogDescription className="text-sm md:text-base">
                                 Select which assignees and payers to show on the active check.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="flex-1 flex flex-col min-h-0 mt-2 landscape:hidden landscape:md:flex">
+                        <div className="flex-1 min-h-0 flex flex-col mt-2 landscape:hidden landscape:md:flex">
                             {renderAssignees('left')}
                         </div>
 
                         <div className="hidden landscape:flex flex-col gap-3 pt-4 mt-auto w-full border-t">
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
+                            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+                                <span className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider select-none">
                                     Combination
                                 </span>
-                                <div className="flex bg-background border rounded-lg p-1 w-auto">
+                                <div className="flex bg-background border rounded-lg p-1 w-full lg:w-auto">
                                     <Button
                                         variant={guestFilterOp === "OR" ? "secondary" : "ghost"}
                                         size="sm"
-                                        className="h-7 text-xs px-3"
+                                        className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 flex-1 lg:flex-none"
                                         onClick={() => setGuestFilterOp("OR")}
                                     >
                                         ANY
@@ -264,26 +266,26 @@ export function GuestFilterDialog({
                                     <Button
                                         variant={guestFilterOp === "AND" ? "secondary" : "ghost"}
                                         size="sm"
-                                        className="h-7 text-xs px-3"
+                                        className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 flex-1 lg:flex-none"
                                         onClick={() => setGuestFilterOp("AND")}
                                     >
                                         ALL (AND)
                                     </Button>
                                 </div>
                             </div>
-                            <Button className="w-full" onClick={() => onOpenChange(false)}>
+                            <Button className="w-full h-11 md:h-12 text-sm md:text-base" onClick={() => onOpenChange(false)}>
                                 Done
                             </Button>
                         </div>
                     </div>
 
                     {/* Right Column */}
-                    <div className="shrink-0 landscape:w-70 landscape:md:w-96 flex flex-col landscape:mt-14 landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 landscape:pt-0">
+                    <div className="shrink-0 landscape:w-96 landscape:md:w-[30rem] flex flex-col min-h-0 landscape:mt-10 landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 landscape:pt-0">
                         <div className="hidden landscape:flex landscape:md:hidden bg-muted/50 p-1 rounded-lg gap-1 mb-3 shrink-0">
                             <Button
                                 variant={activeTab === "assignees" ? "default" : "ghost"}
                                 size="sm"
-                                className="flex-1 h-8 text-xs"
+                                className="flex-1 h-10 md:h-11 text-sm md:text-base"
                                 onClick={() => setActiveTab("assignees")}
                             >
                                 Assignees
@@ -291,38 +293,40 @@ export function GuestFilterDialog({
                             <Button
                                 variant={activeTab === "payers" ? "default" : "ghost"}
                                 size="sm"
-                                className="flex-1 h-8 text-xs"
+                                className="flex-1 h-10 md:h-11 text-sm md:text-base"
                                 onClick={() => setActiveTab("payers")}
                             >
                                 Payers
                             </Button>
                         </div>
-                        <div className={`flex-1 flex-col min-h-0 hidden ${activeTab === 'assignees' ? 'landscape:flex landscape:md:hidden' : 'hidden'}`}>
+                        <div className={`flex-1 min-h-0 flex-col overflow-y-auto hidden ${activeTab === 'assignees' ? 'landscape:flex landscape:md:hidden' : 'hidden'}`}>
                             {renderAssignees('right')}
                         </div>
-                        <div className={`flex-1 flex-col min-h-0 flex ${activeTab === 'assignees' ? 'landscape:hidden landscape:md:flex' : ''}`}>
+                        <div className={`flex-1 min-h-0 flex flex-col overflow-y-auto ${activeTab === 'assignees' ? 'landscape:hidden landscape:md:flex' : ''}`}>
                             <div className="flex items-center justify-between sticky top-0 bg-background z-10 py-1 pb-2">
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
+                                <span className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider select-none">
                                     Payers
                                 </span>
                                 <div className="flex gap-2">
                                     <Button
-                                        variant="link"
-                                        className="h-auto p-0 text-xs font-semibold text-primary"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-primary"
                                         onClick={() => setLocalPayers(new Set(guests.map((g) => g.id)))}
                                     >
                                         All
                                     </Button>
                                     <Button
-                                        variant="link"
-                                        className="h-auto p-0 text-xs font-semibold text-destructive"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 md:h-10 min-w-14 md:min-w-16 px-3 md:px-4 text-xs md:text-sm font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                                         onClick={() => setLocalPayers(new Set())}
                                     >
                                         Clear
                                     </Button>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 gap-2 pb-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 landscape:sm:grid-cols-2 gap-3 pb-2">
                                 {payersToShow.map((g, idx) => {
                                     const isVisible = localPayers.has(g.id);
                                     return (
@@ -336,13 +340,13 @@ export function GuestFilterDialog({
                                                     return next;
                                                 })
                                             }
-                                            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-left text-xs transition-all ${isVisible
+                                            className={`flex items-center gap-3 px-4 py-3 md:px-5 md:py-4 border rounded-xl text-left text-sm transition-all min-h-14 md:min-h-16 ${isVisible
                                                     ? "border-primary bg-primary/5 font-medium shadow-sm"
                                                     : "border-border bg-card opacity-60 hover:opacity-100 hover:bg-accent"
                                                 }`}
                                         >
                                             <div
-                                                className="w-2 h-2 rounded-full shrink-0"
+                                                className="w-3 h-3 rounded-full shrink-0"
                                                 style={{ background: globalGuestPalette[idx % Math.max(1, globalGuestPalette.length)] }}
                                             />
                                             <span className="truncate flex-1">
@@ -354,7 +358,7 @@ export function GuestFilterDialog({
                                 {hasMorePayers && (
                                     <button
                                         onClick={() => setMorePayersOpen(true)}
-                                        className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed rounded-lg text-xs hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
+                                        className="flex items-center justify-center gap-2 px-4 py-3 md:px-5 md:py-4 border border-dashed rounded-xl text-sm hover:bg-accent text-muted-foreground hover:text-foreground transition-all min-h-14 md:min-h-16"
                                     >
                                         View {guests.length - MAX_VISIBLE} more...
                                     </button>
@@ -366,15 +370,15 @@ export function GuestFilterDialog({
 
                 {/* Portrait Footer */}
                 <div className="flex flex-col gap-4 pt-4 mt-2 w-full landscape:hidden border-t shrink-0">
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider select-none">
+                    <div className="flex flex-col gap-2">
+                        <span className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider select-none">
                             Combination
                         </span>
-                        <div className="flex bg-background border rounded-lg p-1 w-auto">
+                        <div className="flex bg-background border rounded-lg p-1 w-full">
                             <Button
                                 variant={guestFilterOp === "OR" ? "secondary" : "ghost"}
                                 size="sm"
-                                className="h-7 text-xs px-3"
+                                className="h-10 md:h-11 text-xs md:text-sm px-3 md:px-4 flex-1"
                                 onClick={() => setGuestFilterOp("OR")}
                             >
                                 ANY
@@ -382,14 +386,14 @@ export function GuestFilterDialog({
                             <Button
                                 variant={guestFilterOp === "AND" ? "secondary" : "ghost"}
                                 size="sm"
-                                className="h-7 text-xs px-3"
+                                className="h-10 md:h-11 text-xs md:text-sm px-3 md:px-4 flex-1"
                                 onClick={() => setGuestFilterOp("AND")}
                             >
                                 ALL (AND)
                             </Button>
                         </div>
                     </div>
-                    <Button className="w-full" onClick={() => onOpenChange(false)}>
+                    <Button className="w-full h-12 md:h-14 text-sm md:text-base" onClick={() => onOpenChange(false)}>
                         Done
                     </Button>
                 </div>
