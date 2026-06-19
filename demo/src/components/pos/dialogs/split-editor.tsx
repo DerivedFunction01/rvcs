@@ -14,18 +14,20 @@ import { PAYMENT_METHODS } from "@/lib/pos/ui-utils";
 import { PaymentStrategyType } from "@/lib/vcs/types";
 import { usePreferencesStore } from "@/store/preferences-store";
 import { useVCSStore } from "@/store/vcs-store";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, Users, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { NumberPadDialog } from "./number-pad-dialog";
 import { GuestGridPicker } from "./guest-picker";
+import { SplitQtyUnit } from "@/lib/pos/types";
 
 export interface PaymentSplitEntry {
   entity: string;
   strategyType: PaymentStrategyType;
-  value: number;
+  value: number; // Always stored internally as the base PER-UNIT (per-seat) value
   method?: string | null;
   multiplier?: number;
+  multiplierMode?: SplitQtyUnit; // SplitQtyUnit.PerUnit (each pays X), SplitQtyUnit.Collective (group pays X total)
 }
 
 const STRATEGY_OPTIONS = [
@@ -168,7 +170,7 @@ function SplitControlSet({
             onClick={onValueClick}
           >
             <div className="flex flex-col items-start gap-0.5 min-w-0">
-              <span className="text-[10px] md:text-xs uppercase tracking-wider text-muted-foreground font-sans">Number</span>
+              <span className="text-[10px] md:text-xs uppercase tracking-wider text-muted-foreground font-sans font-semibold">Value</span>
               <span className="truncate w-full">{valueLabel}</span>
             </div>
             <span className="text-xs md:text-sm text-muted-foreground font-sans shrink-0">{valueUnit}</span>
@@ -225,9 +227,50 @@ export function validateSplit(
 }
 
 /**
- * Dialog for selecting guests to add to split
- * Handles search, filtering, and large guest lists (100+)
+ * Robust redistribution engine designed to equally split auto-percentages.
+ * Each row declares its own "multiplierMode" to determine its weight fraction.
  */
+function redistributePercentages(
+  splitsList: PaymentSplitEntry[]
+): PaymentSplitEntry[] {
+  const n = splitsList.length;
+  if (n === 0) return [];
+
+  const updated = splitsList.map((s) => ({ ...s }));
+
+  // Calculate the collective weight of all splits
+  const totalWeight = updated.reduce((sum, s) => {
+    const mode = s.multiplierMode ?? SplitQtyUnit.PerUnit;
+    const mult = s.multiplier ?? 1;
+    return sum + (mode === SplitQtyUnit.Collective ? 1 : mult);
+  }, 0);
+
+  if (totalWeight === 0) return updated;
+
+  const baseUnitPercent = 100 / totalWeight;
+
+  updated.forEach((s) => {
+    const mode = s.multiplierMode ?? SplitQtyUnit.PerUnit;
+    const mult = s.multiplier ?? 1;
+    
+    if (mode === SplitQtyUnit.Collective) {
+      // The whole group gets 1 equal weight unit, split internally
+      s.value = Math.round((baseUnitPercent / mult) * 1000) / 1000;
+    } else {
+      // Each seat in the group represents 1 distinct weight unit
+      s.value = Math.round(baseUnitPercent * 1000) / 1000;
+    }
+  });
+
+  // Absorb remainder drifts into the first element
+  const currentSum = updated.reduce((sum, s) => sum + s.value * (s.multiplier ?? 1), 0);
+  const remainder = 100 - currentSum;
+  const firstMultiplier = updated[0].multiplier ?? 1;
+  updated[0].value = Math.round((updated[0].value + remainder / firstMultiplier) * 1000) / 1000;
+
+  return updated;
+}
+
 function GuestSelectionDialog({
   open,
   onOpenChange,
@@ -330,7 +373,6 @@ function GuestSelectionDialog({
             description="Set how many internal guests this selection represents."
             initialValue={multiplier}
             min={1}
-            increment={1}
             onConfirm={(val) => setMultiplier(val)}
           />
         )}
@@ -363,7 +405,7 @@ export function SplitEditor({
 
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
   const [showNewGuestInput, setShowNewGuestInput] = useState(false);
-  const [autoRedistribute, setAutoRedistribute] = useState(true);
+  const [autoRedistribute] = useState(true);
   const [guestSelectionOpen, setGuestSelectionOpen] = useState(false);
 
   const formatNumber = useFormatNumber();
@@ -373,13 +415,20 @@ export function SplitEditor({
   );
   const [quickAddMethod, setQuickAddMethod] = useState<string>("any");
   const [quickAddValue, setQuickAddValue] = useState<string>("");
-  const [padTarget, setPadTarget] = useState<{ type: "split"; index: number } | { type: "quick-add" } | null>(null);
+  
+  // Pad targets updated to support multiplier editing inside main rows
+  const [padTarget, setPadTarget] = useState<
+    | { type: "split"; index: number }
+    | { type: "quick-add" }
+    | { type: "multiplier"; index: number }
+    | null
+  >(null);
 
   const totalPercentage = useMemo(
     () =>
       splits
         .filter((s) => s.strategyType === PaymentStrategyType.Percentage)
-        .reduce((sum, s) => sum + s.value, 0),
+        .reduce((sum, s) => sum + s.value * (s.multiplier ?? 1), 0),
     [splits],
   );
 
@@ -391,7 +440,7 @@ export function SplitEditor({
             s.strategyType === PaymentStrategyType.FixedItem ||
             s.strategyType === PaymentStrategyType.FixedGlobal,
         )
-        .reduce((sum, s) => sum + s.value, 0),
+        .reduce((sum, s) => sum + s.value * (s.multiplier ?? 1), 0),
     [splits],
   );
 
@@ -411,17 +460,12 @@ export function SplitEditor({
   );
 
   const handleDistributeEqually = useCallback(() => {
-    const n = splits.length;
-    if (n === 0) return;
-    const base = Math.round((100 / n) * 1000) / 1000;
     const updated = splits.map((s) => ({
       ...s,
       strategyType: PaymentStrategyType.Percentage,
-      value: base,
     }));
-    const remainder = Math.round((100 - base * n) * 1000) / 1000;
-    updated[0].value = Math.round((updated[0].value + remainder) * 1000) / 1000;
-    onChange(updated);
+    const redistributed = redistributePercentages(updated);
+    onChange(redistributed);
   }, [splits, onChange]);
 
   const handleAddSpecificGuest = useCallback(
@@ -440,14 +484,14 @@ export function SplitEditor({
         valueToUse = quickAddStrategy === PaymentStrategyType.Remaining ? 0 : 0;
       }
 
-      const n = splits.length + 1;
       const newSplits = [
         ...splits,
         {
           entity: trimmed,
           multiplier,
+          multiplierMode: SplitQtyUnit.PerUnit as const, // default to per-unit on add
           strategyType: quickAddStrategy,
-          value: isAutoPercent ? Math.floor(100 / n) : valueToUse,
+          value: isAutoPercent ? 0 : valueToUse,
           method: quickAddMethod === "any" ? null : quickAddMethod,
         },
       ];
@@ -458,22 +502,18 @@ export function SplitEditor({
           (s) => s.strategyType === PaymentStrategyType.Percentage,
         )
       ) {
-        const base = Math.round((100 / n) * 1000) / 1000;
-        newSplits.forEach((s) => {
-          s.value = base;
-        });
-        const remainder = Math.round((100 - base * n) * 1000) / 1000;
-        newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
+        const redistributed = redistributePercentages(newSplits);
+        onChange(redistributed);
+      } else {
+        onChange(newSplits);
       }
-
-      onChange(newSplits);
     },
     [splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue],
   );
 
   const handleAddMultipleGuests = useCallback(
     (guestEntries: Array<{ id: string; multiplier: number }>) => {
-      let newSplits = [...splits];
+      const newSplits = [...splits];
 
       for (const entry of guestEntries) {
         const guest = guests.find((g) => g.id === entry.id);
@@ -485,6 +525,7 @@ export function SplitEditor({
         newSplits.push({
           entity: trimmed,
           multiplier: Math.max(1, entry.multiplier),
+          multiplierMode: SplitQtyUnit.PerUnit as const, // default
           strategyType: quickAddStrategy,
           value: 0,
           method: quickAddMethod === "any" ? null : quickAddMethod,
@@ -503,16 +544,11 @@ export function SplitEditor({
           (s) => s.strategyType === PaymentStrategyType.Percentage,
         )
       ) {
-        const n = newSplits.length;
-        const base = Math.round((100 / n) * 1000) / 1000;
-        newSplits.forEach((s) => {
-          s.value = base;
-        });
-        const remainder = Math.round((100 - base * n) * 1000) / 1000;
-        newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
+        const redistributed = redistributePercentages(newSplits);
+        onChange(redistributed);
+      } else {
+        onChange(newSplits);
       }
-
-      onChange(newSplits);
     },
     [splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue, guests],
   );
@@ -532,16 +568,11 @@ export function SplitEditor({
       if (updated.length === 0) return;
 
       if (autoRedistribute && updated.every((s) => s.strategyType === PaymentStrategyType.Percentage)) {
-        const n = updated.length;
-        const base = Math.round((100 / n) * 1000) / 1000;
-        updated.forEach((s) => {
-          s.value = base;
-        });
-        const remainder = Math.round((100 - base * n) * 1000) / 1000;
-        updated[0].value = Math.round((updated[0].value + remainder) * 1000) / 1000;
+        const redistributed = redistributePercentages(updated);
+        onChange(redistributed);
+      } else {
+        onChange(updated);
       }
-
-      onChange(updated);
     },
     [splits, onChange, autoRedistribute],
   );
@@ -573,68 +604,180 @@ export function SplitEditor({
     [splits, onChange],
   );
 
+  const handleRowMultiplierModeToggle = useCallback(
+    (index: number, mode: SplitQtyUnit.PerUnit | SplitQtyUnit.Collective) => {
+      const updated = [...splits];
+      const entry = updated[index];
+      const mult = entry.multiplier ?? 1;
+
+      if (entry.multiplierMode === mode) return;
+
+      if (mode === SplitQtyUnit.Collective) {
+        entry.multiplierMode = SplitQtyUnit.Collective;
+      } else {
+        entry.multiplierMode = SplitQtyUnit.PerUnit;
+      }
+
+      // If everyone is on percentages, run the redistribution engine
+      if (updated.every((s) => s.strategyType === PaymentStrategyType.Percentage)) {
+        const redistributed = redistributePercentages(updated);
+        onChange(redistributed);
+      } else {
+        onChange(updated);
+      }
+    },
+    [splits, onChange]
+  );
+
   return (
-    <div className="space-y-3 md:space-y-4">
+    <div className="space-y-4">
+      
+      {/* Dynamic Global Action Bar */}
+      <div className="flex items-center justify-between p-3.5 bg-muted/40 rounded-xl border border-border/50">
+        <div className="space-y-0.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quick distribution</span>
+          <p className="text-[11px] text-muted-foreground leading-tight">Re-allocate weights dynamically based on row settings.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDistributeEqually}
+          className="h-8 text-xs px-3 font-semibold"
+        >
+          Distribute Equally
+        </Button>
+      </div>
+
       {/* Existing Splits List */}
-      <div className="space-y-2 md:space-y-3">
-        {splits.map((split, idx) => (
-          <div
-            key={`${split.entity}-${idx}`}
-            className="flex flex-col xl:flex-row xl:items-start gap-3 xl:gap-4 rounded-xl border bg-card p-4 md:p-5 shadow-sm"
-          >
-            {/* Entity Name */}
-            <div className="flex flex-col gap-1 flex-1 min-w-0">
-              <div className="text-xs md:text-sm font-semibold truncate">
-                {split.entity}
-                {split.multiplier && split.multiplier > 1 ? ` ×${split.multiplier}` : ""}
-              </div>
-              <div className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider">
-                Customize split controls
-              </div>
-            </div>
+      <div className="space-y-3">
+        {splits.map((split, idx) => {
+          const mode = split.multiplierMode ?? SplitQtyUnit.PerUnit;
+          const mult = split.multiplier ?? 1;
+          const hasMult = mult > 1;
 
-            <div className="flex flex-col gap-3 xl:items-end">
-              <SplitControlSet
-                strategyType={split.strategyType}
-                method={split.method}
-                value={split.value}
-                valueLabel={formatNumber(split.value, split.strategyType === PaymentStrategyType.Percentage ? 2 : 2)}
-                valueUnit={split.strategyType === PaymentStrategyType.Percentage ? "%" : "$"}
-                strategyOptions={STRATEGY_OPTIONS}
-                methodOptions={METHOD_OPTIONS}
-                onStrategyChange={(next) => handleSplitStrategyChange(idx, next)}
-                onMethodChange={(next) => handleSplitMethodChange(idx, next ?? "any")}
-                onValueClick={() => setPadTarget({ type: "split", index: idx })}
-                hideValue={split.strategyType === PaymentStrategyType.Remaining}
-                compact
-              />
+          // Determine the user-facing displayed value and labels
+          const displayedValue = mode === SplitQtyUnit.Collective && hasMult
+            ? split.value * mult
+            : split.value;
 
-              <div className="flex items-center gap-2 justify-end w-full">
-                {split.strategyType === PaymentStrategyType.Remaining && (
-                  <div className="text-xs md:text-sm font-medium text-muted-foreground px-3 py-2 bg-muted/30 rounded-lg min-w-max">
-                    Rem.
+          const unitLabel = split.strategyType === PaymentStrategyType.Percentage ? "%" : "$";
+          const subTextLabel = mode === SplitQtyUnit.Collective ? "total group contribution" : "per seat weight";
+
+          return (
+            <div
+              key={`${split.entity}-${idx}`}
+              className="flex flex-col xl:flex-row xl:items-start gap-4 rounded-xl border bg-card p-4 md:p-5 shadow-sm hover:shadow-md/5 transition-all"
+            >
+              {/* Entity Info Section */}
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold truncate text-foreground">{split.entity}</span>
+                  
+                  {/* INTERACTIVE MULTIPLIER BUTTONS */}
+                  {hasMult ? (
+                    <button
+                      type="button"
+                      onClick={() => setPadTarget({ type: "multiplier", index: idx })}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-mono font-bold hover:bg-primary/20 transition-all border border-primary/10 hover:border-primary/20 active:scale-95"
+                      title="Edit number of seats"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      x{mult} seats
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPadTarget({ type: "multiplier", index: idx })}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-dashed text-muted-foreground hover:text-primary hover:border-primary/50 text-[10px] font-semibold transition-all hover:bg-primary/5 active:scale-95"
+                      title="Add multi-seat parameters"
+                    >
+                      + Add seats
+                    </button>
+                  )}
+                </div>
+
+                {/* Granular Individual Row Multiplier Selector */}
+                {hasMult ? (
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Multiplier logic</span>
+                    <div className="flex gap-0.5 bg-muted p-1 rounded-lg border w-fit">
+                      <button
+                        type="button"
+                        onClick={() => handleRowMultiplierModeToggle(idx, SplitQtyUnit.PerUnit)}
+                        className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${mode === SplitQtyUnit.PerUnit
+                            ? "bg-background shadow-sm text-foreground font-semibold"
+                            : "text-muted-foreground hover:text-foreground"
+                          }`}
+                      >
+                        Per Seat ({unitLabel}{formatNumber(split.value, 2)} each)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRowMultiplierModeToggle(idx, SplitQtyUnit.Collective)}
+                        className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${mode === SplitQtyUnit.Collective
+                            ? "bg-background shadow-sm text-foreground font-semibold"
+                            : "text-muted-foreground hover:text-foreground"
+                          }`}
+                      >
+                        Collective Total ({unitLabel}{formatNumber(split.value * mult, 2)} group)
+                      </button>
+                    </div>
                   </div>
-                )}
-                {splits.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-12 md:h-14 w-12 md:w-14 p-0 text-destructive shrink-0 hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleRemoveSplitEntry(idx)}
-                  >
-                    <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
-                  </Button>
+                ) : (
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Single payer</span>
                 )}
               </div>
+
+              {/* Controls and Inputs */}
+              <div className="flex flex-col gap-3 xl:items-end shrink-0 w-full xl:w-auto">
+                <SplitControlSet
+                  strategyType={split.strategyType}
+                  method={split.method}
+                  value={displayedValue}
+                  valueLabel={formatNumber(displayedValue, 2)}
+                  valueUnit={unitLabel}
+                  strategyOptions={STRATEGY_OPTIONS}
+                  methodOptions={METHOD_OPTIONS}
+                  onStrategyChange={(next) => handleSplitStrategyChange(idx, next)}
+                  onMethodChange={(next) => handleSplitMethodChange(idx, next ?? "any")}
+                  onValueClick={() => setPadTarget({ type: "split", index: idx })}
+                  hideValue={split.strategyType === PaymentStrategyType.Remaining}
+                  compact
+                />
+
+                {/* Subtext describing computed weights / deletion */}
+                <div className="flex items-center gap-3 justify-between w-full">
+                  <span className="text-[10px] text-muted-foreground italic font-medium leading-none">
+                    * Displays {subTextLabel}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {split.strategyType === PaymentStrategyType.Remaining && (
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground px-2 py-1 bg-muted rounded">
+                        Rem.
+                      </span>
+                    )}
+                    {splits.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-10 w-10 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                        onClick={() => handleRemoveSplitEntry(idx)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <Separator />
 
       {/* Quick Add Settings */}
-      <div className="space-y-3 md:space-y-4 bg-muted/20 p-3 md:p-4 rounded-lg border">
+      <div className="space-y-4 bg-muted/20 p-4 rounded-xl border">
         <div className="flex justify-between items-center">
           <div className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Quick Add Settings
@@ -657,7 +800,7 @@ export function SplitEditor({
             hideValue={quickAddStrategy === "remaining"}
           />
           <div className="text-[10px] md:text-xs text-muted-foreground">
-            Use the buttons to pick split type and payment method. Tap the value to open the keypad.
+            Pick split type and payment method. New guests will use these parameters.
           </div>
         </div>
 
@@ -783,20 +926,66 @@ export function SplitEditor({
           title={
             padTarget.type === "quick-add"
               ? quickAddStrategy === PaymentStrategyType.Percentage ? "Percentage" : "Amount"
-              : splits[padTarget.index].strategyType === PaymentStrategyType.Percentage ? "Percentage" : "Amount"
+              : padTarget.type === "multiplier"
+                ? "Edit Seats"
+                : splits[padTarget.index].strategyType === PaymentStrategyType.Percentage ? "Percentage" : "Amount"
           }
-          description={`Set the ${padTarget.type === "quick-add" ? (quickAddStrategy === PaymentStrategyType.Percentage ? "percentage" : "amount") : (splits[padTarget.index].strategyType === PaymentStrategyType.Percentage ? "percentage" : "amount")} for this split`}
+          description={
+            padTarget.type === "quick-add"
+              ? `Set the ${quickAddStrategy === PaymentStrategyType.Percentage ? "percentage" : "amount"} for this split`
+              : padTarget.type === "multiplier"
+                ? `Enter the number of seats for ${splits[padTarget.index].entity}`
+                : splits[padTarget.index].multiplierMode === SplitQtyUnit.Collective && splits[padTarget.index].multiplier && splits[padTarget.index].multiplier! > 1
+                  ? `Set the collective group total amount/percentage for all ${splits[padTarget.index].multiplier} seats`
+                  : `Set the individual per-seat amount/percentage for this split`
+          }
           initialValue={
             padTarget.type === "quick-add"
               ? (quickAddValue === "" ? null : Number(quickAddValue))
-              : splits[padTarget.index].value
+              : padTarget.type === "multiplier"
+                ? splits[padTarget.index].multiplier ?? 1
+                : splits[padTarget.index].multiplierMode === SplitQtyUnit.Collective
+                  ? splits[padTarget.index].value * (splits[padTarget.index].multiplier ?? 1)
+                  : splits[padTarget.index].value
           }
-          min={0}
+          min={1}
           onConfirm={(val) => {
             if (padTarget.type === "quick-add") {
               setQuickAddValue(String(val));
+            } else if (padTarget.type === "multiplier") {
+              const idx = padTarget.index;
+              const updated = [...splits];
+              const entry = updated[idx];
+              
+              const oldMult = entry.multiplier ?? 1;
+              const newMult = Math.max(1, Math.round(val)); // Must be integer >= 1
+
+              if (oldMult !== newMult) {
+                // If in collective mode, adjust base unit-value to prevent sudden jumps
+                if (entry.multiplierMode === SplitQtyUnit.Collective) {
+                  entry.value = (entry.value * oldMult) / newMult;
+                }
+                entry.multiplier = newMult;
+
+                // Reset multiplier mode back to individual defaults if it goes back down to 1
+                if (newMult === 1) {
+                  entry.multiplierMode = SplitQtyUnit.PerUnit;
+                }
+
+                // Recalculate automatic weights if active
+                if (updated.every((s) => s.strategyType === PaymentStrategyType.Percentage)) {
+                  onChange(redistributePercentages(updated));
+                  return;
+                }
+              }
+              onChange(updated);
             } else {
-              handleSplitValueChange(padTarget.index, val);
+              const entry = splits[padTarget.index];
+              const resolvedValue =
+                entry.multiplierMode === SplitQtyUnit.Collective
+                  ? val / (entry.multiplier ?? 1)
+                  : val;
+              handleSplitValueChange(padTarget.index, resolvedValue);
             }
           }}
         />

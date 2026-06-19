@@ -169,3 +169,8 @@ export enum SplitQtyType {
   Amount = "amount",
   Percentage = "percentage",
 }
+
+export enum SplitQtyUnit {
+  PerUnit = "per-unit",
+  Collective = "collective"
+}
