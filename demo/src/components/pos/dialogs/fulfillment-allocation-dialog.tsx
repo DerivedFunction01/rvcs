@@ -106,7 +106,7 @@ export function FulfillmentAllocationDialog({
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
 
   const [destType, setDestType] = useState<ConfigType | FloorObjectKind>(
-   ConfigType.Guest,
+    ConfigType.Guest,
   );
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
@@ -511,17 +511,17 @@ export function FulfillmentAllocationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-5xl flex flex-col max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-4xl landscape:sm:max-w-5xl landscape:md:max-w-6xl max-h-[95vh] landscape:max-h-[95vh] flex flex-col overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Clock className="w-5 h-5 text-emerald-600 shrink-0" />
+          <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <Clock className="w-5 h-5 md:w-6 md:h-6 text-emerald-600 shrink-0" />
             {context === AllocationContext.Global
               ? "Default Fulfillment Settings"
               : context === AllocationContext.Group
                 ? "Fulfillment (Bulk)"
                 : AllocationType.Fulfillment}
           </DialogTitle>
-          <DialogDescription className="text-xs">
+          <DialogDescription className="text-sm md:text-base">
             {context === AllocationContext.Global
               ? "Set default fulfillment methods, timing, and destinations for new order items."
               : "Set fulfillment details for the selected items."}
@@ -597,26 +597,26 @@ export function FulfillmentAllocationDialog({
           /* 2. Custom Configurator View */
           <div className="space-y-4 py-2 animate-in fade-in duration-150">
             <div className="flex items-center justify-between pb-1 border-b">
-              <span className="text-sm font-semibold">
+              <span className="text-sm md:text-base font-semibold">
                 Custom Fulfillment Details
               </span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                className="h-10 md:h-12 px-3 md:px-4 text-xs md:text-sm text-muted-foreground hover:text-foreground"
                 onClick={() => setView("main")}
               >
-                <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 mr-1.5" />
                 Back to Configs
               </Button>
             </div>
 
             {/* Method Select */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="space-y-3">
+              <label className="text-[11px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Fulfillment Method
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 md:gap-3">
                 {[
                   { id: OrderType.WalkIn, label: "Walk In", icon: Store },
                   { id: OrderType.Pickup, label: "Pickup", icon: PackageCheck },
@@ -628,10 +628,10 @@ export function FulfillmentAllocationDialog({
                     <Button
                       key={item.id}
                       variant={active ? "default" : "outline"}
-                      className={`flex-1 gap-1.5 h-9 text-xs ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                      className={`flex-1 gap-1.5 h-10 md:h-12 text-xs md:text-sm ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
                       onClick={() => setMethod(item.id)}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
+                      <Icon className="w-4 h-4 md:w-5 md:h-5 shrink-0" />
                       {item.label}
                     </Button>
                   );
@@ -640,11 +640,11 @@ export function FulfillmentAllocationDialog({
             </div>
 
             {/* Time Settings */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="space-y-3">
+              <label className="text-[11px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Timing
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 md:gap-3">
                 {[
                   { id: TimeBlockType.Immediate, label: "Immediate" },
                   { id: TimeBlockType.Scheduled, label: "Scheduled" },
@@ -655,7 +655,7 @@ export function FulfillmentAllocationDialog({
                     <Button
                       key={item.id}
                       variant={active ? "default" : "outline"}
-                      className={`flex-1 h-8 text-xs ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                      className={`flex-1 h-10 md:h-12 text-xs md:text-sm ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
                       onClick={() => {
                         setTimeType(item.id);
                         if (
@@ -692,11 +692,11 @@ export function FulfillmentAllocationDialog({
             </div>
 
             {/* Destination Settings */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="space-y-3">
+              <label className="text-[11px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Destination Target
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 md:gap-3">
                 {[
                   { id: ConfigType.Guest, label: "Guest", icon: User },
                   { id: FloorObjectKind.Table, label: "Table", icon: Grid2x2 },
@@ -708,10 +708,10 @@ export function FulfillmentAllocationDialog({
                     <Button
                       key={item.id}
                       variant={active ? "default" : "outline"}
-                      className={`flex-1 gap-1 h-8 text-[11px] ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
+                      className={`flex-1 gap-1.5 h-10 md:h-12 text-xs md:text-sm ${active ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`}
                       onClick={() => setDestType(item.id as any)}
                     >
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <Icon className="w-4 h-4 md:w-5 md:h-5 shrink-0" />
                       {item.label}
                     </Button>
                   );
@@ -719,10 +719,10 @@ export function FulfillmentAllocationDialog({
               </div>
 
               {/* Destination Detail Picker */}
-              <div className="mt-2 rounded-lg border p-3 bg-muted/10 space-y-2">
+              <div className="mt-3 rounded-lg border p-4 md:p-5 bg-muted/10 space-y-3">
                 {destType === ConfigType.Guest && (
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                  <div className="space-y-2">
+                    <span className="text-[10px] md:text-xs text-muted-foreground uppercase font-semibold">
                       Select Guest
                     </span>
                     <select
@@ -730,7 +730,7 @@ export function FulfillmentAllocationDialog({
                       onChange={(e) =>
                         setSelectedGuestId(e.target.value || null)
                       }
-                      className="w-full bg-background border rounded px-3 py-1.5 text-xs focus-visible:outline-none"
+                      className="w-full bg-background border rounded px-3 py-2 md:py-3 text-xs md:text-sm focus-visible:outline-none"
                     >
                       {guests.map((g) => (
                         <option key={g.id} value={g.id}>
@@ -745,8 +745,8 @@ export function FulfillmentAllocationDialog({
                 )}
 
                 {destType === FloorObjectKind.Table && (
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                  <div className="space-y-2">
+                    <span className="text-[10px] md:text-xs text-muted-foreground uppercase font-semibold">
                       Select Table
                     </span>
                     <select
@@ -754,7 +754,7 @@ export function FulfillmentAllocationDialog({
                       onChange={(e) =>
                         setSelectedTableId(e.target.value || null)
                       }
-                      className="w-full bg-background border rounded px-3 py-1.5 text-xs focus-visible:outline-none"
+                      className="w-full bg-background border rounded px-3 py-2 md:py-3 text-xs md:text-sm focus-visible:outline-none"
                     >
                       {allTables.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -769,41 +769,43 @@ export function FulfillmentAllocationDialog({
                 )}
 
                 {destType === ConfigType.Custom && (
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                  <div className="space-y-2">
+                    <span className="text-[10px] md:text-xs text-muted-foreground uppercase font-semibold">
                       Custom Destination / Instructions
                     </span>
                     <Input
                       placeholder="e.g. 123 Main St, curbside spot #3..."
                       value={customDestLabel}
                       onChange={(e) => setCustomDestLabel(e.target.value)}
-                      className="h-8 text-xs focus-visible:ring-1 focus-visible:ring-emerald-500"
+                      className="h-10 md:h-12 text-xs md:text-sm focus-visible:ring-1 focus-visible:ring-emerald-500"
                     />
                   </div>
                 )}
               </div>
             </div>
 
-            <DialogFooter className="pt-2 border-t mt-4 gap-2 sm:justify-end">
+            <DialogFooter className="pt-4 md:pt-5 border-t mt-4 md:mt-5 gap-2 sm:gap-3 flex-col sm:flex-row landscape:flex-row sm:justify-end">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setView("main")}
+                className="h-12 md:h-16 text-sm md:text-base order-2 sm:order-1"
               >
                 Cancel
               </Button>
-              <div className="flex gap-2">
+              <div className="flex gap-2 md:gap-3 order-1 sm:order-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleSaveConfigOnly}
+                  className="h-12 md:h-16 text-xs md:text-sm flex-1 sm:flex-none"
                 >
                   Save Config
                 </Button>
                 <Button
                   size="sm"
                   onClick={handleApplyCustom}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="h-12 md:h-16 text-xs md:text-sm flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {context === AllocationContext.Global
                     ? "Apply default..."
@@ -817,31 +819,31 @@ export function FulfillmentAllocationDialog({
           <div className="space-y-4 animate-in fade-in duration-150">
             {/* Active Config Header */}
             {activeConfigDetails ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/15 p-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-100/50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-600 shrink-0">
-                    <activeConfigDetails.icon className="w-5 h-5" />
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/15 p-4 md:p-5 flex items-center justify-between">
+                <div className="flex items-center gap-3 md:gap-4">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-emerald-100/50 dark:bg-emerald-950/20 flex items-center justify-center text-emerald-600 shrink-0">
+                    <activeConfigDetails.icon className="w-6 h-6 md:w-7 md:h-7" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    <span className="text-xs md:text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                       Active Default Configuration
                     </span>
-                    <h4 className="text-sm font-bold truncate text-foreground leading-snug">
+                    <h4 className="text-sm md:text-base font-bold truncate text-foreground leading-snug">
                       {activeConfigDetails.methodLabel} to{" "}
                       {activeConfigDetails.destLabel}
                     </h4>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[10px] md:text-xs text-muted-foreground">
                       Timing: {activeConfigDetails.timeLabel}
                     </span>
                   </div>
                 </div>
-                <Badge className="bg-emerald-600 text-white select-none gap-1 border-transparent text-[10px] py-0.5 px-2">
-                  <Check className="w-3 h-3 shrink-0" />
+                <Badge className="bg-emerald-600 text-white select-none gap-1 border-transparent text-[10px] md:text-xs py-1 md:py-1.5 px-2 md:px-3">
+                  <Check className="w-4 h-4 md:w-5 md:h-5 shrink-0" />
                   Active
                 </Badge>
               </div>
             ) : (
-              <div className="text-xs text-muted-foreground italic text-center p-3 rounded-lg border border-dashed">
+              <div className="text-xs md:text-sm text-muted-foreground italic text-center p-4 md:p-5 rounded-lg border border-dashed">
                 No active default fulfillment config
               </div>
             )}
@@ -849,35 +851,35 @@ export function FulfillmentAllocationDialog({
             {/* Search and Toolbar */}
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search fulfillment configs..."
-                  className="pl-8 pr-8 h-8.5 text-xs focus-visible:ring-1 focus-visible:ring-emerald-500"
+                  className="pl-10 pr-9 h-10 md:h-12 text-xs md:text-sm focus-visible:ring-1 focus-visible:ring-emerald-500"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
                 {searchQuery !== debouncedQuery && (
-                  <Loader2 className="absolute right-2.5 top-2.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
                 )}
               </div>
               <Button
                 size="sm"
-                className="h-8.5 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                className="h-10 md:h-12 text-xs md:text-sm gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 px-3 md:px-4"
                 onClick={() => setView("customize")}
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4 md:w-5 md:h-5" />
                 Custom...
               </Button>
             </div>
 
             {/* Options List */}
-            <div className="space-y-4 max-h-[42vh] overflow-y-auto pr-1">
+            <div className="space-y-4 md:space-y-5 max-h-[50vh] md:max-h-[55vh] overflow-y-auto pr-1">
               {/* Built-ins */}
               <div className="space-y-2">
-                <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <h5 className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Built-in Default Configurations
                 </h5>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {filteredBuiltIns.map((choice) => {
                     const isActive = choice.id === activeFulfillmentConfigId;
                     const Icon = choice.icon;
@@ -885,25 +887,24 @@ export function FulfillmentAllocationDialog({
                       <button
                         key={choice.id}
                         onClick={() => handleSelectConfig(choice.id)}
-                        className={`flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${
-                          isActive
+                        className={`flex items-center gap-3 rounded-lg border p-3 md:p-4 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${isActive
                             ? "border-emerald-500 bg-emerald-50/5 dark:bg-emerald-950/10 ring-1 ring-emerald-500/20"
                             : "bg-card"
-                        }`}
+                          }`}
                       >
                         <div
-                          className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
+                          className={`w-9 h-9 md:w-10 md:h-10 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
                         >
-                          <Icon className="w-4 h-4" />
+                          <Icon className="w-5 h-5 md:w-6 md:h-6" />
                         </div>
                         <div className="min-w-0 flex-1 flex flex-col">
-                          <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1">
+                          <span className="text-xs md:text-sm font-semibold text-foreground truncate flex items-center gap-1">
                             {choice.label}
                             {isActive && (
-                              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <Check className="w-4 h-4 md:w-5 md:h-5 text-emerald-600 shrink-0" />
                             )}
                           </span>
-                          <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate">
+                          <span className="text-[10px] md:text-xs text-muted-foreground leading-normal mt-1 truncate">
                             {choice.description}
                           </span>
                         </div>
@@ -911,7 +912,7 @@ export function FulfillmentAllocationDialog({
                     );
                   })}
                   {filteredBuiltIns.length === 0 && (
-                    <div className="text-[11px] text-muted-foreground italic col-span-2">
+                    <div className="text-[11px] md:text-xs text-muted-foreground italic col-span-2">
                       No matching built-in configs
                     </div>
                   )}
@@ -920,10 +921,10 @@ export function FulfillmentAllocationDialog({
 
               {/* Saved custom configs */}
               <div className="space-y-2">
-                <h5 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <h5 className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Custom & Saved Configurations
                 </h5>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {filteredSavedConfigs.map((choice) => {
                     const isActive = choice.id === activeFulfillmentConfigId;
                     const Icon = choice.icon;
@@ -931,58 +932,57 @@ export function FulfillmentAllocationDialog({
                       <div
                         key={choice.id}
                         onClick={() => handleSelectConfig(choice.id)}
-                        className={`group flex items-center justify-between gap-3 rounded-lg border p-2.5 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${
-                          isActive
+                        className={`group flex items-center justify-between gap-3 rounded-lg border p-3 md:p-4 text-left transition-all hover:border-emerald-500/50 hover:bg-accent/40 w-full cursor-pointer ${isActive
                             ? "border-emerald-500 bg-emerald-50/5 dark:bg-emerald-950/10 ring-1 ring-emerald-500/20"
                             : "bg-card"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div
-                            className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
+                            className={`w-9 h-9 md:w-10 md:h-10 rounded-md flex items-center justify-center shrink-0 ${isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950" : "bg-muted text-muted-foreground"}`}
                           >
-                            <Icon className="w-4 h-4" />
+                            <Icon className="w-5 h-5 md:w-6 md:h-6" />
                           </div>
                           <div className="min-w-0 flex-1 flex flex-col">
-                            <span className="text-xs font-semibold text-foreground truncate flex items-center gap-1 font-mono">
+                            <span className="text-xs md:text-sm font-semibold text-foreground truncate flex items-center gap-1 font-mono">
                               {choice.label}
                               {isActive && (
-                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <Check className="w-4 h-4 md:w-5 md:h-5 text-emerald-600 shrink-0" />
                               )}
                             </span>
-                            <span className="text-[10px] text-muted-foreground leading-normal mt-0.5 truncate font-mono">
+                            <span className="text-[10px] md:text-xs text-muted-foreground leading-normal mt-1 truncate font-mono">
                               {choice.description}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                            className="h-9 md:h-10 w-9 md:w-10 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
                             title="Edit configuration"
                             onClick={(e) => {
                               e.stopPropagation();
                               loadFulfillmentConfig(choice.id);
                             }}
                           >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-4 h-4 md:w-5 md:h-5" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
+                            className="h-9 md:h-10 w-9 md:w-10 p-0 hover:bg-accent/60 shrink-0 text-muted-foreground hover:text-foreground"
                             title="Duplicate configuration"
                             onClick={(e) => {
                               e.stopPropagation();
                               loadFulfillmentConfig(choice.id);
                             }}
                           >
-                            <Copy className="w-3.5 h-3.5" />
+                            <Copy className="w-4 h-4 md:w-5 md:h-5" />
                           </Button>
                           <Badge
                             variant="outline"
-                            className="text-[8px] h-4 shrink-0 px-1 font-mono uppercase bg-muted/40 hidden sm:block"
+                            className="text-[8px] md:text-[9px] h-5 md:h-6 shrink-0 px-1.5 md:px-2 font-mono uppercase bg-muted/40 hidden sm:block"
                           >
                             Saved
                           </Badge>
@@ -991,7 +991,7 @@ export function FulfillmentAllocationDialog({
                     );
                   })}
                   {filteredSavedConfigs.length === 0 && (
-                    <div className="text-xs text-muted-foreground italic py-4 text-center col-span-2 border rounded-lg bg-muted/5 border-dashed">
+                    <div className="text-xs md:text-sm text-muted-foreground italic py-4 md:py-6 text-center col-span-2 border rounded-lg bg-muted/5 border-dashed">
                       No custom fulfillment configurations saved in the order
                       history.
                     </div>
@@ -1000,12 +1000,12 @@ export function FulfillmentAllocationDialog({
               </div>
             </div>
 
-            <DialogFooter className="pt-2 border-t mt-4">
+            <DialogFooter className="pt-4 md:pt-5 border-t mt-4 md:mt-5">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto h-12 md:h-16 text-sm md:text-base"
               >
                 Close
               </Button>

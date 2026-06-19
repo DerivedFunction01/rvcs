@@ -148,7 +148,7 @@ export function AllocationConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[95vh] landscape:sm:max-w-5xl landscape:md:max-w-6xl flex flex-col overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="w-5 h-5 text-primary" />
@@ -160,26 +160,26 @@ export function AllocationConfigDialog({
         </DialogHeader>
 
         {/* Item Info */}
-        <div className="rounded-lg border bg-muted/30 p-3 flex items-center justify-between">
+        <div className="rounded-xl border bg-muted/30 p-4 md:p-5 flex items-center justify-between">
           <div>
-            <div className="font-medium text-sm">{item.name}</div>
-            <div className="text-xs text-muted-foreground font-mono">
+            <div className="font-medium text-sm md:text-base">{item.name}</div>
+            <div className="text-xs md:text-sm text-muted-foreground font-mono">
               {item.sku}
             </div>
           </div>
-          <div className="font-mono font-bold text-sm">
+          <div className="font-mono font-bold text-sm md:text-base">
             ${formatNumber(item.totalPrice, 2)}
           </div>
         </div>
 
         {/* Assignment (Who Consumes) */}
-        <div className="space-y-3 rounded-lg border p-3.5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+        <div className="space-y-3 rounded-xl border p-4 md:p-5">
+          <div className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
             <span>Assigned Guests (Who Consumes)</span>
           </div>
 
-          <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium px-1">
-            <User className="w-3.5 h-3.5 text-primary shrink-0" />
+          <div className="text-xs md:text-sm text-muted-foreground flex items-center gap-1.5 font-medium px-1">
+            <User className="w-4 h-4 md:w-5 md:h-5 text-primary shrink-0" />
             <span className="truncate">{currentAssignee || "None"}</span>
           </div>
 
@@ -187,28 +187,28 @@ export function AllocationConfigDialog({
             <Button
               variant="outline"
               size="sm"
-              className="text-xs h-8 gap-1.5 font-medium"
+              className="text-xs md:text-sm h-10 md:h-12 gap-1.5 font-medium"
               onClick={() => {
                 onTriggerAssignmentAllocation(item);
                 onOpenChange(false);
               }}
             >
-              <User className="w-3.5 h-3.5 text-primary" />
+              <User className="w-4 h-4 md:w-5 md:h-5 text-primary" />
               Change Assignment...
             </Button>
           </div>
         </div>
 
         {/* Fulfillment Configuration (When) */}
-        <div className="space-y-3 rounded-lg border p-3.5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+        <div className="space-y-3 rounded-xl border p-4 md:p-5">
+          <div className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
             <span>Fulfillment (When)</span>
             <Badge
               variant="secondary"
-              className="text-[10px] h-4 px-1.5 font-medium bg-emerald-50 text-emerald-600 border-none dark:bg-emerald-950/20 dark:text-emerald-400"
+              className="text-[10px] md:text-xs h-5 md:h-6 px-2 md:px-2.5 font-medium bg-emerald-50 text-emerald-600 border-none dark:bg-emerald-950/20 dark:text-emerald-400"
             >
               {currentFulfillment?.time.type === TimeBlockType.Immediate ||
-              !currentFulfillment
+                !currentFulfillment
                 ? "Immediate"
                 : currentFulfillment.time.type.toUpperCase()}
             </Badge>
@@ -217,8 +217,8 @@ export function AllocationConfigDialog({
           {currentFulfillment &&
             currentFulfillment.time.type !== TimeBlockType.Immediate &&
             currentFulfillment.time.calculatedAt && (
-              <div className="text-xs text-muted-foreground flex items-center gap-1.5 font-medium px-1">
-                <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+              <div className="text-xs md:text-sm text-muted-foreground flex items-center gap-1.5 font-medium px-1">
+                <Calendar className="w-4 h-4 md:w-5 md:h-5 text-primary shrink-0" />
                 <span>
                   Scheduled:{" "}
                   {formatFulfillmentTime(
@@ -233,21 +233,21 @@ export function AllocationConfigDialog({
             <Button
               variant="outline"
               size="sm"
-              className="text-xs h-8 gap-1.5 font-medium"
+              className="text-xs md:text-sm h-10 md:h-12 gap-1.5 font-medium"
               onClick={() => {
                 onTriggerFulfillmentAllocation(item);
                 onOpenChange(false);
               }}
             >
-              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+              <Clock className="w-4 h-4 md:w-5 md:h-5 text-emerald-600" />
               Change Fulfillment Timing...
             </Button>
           </div>
         </div>
 
         {/* Payment Configuration */}
-        <div className="space-y-3 rounded-lg border p-3.5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="space-y-3 rounded-xl border p-4 md:p-5">
+          <div className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Payment Breakdown
           </div>
 
@@ -255,14 +255,14 @@ export function AllocationConfigDialog({
             {currentPayments.map((payAlloc) => (
               <div
                 key={payAlloc.allocationId}
-                className="flex items-center justify-between rounded-lg border p-2.5 bg-muted/10"
+                className="flex items-center justify-between rounded-lg border p-3 md:p-4 bg-muted/10"
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-xs font-medium truncate">
+                  <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground shrink-0" />
+                  <span className="text-xs md:text-sm font-medium truncate">
                     {getPaymentAllocDisplayName(
                       getPatchedAllocations(allocations)[
-                        payAlloc.allocationId
+                      payAlloc.allocationId
                       ] as PaymentAllocation,
                       getPatchedAllocations(allocations),
                     )}
@@ -270,35 +270,35 @@ export function AllocationConfigDialog({
                   {(() => {
                     const siblings = payAlloc.correlationId
                       ? Object.values(allocations).filter(
-                          (a) =>
-                            a.type === AllocationType.Payment &&
-                            a.correlationId === payAlloc.correlationId &&
-                            a.allocationId !== payAlloc.allocationId,
-                        )
+                        (a) =>
+                          a.type === AllocationType.Payment &&
+                          a.correlationId === payAlloc.correlationId &&
+                          a.allocationId !== payAlloc.allocationId,
+                      )
                       : [];
                     const isTrueSplit = siblings.length > 0;
                     return (
                       isTrueSplit && (
                         <Badge
                           variant="secondary"
-                          className="text-[9px] h-4 px-1 shrink-0"
+                          className="text-[9px] md:text-[10px] h-5 md:h-6 px-1.5 shrink-0"
                         >
-                          <Split className="w-2.5 h-2.5 mr-0.5" />
+                          <Split className="w-3 h-3 md:w-3.5 md:h-3.5 mr-0.5" />
                           split
                         </Badge>
                       )
                     );
                   })()}
                 </div>
-                <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0">
+                <span className="text-xs md:text-sm font-mono font-semibold text-muted-foreground shrink-0">
                   {(payAlloc.paymentStrategy.strategyType as string) ===
-                  PaymentStrategyType.Percentage
+                    PaymentStrategyType.Percentage
                     ? `${Math.round((payAlloc.paymentStrategy.value ?? 1) * 100)}%`
                     : (payAlloc.paymentStrategy.strategyType as string) ===
-                          PaymentStrategyType.FixedItem
+                      PaymentStrategyType.FixedItem
                       ? `$${formatNumber(payAlloc.paymentStrategy.value ?? 0, 2)}/item`
                       : (payAlloc.paymentStrategy.strategyType as string) ===
-                          PaymentStrategyType.FixedGlobal
+                        PaymentStrategyType.FixedGlobal
                         ? `$${formatNumber(payAlloc.paymentStrategy.value ?? 0, 2)} total`
                         : "remaining"}
                 </span>
@@ -315,7 +315,7 @@ export function AllocationConfigDialog({
             );
             if (groupAllocs.length <= 1) return null;
             return (
-              <div className="text-[9px] font-mono text-muted-foreground/60 px-1 truncate">
+              <div className="text-[9px] md:text-[10px] font-mono text-muted-foreground/60 px-1 truncate">
                 correlation: {correlationId}
               </div>
             );
@@ -323,17 +323,17 @@ export function AllocationConfigDialog({
 
           <Separator className="my-1" />
 
-          <div className="flex flex-wrap gap-2 pt-1 justify-between items-center">
+          <div className="flex flex-col md:flex-row gap-2 md:gap-3 pt-1 justify-between items-stretch md:items-center">
             <Button
               variant="outline"
               size="sm"
-              className="text-xs h-8 gap-1.5 font-medium"
+              className="text-xs md:text-sm h-10 md:h-12 gap-1.5 font-medium"
               onClick={() => {
                 onTriggerPaymentAllocation(item);
                 onOpenChange(false);
               }}
             >
-              <CreditCard className="w-3.5 h-3.5" />
+              <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
               Change Payment / Split...
             </Button>
 
@@ -341,18 +341,22 @@ export function AllocationConfigDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs h-8 text-muted-foreground hover:text-foreground"
+                className="text-xs md:text-sm h-10 md:h-12 text-muted-foreground hover:text-foreground"
                 onClick={handleResetToDefault}
               >
-                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                <RotateCcw className="w-4 h-4 md:w-5 md:h-5 mr-1" />
                 Revert to default ({defaultPaymentMethod})
               </Button>
             )}
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-2 landscape:flex-row">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="h-12 md:h-16 text-sm md:text-base"
+          >
             Close
           </Button>
         </DialogFooter>

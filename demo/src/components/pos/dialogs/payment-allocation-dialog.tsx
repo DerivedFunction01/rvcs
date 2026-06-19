@@ -243,7 +243,7 @@ export function PaymentAllocationDialog({
 
   const computedPaymentConfigs = useMemo(() => {
     const configs = new Map<string, { id: string; name: string; isSplit: boolean }>();
-    
+
     for (const cfg of paymentConfigs) {
       configs.set(cfg.id, cfg);
     }
@@ -255,7 +255,7 @@ export function PaymentAllocationDialog({
         if (p.correlationId?.startsWith("group-default-") || p.correlationId?.startsWith("group-guest-") || p.correlationId?.startsWith("group-")) {
           continue;
         }
-        
+
         const id = p.correlationId || p.allocationId;
         if (!groups.has(id)) {
           groups.set(id, []);
@@ -295,7 +295,7 @@ export function PaymentAllocationDialog({
           }
           groupMap.get(key)!.payers.push(a.payer);
         }
-        
+
         name = Array.from(groupMap.values())
           .sort((a, b) => b.sortValue - a.sortValue)
           .map((g) => {
@@ -670,17 +670,17 @@ export function PaymentAllocationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-4xl landscape:sm:max-w-5xl landscape:md:max-w-6xl max-h-[95vh] landscape:max-h-[95vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <CreditCard className="w-5 h-5 text-primary shrink-0" />
+          <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <CreditCard className="w-5 h-5 md:w-6 md:h-6 text-primary shrink-0" />
             {context === AllocationContext.Header
               ? "Order Default Payment Configuration"
               : context === AllocationContext.Group
                 ? "Allocate Payment (Bulk)"
                 : "Allocate Payment"}
           </DialogTitle>
-          <DialogDescription className="text-xs">
+          <DialogDescription className="text-sm md:text-base">
             {context === AllocationContext.Header
               ? "Configure the default payment allocation for new items on the order."
               : "Set payment configuration or create custom splits for the selected item(s)."}
@@ -846,46 +846,45 @@ export function PaymentAllocationDialog({
         ) : view === "guest-methods" ? (
           /* Guest Methods View */
           <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-2 border-b">
+            <div className="flex items-center justify-between pb-2 md:pb-3 border-b">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-1 pl-1 pr-2 text-xs text-muted-foreground hover:text-foreground"
+                  className="h-10 md:h-12 gap-1.5 pl-2 pr-3 text-xs md:text-sm text-muted-foreground hover:text-foreground"
                   onClick={() => setView("main")}
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
                   Back
                 </Button>
-                <span className="text-sm font-semibold text-foreground">
+                <span className="text-sm md:text-base font-semibold text-foreground">
                   Methods for {selectedGuest}
                 </span>
               </div>
             </div>
 
-            <div className="min-h-55 max-h-[45vh] overflow-y-auto pr-1">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-1">
+            <div className="min-h-55 max-h-[50vh] md:max-h-[55vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3 py-1 md:py-2">
                 {guestMethods.map((choice) => {
                   const isActive = choice.id === resolvedActiveId;
                   return (
                     <button
                       key={choice.id}
                       onClick={() => handleSelectConfig(choice.id)}
-                      className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
-                        isActive
+                      className={`flex flex-col items-start gap-1.5 md:gap-2 rounded-lg border p-3 md:p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${isActive
                           ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                           : "bg-card"
-                      }`}
+                        }`}
                     >
                       <div className="flex w-full items-start justify-between gap-1.5">
-                        <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
+                        <span className="min-w-0 truncate text-xs md:text-sm font-semibold text-foreground flex items-center gap-1">
                           {isActive && (
-                            <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <Check className="w-4 h-4 md:w-5 md:h-5 text-primary shrink-0" />
                           )}
                           {choice.badge}
                         </span>
                       </div>
-                      <span className="text-[9px] text-muted-foreground leading-normal mt-0.5">
+                      <span className="text-[9px] md:text-xs text-muted-foreground leading-normal">
                         {choice.description}
                       </span>
                     </button>
@@ -894,11 +893,12 @@ export function PaymentAllocationDialog({
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t">
+            <div className="flex items-center justify-between pt-4 md:pt-5 border-t gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onOpenChange(false)}
+                className="h-12 md:h-16 text-sm md:text-base"
               >
                 Close
               </Button>
@@ -906,7 +906,7 @@ export function PaymentAllocationDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs"
+                className="h-12 md:h-16 text-xs md:text-sm"
                 onClick={() => setView("main")}
               >
                 Back to Main
@@ -916,36 +916,36 @@ export function PaymentAllocationDialog({
         ) : view === "splits" ? (
           /* Splits and Custom Configs View */
           <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-2 border-b">
+            <div className="flex items-center justify-between pb-2 md:pb-3 border-b">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-1 pl-1 pr-2 text-xs text-muted-foreground hover:text-foreground"
+                  className="h-10 md:h-12 gap-1.5 pl-2 pr-3 text-xs md:text-sm text-muted-foreground hover:text-foreground"
                   onClick={() => setView("main")}
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
                   Back
                 </Button>
-                <span className="text-sm font-semibold text-foreground">
+                <span className="text-sm md:text-base font-semibold text-foreground">
                   Splits & Custom Configurations
                 </span>
               </div>
             </div>
 
             <Button
-              className="w-full gap-1.5 justify-center"
+              className="w-full gap-1.5 justify-center h-10 md:h-12 text-xs md:text-sm"
               variant="secondary"
               size="sm"
               onClick={handleStartCustomSplit}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 md:w-5 md:h-5" />
               Create Custom Split / Payer...
             </Button>
 
             <div className="min-h-55 max-h-[45vh] overflow-y-auto pr-1">
               {filteredSavedSplits.length === 0 &&
-              filteredSavedSingles.length === 0 ? (
+                filteredSavedSingles.length === 0 ? (
                 <div className="py-12 text-center text-xs text-muted-foreground">
                   No saved configurations. Create a custom split above.
                 </div>
@@ -963,11 +963,10 @@ export function PaymentAllocationDialog({
                             <div
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${
-                                isActive
+                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
                                 <div className="flex w-full items-start justify-between gap-2">
@@ -1033,11 +1032,10 @@ export function PaymentAllocationDialog({
                             <div
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${
-                                isActive
+                              className={`group flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full cursor-pointer ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
                                 <div className="flex w-full items-start justify-between gap-2">
@@ -1123,7 +1121,7 @@ export function PaymentAllocationDialog({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search default payer methods or guest names..."
-                className="pl-9 pr-9 h-10 text-xs"
+                className="pl-10 pr-9 h-10 md:h-12 text-xs md:text-sm"
               />
               {searchQuery !== debouncedQuery && (
                 <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
@@ -1132,8 +1130,8 @@ export function PaymentAllocationDialog({
 
             <div className="min-h-55 max-h-[45vh] overflow-y-auto pr-1">
               {filteredPrimaryDefaults.length === 0 &&
-              filteredActiveGuestMethods.length === 0 &&
-              filteredOtherGuests.length === 0 ? (
+                filteredActiveGuestMethods.length === 0 &&
+                filteredOtherGuests.length === 0 ? (
                 <div className="py-12 text-center text-xs text-muted-foreground">
                   No matching payment methods or guests found.
                 </div>
@@ -1141,35 +1139,34 @@ export function PaymentAllocationDialog({
                 <div className="space-y-4 py-1">
                   {/* Active Guest Section */}
                   {activeGuestName && filteredActiveGuestMethods.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                        <Badge className="text-[8px] h-4 scale-95 shrink-0 px-1 font-mono uppercase bg-primary/10 text-primary border-primary/20">
+                    <div className="space-y-2 md:space-y-3">
+                      <div className="text-[10px] md:text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                        <Badge className="text-[8px] md:text-[9px] h-5 md:h-6 scale-95 shrink-0 px-1.5 md:px-2 font-mono uppercase bg-primary/10 text-primary border-primary/20">
                           Active
                         </Badge>
                         Guest: {activeGuestName}
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
                         {filteredActiveGuestMethods.map((choice) => {
                           const isActive = choice.id === resolvedActiveId;
                           return (
                             <button
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
-                                isActive
+                              className={`flex flex-col items-start gap-1.5 md:gap-2 rounded-lg border p-3 md:p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex w-full items-start justify-between gap-1.5">
-                                <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
+                                <span className="min-w-0 truncate text-xs md:text-sm font-semibold text-foreground flex items-center gap-1">
                                   {isActive && (
-                                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    <Check className="w-4 h-4 md:w-5 md:h-5 text-primary shrink-0" />
                                   )}
                                   {choice.badge}
                                 </span>
                               </div>
-                              <span className="text-[9px] text-muted-foreground leading-normal mt-0.5">
+                              <span className="text-[9px] md:text-xs text-muted-foreground leading-normal">
                                 {choice.description}
                               </span>
                             </button>
@@ -1181,32 +1178,31 @@ export function PaymentAllocationDialog({
 
                   {/* Default Payer Section */}
                   {filteredPrimaryDefaults.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <div className="space-y-2 md:space-y-3">
+                      <div className="text-[10px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Default Payer ({primaryGuest})
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
                         {filteredPrimaryDefaults.map((choice) => {
                           const isActive = choice.id === resolvedActiveId;
                           return (
                             <button
                               key={choice.id}
                               onClick={() => handleSelectConfig(choice.id)}
-                              className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${
-                                isActive
+                              className={`flex flex-col items-start gap-1.5 md:gap-2 rounded-lg border p-3 md:p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full ${isActive
                                   ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                                   : "bg-card"
-                              }`}
+                                }`}
                             >
                               <div className="flex w-full items-start justify-between gap-1.5">
-                                <span className="min-w-0 truncate text-xs font-semibold text-foreground flex items-center gap-1">
+                                <span className="min-w-0 truncate text-xs md:text-sm font-semibold text-foreground flex items-center gap-1">
                                   {isActive && (
-                                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    <Check className="w-4 h-4 md:w-5 md:h-5 text-primary shrink-0" />
                                   )}
                                   {choice.badge}
                                 </span>
                               </div>
-                              <span className="text-[9px] text-muted-foreground leading-normal mt-0.5">
+                              <span className="text-[9px] md:text-xs text-muted-foreground leading-normal">
                                 {choice.description}
                               </span>
                             </button>
@@ -1218,11 +1214,11 @@ export function PaymentAllocationDialog({
 
                   {/* Other Guests Section */}
                   {filteredOtherGuests.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <div className="space-y-2 md:space-y-3">
+                      <div className="text-[10px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Other Guests ({guests.length - 1})
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 md:gap-3">
                         {filteredOtherGuests.map((guest) => (
                           <button
                             key={guest}
@@ -1231,13 +1227,13 @@ export function PaymentAllocationDialog({
                               setView("guest-methods");
                               setSearchQuery("");
                             }}
-                            className="flex items-center gap-2 rounded-lg border bg-card p-3 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full"
+                            className="flex items-center gap-2 rounded-lg border bg-card p-3 md:p-4 text-left transition-all hover:border-primary/50 hover:bg-accent/40 w-full min-h-14 md:min-h-16"
                           >
-                            <User className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <span className="min-w-0 truncate text-xs font-semibold text-foreground">
+                            <User className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground shrink-0" />
+                            <span className="min-w-0 truncate text-xs md:text-sm font-semibold text-foreground">
                               {guest}
                             </span>
-                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-auto" />
+                            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground shrink-0 ml-auto" />
                           </button>
                         ))}
                       </div>
@@ -1247,25 +1243,26 @@ export function PaymentAllocationDialog({
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t">
+            <div className="flex items-center justify-between pt-4 md:pt-5 border-t gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onOpenChange(false)}
+                className="h-12 md:h-16 text-sm md:text-base"
               >
                 Close
               </Button>
 
               <Button
                 size="sm"
-                className="gap-1.5"
+                className="h-12 md:h-16 text-xs md:text-sm gap-1.5"
                 variant="outline"
                 onClick={() => {
                   setView("splits");
                   setSearchQuery("");
                 }}
               >
-                <Split className="w-3.5 h-3.5 text-primary" />
+                <Split className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                 Splits & Saved Configs...
               </Button>
             </div>

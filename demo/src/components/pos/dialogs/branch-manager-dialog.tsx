@@ -59,13 +59,12 @@ function BranchRow({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-2.5 transition-colors ${
-        isActive
+      className={`flex items-center gap-2 px-4 md:px-5 py-3 md:py-4 transition-colors ${isActive
           ? isHypothetical
             ? "bg-amber-500/10"
             : "bg-emerald-500/10"
           : "hover:bg-accent/40"
-      }`}
+        }`}
     >
       <span
         className="shrink-0"
@@ -76,9 +75,9 @@ function BranchRow({
         }
       >
         {isHypothetical ? (
-          <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+          <Lightbulb className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
         ) : (
-          <GitBranch className="w-3.5 h-3.5 text-emerald-500" />
+          <GitBranch className="w-4 h-4 md:w-5 md:h-5 text-emerald-500" />
         )}
       </span>
 
@@ -89,30 +88,30 @@ function BranchRow({
       >
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className={`text-sm truncate ${isActive ? "font-semibold" : "font-medium"}`}
+            className={`text-sm md:text-base truncate ${isActive ? "font-semibold" : "font-medium"}`}
           >
             {displayName}
           </span>
           {pointer.label && (
-            <span className="text-[10px] text-muted-foreground font-mono truncate">
+            <span className="text-[10px] md:text-xs text-muted-foreground font-mono truncate">
               {branch}
             </span>
           )}
           {isActive && (
-            <Badge variant="secondary" className="text-[9px] h-4 px-1 shrink-0">
+            <Badge variant="secondary" className="text-[9px] md:text-[10px] h-5 md:h-6 px-1.5 shrink-0">
               Active
             </Badge>
           )}
           {isMain && (
             <Badge
               variant="outline"
-              className="text-[9px] h-4 px-1 shrink-0 border-amber-400/50 text-amber-600"
+              className="text-[9px] md:text-[10px] h-5 md:h-6 px-1.5 shrink-0 border-amber-400/50 text-amber-600"
             >
               Main
             </Badge>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+        <p className="text-[10px] md:text-xs text-muted-foreground font-mono mt-1 md:mt-1.5">
           {pointer.headHash?.slice(0, 7) ?? "no commits"}
         </p>
       </button>
@@ -120,22 +119,22 @@ function BranchRow({
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 shrink-0"
+        className="h-9 md:h-10 w-9 md:w-10 shrink-0"
         onClick={onConfigure}
         title="Configure branch"
       >
-        <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+        <Settings2 className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
       </Button>
       {!isMain && (
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0"
+          className="h-9 md:h-10 w-9 md:w-10 shrink-0"
           onClick={onCheckout}
           title={isActive ? "Active draft" : "Set as active draft"}
         >
           <Star
-            className={`w-3.5 h-3.5 ${isActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
+            className={`w-4 h-4 md:w-5 md:h-5 ${isActive ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
           />
         </Button>
       )}
@@ -159,7 +158,7 @@ export function BranchManagerDialog({
   const [startFromEmpty, setStartFromEmpty] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  
+
   const branchEntries = Object.entries(branches);
   const branchCount = branchEntries.length;
 
@@ -202,34 +201,34 @@ export function BranchManagerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md md:max-w-lg landscape:sm:max-w-2xl landscape:md:max-w-4xl max-h-[95vh] landscape:md:min-h-95 overflow-y-auto landscape:max-h-[95vh] landscape:overflow-hidden flex flex-col p-6">
-        <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 h-full landscape:overflow-hidden">
-          <div className="flex flex-col gap-3 flex-1 min-w-0 landscape:overflow-y-auto landscape:min-h-0">
+      <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[95vh] landscape:sm:max-w-5xl landscape:md:max-w-6xl overflow-y-auto landscape:max-h-[95vh] landscape:overflow-hidden flex flex-col p-4 md:p-6">
+        <div className="flex flex-col landscape:flex-row gap-4 md:gap-6 landscape:gap-6 h-full landscape:overflow-hidden">
+          <div className="flex flex-col gap-3 md:gap-4 flex-1 min-w-0 landscape:overflow-y-auto landscape:min-h-0">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <GitBranch className="w-5 h-5 text-primary" />
+              <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+                <GitBranch className="w-5 h-5 md:w-6 md:h-6 text-primary" />
                 Branches
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-sm md:text-base">
                 Checkout, configure, and manage parallel order branches.
               </DialogDescription>
             </DialogHeader>
 
             <div className="relative mt-2 shrink-0">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search branches..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9 text-xs"
+                className="pl-10 pr-9 text-xs md:text-sm h-10 md:h-11"
               />
               {searchQuery !== debouncedQuery && (
-                <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
               )}
             </div>
 
-            <div className="flex-1 min-h-40 overflow-y-auto pr-1">
-              <div className="divide-y border rounded-lg">
+            <div className="flex-1 min-h-40 md:min-h-48 overflow-y-auto pr-1">
+              <div className="divide-y border rounded-xl">
                 {filteredBranches.map(([branch, pointer]) => (
                   <BranchRow
                     key={branch}
@@ -241,7 +240,7 @@ export function BranchManagerDialog({
                   />
                 ))}
                 {filteredBranches.length === 0 && (
-                  <div className="py-8 text-center text-xs text-muted-foreground">
+                  <div className="py-8 md:py-12 text-center text-xs md:text-sm text-muted-foreground">
                     No matching branches found.
                   </div>
                 )}
@@ -249,10 +248,10 @@ export function BranchManagerDialog({
             </div>
           </div>
 
-          <div className="shrink-0 landscape:w-70 landscape:md:w-96 flex flex-col landscape:mt-14 landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 landscape:pt-0">
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+          <div className="shrink-0 landscape:w-80 landscape:md:w-96 flex flex-col landscape:mt-4 landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 md:pt-5 landscape:pt-0">
+            <div className="space-y-4 md:space-y-5">
+              <div className="space-y-3">
+                <p className="text-[10px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   New branch
                 </p>
                 <div className="flex items-center gap-2">
@@ -260,34 +259,34 @@ export function BranchManagerDialog({
                     value={newBranchName}
                     onChange={(e) => setNewBranchName(e.target.value)}
                     placeholder="Leave blank to auto-generate"
-                    className={`h-8 text-xs flex-1 ${viewingHash && !startFromEmpty ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
+                    className={`h-10 md:h-12 text-xs md:text-sm flex-1 ${viewingHash && !startFromEmpty ? "ring-1 ring-amber-400/60 border-amber-400/40" : ""}`}
                     onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                   />
                   <Button
                     variant="outline"
                     size="sm"
-                    className={`h-8 px-2.5 gap-1 shrink-0 ${viewingHash && !startFromEmpty ? "border-amber-400/50 text-amber-600" : ""}`}
+                    className={`h-10 md:h-12 px-3 md:px-4 gap-1.5 shrink-0 text-xs md:text-sm ${viewingHash && !startFromEmpty ? "border-amber-400/50 text-amber-600" : ""}`}
                     onClick={handleCreate}
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-4 h-4 md:w-5 md:h-5" />
                     Create
                   </Button>
                 </div>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2 md:mt-3">
                   <Checkbox
                     id="empty-branch-cb"
                     checked={startFromEmpty}
                     onCheckedChange={(c) => setStartFromEmpty(!!c)}
-                    className="h-3.5 w-3.5"
+                    className="h-4 w-4 md:h-5 md:w-5"
                   />
                   <label
                     htmlFor="empty-branch-cb"
-                    className="text-[10px] text-muted-foreground cursor-pointer select-none font-medium"
+                    className="text-[10px] md:text-xs text-muted-foreground cursor-pointer select-none font-medium"
                   >
                     Start from empty (root of main)
                   </label>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-[10px] md:text-xs text-muted-foreground">
                   {startFromEmpty
                     ? "Branches from the initial system state."
                     : viewingHash
@@ -302,25 +301,31 @@ export function BranchManagerDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full h-8 gap-2 border-violet-400/50 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 dark:text-violet-400"
+                    className="w-full h-10 md:h-12 gap-2 border-violet-400/50 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 dark:text-violet-400 text-xs md:text-sm"
                     onClick={onOpenMerge}
                   >
-                    <GitMerge className="w-3.5 h-3.5" />
+                    <GitMerge className="w-4 h-4 md:w-5 md:h-5" />
                     Merge branches
                   </Button>
                 </>
               )}
             </div>
-            
-            <div className="mt-auto pt-4 border-t hidden landscape:block">
-              <Button className="w-full" onClick={() => onOpenChange(false)}>
+
+            <div className="mt-auto pt-4 md:pt-5 border-t hidden landscape:block shrink-0">
+              <Button
+                className="w-full h-12 md:h-16 text-sm md:text-base"
+                onClick={() => onOpenChange(false)}
+              >
                 Done
               </Button>
             </div>
           </div>
-          
-          <div className="pt-4 border-t landscape:hidden shrink-0 mt-2">
-            <Button className="w-full" onClick={() => onOpenChange(false)}>
+
+          <div className="pt-4 md:pt-5 border-t landscape:hidden shrink-0 mt-2">
+            <Button
+              className="w-full h-12 md:h-16 text-sm md:text-base"
+              onClick={() => onOpenChange(false)}
+            >
               Done
             </Button>
           </div>

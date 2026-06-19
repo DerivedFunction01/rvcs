@@ -10,11 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { PAYMENT_METHODS } from "@/lib/pos/ui-utils";
 import { PaymentStrategyType } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { NumberPadDialog } from "./number-pad-dialog";
@@ -66,6 +72,149 @@ export function validateSplit(
   }
 }
 
+/**
+ * Dialog for selecting guests to add to split
+ * Handles search, filtering, and large guest lists (100+)
+ */
+function GuestSelectionDialog({
+  open,
+  onOpenChange,
+  availableGuests,
+  onSelectGuests,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  availableGuests: string[];
+  onSelectGuests: (guests: string[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [selectedGuests, setSelectedGuests] = useState<Set<string>>(new Set());
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return availableGuests;
+    const q = query.toLowerCase();
+    return availableGuests.filter((g) => g.toLowerCase().includes(q));
+  }, [query, availableGuests]);
+
+  const handleClose = () => {
+    setQuery("");
+    setSelectedGuests(new Set());
+    onOpenChange(false);
+  };
+
+  const handleConfirm = () => {
+    onSelectGuests(Array.from(selectedGuests));
+    handleClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[95vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="w-5 h-5 text-primary" />
+            Add Guests to Split
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Search Bar */}
+        <div className="relative shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            autoFocus
+            placeholder="Search guests..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9 h-10 md:h-12 text-xs md:text-sm"
+          />
+        </div>
+
+        {/* Quick Actions */}
+        {availableGuests.length > 1 && (
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedGuests(new Set(filtered))}
+              className="h-10 md:h-12 text-xs md:text-sm flex-1"
+            >
+              Select All {filtered.length > availableGuests.length ? `(${filtered.length})` : ""}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedGuests(new Set())}
+              className="h-10 md:h-12 text-xs md:text-sm text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10 flex-1"
+            >
+              Clear All
+            </Button>
+          </div>
+        )}
+
+        {/* Guest Grid */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center text-xs md:text-sm text-muted-foreground">
+              No guests found
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 md:gap-3 pb-2">
+              {filtered.map((guestName) => {
+                const isSelected = selectedGuests.has(guestName);
+                return (
+                  <button
+                    key={guestName}
+                    onClick={() => {
+                      setSelectedGuests((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(guestName)) {
+                          next.delete(guestName);
+                        } else {
+                          next.add(guestName);
+                        }
+                        return next;
+                      });
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 border rounded-lg text-left text-xs md:text-sm transition-all min-h-10 md:min-h-12 ${isSelected
+                        ? "border-primary bg-primary/5 font-medium shadow-sm"
+                        : "border-border bg-card hover:border-primary/50 hover:bg-accent/40"
+                      }`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => { }} // Handled by button click
+                      className="w-4 h-4 md:w-5 md:h-5"
+                    />
+                    <span className="truncate flex-1">{guestName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer Buttons */}
+        <div className="flex gap-2 shrink-0 pt-4 border-t">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            className="h-12 md:h-14 flex-1 text-sm md:text-base"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirm}
+            disabled={selectedGuests.size === 0}
+            className="h-12 md:h-14 flex-1 text-sm md:text-base"
+          >
+            Add {selectedGuests.size > 0 ? `(${selectedGuests.size})` : ""} Guest{selectedGuests.size !== 1 ? "s" : ""}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface SplitEditorProps {
   splits: PaymentSplitEntry[];
   onChange: (splits: PaymentSplitEntry[]) => void;
@@ -83,9 +232,11 @@ export function SplitEditor({
   const guests = useMemo(() => {
     return getGuests().map((g) => g.name);
   }, [getGuests, allocationsState]);
+
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
   const [showNewGuestInput, setShowNewGuestInput] = useState(false);
   const [autoRedistribute, setAutoRedistribute] = useState(true);
+  const [guestSelectionOpen, setGuestSelectionOpen] = useState(false);
 
   const formatNumber = useFormatNumber();
 
@@ -122,6 +273,14 @@ export function SplitEditor({
   );
 
   const isValidSplit = validateSplit(splits, itemTotalPrice);
+
+  const availableGuests = useMemo(
+    () =>
+      guests.filter(
+        (g) => !splits.some((s) => s.entity.toLowerCase() === g.toLowerCase()),
+      ),
+    [guests, splits],
+  );
 
   const handleDistributeEqually = useCallback(() => {
     const n = splits.length;
@@ -183,267 +342,177 @@ export function SplitEditor({
     [splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue],
   );
 
-  const handleAddAllAvailable = useCallback(() => {
-    const available = guests.filter(
-      (g) => !splits.some((s) => s.entity.toLowerCase() === g.toLowerCase()),
-    );
-    if (available.length === 0) return;
+  const handleAddMultipleGuests = useCallback(
+    (guestNames: string[]) => {
+      let newSplits = [...splits];
 
-    let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
-    const isAutoPercent =
-      quickAddStrategy === PaymentStrategyType.Percentage &&
-      valueToUse === null;
+      for (const name of guestNames) {
+        const trimmed = name.trim();
+        if (!trimmed) continue;
+        if (newSplits.some((s) => s.entity.toLowerCase() === trimmed.toLowerCase()))
+          continue;
 
-    if (valueToUse === null) {
-      valueToUse = quickAddStrategy === PaymentStrategyType.Remaining ? 0 : 0;
-    }
+        newSplits.push({
+          entity: trimmed,
+          strategyType: quickAddStrategy,
+          value: 0,
+          method: quickAddMethod === "any" ? null : quickAddMethod,
+        });
+      }
 
-    const n = splits.length + available.length;
-    const addedSplits = available.map((entity) => ({
-      entity,
-      strategyType: quickAddStrategy,
-      value: isAutoPercent ? Math.floor(100 / n) : valueToUse!,
-      method: quickAddMethod === "any" ? null : quickAddMethod,
-    }));
+      if (newSplits.length === splits.length) return;
 
-    const newSplits = [...splits, ...addedSplits];
-    if (
-      isAutoPercent &&
-      newSplits.every((s) => s.strategyType === PaymentStrategyType.Percentage)
-    ) {
-      const base = Math.round((100 / n) * 1000) / 1000;
-      newSplits.forEach((s) => {
-        s.value = base;
-      });
-      const remainder = Math.round((100 - base * n) * 1000) / 1000;
-      newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
-    }
+      const isAutoPercent =
+        quickAddStrategy === PaymentStrategyType.Percentage &&
+        quickAddValue === "";
 
-    onChange(newSplits);
-  }, [
-    splits,
-    guests,
-    onChange,
-    quickAddStrategy,
-    quickAddMethod,
-    quickAddValue,
-  ]);
-
-  const handleRemoveSplitEntry = useCallback(
-    (index: number) => {
-      if (splits.length <= 1) return;
-      const newSplits = splits.filter((_, i) => i !== index);
-      const allPercentage = newSplits.every(
-        (s) => s.strategyType === PaymentStrategyType.Percentage,
-      );
-      if (autoRedistribute && allPercentage) {
-        const base = Math.round((100 / newSplits.length) * 1000) / 1000;
+      if (
+        isAutoPercent &&
+        newSplits.every(
+          (s) => s.strategyType === PaymentStrategyType.Percentage,
+        )
+      ) {
+        const n = newSplits.length;
+        const base = Math.round((100 / n) * 1000) / 1000;
         newSplits.forEach((s) => {
           s.value = base;
         });
-        const remainder = Math.round((100 - base * newSplits.length) * 1000) / 1000;
+        const remainder = Math.round((100 - base * n) * 1000) / 1000;
         newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
       }
+
       onChange(newSplits);
+    },
+    [splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue],
+  );
+
+  const handleAddNewGuest = useCallback(() => {
+    const trimmed = dialogNewGuestName.trim();
+    if (!trimmed) return;
+    onAddGuest(trimmed);
+    setDialogNewGuestName("");
+    setShowNewGuestInput(false);
+    handleAddSpecificGuest(trimmed);
+  }, [dialogNewGuestName, onAddGuest, handleAddSpecificGuest]);
+
+  const handleRemoveSplitEntry = useCallback(
+    (index: number) => {
+      const updated = splits.filter((_, i) => i !== index);
+      if (updated.length === 0) return;
+
+      if (autoRedistribute && updated.every((s) => s.strategyType === PaymentStrategyType.Percentage)) {
+        const n = updated.length;
+        const base = Math.round((100 / n) * 1000) / 1000;
+        updated.forEach((s) => {
+          s.value = base;
+        });
+        const remainder = Math.round((100 - base * n) * 1000) / 1000;
+        updated[0].value = Math.round((updated[0].value + remainder) * 1000) / 1000;
+      }
+
+      onChange(updated);
     },
     [splits, onChange, autoRedistribute],
   );
 
-  const handleEntityChange = useCallback(
-    (index: number, newEntity: string) => {
+  const handleSplitValueChange = useCallback(
+    (index: number, newValue: number) => {
       const updated = [...splits];
-      updated[index] = { ...updated[index], entity: newEntity };
+      updated[index].value = newValue;
       onChange(updated);
     },
     [splits, onChange],
   );
 
-  const handleSplitTypeChange = (index: number, type: PaymentStrategyType) => {
-    const updated = [...splits];
-    updated[index] = {
-      ...updated[index],
-      strategyType: type,
-      value:
-        type === PaymentStrategyType.Remaining
-          ? 0
-          : type === PaymentStrategyType.Percentage
-            ? 50
-            : 5,
-    };
-    onChange(updated);
-  };
+  const handleSplitStrategyChange = useCallback(
+    (index: number, newStrategy: PaymentStrategyType) => {
+      const updated = [...splits];
+      updated[index].strategyType = newStrategy;
+      onChange(updated);
+    },
+    [splits, onChange],
+  );
 
-  const handleSplitMethodChange = (index: number, val: string) => {
-    const updated = [...splits];
-    updated[index] = { ...updated[index], method: val === "any" ? null : val };
-    onChange(updated);
-  };
-
-  const handleSplitValueChange = (index: number, val: number) => {
-    const updated = [...splits];
-    updated[index] = { ...updated[index], value: Math.max(0, val) };
-    onChange(updated);
-  };
-
-  const handleAddNewGuest = useCallback(() => {
-    const name = dialogNewGuestName.trim();
-    if (!name) return;
-    onAddGuest(name);
-    setDialogNewGuestName("");
-    setShowNewGuestInput(false);
-
-    if (splits.some((s) => s.entity.toLowerCase() === name.toLowerCase()))
-      return;
-
-    let valueToUse = quickAddValue === "" ? null : Number(quickAddValue);
-    const isAutoPercent =
-      quickAddStrategy === PaymentStrategyType.Percentage &&
-      valueToUse === null;
-
-    if (valueToUse === null) {
-      valueToUse = quickAddStrategy === PaymentStrategyType.Remaining ? 0 : 0;
-    }
-
-    const n = splits.length + 1;
-    const newSplits = [
-      ...splits,
-      {
-        entity: name,
-        strategyType: quickAddStrategy,
-        value: isAutoPercent ? Math.floor(100 / n) : valueToUse,
-        method: quickAddMethod === "any" ? null : quickAddMethod,
-      },
-    ];
-    if (
-      isAutoPercent &&
-      newSplits.every((s) => s.strategyType === PaymentStrategyType.Percentage)
-    ) {
-      const base = Math.round((100 / n) * 1000) / 1000;
-      newSplits.forEach((s) => {
-        s.value = base;
-      });
-      const remainder = Math.round((100 - base * n) * 1000) / 1000;
-      newSplits[0].value = Math.round((newSplits[0].value + remainder) * 1000) / 1000;
-    }
-    onChange(newSplits);
-  }, [
-    dialogNewGuestName,
-    onAddGuest,
-    splits,
-    onChange,
-    quickAddStrategy,
-    quickAddMethod,
-    quickAddValue,
-  ]);
+  const handleSplitMethodChange = useCallback(
+    (index: number, newMethod: string) => {
+      const updated = [...splits];
+      updated[index].method = newMethod === "any" ? null : newMethod;
+      onChange(updated);
+    },
+    [splits, onChange],
+  );
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Split Breakdown
-        </div>
-        <div className="flex items-center gap-3">
-          {splits.length > 1 && (
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <Checkbox
-                checked={autoRedistribute}
-                onCheckedChange={(c) => setAutoRedistribute(!!c)}
-                className="w-3 h-3"
-              />
-              <span className="text-[10px] text-muted-foreground select-none">
-                Auto-even on remove
-              </span>
-            </label>
-          )}
-          {splits.length > 1 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 text-[10px] px-2 text-primary"
-              onClick={handleDistributeEqually}
-            >
-              Split Equally
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+    <div className="space-y-3 md:space-y-4">
+      {/* Existing Splits List */}
+      <div className="space-y-2 md:space-y-3">
         {splits.map((split, idx) => (
           <div
-            key={`split-row-${idx}`}
-            className="flex flex-wrap sm:flex-nowrap items-center gap-2 border-b pb-2 last:border-b-0 last:pb-0"
+            key={`${split.entity}-${idx}`}
+            className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 rounded-lg border bg-card p-3 md:p-4"
           >
-            <Select
-              value={split.entity}
-              onValueChange={(val) => handleEntityChange(idx, val)}
-            >
-              <SelectTrigger className="h-7 text-xs font-semibold text-foreground border-none shadow-none bg-transparent hover:bg-accent/40 p-1 flex-1 min-w-20 justify-between gap-1 focus:ring-0">
-                <SelectValue placeholder={split.entity} />
-              </SelectTrigger>
-              <SelectContent>
-                {guests.map((g) => {
-                  const isAlreadyUsed = splits.some(
-                    (s) => s.entity.toLowerCase() === g.toLowerCase(),
-                  );
-                  const isCurrent = g === split.entity;
-                  if (isAlreadyUsed && !isCurrent) return null;
-                  return (
-                    <SelectItem key={g} value={g} className="text-xs">
-                      {g}
+            {/* Entity Name */}
+            <div className="flex-1 min-w-0 text-xs md:text-sm font-medium truncate">
+              {split.entity}
+            </div>
+
+            {/* Strategy Selector */}
+            <div className="flex items-center gap-2 min-w-max">
+              <Select
+                value={split.strategyType}
+                onValueChange={(val) => handleSplitStrategyChange(idx, val as any)}
+              >
+                <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm w-28 md:w-32 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STRATEGY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
+                      {opt.label}
                     </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select
-              value={split.strategyType}
-              onValueChange={(val) => handleSplitTypeChange(idx, val as any)}
-            >
-              <SelectTrigger className="h-7 text-[10px] w-20 sm:w-24 shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STRATEGY_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={split.method || "any"}
-              onValueChange={(val) => handleSplitMethodChange(idx, val)}
-            >
-              <SelectTrigger className="h-7 text-[10px] w-18 sm:w-20 shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-              {METHOD_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                  {opt.label}
-                  </SelectItem>
-              ))}
-              </SelectContent>
-            </Select>
-
-            {split.strategyType !== "remaining" ? (
-              <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
+            {/* Value Input */}
+            {split.strategyType !== PaymentStrategyType.Remaining && (
+              <div className="flex items-center gap-1.5 min-w-max">
                 <button
                   type="button"
-                  className="flex h-7 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center"
+                  className="flex h-10 md:h-12 w-20 md:w-24 rounded-md border border-input bg-background px-2 md:px-3 py-1 text-xs md:text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center"
                   onClick={() => setPadTarget({ type: "split", index: idx })}
                 >
-                  {split.value}
+                  {String(split.value).replace(".", ".")}
                 </button>
-                <span className="text-[10px] text-muted-foreground">
-                  {split.strategyType === "percentage" ? "%" : "$"}
+                <span className="text-xs md:text-sm text-muted-foreground font-medium min-w-max">
+                  {split.strategyType === PaymentStrategyType.Percentage ? "%" : "$"}
                 </span>
               </div>
-            ) : (
-              <div className="w-16 sm:w-20 shrink-0 text-[10px] text-muted-foreground font-mono text-center bg-muted/30 py-1 rounded">
+            )}
+
+            {/* Payment Method */}
+            <div className="flex items-center gap-2 min-w-max">
+              <Select
+                value={split.method ?? "any"}
+                onValueChange={(val) => handleSplitMethodChange(idx, val)}
+              >
+                <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm w-24 md:w-28 bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {METHOD_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Remaining Badge / Delete Button */}
+            {split.strategyType === PaymentStrategyType.Remaining && (
+              <div className="text-xs md:text-sm font-medium text-muted-foreground px-2 py-1 bg-muted/30 rounded min-w-max">
                 Rem.
               </div>
             )}
@@ -452,10 +521,10 @@ export function SplitEditor({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 text-destructive shrink-0 hover:text-destructive hover:bg-destructive/10"
+                className="h-10 md:h-12 w-10 md:w-12 p-0 text-destructive shrink-0 hover:text-destructive hover:bg-destructive/10"
                 onClick={() => handleRemoveSplitEntry(idx)}
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
             )}
           </div>
@@ -464,24 +533,26 @@ export function SplitEditor({
 
       <Separator />
 
-      <div className="space-y-2 bg-muted/20 p-2.5 rounded-lg border">
+      {/* Quick Add Settings */}
+      <div className="space-y-3 md:space-y-4 bg-muted/20 p-3 md:p-4 rounded-lg border">
         <div className="flex justify-between items-center">
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+          <div className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Quick Add Settings
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mb-2 pb-2 border-b border-border/50">
+        {/* Strategy & Method Selectors */}
+        <div className="flex flex-col sm:flex-row gap-2 pb-3 border-b border-border/50">
           <Select
             value={quickAddStrategy}
             onValueChange={(val) => setQuickAddStrategy(val as any)}
           >
-            <SelectTrigger className="h-7 text-[10px] w-24 sm:w-28 shrink-0 bg-background">
+            <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm bg-background flex-1 sm:flex-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {STRATEGY_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
                   {opt.label}
                 </SelectItem>
               ))}
@@ -492,12 +563,12 @@ export function SplitEditor({
             value={quickAddMethod}
             onValueChange={(val) => setQuickAddMethod(val)}
           >
-            <SelectTrigger className="h-7 text-[10px] w-20 sm:w-24 shrink-0 bg-background">
+            <SelectTrigger className="h-10 md:h-12 text-xs md:text-sm bg-background flex-1 sm:flex-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {METHOD_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                <SelectItem key={opt.value} value={opt.value} className="text-xs md:text-sm">
                   {opt.label}
                 </SelectItem>
               ))}
@@ -505,116 +576,93 @@ export function SplitEditor({
           </Select>
 
           {quickAddStrategy !== "remaining" && (
-            <div className="flex items-center gap-1 w-16 sm:w-20 shrink-0">
+            <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
               <button
                 type="button"
-                className={`flex h-7 w-full rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center ${quickAddValue === "" ? "text-muted-foreground" : ""}`}
+                className={`flex h-10 md:h-12 flex-1 rounded-md border border-input bg-background px-2 md:px-3 py-1 text-xs md:text-sm shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono justify-end items-center ${quickAddValue === "" ? "text-muted-foreground" : ""}`}
                 onClick={() => setPadTarget({ type: "quick-add" })}
               >
                 {quickAddValue === "" ? (quickAddStrategy === "percentage" ? "Auto" : "0.00") : quickAddValue}
               </button>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs md:text-sm text-muted-foreground font-medium">
                 {quickAddStrategy === "percentage" ? "%" : "$"}
               </span>
             </div>
           )}
         </div>
 
-        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Add Payer to Split
-        </div>
-
-        {(() => {
-          const availableGuests = guests.filter(
-            (g) =>
-              !splits.some((s) => s.entity.toLowerCase() === g.toLowerCase()),
-          );
-
-          if (availableGuests.length === 0) {
-            return (
-              <div className="text-[11px] text-muted-foreground italic pb-1">
-                All current guests are included in the split.
-              </div>
-            );
-          }
-
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              {availableGuests.map((g) => (
-                <label
-                  key={g}
-                  className="flex items-center gap-1.5 px-2 py-1 border rounded bg-background cursor-pointer hover:bg-accent transition-colors"
-                >
-                  <Checkbox
-                    checked={false}
-                    onCheckedChange={() => handleAddSpecificGuest(g)}
-                    className="w-3 h-3"
-                  />
-                  <span className="text-xs font-medium leading-none mt-0.5">
-                    {g}
-                  </span>
-                </label>
-              ))}
-              {availableGuests.length > 1 && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="h-7 text-[10px] px-2 ml-auto shrink-0"
-                  onClick={handleAddAllAvailable}
-                >
-                  Add Everyone
-                </Button>
-              )}
-            </div>
-          );
-        })()}
-
-        {showNewGuestInput ? (
-          <div className="flex items-center gap-1.5 pt-1 border-t">
-            <Input
-              placeholder="New guest name..."
-              value={dialogNewGuestName}
-              onChange={(e) => setDialogNewGuestName(e.target.value)}
-              className="h-7 text-xs flex-1"
-              onKeyDown={(e) => e.key === "Enter" && handleAddNewGuest()}
-            />
-            <Button
-              size="sm"
-              className="h-7 text-xs"
-              disabled={!dialogNewGuestName.trim()}
-              onClick={handleAddNewGuest}
-            >
-              Add Guest
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => setShowNewGuestInput(false)}
-            >
-              <X className="w-3.5 h-3.5" />
-            </Button>
+        {/* Add Payer Section */}
+        <div className="space-y-2 md:space-y-3">
+          <div className="text-xs md:text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Add Guests to Split
           </div>
-        ) : (
-          <Button
-            variant="link"
-            className="p-0 h-6 text-xs text-primary flex items-center gap-1 font-semibold hover:no-underline"
-            onClick={() => setShowNewGuestInput(true)}
-          >
-            <Plus className="w-3 h-3" />
-            Add new guest to table
-          </Button>
-        )}
+
+          {availableGuests.length === 0 ? (
+            <div className="text-xs md:text-sm text-muted-foreground italic pb-1">
+              All current guests are included in the split.
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-10 md:h-12 text-xs md:text-sm flex-1 gap-2"
+                onClick={() => setGuestSelectionOpen(true)}
+              >
+                <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                Add Guest{availableGuests.length > 1 ? "s" : ""} ({availableGuests.length})
+              </Button>
+            </div>
+          )}
+
+          {showNewGuestInput ? (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t">
+              <Input
+                placeholder="New guest name..."
+                value={dialogNewGuestName}
+                onChange={(e) => setDialogNewGuestName(e.target.value)}
+                className="h-10 md:h-12 text-xs md:text-sm flex-1"
+                onKeyDown={(e) => e.key === "Enter" && handleAddNewGuest()}
+              />
+              <Button
+                size="sm"
+                className="h-10 md:h-12 text-xs md:text-sm"
+                disabled={!dialogNewGuestName.trim()}
+                onClick={handleAddNewGuest}
+              >
+                Add Guest
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-10 md:h-12 w-10 md:w-12 p-0"
+                onClick={() => setShowNewGuestInput(false)}
+              >
+                <X className="w-4 h-4 md:w-5 md:h-5" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="link"
+              className="p-0 h-10 md:h-12 text-xs md:text-sm text-primary flex items-center gap-1 font-semibold hover:no-underline"
+              onClick={() => setShowNewGuestInput(true)}
+            >
+              <Plus className="w-4 h-4 md:w-5 md:h-5" />
+              Add new guest to table
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="text-[11px] p-2 rounded bg-muted/40 font-medium">
+      {/* Validation Message */}
+      <div className="text-xs md:text-sm p-3 md:p-4 rounded-lg bg-muted/40 font-medium">
         {itemTotalPrice !== undefined ? (
           isValidSplit ? (
             <div className="text-emerald-600 dark:text-emerald-400">
               {hasRemaining
                 ? "Split is valid (remainder pays balance)."
                 : totalFixed + itemTotalPrice * (totalPercentage / 100) <
-                    itemTotalPrice - 0.01
+                  itemTotalPrice - 0.01
                   ? `Covered: $${formatNumber(totalFixed + itemTotalPrice * (totalPercentage / 100), 2)} (remainder of $${formatNumber(itemTotalPrice - (totalFixed + itemTotalPrice * (totalPercentage / 100)), 2)} defaults to Guest)`
                   : "Split covers the full price."}
             </div>
@@ -633,16 +681,24 @@ export function SplitEditor({
             }
           >
             {isValidSplit
-              ? `Total Percentage: ${totalPercentage}% ${
-                  totalPercentage < 100 && !hasRemaining
-                    ? `(remaining ${100 - totalPercentage}% will default to Guest)`
-                    : ""
-                }`
+              ? `Total Percentage: ${totalPercentage}% ${totalPercentage < 100 && !hasRemaining
+                ? `(remaining ${100 - totalPercentage}% will default to Guest)`
+                : ""
+              }`
               : `Total Percentage: ${totalPercentage}% (Cannot exceed 100%)`}
           </div>
         )}
       </div>
 
+      {/* Guest Selection Dialog */}
+      <GuestSelectionDialog
+        open={guestSelectionOpen}
+        onOpenChange={setGuestSelectionOpen}
+        availableGuests={availableGuests}
+        onSelectGuests={handleAddMultipleGuests}
+      />
+
+      {/* Number Pad Dialog */}
       {padTarget && (
         <NumberPadDialog
           open={padTarget !== null}
