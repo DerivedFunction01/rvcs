@@ -258,7 +258,7 @@ export function ActiveCheckBottom({
                 (item?.status === ItemStatus.Canceled ||
                   (qtyMode === "main" && (!isRootItem || mainQtyLocked))))
             }
-            className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer"
+            className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer flex flex-col items-center justify-center gap-0.5"
             onClick={(e) => {
               e.stopPropagation();
               if (selectedItems.length === 1 && item) {
@@ -293,6 +293,9 @@ export function ActiveCheckBottom({
             }}
           >
             <Minus className="w-5 h-5" />
+            <span className="text-[9px] uppercase font-bold text-muted-foreground">
+              Minus / -
+            </span>
           </Button>
 
           {/* Row 1, Col 2: Plus Button */}
@@ -304,7 +307,7 @@ export function ActiveCheckBottom({
                 (item?.status === ItemStatus.Canceled ||
                   (qtyMode === "main" && (!isRootItem || mainQtyLocked))))
             }
-            className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer"
+            className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer flex flex-col items-center justify-center gap-0.5"
             onClick={(e) => {
               e.stopPropagation();
               if (selectedItems.length === 1 && item) {
@@ -330,6 +333,9 @@ export function ActiveCheckBottom({
             }}
           >
             <Plus className="w-5 h-5" />
+            <span className="text-[9px] uppercase font-bold text-muted-foreground">
+              Plus / +
+            </span>
           </Button>
 
           {/* Row 1, Col 3: Qty display/trigger */}
