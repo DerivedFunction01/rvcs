@@ -162,31 +162,30 @@ function GuestSelectionDialog({
               {filtered.map((guestName) => {
                 const isSelected = selectedGuests.has(guestName);
                 return (
-                  <button
+                  <label
                     key={guestName}
-                    onClick={() => {
-                      setSelectedGuests((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(guestName)) {
-                          next.delete(guestName);
-                        } else {
-                          next.add(guestName);
-                        }
-                        return next;
-                      });
-                    }}
-                    className={`flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 border rounded-lg text-left text-xs md:text-sm transition-all min-h-10 md:min-h-12 ${isSelected
+                    className={`flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 border rounded-lg text-left text-xs md:text-sm transition-all min-h-10 md:min-h-12 cursor-pointer ${isSelected
                         ? "border-primary bg-primary/5 font-medium shadow-sm"
                         : "border-border bg-card hover:border-primary/50 hover:bg-accent/40"
                       }`}
                   >
                     <Checkbox
                       checked={isSelected}
-                      onCheckedChange={() => { }} // Handled by button click
+                      onCheckedChange={() => {
+                        setSelectedGuests((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(guestName)) {
+                            next.delete(guestName);
+                          } else {
+                            next.add(guestName);
+                          }
+                          return next;
+                        });
+                      }}
                       className="w-4 h-4 md:w-5 md:h-5"
                     />
                     <span className="truncate flex-1">{guestName}</span>
-                  </button>
+                  </label>
                 );
               })}
             </div>
