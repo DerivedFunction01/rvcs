@@ -4,7 +4,8 @@ import {
   useFormatNumber,
 } from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
-import { ItemStatus } from "@/lib/vcs/types";
+import { ItemStatus, SquashType, DeltaActionType } from "@/lib/vcs/types";
+import { toast } from "sonner";
 import {
   Minus,
   Plus,
@@ -12,6 +13,7 @@ import {
   ArrowUpDown,
   Pencil,
   Trash2,
+  Undo2,
 } from "lucide-react";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useVCSStore } from "@/store/vcs-store";
@@ -44,6 +46,10 @@ export function ActiveCheckBottom({
   const [padTarget, setPadTarget] = useState<"main" | "inline" | null>(null);
   const [qtyMode, setQtyMode] = useState<"main" | "inline">("main");
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [autoSquash, setAutoSquash] = useState(true);
+  const lastQtyChangeCommitRef = useRef<string | null>(null);
+  const squashTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const undoClickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const item = selectedItems.length === 1 ? selectedItems[0] : null;
   const catalogEntry = item ? catalog[item.sku] : null;
@@ -66,6 +72,75 @@ export function ActiveCheckBottom({
     const text = inlineStep.toString();
     if (text.includes("e-")) return Number(text.match(/e-(\d+)$/)?.[1] || 0);
     return text.split(".")[1]?.length || 0;
+  })();
+
+  const triggerAutoSquash = (newHead: string | null) => {
+    if (!autoSquash || !newHead) return;
+
+    if (!lastQtyChangeCommitRef.current) {
+      lastQtyChangeCommitRef.current = newHead;
+    }
+
+    if (squashTimeoutRef.current) {
+      clearTimeout(squashTimeoutRef.current);
+    }
+
+    squashTimeoutRef.current = setTimeout(() => {
+      squashTimeoutRef.current = null;
+      const startHash = lastQtyChangeCommitRef.current;
+      lastQtyChangeCommitRef.current = null;
+      if (startHash) {
+        const store = useVCSStore.getState();
+        const currentHead = store.headHash();
+        const log = store.commitLog();
+        if (currentHead && startHash !== currentHead) {
+          let current: string | null = currentHead;
+          let isChainSafe = true;
+          while (current && current !== startHash) {
+            const commit = log.find((c) => c.commitHash === current);
+            if (!commit) {
+              isChainSafe = false;
+              break;
+            }
+            const isQtyChange = commit.deltas.every(
+              (d) =>
+                d.action === DeltaActionType.ModifyQty ||
+                d.action === DeltaActionType.ModifyInlineQty,
+            );
+            if (!isQtyChange) {
+              isChainSafe = false;
+              break;
+            }
+            current = commit.parentHash;
+          }
+
+          if (isChainSafe) {
+            try {
+              store.squashPendingCommits(startHash, SquashType.Full);
+              toast.success("Auto-squashed quantity adjustments");
+            } catch (err) {
+              console.error("Auto-squash failed:", err);
+            }
+          }
+        }
+      }
+    }, 800);
+  };
+
+  const canUndo = (() => {
+    const store = useVCSStore.getState();
+    const log = store.commitLog();
+    const headHash = store.headHash();
+    if (!headHash) return false;
+    const headCommit = log.find((c) => c.commitHash === headHash);
+    if (!headCommit) return false;
+    if (
+      headCommit.authorId === "system-init" ||
+      headCommit.authorId.startsWith("system-")
+    ) {
+      return false;
+    }
+    return !!headCommit.parentHash;
   })();
 
   useEffect(() => {
@@ -170,6 +245,7 @@ export function ActiveCheckBottom({
               if (selectedItems.length === 1 && item) {
                 if (qtyMode === "inline") {
                   onUpdateInlineQty(item.sku, -inlineStep);
+                  triggerAutoSquash(useVCSStore.getState().headHash());
                 } else {
                   const step = catalogEntry?.mainQtyIncrement ?? 1;
                   if (item.qty > step) {
@@ -180,13 +256,20 @@ export function ActiveCheckBottom({
                         item.qty,
                         Math.round((item.qty - step) * 1000) / 1000,
                       );
+                    triggerAutoSquash(useVCSStore.getState().headHash());
                   } else {
                     useVCSStore.getState().removeItem(item.lineId);
+                    if (squashTimeoutRef.current) {
+                      clearTimeout(squashTimeoutRef.current);
+                      squashTimeoutRef.current = null;
+                    }
+                    lastQtyChangeCommitRef.current = null;
                   }
                 }
               } else if (selectedItems.length > 1) {
                 const ids = selectedItems.map((i) => i.lineId);
                 useVCSStore.getState().modifyItemsQty(ids, -1);
+                triggerAutoSquash(useVCSStore.getState().headHash());
               }
             }}
           >
@@ -208,6 +291,7 @@ export function ActiveCheckBottom({
               if (selectedItems.length === 1 && item) {
                 if (qtyMode === "inline") {
                   onUpdateInlineQty(item.sku, inlineStep);
+                  triggerAutoSquash(useVCSStore.getState().headHash());
                 } else {
                   const step = catalogEntry?.mainQtyIncrement ?? 1;
                   useVCSStore
@@ -217,10 +301,12 @@ export function ActiveCheckBottom({
                       item.qty,
                       Math.round((item.qty + step) * 1000) / 1000,
                     );
+                  triggerAutoSquash(useVCSStore.getState().headHash());
                 }
               } else if (selectedItems.length > 1) {
                 const ids = selectedItems.map((i) => i.lineId);
                 useVCSStore.getState().modifyItemsQty(ids, 1);
+                triggerAutoSquash(useVCSStore.getState().headHash());
               }
             }}
           >
@@ -329,10 +415,48 @@ export function ActiveCheckBottom({
           </Button>
           <Button
             variant="outline"
-            disabled
-            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40 bg-background hover:bg-muted cursor-default"
+            disabled={!canUndo}
+            className="h-full w-full rounded-none border-0 shadow-none text-[10px] font-bold uppercase tracking-wider bg-background hover:bg-muted cursor-pointer flex flex-col justify-center items-center py-1.5 select-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (undoClickTimeoutRef.current) {
+                clearTimeout(undoClickTimeoutRef.current);
+                undoClickTimeoutRef.current = null;
+                setAutoSquash((prev) => {
+                  const newVal = !prev;
+                  toast.success(`Auto-squash is now ${newVal ? "ON" : "OFF"}`);
+                  return newVal;
+                });
+              } else {
+                undoClickTimeoutRef.current = setTimeout(() => {
+                  undoClickTimeoutRef.current = null;
+                  const store = useVCSStore.getState();
+                  const log = store.commitLog();
+                  const headHash = store.headHash();
+                  if (!headHash) return;
+                  const headCommit = log.find((c) => c.commitHash === headHash);
+                  if (headCommit && headCommit.parentHash) {
+                    try {
+                      store.resetToCommit(headCommit.parentHash);
+                      toast.success("Undo successful");
+                      if (squashTimeoutRef.current) {
+                        clearTimeout(squashTimeoutRef.current);
+                        squashTimeoutRef.current = null;
+                      }
+                      lastQtyChangeCommitRef.current = null;
+                    } catch (err: any) {
+                      toast.error(err.message || "Cannot undo");
+                    }
+                  }
+                }, 250);
+              }
+            }}
           >
-            Action 3
+            <Undo2 className="w-4 h-4 mb-1" />
+            <span>Undo</span>
+            <span className="text-[8px] text-muted-foreground/60 font-normal mt-0.5 normal-case">
+              Auto: {autoSquash ? "ON" : "OFF"}
+            </span>
           </Button>
         </div>
       </div>

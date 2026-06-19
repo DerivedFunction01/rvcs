@@ -328,7 +328,10 @@ export class VCSEngine {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private ensureNotSystemBranch(branch: string | string[], action: string): void {
+  private ensureNotSystemBranch(
+    branch: string | string[],
+    action: string,
+  ): void {
     const branches = Array.isArray(branch) ? branch : [branch];
     if (branches.some((b) => b === "system")) {
       throw new Error(`Cannot ${action} the reserved 'system' branch.`);
@@ -422,7 +425,10 @@ export class VCSEngine {
    */
   commitSystem(deltas: Delta[], authorId: string = "system"): VCSCommit {
     if (!this.repo.branches["system"]) {
-      this.repo.branches["system"] = { headHash: null, type: BranchType.Parallel };
+      this.repo.branches["system"] = {
+        headHash: null,
+        type: BranchType.Parallel,
+      };
     }
     return this.commit(deltas, authorId, "system");
   }
@@ -581,7 +587,10 @@ export class VCSEngine {
       type: AllocationType.Payment,
       payer: params.payer,
       method: params.paymentMethod,
-      paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
+      paymentStrategy: {
+        strategyType: PaymentStrategyType.Percentage,
+        value: 1.0,
+      },
       timeOfPayment: {
         type: TimeBlockType.Immediate,
         calculatedAt: new Date().toISOString(),
@@ -590,7 +599,10 @@ export class VCSEngine {
 
     return this.commit(
       [
-        { action: DeltaActionType.DeclareAllocation, allocation: assignmentAlloc },
+        {
+          action: DeltaActionType.DeclareAllocation,
+          allocation: assignmentAlloc,
+        },
         { action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc },
         {
           action: DeltaActionType.AddItem,
@@ -676,7 +688,10 @@ export class VCSEngine {
       type: AllocationType.Payment,
       payer: params.targetPayer,
       method: params.paymentMethod,
-      paymentStrategy: { strategyType: PaymentStrategyType.Percentage, value: 1.0 },
+      paymentStrategy: {
+        strategyType: PaymentStrategyType.Percentage,
+        value: 1.0,
+      },
       timeOfPayment: {
         type: TimeBlockType.Immediate,
         calculatedAt: new Date().toISOString(),
@@ -685,7 +700,10 @@ export class VCSEngine {
 
     return this.commit(
       [
-        { action: DeltaActionType.DeclareAllocation, allocation: assignmentAlloc },
+        {
+          action: DeltaActionType.DeclareAllocation,
+          allocation: assignmentAlloc,
+        },
         { action: DeltaActionType.DeclareAllocation, allocation: paymentAlloc },
         {
           action: DeltaActionType.BatchByFilter,
@@ -1057,7 +1075,9 @@ export class VCSEngine {
       allDeltas.push(...c.deltas);
     }
 
-    const hasBatchDelta = allDeltas.some((d) => d.action === DeltaActionType.BatchByFilter);
+    const hasBatchDelta = allDeltas.some(
+      (d) => d.action === DeltaActionType.BatchByFilter,
+    );
     const deadLineIds = new Set<string>();
     const createdWithinRange = new Set<string>();
     const finalQtyMap = new Map<string, number>();
@@ -1118,14 +1138,22 @@ export class VCSEngine {
 
     if (type === SquashType.Full) {
       const optimizedDeltas: Delta[] = [];
+      const firstModifyQtyDeltaMap = new Map<string, Delta>();
       const lastModifyQtyDeltaMap = new Map<string, Delta>();
+      const firstModifyInlineQtyDeltaMap = new Map<string, Delta>();
       const lastModifyInlineQtyDeltaMap = new Map<string, Delta>();
-      
+
       for (const d of allDeltas) {
         if (d.action === DeltaActionType.ModifyQty) {
+          if (!firstModifyQtyDeltaMap.has(d.lineId)) {
+            firstModifyQtyDeltaMap.set(d.lineId, d);
+          }
           lastModifyQtyDeltaMap.set(d.lineId, d);
         }
         if (d.action === DeltaActionType.ModifyInlineQty) {
+          if (!firstModifyInlineQtyDeltaMap.has(d.lineId)) {
+            firstModifyInlineQtyDeltaMap.set(d.lineId, d);
+          }
           lastModifyInlineQtyDeltaMap.set(d.lineId, d);
         }
       }
@@ -1136,8 +1164,13 @@ export class VCSEngine {
         }
         if (d.action === DeltaActionType.AddItem) {
           const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
-          const finalInlineQty = finalInlineQtyMap.get(d.lineId) ?? d.inlineQty ?? 1;
-          optimizedDeltas.push({ ...d, qty: finalQty, inlineQty: finalInlineQty });
+          const finalInlineQty =
+            finalInlineQtyMap.get(d.lineId) ?? d.inlineQty ?? 1;
+          optimizedDeltas.push({
+            ...d,
+            qty: finalQty,
+            inlineQty: finalInlineQty,
+          });
           continue;
         }
         if (d.action === DeltaActionType.ModifyQty) {
@@ -1145,7 +1178,14 @@ export class VCSEngine {
             continue;
           }
           if (lastModifyQtyDeltaMap.get(d.lineId) === d) {
-            optimizedDeltas.push(d);
+            const firstDelta = firstModifyQtyDeltaMap.get(d.lineId);
+            optimizedDeltas.push({
+              ...d,
+              beforeQty:
+                firstDelta && "beforeQty" in firstDelta
+                  ? firstDelta.beforeQty
+                  : d.beforeQty,
+            });
           }
           continue;
         }
@@ -1154,7 +1194,14 @@ export class VCSEngine {
             continue;
           }
           if (lastModifyInlineQtyDeltaMap.get(d.lineId) === d) {
-            optimizedDeltas.push(d);
+            const firstDelta = firstModifyInlineQtyDeltaMap.get(d.lineId);
+            optimizedDeltas.push({
+              ...d,
+              beforeInlineQty:
+                firstDelta && "beforeInlineQty" in firstDelta
+                  ? firstDelta.beforeInlineQty
+                  : d.beforeInlineQty,
+            });
           }
           continue;
         }
@@ -1169,7 +1216,10 @@ export class VCSEngine {
         branch: targetBranch,
         timestamp: new Date().toISOString(),
         authorId: "pos-squash",
-        metadata: { squashedCount: rangeCommits.length, squashType: SquashType.Full },
+        metadata: {
+          squashedCount: rangeCommits.length,
+          squashType: SquashType.Full,
+        },
         deltas: optimizedDeltas,
       };
 
@@ -1193,7 +1243,7 @@ export class VCSEngine {
       // Find the last commit containing a modify_qty delta for each lineId
       const lastModifyQtyCommitMap = new Map<string, VCSCommit>();
       const lastModifyInlineQtyCommitMap = new Map<string, VCSCommit>();
-      
+
       for (const c of rangeCommits) {
         for (const d of c.deltas) {
           if (d.action === DeltaActionType.ModifyQty) {
@@ -1218,7 +1268,8 @@ export class VCSEngine {
 
           if (d.action === DeltaActionType.AddItem) {
             const finalQty = finalQtyMap.get(d.lineId) ?? d.qty;
-            const finalInlineQty = finalInlineQtyMap.get(d.lineId) ?? d.inlineQty ?? 1;
+            const finalInlineQty =
+              finalInlineQtyMap.get(d.lineId) ?? d.inlineQty ?? 1;
             filteredDeltas.push({
               ...d,
               qty: finalQty,
