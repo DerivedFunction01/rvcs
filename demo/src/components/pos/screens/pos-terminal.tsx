@@ -26,7 +26,6 @@ import { PosGuestDialogs } from "@/components/pos/screens/dialogs/pos-guest-dial
 import { PosOtherDialogs } from "@/components/pos/screens/dialogs/pos-other-dialogs";
 import { GlobalSettingsDialog } from "@/components/pos/dialogs/global-settings-dialog";
 
-import { ActiveCheckActionFilterBar } from "@/components/pos/bars/active-check-action-filter-bar";
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
 import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
 import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
@@ -34,7 +33,14 @@ import { InlineModifierPanel } from "@/components/pos/panels/inline-modifier-pan
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
 import { BulkActionsPanel } from "@/components/pos/panels/bulk-actions-panel";
 
-import { OrderContextBanner } from "@/components/pos/bars/order-context-banner";
+import { OrderDefaultsDialog } from "@/components/pos/dialogs/order-defaults-dialog";
+import { GuestFilterDialog } from "@/components/pos/dialogs/filter-guest-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PosQtyDialogs } from "@/components/pos/screens/dialogs/pos-qty-dialogs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,9 +56,11 @@ import {
   type FloorConfig,
   type OrderTypeConfig,
   ViewMode,
+  OrderType,
 } from "@/lib/pos/types";
 import {
   AllocationType,
+  BranchMap,
   ItemStatus,
   type PaymentAllocation,
   type ProjectedLineItem,
@@ -70,6 +78,14 @@ import {
   Settings2,
   User,
   XCircle,
+  ChevronsUpDown,
+  ChevronsDownUp,
+  LayoutList,
+  MapPin,
+  Phone,
+  ShoppingCart,
+  UserPlus,
+  Settings,
 } from "lucide-react";
 import { usePreferencesStore } from "@/store/preferences-store";
 
@@ -285,12 +301,16 @@ export function POSTerminalScreen({
 
   const [hideCanceled, setHideCanceled] = React.useState(false);
   const [globalSettingsOpen, setGlobalSettingsOpen] = React.useState(false);
+  const [orderDefaultsOpen, setOrderDefaultsOpen] = React.useState(false);
+  const [guestFilterOpen, setGuestFilterOpen] = React.useState(false);
+  const globalGuestPalette = usePreferencesStore(
+    (state) => state.defaultPrefs.globalDepthColors,
+  ) || ["#94a3b8"];
   const [isMultiSelectMode, setIsMultiSelectMode] = React.useState(
     !!prefs.defaultMultiSelectMode,
   );
-  const [autoSelectLastClickedItem, setAutoSelectLastClickedItem] = React.useState(
-    !!prefs.autoSelectLastClickedItem,
-  );
+  const [autoSelectLastClickedItem, setAutoSelectLastClickedItem] =
+    React.useState(!!prefs.autoSelectLastClickedItem);
 
   const [qtyStep, setQtyStep] = React.useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;
@@ -387,12 +407,12 @@ export function POSTerminalScreen({
       const payerIds =
         rawPaymentAllocs.length > 0
           ? rawPaymentAllocs.map((a) => {
-            const rawPayer = a.payer;
-            const matchedPayer = guests.find(
-              (g) => g.id === rawPayer || g.alias === rawPayer,
-            );
-            return matchedPayer ? matchedPayer.id : rawPayer;
-          })
+              const rawPayer = a.payer;
+              const matchedPayer = guests.find(
+                (g) => g.id === rawPayer || g.alias === rawPayer,
+              );
+              return matchedPayer ? matchedPayer.id : rawPayer;
+            })
           : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
@@ -448,7 +468,9 @@ export function POSTerminalScreen({
       const currentItems = projectedState.items;
       const newIds = Object.keys(currentItems).filter((id) => !prevItems[id]);
       if (newIds.length > 0) {
-        const newRootIds = newIds.filter((id) => !currentItems[id].parentLineId);
+        const newRootIds = newIds.filter(
+          (id) => !currentItems[id].parentLineId,
+        );
         if (newRootIds.length > 0) {
           if (isMultiSelectMode) {
             setSelectedLineIds(new Set([...selectedLineIds, ...newRootIds]));
@@ -459,7 +481,13 @@ export function POSTerminalScreen({
       }
     }
     prevItemsRef.current = projectedState.items;
-  }, [projectedState.items, autoSelectLastClickedItem, isMultiSelectMode, selectedLineIds, setSelectedLineIds]);
+  }, [
+    projectedState.items,
+    autoSelectLastClickedItem,
+    isMultiSelectMode,
+    selectedLineIds,
+    setSelectedLineIds,
+  ]);
 
   const canceledCount = React.useMemo(() => {
     let count = 0;
@@ -483,12 +511,12 @@ export function POSTerminalScreen({
       const payerIds =
         rawPaymentAllocs.length > 0
           ? rawPaymentAllocs.map((a) => {
-            const rawPayer = a.payer;
-            const matchedPayer = guests.find(
-              (g) => g.id === rawPayer || g.alias === rawPayer,
-            );
-            return matchedPayer ? matchedPayer.id : rawPayer;
-          })
+              const rawPayer = a.payer;
+              const matchedPayer = guests.find(
+                (g) => g.id === rawPayer || g.alias === rawPayer,
+              );
+              return matchedPayer ? matchedPayer.id : rawPayer;
+            })
           : [assigneeId];
 
       const matchesAssignee = visibleAssignees.has(assigneeId);
@@ -732,185 +760,307 @@ export function POSTerminalScreen({
     handleResetOrder,
   } = terminalActions;
 
-  const handleAddModifierInline = React.useCallback((sku: string, state?: string) => {
-    if (selectedItems.length !== 1) return;
-    addModifier(selectedItems[0].lineId, sku, state);
-  }, [selectedItems, addModifier]);
+  const handleAddModifierInline = React.useCallback(
+    (sku: string, state?: string) => {
+      if (selectedItems.length !== 1) return;
+      addModifier(selectedItems[0].lineId, sku, state);
+    },
+    [selectedItems, addModifier],
+  );
 
-  const handleRemoveModifierInline = React.useCallback((lineId: string) => {
-    removeItem(lineId);
-  }, [removeItem]);
+  const handleRemoveModifierInline = React.useCallback(
+    (lineId: string) => {
+      removeItem(lineId);
+    },
+    [removeItem],
+  );
 
-  const handleUpdateModifierStateInline = React.useCallback((sku: string, state: string) => {
-    if (selectedItems.length !== 1) return;
-    const parentItem = selectedItems[0];
-    // If the selected item itself has the matching sku, update its state directly
-    if (parentItem.sku === sku) {
-      modifyModifierState(parentItem.lineId, parentItem.selectedModifierState, state);
-      return;
-    }
-    // Otherwise look for a modifier child with that sku
-    const modifierChild = parentItem.children.find(c => c.sku === sku);
-    if (modifierChild) {
-      modifyModifierState(modifierChild.lineId, modifierChild.selectedModifierState, state);
-    }
-  }, [selectedItems, modifyModifierState]);
-
-  const handleUpdateInlineQty = React.useCallback((sku: string, change: number) => {
-    if (selectedItems.length !== 1) return;
-    const item = selectedItems[0];
-    // This handler can update either the main item's inline qty or a modifier's.
-    const targetItem = item.sku === sku ? item : item.children.find(c => c.sku === sku);
-    if (targetItem) {
-      const currentQty = targetItem.inlineQty ?? 1;
-      const newQty = currentQty + change;
-      if (newQty > 0) {
-        modifyItemInlineQty(targetItem.lineId, currentQty, newQty);
+  const handleUpdateModifierStateInline = React.useCallback(
+    (sku: string, state: string) => {
+      if (selectedItems.length !== 1) return;
+      const parentItem = selectedItems[0];
+      // If the selected item itself has the matching sku, update its state directly
+      if (parentItem.sku === sku) {
+        modifyModifierState(
+          parentItem.lineId,
+          parentItem.selectedModifierState,
+          state,
+        );
+        return;
       }
-    }
-  }, [selectedItems, modifyItemInlineQty]);
+      // Otherwise look for a modifier child with that sku
+      const modifierChild = parentItem.children.find((c) => c.sku === sku);
+      if (modifierChild) {
+        modifyModifierState(
+          modifierChild.lineId,
+          modifierChild.selectedModifierState,
+          state,
+        );
+      }
+    },
+    [selectedItems, modifyModifierState],
+  );
+
+  const handleUpdateInlineQty = React.useCallback(
+    (sku: string, change: number) => {
+      if (selectedItems.length !== 1) return;
+      const item = selectedItems[0];
+      // This handler can update either the main item's inline qty or a modifier's.
+      const targetItem =
+        item.sku === sku ? item : item.children.find((c) => c.sku === sku);
+      if (targetItem) {
+        const currentQty = targetItem.inlineQty ?? 1;
+        const newQty = currentQty + change;
+        if (newQty > 0) {
+          modifyItemInlineQty(targetItem.lineId, currentQty, newQty);
+        }
+      }
+    },
+    [selectedItems, modifyItemInlineQty],
+  );
 
   return (
     <TooltipProvider delayDuration={200}>
       <div className="h-screen flex flex-col bg-background overflow-hidden">
         {/* ─── Header ────────────────────────────────────────────────────── */}
-        <header className="border-b bg-card px-4 py-2.5 flex items-center justify-between shrink-0 z-10">
-          <div className="flex items-center gap-3">
-            <GitCommitHorizontal className="w-5 h-5 text-primary" />
-            <div>
-              <h1 className="text-sm font-bold tracking-tight">
-                Retail VCS Terminal
-              </h1>
-              <p className="text-[10px] text-muted-foreground">
-                Version-Controlled POS — Order as Repository
-              </p>
-            </div>
+        <header className="border-b bg-card px-4 py-2 flex items-center justify-between shrink-0 z-10">
+          <div className="flex items-center gap-2">
+            {getBranchButton(
+              activeBranch,
+              mainActiveBranch,
+              branches,
+              setIsBranchManagerOpen,
+            )}
+
+            {isViewingHistory && (
+              <Badge
+                variant="outline"
+                className="text-[10px] h-6 flex items-center text-amber-600 border-amber-300 bg-amber-50"
+              >
+                <Clock className="w-2.5 h-2.5 mr-1" />
+                Viewing history
+              </Badge>
+            )}
+          </div>
+
+          {/* Unified Customer / Order Type Button in Center */}
+          <div className="flex-1 flex justify-center px-4">
+            {orderContext && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 px-3 border border-primary/20 hover:border-primary/45 bg-primary/5 hover:bg-primary/10 text-primary font-medium text-[11px] rounded-full transition-all"
+                onClick={handleOpenCustomerDialog}
+                title="Edit Customer Info and Fulfillment type"
+              >
+                {React.createElement(
+                  orderContext.orderType === OrderType.WalkIn
+                    ? ShoppingCart
+                    : orderContext.orderType === OrderType.Pickup
+                      ? Phone
+                      : MapPin,
+                  { className: "w-3.5 h-3.5 text-primary shrink-0" },
+                )}
+                <span className="font-semibold">
+                  {orderContext.orderTypeLabel || orderContext.orderType}
+                </span>
+                <span className="text-muted-foreground/45">·</span>
+                <span className="truncate max-w-40 font-semibold">
+                  {orderContext.customerFields.name || "Guest"}
+                </span>
+                {orderContext.customerFields.phone && (
+                  <>
+                    <span className="text-muted-foreground/45">·</span>
+                    <span className="text-muted-foreground">
+                      {orderContext.customerFields.phone}
+                    </span>
+                  </>
+                )}
+                {orderContext.customerFields.address && (
+                  <>
+                    <span className="text-muted-foreground/45">·</span>
+                    <span className="truncate max-w-40 text-muted-foreground">
+                      {orderContext.customerFields.address}
+                    </span>
+                  </>
+                )}
+                <UserPlus className="w-3 h-3 text-primary/50 ml-0.5 shrink-0" />
+              </Button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
-            {(() => {
-              const active = activeBranch();
-              const main = mainActiveBranch();
-              const pointer = branches[active];
-              const isHypothetical = pointer?.type === "hypothetical";
-              const branchCount = Object.keys(branches).length;
-              const isMain = active === main;
-              const isMerged =
-                !isMain &&
-                pointer?.headHash &&
-                branches[main]?.headHash &&
-                pointer.headHash !== branches[main].headHash &&
-                useVCSStore
-                  .getState()
-                  .engine.isAncestorOf(
-                    pointer.headHash,
-                    branches[main].headHash,
-                  );
+            {/* Filtered Guests Trigger */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] gap-1 px-2 bg-background border hover:bg-accent"
+              onClick={() => setGuestFilterOpen(true)}
+            >
+              <User className="w-3 h-3 text-muted-foreground" />
+              <span>
+                {visibleAssignees.size === guests.length &&
+                visiblePayers.size === guests.length
+                  ? "All Guests"
+                  : "Filtered Guests"}
+              </span>
+            </Button>
 
-              return (
+            {/* Unified Order Defaults Dialog Trigger */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 px-2.5 max-w-52.5"
+              onClick={() => setOrderDefaultsOpen(true)}
+              title="Configure active guest, default payment, and default fulfillment"
+            >
+              <Settings className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="truncate">Order Defaults</span>
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            </Button>
+
+            <SeparatorUI orientation="vertical" className="h-6" />
+
+            {/* View Controls & Action Collapsers */}
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className={`h-7 gap-1.5 pr-2 ${isMain ? "border-primary/50 bg-primary/5 hover:bg-primary/10" : isMerged ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground" : isHypothetical ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10" : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"}`}
-                  onClick={() => setIsBranchManagerOpen(true)}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:bg-accent"
+                  onClick={toggleAllCollapsed}
                 >
-                  {isMain ? (
-                    <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />
-                  ) : isMerged ? (
-                    <Lock className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                  ) : isHypothetical ? (
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  {hasCollapsedItems ? (
+                    <ChevronsUpDown className="w-3.5 h-3.5" />
                   ) : (
-                    <GitBranch className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <ChevronsDownUp className="w-3.5 h-3.5" />
                   )}
-                  <span className="text-xs font-semibold max-w-30 truncate">
-                    {pointer?.label || active}
-                  </span>
-                  {main !== active && (
-                    <span className="text-[10px] text-muted-foreground font-normal">
-                      · main: {branches[main]?.label || main}
-                    </span>
-                  )}
-                  {branchCount > 1 && (
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {hasCollapsedItems ? "Expand all" : "Collapse all"}
+              </TooltipContent>
+            </Tooltip>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:bg-accent relative"
+                >
+                  <LayoutList className="w-3.5 h-3.5" />
+                  {hideCanceled && canceledCount > 0 && (
                     <Badge
-                      variant="secondary"
-                      className="text-[9px] h-4 px-1.5 ml-0.5"
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 h-3.5 min-w-3.5 flex items-center justify-center px-0.5 text-[7px] border-background"
                     >
-                      {branchCount}
+                      {canceledCount}
                     </Badge>
                   )}
-                  <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
                 </Button>
-              );
-            })()}
-          </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align="end">
+                <div className="space-y-1 text-xs">
+                  <p className="font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1 text-[10px]">
+                    Item Detail Level
+                  </p>
+                  {Object.values(ViewMode).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setDetailLevel(level)}
+                      className={`w-full flex flex-col px-2 py-1.5 rounded transition-colors text-left ${
+                        detailLevel === level
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-accent text-foreground"
+                      }`}
+                    >
+                      <span className="font-medium capitalize">{level}</span>
+                    </button>
+                  ))}
+                  <div className="my-1 border-t" />
+                  <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors">
+                    <Checkbox
+                      checked={hideCanceled}
+                      onCheckedChange={(v) => setHideCanceled(!!v)}
+                      className="w-3.5 h-3.5"
+                    />
+                    <span className="font-medium text-foreground">
+                      Hide voided items
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors">
+                    <Checkbox
+                      checked={isCompactMode}
+                      onCheckedChange={(v) => setIsCompactMode(!!v)}
+                      className="w-3.5 h-3.5"
+                    />
+                    <span className="font-medium text-foreground">
+                      Compact view
+                    </span>
+                  </label>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Guest:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-auto py-1 gap-1.5 px-2.5 max-w-52.5"
-              onClick={() => {
-                setGuestPickerOpen(true);
-              }}
-              title={
-                selectedGuestDescription
-                  ? `Select guest (${selectedGuestDescription})`
-                  : "Select guest"
-              }
-            >
-              <User className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              <div className="flex flex-col items-start min-w-0 text-left">
-                <span className="truncate text-xs leading-tight font-medium">
-                  {selectedGuestLabel}
-                </span>
-                {selectedGuestDescription && (
-                  <span className="text-[8px] text-muted-foreground/75 truncate max-w-30 leading-tight font-normal italic">
-                    {selectedGuestDescription}
-                  </span>
-                )}
-              </div>
-              <Badge
-                variant="secondary"
-                className="h-4 px-1 text-[9px] shrink-0"
-              >
-                {selectedGuestCount}
-              </Badge>
-              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 px-2.5 max-w-52.5"
-              onClick={() => {
-                setPaymentAllocationItems([]);
-                setPaymentAllocationContext(AllocationContext.Header);
-                setPaymentAllocationOpen(true);
-              }}
-              title="Configure order default payment"
-            >
-              <CreditCard className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{currentConfigName}</span>
-              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 px-2.5 max-w-52.5"
-              onClick={() => {
-                setFulfillmentAllocationItems([]);
-                setFulfillmentAllocationContext(AllocationContext.Global);
-                setFulfillmentAllocationOpen(true);
-              }}
-              title="Configure order default fulfillment"
-            >
-              <Clock className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-              <span className="truncate">{currentFulfillmentConfigName}</span>
-              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
-            </Button>
+            {/* Sidebar Toggles */}
+            <div className="flex items-center gap-1 border bg-background/50 p-0.5 rounded-lg">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isBulkActionsCollapsed ? "ghost" : "secondary"}
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-background/80"
+                    onClick={() => setIsBulkActionsCollapsed((prev) => !prev)}
+                    id="bulk-actions-toggle"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-primary" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isBulkActionsCollapsed
+                    ? "Expand Advanced Actions"
+                    : "Collapse Advanced Actions"}
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isGroupNotesCollapsed ? "ghost" : "secondary"}
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-background/80"
+                    onClick={() => setIsGroupNotesCollapsed((prev) => !prev)}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isGroupNotesCollapsed
+                    ? "Expand Group Notes"
+                    : "Collapse Group Notes"}
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isLedgerCollapsed ? "ghost" : "secondary"}
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-background/80"
+                    onClick={() => setIsLedgerCollapsed((prev) => !prev)}
+                  >
+                    <GitCommitHorizontal className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isLedgerCollapsed ? "Expand Ledger" : "Collapse Ledger"}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
             <SeparatorUI orientation="vertical" className="h-6" />
-            <SeparatorUI orientation="vertical" className="h-6" />
+
             <Button
               variant="outline"
               size="sm"
@@ -956,40 +1106,6 @@ export function POSTerminalScreen({
             )}
           </div>
         </header>
-
-        {orderContext && (
-          <OrderContextBanner
-            context={orderContext}
-            onEditClick={handleOpenCustomerDialog}
-          >
-            <ActiveCheckActionFilterBar
-              activeBranch={activeBranch()}
-              isViewingHistory={isViewingHistory}
-              guests={guests}
-              visibleAssignees={visibleAssignees}
-              setVisibleAssignees={setVisibleAssignees}
-              visiblePayers={visiblePayers}
-              setVisiblePayers={setVisiblePayers}
-              toggleAllCollapsed={toggleAllCollapsed}
-              hasCollapsedItems={hasCollapsedItems}
-              hideCanceled={hideCanceled}
-              setHideCanceled={setHideCanceled}
-              canceledCount={canceledCount}
-              detailLevel={detailLevel}
-              setDetailLevel={setDetailLevel}
-              guestFilterOp={guestFilterOp}
-              setGuestFilterOp={setGuestFilterOp}
-              isCompactMode={isCompactMode}
-              setIsCompactMode={setIsCompactMode}
-              isBulkActionsCollapsed={isBulkActionsCollapsed}
-              setIsBulkActionsCollapsed={setIsBulkActionsCollapsed}
-              isGroupNotesCollapsed={isGroupNotesCollapsed}
-              setIsGroupNotesCollapsed={setIsGroupNotesCollapsed}
-              isLedgerCollapsed={isLedgerCollapsed}
-              setIsLedgerCollapsed={setIsLedgerCollapsed}
-            />
-          </OrderContextBanner>
-        )}
 
         {/* ─── Main Content: 3-Panel Layout ─────────────────────────────── */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
@@ -1122,13 +1238,13 @@ export function POSTerminalScreen({
         </div>
 
         {/* ─── Footer ──────────────────────────────────────────────────── */}
-        <footer className="border-t bg-card px-4 py-2 flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
+        {/* <footer className="border-t bg-card px-4 py-2 flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
           <span>VCS-Retail v2.0.0-PRO MVP</span>
           <span>
             Shared Allocations · Payment Splits · Late-Bound Pricing ·
             Append-Only Ledger
           </span>
-        </footer>
+        </footer> */}
       </div>
 
       {/* ─── Dialogs ─────────────────────────────────────────────────── */}
@@ -1193,6 +1309,38 @@ export function POSTerminalScreen({
         open={globalSettingsOpen}
         onOpenChange={setGlobalSettingsOpen}
       />
+      <OrderDefaultsDialog
+        open={orderDefaultsOpen}
+        onOpenChange={setOrderDefaultsOpen}
+        selectedGuestLabel={selectedGuestLabel}
+        selectedGuestDescription={selectedGuestDescription}
+        selectedGuestCount={selectedGuestCount}
+        currentConfigName={currentConfigName}
+        currentFulfillmentConfigName={currentFulfillmentConfigName}
+        onOpenGuestPicker={() => setGuestPickerOpen(true)}
+        onOpenPaymentAllocation={() => {
+          setPaymentAllocationItems([]);
+          setPaymentAllocationContext(AllocationContext.Header);
+          setPaymentAllocationOpen(true);
+        }}
+        onOpenFulfillmentAllocation={() => {
+          setFulfillmentAllocationItems([]);
+          setFulfillmentAllocationContext(AllocationContext.Global);
+          setFulfillmentAllocationOpen(true);
+        }}
+      />
+      <GuestFilterDialog
+        open={guestFilterOpen}
+        onOpenChange={setGuestFilterOpen}
+        guests={guests}
+        visibleAssignees={visibleAssignees}
+        setVisibleAssignees={setVisibleAssignees}
+        visiblePayers={visiblePayers}
+        setVisiblePayers={setVisiblePayers}
+        guestFilterOp={guestFilterOp}
+        setGuestFilterOp={setGuestFilterOp}
+        globalGuestPalette={globalGuestPalette}
+      />
       <CombineDialog
         open={combineDialogOpen}
         onOpenChange={setCombineDialogOpen}
@@ -1230,5 +1378,68 @@ export function POSTerminalScreen({
         onConfirm={(val) => setQtyStep(val)}
       />
     </TooltipProvider>
+  );
+}
+function getBranchButton(
+  activeBranch: () => string,
+  mainActiveBranch: () => string,
+  branches: BranchMap,
+  setIsBranchManagerOpen: React.Dispatch<React.SetStateAction<boolean>>,
+) {
+  return (
+    <div className="flex items-center gap-2">
+      {(() => {
+        const active = activeBranch();
+        const main = mainActiveBranch();
+        const pointer = branches[active];
+        const isHypothetical = pointer?.type === "hypothetical";
+        const branchCount = Object.keys(branches).length;
+        const isMain = active === main;
+        const isMerged =
+          !isMain &&
+          pointer?.headHash &&
+          branches[main]?.headHash &&
+          pointer.headHash !== branches[main].headHash &&
+          useVCSStore
+            .getState()
+            .engine.isAncestorOf(pointer.headHash, branches[main].headHash);
+
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            className={`h-7 gap-1.5 pr-2 ${isMain ? "border-primary/50 bg-primary/5 hover:bg-primary/10" : isMerged ? "border-muted-foreground/30 bg-muted/50 hover:bg-muted/70 text-muted-foreground" : isHypothetical ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10" : "border-emerald-400/50 bg-emerald-500/5 hover:bg-emerald-500/10"}`}
+            onClick={() => setIsBranchManagerOpen(true)}
+          >
+            {isMain ? (
+              <GitBranch className="w-3.5 h-3.5 text-primary shrink-0" />
+            ) : isMerged ? (
+              <Lock className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            ) : isHypothetical ? (
+              <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            ) : (
+              <GitBranch className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            )}
+            <span className="text-xs font-semibold max-w-30 truncate">
+              {pointer?.label || active}
+            </span>
+            {main !== active && (
+              <span className="text-[10px] text-muted-foreground font-normal">
+                · main: {branches[main]?.label || main}
+              </span>
+            )}
+            {branchCount > 1 && (
+              <Badge
+                variant="secondary"
+                className="text-[9px] h-4 px-1.5 ml-0.5"
+              >
+                {branchCount}
+              </Badge>
+            )}
+            <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+          </Button>
+        );
+      })()}
+    </div>
   );
 }

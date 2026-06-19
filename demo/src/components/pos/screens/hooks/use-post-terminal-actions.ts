@@ -11,8 +11,7 @@ import {
   SquashType,
   TimeBlockType,
 } from "@/lib/vcs/types";
-import { HistoryOpType } from "@/lib/pos/types";
-import { type OrderContext, PaymentUpdateMode, SplitQtyType } from "@/lib/pos/types";
+import { HistoryOpType, type OrderContext, PaymentUpdateMode, SplitQtyType, OrderType } from "@/lib/pos/types";
 
 export function usePostTerminalActions({
   selectedPerson,
@@ -97,7 +96,7 @@ export function usePostTerminalActions({
   );
 
   const handleSaveCustomerFields = useCallback(
-    (fields: Record<string, string>) => {
+    (fields: Record<string, string>, newOrderType?: OrderType) => {
       useVCSStore.getState().updateOrderContext({ customerFields: fields });
       const newNameRaw = fields.name?.trim();
       if (newNameRaw) {
@@ -106,7 +105,15 @@ export function usePostTerminalActions({
           useVCSStore.getState().updateGuest(primaryGuest.id, newNameRaw);
         }
       }
-      toast.success("Customer info updated");
+      if (newOrderType) {
+        const labels: Record<string, string> = {
+          [OrderType.WalkIn]: "Walk In",
+          [OrderType.Pickup]: "Pickup",
+          [OrderType.Delivery]: "Delivery",
+        };
+        useVCSStore.getState().updateOrderType(newOrderType, labels[newOrderType] || newOrderType);
+      }
+      toast.success("Customer info and order type updated");
     },
     [storeGuests],
   );
