@@ -29,10 +29,12 @@ import {
   Terminal,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export function OrderHistoryScreen() {
   const store = useVCSStore();
   const formatNumber = useFormatNumber();
+  const router = useRouter();
 
   const branches = store.engine.getRepo().branches;
   const activeBranchName = store.engine.getActiveBranch();
@@ -122,7 +124,7 @@ export function OrderHistoryScreen() {
               variant="outline"
               size="icon"
               className="h-9 w-9 rounded-full"
-              onClick={() => store.setScreen(PosScreen.Terminal)}
+              onClick={() => router.push("/")}
             >
               <ArrowLeft className="w-4 h-4" />
             </Button>
@@ -140,7 +142,7 @@ export function OrderHistoryScreen() {
               variant="outline"
               size="sm"
               className="h-9 text-xs"
-              onClick={() => store.setScreen(PosScreen.Terminal)}
+              onClick={() => router.push("/")}
             >
               Back to Terminal
             </Button>
@@ -228,6 +230,7 @@ export function OrderHistoryScreen() {
                     onClick={() => {
                       store.checkoutBranch(card.name);
                       toast.success(`Switched to order: ${card.context?.customerFields?.name || "Guest"}`);
+                      router.push("/");
                     }}
                   >
                     <FolderOpen className="w-4 h-4" />

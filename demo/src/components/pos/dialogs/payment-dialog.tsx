@@ -21,6 +21,7 @@ import {
   DollarSign,
   Wallet,
   User,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,7 +42,7 @@ export function printReceipt(projectedState: any, formatNumber: any) {
 
   let itemsHtml = "";
   const rootItems = Object.values(projectedState.items).filter(
-    (i: any) => !i.parentLineId && i.status !== "canceled"
+    (i: any) => !i.parentLineId && i.status !== "canceled",
   );
 
   rootItems.forEach((item: any) => {
@@ -147,6 +148,25 @@ export function PaymentDialog({
   const [paidGuests, setPaidGuests] = useState<Record<string, boolean>>({});
   const [guestMethods, setGuestMethods] = useState<Record<string, string>>({});
 
+  // Track remaining dues (initialized when dialog opens)
+  const [remainingDues, setRemainingDues] = useState<Record<string, number>>(
+    {},
+  );
+
+  // Track received and change amounts for display
+  const [receivedAmounts, setReceivedAmounts] = useState<
+    Record<string, number>
+  >({});
+  const [changeAmounts, setChangeAmounts] = useState<Record<string, number>>(
+    {},
+  );
+
+  // Active guest being paid
+  const [activePayingPersonId, setActivePayingPersonId] = useState<
+    string | null
+  >(null);
+  const [cashInput, setCashInput] = useState<string>("");
+
   const personBreakdown = projectedState?.financials?.personBreakdown || [];
 
   const resolveGuestName = (idOrName: string) => {
@@ -155,175 +175,523 @@ export function PaymentDialog({
   };
 
   const activePayingGuests = personBreakdown.filter(
-    (pb: any) => pb.subtotal > 0
+    (pb: any) => pb.subtotal > 0,
   );
 
-  const handlePayGuest = (person: string, amount: number) => {
-    setPaidGuests((prev) => ({ ...prev, [person]: true }));
-    toast.success(`Received payment of $${formatNumber(amount, 2)} from ${resolveGuestName(person)}`);
+  // Initialize remaining dues if not set or when dialog opens
+  React.useEffect(() => {
+    if (open && activePayingGuests.length > 0) {
+      const initialDues: Record<string, number> = {};
+      activePayingGuests.forEach((pb: any) => {
+        const guestTotal =
+          (pb.subtotal / (projectedState?.financials?.subtotal || 1)) *
+          (projectedState?.financials?.grandTotal || 0);
+        initialDues[pb.person] = guestTotal;
+      });
+      setRemainingDues(initialDues);
+      setPaidGuests({});
+      setGuestMethods({});
+      setReceivedAmounts({});
+      setChangeAmounts({});
+      setActivePayingPersonId(null);
+      setCashInput("");
+    }
+  }, [open, projectedState]);
+
+  const handlePayGuest = (
+    person: string,
+    method: string,
+    amountPaid: number,
+    totalDue: number,
+  ) => {
+    if (method === "cash") {
+      if (amountPaid >= totalDue) {
+        const change = amountPaid - totalDue;
+        setChangeAmounts((prev) => ({ ...prev, [person]: change }));
+        setReceivedAmounts((prev) => ({ ...prev, [person]: amountPaid }));
+        setRemainingDues((prev) => ({ ...prev, [person]: 0 }));
+        setPaidGuests((prev) => ({ ...prev, [person]: true }));
+        toast.success(
+          `Received cash of $${formatNumber(amountPaid, 2)} from ${resolveGuestName(person)}. Change: $${formatNumber(change, 2)}`,
+        );
+      } else {
+        // Partial payment
+        const newDue = totalDue - amountPaid;
+        setRemainingDues((prev) => ({ ...prev, [person]: newDue }));
+        setReceivedAmounts((prev) => ({
+          ...prev,
+          [person]: (receivedAmounts[person] || 0) + amountPaid,
+        }));
+        toast.info(
+          `Received partial cash of $${formatNumber(amountPaid, 2)} from ${resolveGuestName(person)}. Remaining Due: $${formatNumber(newDue, 2)}`,
+        );
+      }
+    } else {
+      // Card payment (always full)
+      setReceivedAmounts((prev) => ({ ...prev, [person]: totalDue }));
+      setChangeAmounts((prev) => ({ ...prev, [person]: 0 }));
+      setRemainingDues((prev) => ({ ...prev, [person]: 0 }));
+      setPaidGuests((prev) => ({ ...prev, [person]: true }));
+      toast.success(
+        `Processed card payment of $${formatNumber(totalDue, 2)} for ${resolveGuestName(person)}`,
+      );
+    }
+    setActivePayingPersonId(null);
   };
 
   const isAllPaid = activePayingGuests.every(
-    (pb: any) => paidGuests[pb.person]
+    (pb: any) => paidGuests[pb.person],
   );
 
   const handlePrint = () => {
     printReceipt(projectedState, formatNumber);
   };
 
+  // Numpad key handlers
+  const handleNumpadPress = (val: string) => {
+    setCashInput((prev) => {
+      if (val === ".") {
+        if (prev.includes(".")) return prev;
+        return prev === "" ? "0." : prev + ".";
+      }
+      if (prev.includes(".")) {
+        const parts = prev.split(".");
+        if (parts[1] && parts[1].length >= 2) {
+          return prev; // Max 2 decimal places
+        }
+      }
+      return prev + val;
+    });
+  };
+
+  const handleBackspace = () => {
+    setCashInput((prev) => prev.slice(0, -1));
+  };
+
+  const handleClear = () => {
+    setCashInput("");
+  };
+
+  // Determine view screen
+  const currentPayingPerson = activePayingPersonId
+    ? activePayingGuests.find((pb) => pb.person === activePayingPersonId)
+    : null;
+  const currentDue = currentPayingPerson
+    ? (remainingDues[currentPayingPerson.person] ?? 0)
+    : 0;
+  const selectedMethod = currentPayingPerson
+    ? guestMethods[currentPayingPerson.person] || "card"
+    : "card";
+
+  const parsedCashInput = parseFloat(cashInput) || 0;
+  const cashChange =
+    parsedCashInput >= currentDue ? parsedCashInput - currentDue : 0;
+  const cashRemaining =
+    parsedCashInput < currentDue ? currentDue - parsedCashInput : currentDue;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] p-6 gap-6 rounded-2xl select-none">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-bold">Ticket Checkout</DialogTitle>
-          <DialogDescription className="text-xs">
-            Review guest allocations, select payment methods, and collect payment.
-          </DialogDescription>
-        </DialogHeader>
+        {currentPayingPerson ? (
+          /* PAYMENT PROCESS SCREEN */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 border-b pb-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 rounded-full"
+                onClick={() => setActivePayingPersonId(null)}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div>
+                <h3 className="font-bold text-base">Collect Payment</h3>
+                <p className="text-xs text-muted-foreground">
+                  Processing checkout for{" "}
+                  {resolveGuestName(currentPayingPerson.person)}
+                </p>
+              </div>
+            </div>
 
-        {/* Totals Summary */}
-        <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
-          <div className="flex justify-between text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            <span>Subtotal</span>
-            <span className="font-mono">
-              ${formatNumber(projectedState?.financials?.subtotal || 0, 2)}
-            </span>
-          </div>
-          <div className="flex justify-between text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            <span>Taxes & Fees</span>
-            <span className="font-mono">
-              ${formatNumber(projectedState?.financials?.chargeTotal || 0, 2)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center text-sm font-bold border-t pt-2 mt-1">
-            <span className="text-primary uppercase tracking-wider">
-              Total Due
-            </span>
-            <span className="font-mono text-base text-primary">
-              ${formatNumber(projectedState?.financials?.grandTotal || 0, 2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Guest Breakdown Scroll Area */}
-        <div className="space-y-2.5">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Guest Payment Breakdown
-          </h4>
-          <ScrollArea className="h-60 rounded-xl border p-3 bg-card">
-            <div className="space-y-3">
-              {activePayingGuests.length === 0 ? (
-                <div className="text-center py-10 text-xs text-muted-foreground">
-                  No guest allocations declared.
+            {/* Billing details */}
+            <div className="flex justify-between items-center bg-muted/20 p-3.5 rounded-xl border">
+              <div>
+                <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">
+                  Amount Due
+                </span>
+                <div className="text-lg font-bold font-mono">
+                  ${formatNumber(currentDue, 2)}
                 </div>
-              ) : (
-                activePayingGuests.map((pb: any) => {
-                  const guestName = resolveGuestName(pb.person);
-                  const isPaid = paidGuests[pb.person];
-                  const method = guestMethods[pb.person] || "card";
-                  const guestTotal =
-                    (pb.subtotal / (projectedState?.financials?.subtotal || 1)) *
-                    (projectedState?.financials?.grandTotal || 0);
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={selectedMethod === "card" ? "default" : "outline"}
+                  className="h-10 text-xs px-4 gap-1.5 font-bold rounded-lg"
+                  onClick={() => {
+                    setGuestMethods((prev) => ({
+                      ...prev,
+                      [currentPayingPerson.person]: "card",
+                    }));
+                  }}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Card
+                </Button>
+                <Button
+                  variant={selectedMethod === "cash" ? "default" : "outline"}
+                  className="h-10 text-xs px-4 gap-1.5 font-bold rounded-lg"
+                  onClick={() => {
+                    setGuestMethods((prev) => ({
+                      ...prev,
+                      [currentPayingPerson.person]: "cash",
+                    }));
+                    setCashInput("");
+                  }}
+                >
+                  <Coins className="w-4 h-4" />
+                  Cash
+                </Button>
+              </div>
+            </div>
 
-                  return (
+            {/* Method Details */}
+            {selectedMethod === "card" ? (
+              <div className="flex flex-col items-center justify-center border border-dashed rounded-xl p-8 space-y-4 bg-muted/5">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary animate-pulse">
+                  <CreditCard className="w-6 h-6" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-semibold">
+                    Simulating Card Terminal
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    Please prompt the customer to tap, swipe, or insert their
+                    card on the reader.
+                  </p>
+                </div>
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 text-xs rounded-xl"
+                  onClick={() =>
+                    handlePayGuest(
+                      currentPayingPerson.person,
+                      "card",
+                      currentDue,
+                      currentDue,
+                    )
+                  }
+                >
+                  Simulate Successful Swipe
+                </Button>
+              </div>
+            ) : (
+              /* CASH METHOD WITH NUMPAD & QUICK BUTTONS */
+              <div className="space-y-4">
+                {/* Tender display & Change details */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="border rounded-xl p-3 bg-muted/10">
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                      Amount Tendered
+                    </span>
+                    <div className="text-xl font-bold font-mono text-primary mt-1">
+                      $
+                      {cashInput === ""
+                        ? "0.00"
+                        : formatNumber(parsedCashInput, 2)}
+                    </div>
+                  </div>
+                  <div
+                    className={`border rounded-xl p-3 ${parsedCashInput >= currentDue ? "bg-emerald-500/10 border-emerald-500/25" : "bg-amber-500/10 border-amber-500/25"}`}
+                  >
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                      {parsedCashInput >= currentDue
+                        ? "Change Due"
+                        : "Remaining Due"}
+                    </span>
                     <div
-                      key={pb.person}
-                      className={`flex flex-col p-3 rounded-lg border gap-3 transition-colors ${
-                        isPaid
-                          ? "bg-emerald-50/15 border-emerald-500/20"
-                          : "bg-background border-border"
-                      }`}
+                      className={`text-xl font-bold font-mono mt-1 ${parsedCashInput >= currentDue ? "text-emerald-500" : "text-amber-500"}`}
                     >
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-bold text-sm">{guestName}</span>
-                          {isPaid && (
-                            <Badge className="bg-emerald-500 hover:bg-emerald-600 text-[9px] uppercase font-bold tracking-wider py-0.5 px-1.5 gap-0.5 rounded-md">
-                              <CheckCircle2 className="w-3 h-3" /> Paid
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="font-mono font-bold text-sm">
-                          ${formatNumber(guestTotal, 2)}
-                        </span>
-                      </div>
+                      $
+                      {parsedCashInput >= currentDue
+                        ? formatNumber(cashChange, 2)
+                        : formatNumber(cashRemaining, 2)}
+                    </div>
+                  </div>
+                </div>
 
-                      {!isPaid && (
-                        <div className="flex items-center justify-between gap-4 pt-1 border-t border-dashed">
-                          {/* Payment Method selector */}
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              variant={method === "card" ? "default" : "outline"}
-                              size="sm"
-                              className="h-7 text-[10px] gap-1 px-2.5 rounded-md"
-                              onClick={() =>
-                                setGuestMethods((prev) => ({
-                                  ...prev,
-                                  [pb.person]: "card",
-                                }))
-                              }
-                            >
-                              <CreditCard className="w-3.5 h-3.5" />
-                              Card
-                            </Button>
-                            <Button
-                              variant={method === "cash" ? "default" : "outline"}
-                              size="sm"
-                              className="h-7 text-[10px] gap-1 px-2.5 rounded-md"
-                              onClick={() =>
-                                setGuestMethods((prev) => ({
-                                  ...prev,
-                                  [pb.person]: "cash",
-                                }))
-                              }
-                            >
-                              <Coins className="w-3.5 h-3.5" />
-                              Cash
-                            </Button>
+                {/* Quick Cash Buttons */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                    Quick Cash Received
+                  </span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {/* Contextual/smart quick buttons */}
+                    <Button
+                      variant="outline"
+                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                      onClick={() => setCashInput(currentDue.toFixed(2))}
+                    >
+                      Exact
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                      disabled={Math.ceil(currentDue / 5) * 5 === currentDue}
+                      onClick={() =>
+                        setCashInput((Math.ceil(currentDue / 5) * 5).toFixed(2))
+                      }
+                    >
+                      Next $5
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                      disabled={Math.ceil(currentDue / 10) * 10 === currentDue}
+                      onClick={() =>
+                        setCashInput(
+                          (Math.ceil(currentDue / 10) * 10).toFixed(2),
+                        )
+                      }
+                    >
+                      Next $10
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                      disabled={Math.ceil(currentDue / 20) * 20 === currentDue}
+                      onClick={() =>
+                        setCashInput(
+                          (Math.ceil(currentDue / 20) * 20).toFixed(2),
+                        )
+                      }
+                    >
+                      Next $20
+                    </Button>
+
+                    {/* Standard bill denominations */}
+                    {[5, 10, 20, 40, 50, 100, 200].map((bill) => (
+                      <Button
+                        key={bill}
+                        variant="outline"
+                        className="h-8 text-[11px] font-semibold rounded-lg"
+                        onClick={() => setCashInput(bill.toString())}
+                      >
+                        ${bill}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Numeric Keypad Grid */}
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-8 grid grid-cols-3 gap-2">
+                    {[
+                      "1",
+                      "2",
+                      "3",
+                      "4",
+                      "5",
+                      "6",
+                      "7",
+                      "8",
+                      "9",
+                      ".",
+                      "0",
+                    ].map((num) => (
+                      <Button
+                        key={num}
+                        variant="secondary"
+                        className="h-10 text-sm font-bold rounded-lg active:scale-95 transition-transform"
+                        onClick={() => handleNumpadPress(num)}
+                      >
+                        {num}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="secondary"
+                      className="h-10 text-xs font-bold rounded-lg text-rose-500 active:scale-95 transition-transform"
+                      onClick={handleBackspace}
+                    >
+                      ⌫
+                    </Button>
+                  </div>
+                  <div className="col-span-4 flex flex-col gap-2">
+                    <Button
+                      variant="destructive"
+                      className="flex-1 font-bold text-xs rounded-lg active:scale-95 transition-transform"
+                      onClick={handleClear}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg active:scale-95 transition-transform"
+                      disabled={parsedCashInput <= 0}
+                      onClick={() =>
+                        handlePayGuest(
+                          currentPayingPerson.person,
+                          "cash",
+                          parsedCashInput,
+                          currentDue,
+                        )
+                      }
+                    >
+                      Confirm
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* STANDARD GUEST CHECKOUT SCREEN */
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">
+                Ticket Checkout
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Review guest allocations, select payment methods, and collect
+                payment.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Totals Summary */}
+            <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                <span>Subtotal</span>
+                <span className="font-mono">
+                  ${formatNumber(projectedState?.financials?.subtotal || 0, 2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                <span>Taxes & Fees</span>
+                <span className="font-mono">
+                  $
+                  {formatNumber(
+                    projectedState?.financials?.chargeTotal || 0,
+                    2,
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-bold border-t pt-2 mt-1">
+                <span className="text-primary uppercase tracking-wider">
+                  Total Due
+                </span>
+                <span className="font-mono text-base text-primary">
+                  $
+                  {formatNumber(projectedState?.financials?.grandTotal || 0, 2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Guest Breakdown Scroll Area */}
+            <div className="space-y-2.5">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Guest Payment Breakdown
+              </h4>
+              <ScrollArea className="h-60 rounded-xl border p-3 bg-card">
+                <div className="space-y-3">
+                  {activePayingGuests.length === 0 ? (
+                    <div className="text-center py-10 text-xs text-muted-foreground">
+                      No guest allocations declared.
+                    </div>
+                  ) : (
+                    activePayingGuests.map((pb: any) => {
+                      const guestName = resolveGuestName(pb.person);
+                      const isPaid = paidGuests[pb.person];
+                      const currentDue = remainingDues[pb.person] ?? 0;
+                      const hasPaidSome = (receivedAmounts[pb.person] ?? 0) > 0;
+
+                      return (
+                        <div
+                          key={pb.person}
+                          className={`flex flex-col p-3 rounded-lg border gap-2 transition-colors ${
+                            isPaid
+                              ? "bg-emerald-50/15 border-emerald-500/20"
+                              : hasPaidSome
+                                ? "bg-amber-500/5 border-amber-500/20"
+                                : "bg-background border-border"
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-bold text-sm">
+                                {guestName}
+                              </span>
+                              {isPaid ? (
+                                <Badge className="bg-emerald-500 hover:bg-emerald-600 text-[9px] uppercase font-bold tracking-wider py-0.5 px-1.5 gap-0.5 rounded-md">
+                                  <CheckCircle2 className="w-3 h-3" /> Paid
+                                </Badge>
+                              ) : hasPaidSome ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-amber-500 border-amber-500/30 text-[9px] uppercase font-bold tracking-wider py-0.5 px-1.5 rounded-md"
+                                >
+                                  Partial Paid
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="font-mono font-bold text-sm">
+                                ${formatNumber(currentDue, 2)}
+                              </span>
+                              {hasPaidSome && !isPaid && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  Paid: $
+                                  {formatNumber(receivedAmounts[pb.person], 2)}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Collect Cash/Card trigger */}
-                          <Button
-                            size="sm"
-                            className="h-7 text-[10px] font-bold px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md"
-                            onClick={() => handlePayGuest(pb.person, guestTotal)}
-                          >
-                            Collect
-                          </Button>
+                          {!isPaid && (
+                            <div className="flex items-center justify-end gap-4 pt-1.5 border-t border-dashed">
+                              <Button
+                                size="sm"
+                                className="h-7 text-[10px] font-bold px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md gap-1"
+                                onClick={() => {
+                                  setActivePayingPersonId(pb.person);
+                                  setCashInput("");
+                                }}
+                              >
+                                <Wallet className="w-3.5 h-3.5" />
+                                Collect
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
             </div>
-          </ScrollArea>
-        </div>
 
-        {/* Dialog footer actions */}
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            className="flex-1 text-xs gap-1.5 font-bold"
-            onClick={handlePrint}
-          >
-            <Printer className="w-4 h-4" />
-            Print Receipt
-          </Button>
+            {/* Dialog footer actions */}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                className="flex-1 text-xs gap-1.5 font-bold"
+                onClick={handlePrint}
+              >
+                <Printer className="w-4 h-4" />
+                Print Receipt
+              </Button>
 
-          <Button
-            className="flex-1 text-xs font-bold bg-primary hover:bg-primary/95 text-primary-foreground"
-            disabled={!isAllPaid && activePayingGuests.length > 0}
-            onClick={() => {
-              onCompletePayment();
-              onOpenChange(false);
-              toast.success("Checkout successfully processed!");
-            }}
-          >
-            Complete Checkout
-          </Button>
-        </DialogFooter>
+              <Button
+                className="flex-1 text-xs font-bold bg-primary hover:bg-primary/95 text-primary-foreground"
+                disabled={!isAllPaid && activePayingGuests.length > 0}
+                onClick={() => {
+                  onCompletePayment();
+                  onOpenChange(false);
+                  toast.success("Checkout successfully processed!");
+                }}
+              >
+                Complete Checkout
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

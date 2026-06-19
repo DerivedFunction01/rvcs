@@ -3,6 +3,7 @@
 import { buildCommitGraph } from "@/lib/vcs/graph";
 import { useVCSStore } from "@/store/vcs-store";
 import React from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
@@ -139,6 +140,7 @@ export function POSTerminalScreen({
     modifyModifierState,
   } = useVCSStore();
   const iconConfigs = useVCSStore((state) => state.iconConfigs);
+  const router = useRouter();
 
   // ─── Dynamic Guest List ─────────────────────────────────────────────
   const currentBranchName = activeBranch();
@@ -1170,7 +1172,7 @@ export function POSTerminalScreen({
               onEditModifiers={handleOpenModifierDialog}
               onRemoveModifier={handleRemoveModifierInline}
               onSave={() => {
-                useVCSStore.getState().setScreen(PosScreen.History);
+                router.push("/history");
               }}
               onSend={() => {
                 const store = useVCSStore.getState();
