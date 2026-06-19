@@ -6,7 +6,6 @@ export interface AppPreferences {
   detailLevel: ViewMode;
   isLedgerCollapsed: boolean;
   isGroupNotesCollapsed: boolean;
-  isBulkActionsCollapsed: boolean;
   isCompactMode: boolean;
   useCommaDecimal: boolean;
   inlineModifierPriceDisplayDelta: boolean;
@@ -27,7 +26,6 @@ export const defaultAppPreferences: AppPreferences = {
   detailLevel: ViewMode.Simple,
   isLedgerCollapsed: true,
   isGroupNotesCollapsed: true,
-  isBulkActionsCollapsed: true,
   isCompactMode: true,
   useCommaDecimal: false,
   inlineModifierPriceDisplayDelta: false,

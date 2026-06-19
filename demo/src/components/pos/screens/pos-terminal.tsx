@@ -32,7 +32,6 @@ import { VerticalModifierPanel } from "@/components/pos/panels/vertical-modifier
 import { CommitLedgerPanel } from "@/components/pos/panels/commit-ledger-panel";
 import { ActiveCheckBottom } from "@/components/pos/panels/active-check-bottom";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
-import { BulkActionsPanel } from "@/components/pos/panels/bulk-actions-panel";
 import { VerticalActionsPanel } from "@/components/pos/panels/vertical-actions-panel";
 
 import { OrderDefaultsDialog } from "@/components/pos/dialogs/order-defaults-dialog";
@@ -236,23 +235,16 @@ export function POSTerminalScreen({
   );
   const [isGroupNotesCollapsedState, setIsGroupNotesCollapsedState] =
     React.useState(prefs.isGroupNotesCollapsed);
-  const [isBulkActionsCollapsedState, setIsBulkActionsCollapsedState] =
-    React.useState(prefs.isBulkActionsCollapsed);
   const [collapsedItems, setCollapsedItems] = React.useState<Set<string>>(
     new Set(),
   );
   const [detailLevelState, setDetailLevelState] = React.useState<ViewMode>(
     prefs.detailLevel,
   );
-  const [isCompactModeState, setIsCompactModeState] = React.useState(
-    prefs.isCompactMode,
-  );
 
   const isLedgerCollapsed = isLedgerCollapsedState;
   const isGroupNotesCollapsed = isGroupNotesCollapsedState;
-  const isBulkActionsCollapsed = isBulkActionsCollapsedState;
   const detailLevel = detailLevelState;
-  const isCompactMode = isCompactModeState;
 
   const setIsLedgerCollapsed = React.useCallback(
     (val: boolean | ((prev: boolean) => boolean)) => {
@@ -276,33 +268,11 @@ export function POSTerminalScreen({
     [repoId, updateRepoPreferences],
   );
 
-  const setIsBulkActionsCollapsed = React.useCallback(
-    (val: boolean | ((prev: boolean) => boolean)) => {
-      setIsBulkActionsCollapsedState((prev) => {
-        const next = typeof val === "function" ? val(prev) : val;
-        updateRepoPreferences(repoId, { isBulkActionsCollapsed: next });
-        return next;
-      });
-    },
-    [repoId, updateRepoPreferences],
-  );
-
   const setDetailLevel = React.useCallback(
     (val: ViewMode | ((prev: ViewMode) => ViewMode)) => {
       setDetailLevelState((prev) => {
         const next = typeof val === "function" ? val(prev) : val;
         updateRepoPreferences(repoId, { detailLevel: next });
-        return next;
-      });
-    },
-    [repoId, updateRepoPreferences],
-  );
-
-  const setIsCompactMode = React.useCallback(
-    (val: boolean | ((prev: boolean) => boolean)) => {
-      setIsCompactModeState((prev) => {
-        const next = typeof val === "function" ? val(prev) : val;
-        updateRepoPreferences(repoId, { isCompactMode: next });
         return next;
       });
     },
@@ -1054,41 +1024,12 @@ export function POSTerminalScreen({
                       Hide voided items
                     </span>
                   </label>
-                  <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent rounded cursor-pointer transition-colors">
-                    <Checkbox
-                      checked={isCompactMode}
-                      onCheckedChange={(v) => setIsCompactMode(!!v)}
-                      className="w-3.5 h-3.5"
-                    />
-                    <span className="font-medium text-foreground">
-                      Compact view
-                    </span>
-                  </label>
                 </div>
               </PopoverContent>
             </Popover>
 
             {/* Sidebar Toggles */}
             <div className="flex items-center gap-1 border bg-background/50 p-0.5 rounded-lg">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isBulkActionsCollapsed ? "ghost" : "secondary"}
-                    size="sm"
-                    className="h-6 w-6 p-0 hover:bg-background/80"
-                    onClick={() => setIsBulkActionsCollapsed((prev) => !prev)}
-                    id="bulk-actions-toggle"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-primary" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {isBulkActionsCollapsed
-                    ? "Expand Advanced Actions"
-                    : "Collapse Advanced Actions"}
-                </TooltipContent>
-              </Tooltip>
-
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1202,31 +1143,15 @@ export function POSTerminalScreen({
               mainBranchName={mainBranchName}
               isMergedToMain={isMergedToMain}
               isViewingHistory={isViewingHistory}
-              projectedState={projectedState}
               guests={guests}
-              resolveGuestName={resolveGuestName}
-              toggleAllCollapsed={toggleAllCollapsed}
-              hasCollapsedItems={hasCollapsedItems}
               hideCanceled={hideCanceled}
-              setHideCanceled={setHideCanceled}
-              canceledCount={canceledCount}
               detailLevel={detailLevel}
-              isCompactMode={isCompactMode}
               isMultiSelectMode={isMultiSelectMode}
-              setDetailLevel={setDetailLevel}
-              selectedPerson={selectedPerson}
               filteredRootItems={filteredRootItems}
               resolvedAllocations={resolvedAllocations}
               defaultPaymentAllocId={defaultPaymentAllocId}
-              removeItem={removeItem}
-              handleOpenModifierDialog={handleOpenModifierDialog}
-              handleOpenNoteDialog={handleOpenNoteDialog}
-              handleAllocConfig={handleAllocConfig}
-              handleOpenSwapDialog={handleOpenSwapDialog}
-              modifierItems={modifierItems}
               selectedLineIds={selectedLineIds}
               setSelectedLineIds={setSelectedLineIds}
-              handleSelectToggle={handleSelectToggle}
               collapsedItems={collapsedItems}
               handleToggleCollapse={handleToggleCollapse}
               checklistRef={checklistRef}
@@ -1257,51 +1182,75 @@ export function POSTerminalScreen({
             onAllocConfig={handleAllocConfig}
             onSwapComboChoice={handleOpenSwapDialog}
             onGroupNoteOpen={handleOpenGroupNoteDialog}
-          />
-          <BulkActionsPanel
             selectedLineIds={selectedLineIds}
             setSelectedLineIds={setSelectedLineIds}
             filteredRootItems={filteredRootItems}
-            parsedStep={parsedStep}
-            qtyStep={qtyStep}
-            setQtyStep={setQtyStep}
-            setQtyStepPadOpen={setQtyStepPadOpen}
-            setQtyPadOpen={setQtyPadOpen}
-            setSplitQtyDialogOpen={setSplitQtyDialogOpen}
-            setSplitLineDialogOpen={setSplitLineDialogOpen}
-            setDupMoveDialogOpen={setDupMoveDialogOpen}
-            setCombineDialogOpen={setCombineDialogOpen}
-            setAssignmentAllocationItems={setAssignmentAllocationItems}
-            setAssignmentAllocationContext={setAssignmentAllocationContext}
-            setAssignmentAllocationOpen={setAssignmentAllocationOpen}
-            setPaymentAllocationItems={setPaymentAllocationItems}
-            setPaymentAllocationContext={setPaymentAllocationContext}
-            setPaymentAllocationOpen={setPaymentAllocationOpen}
-            setFulfillmentAllocationItems={setFulfillmentAllocationItems}
-            setFulfillmentAllocationContext={setFulfillmentAllocationContext}
-            setFulfillmentAllocationOpen={setFulfillmentAllocationOpen}
-            compatibleModifiers={compatibleModifiers}
-            setModifierAddItem={setModifierAddItem}
-            setModifierAddOpen={setModifierAddOpen}
-            activeModifiersOnSelected={activeModifiersOnSelected}
-            onGroupNoteOpen={handleOpenGroupNoteDialog}
-            modifyItemsQty={modifyItemsQty}
-            duplicateItems={duplicateItems}
-            removeItems={removeItems}
-            mergeItems={mergeItems}
-            breakItems={breakItems}
+            isMultiSelectMode={isMultiSelectMode}
+            setIsMultiSelectMode={setIsMultiSelectMode}
+            onDuplicateItems={(ids) => {
+              const newIds = duplicateItems(ids);
+              if (newIds && newIds.length > 0)
+                setSelectedLineIds(new Set(newIds));
+            }}
+            onMergeItems={(ids) => {
+              const survivorIds = mergeItems(ids);
+              if (survivorIds && survivorIds.length > 0) {
+                setSelectedLineIds(new Set(survivorIds));
+              } else {
+                setSelectedLineIds(new Set());
+              }
+            }}
+            onBreakItems={(ids) => {
+              const newIds = breakItems(ids);
+              if (newIds && newIds.length > 0)
+                setSelectedLineIds(new Set(newIds));
+            }}
+            onCombineOpen={() => setCombineDialogOpen(true)}
+            onDupMoveOpen={() => setDupMoveDialogOpen(true)}
+            onAssignGuestOpen={() => {
+              setAssignmentAllocationItems(
+                Array.from(selectedLineIds)
+                  .map((id) => projectedState.items[id])
+                  .filter(Boolean),
+              );
+              setAssignmentAllocationContext(AllocationContext.Group);
+              setAssignmentAllocationOpen(true);
+            }}
+            onAssignPaymentOpen={() => {
+              setPaymentAllocationItems(
+                Array.from(selectedLineIds)
+                  .map((id) => projectedState.items[id])
+                  .filter(Boolean),
+              );
+              setPaymentAllocationContext(AllocationContext.Group);
+              setPaymentAllocationOpen(true);
+            }}
+            onAssignFulfillmentOpen={() => {
+              setFulfillmentAllocationItems(
+                Array.from(selectedLineIds)
+                  .map((id) => projectedState.items[id])
+                  .filter(Boolean),
+              );
+              setFulfillmentAllocationContext(AllocationContext.Group);
+              setFulfillmentAllocationOpen(true);
+            }}
+            onModifyItemsQty={modifyItemsQty}
+            onSetQtyPadOpen={() => setQtyPadOpen(true)}
+            onSplitQtyOpen={() => setSplitQtyDialogOpen(true)}
+            onSplitLineOpen={() => setSplitLineDialogOpen(true)}
             disableNonModActions={disableNonModActions}
             canMerge={canMerge}
             canBreak={canBreak}
             canCombine={canCombine}
-            formatNumber={formatNumber}
-            projectedState={projectedState}
-            isBulkActionsCollapsed={isBulkActionsCollapsed}
-            setIsBulkActionsCollapsed={setIsBulkActionsCollapsed}
-            isMultiSelectMode={isMultiSelectMode}
-            setIsMultiSelectMode={setIsMultiSelectMode}
-            autoSelectLastClickedItem={autoSelectLastClickedItem}
-            setAutoSelectLastClickedItem={setAutoSelectLastClickedItem}
+            onEditModifiersBulk={() => {
+              setModifierAddItem(null);
+              setModifierAddOpen(true);
+            }}
+            canEditModifiersBulk={
+              compatibleModifiers.length > 0 ||
+              (activeModifiersOnSelected &&
+                activeModifiersOnSelected.length > 0)
+            }
           />
           <GroupNotesPanel
             projectedState={projectedState}

@@ -10,7 +10,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
   Search,
   Filter,
@@ -22,6 +27,21 @@ import {
   StickyNote,
   Settings2,
   Workflow,
+  ListChecks,
+  CheckSquare,
+  Square,
+  Layers,
+  Copy,
+  BringToFront,
+  Combine,
+  Unlink,
+  PackageCheck,
+  User,
+  CreditCard,
+  Clock,
+  Equal,
+  Split,
+  ChevronLeft,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { formatLabel } from "@/lib/pos/ui-utils";
@@ -47,6 +67,33 @@ interface VerticalActionsPanelProps {
   onAllocConfig: (item: ProjectedLineItem) => void;
   onSwapComboChoice: (lineId: string, parentLineId: string, slotSku: string) => void;
   onGroupNoteOpen: (ids: string[]) => void;
+
+  // Selection props
+  selectedLineIds: Set<string>;
+  setSelectedLineIds: (ids: Set<string>) => void;
+  filteredRootItems: any[];
+  isMultiSelectMode: boolean;
+  setIsMultiSelectMode: (mode: boolean) => void;
+
+  // Advanced Action props
+  onDuplicateItems: (ids: string[]) => void;
+  onMergeItems: (ids: string[]) => void;
+  onBreakItems: (ids: string[]) => void;
+  onCombineOpen: () => void;
+  onDupMoveOpen: () => void;
+  onAssignGuestOpen: () => void;
+  onAssignPaymentOpen: () => void;
+  onAssignFulfillmentOpen: () => void;
+  onModifyItemsQty: (ids: string[], change: number) => void;
+  onSetQtyPadOpen: () => void;
+  onSplitQtyOpen: () => void;
+  onSplitLineOpen: () => void;
+  disableNonModActions: boolean;
+  canMerge: boolean;
+  canBreak: boolean;
+  canCombine: boolean;
+  onEditModifiersBulk: () => void;
+  canEditModifiersBulk: boolean;
 }
 
 export function VerticalActionsPanel({
@@ -67,13 +114,41 @@ export function VerticalActionsPanel({
   onAllocConfig,
   onSwapComboChoice,
   onGroupNoteOpen,
-}: VerticalActionsPanelProps) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const activeFiltersCount = requireTags.size + avoidTags.size;
-  const isSearchActive = !!catalogFilter.trim();
-  const isActive = isSearchActive || activeFiltersCount > 0;
 
-  // Single item calculations
+  // Selection
+  selectedLineIds,
+  setSelectedLineIds,
+  filteredRootItems,
+  isMultiSelectMode,
+  setIsMultiSelectMode,
+
+  // Advanced Actions
+  onDuplicateItems,
+  onMergeItems,
+  onBreakItems,
+  onCombineOpen,
+  onDupMoveOpen,
+  onAssignGuestOpen,
+  onAssignPaymentOpen,
+  onAssignFulfillmentOpen,
+  onModifyItemsQty,
+  onSetQtyPadOpen,
+  onSplitQtyOpen,
+  onSplitLineOpen,
+  disableNonModActions,
+  canMerge,
+  canBreak,
+  canCombine,
+  onEditModifiersBulk,
+  canEditModifiersBulk,
+}: VerticalActionsPanelProps) {
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [trayMode, setTrayMode] = useState<"item" | "advanced">("item");
+
+  const isSearchActive = !!catalogFilter.trim();
+  const isFilterActive = requireTags.size + avoidTags.size > 0 || isSearchActive;
+
+  // Single item calculations (for item mode)
   const item = selectedItems.length === 1 ? selectedItems[0] : null;
   const catalogEntry = item ? catalog[item.sku] : null;
 
@@ -101,150 +176,506 @@ export function VerticalActionsPanel({
 
   const canSwitchCombo = !!comboSwapTarget;
 
+  // Multi-item checks (for advanced mode)
+  const hasSelection = selectedLineIds.size > 0;
+
   return (
-    <aside id="vertical-actions-panel" className="w-16 border-r bg-card/90 backdrop-blur-sm flex flex-col items-center py-4 gap-4 shrink-0 h-full overflow-hidden z-10 shadow-sm">
-      {/* Search & Filter Button */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isActive ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setDialogOpen(true)}
-            className={`h-10 w-10 p-0 rounded-xl transition-all relative ${
-              isActive
-                ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
-                : "hover:bg-accent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Filter className="w-5 h-5" />
-            {isActive && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-primary rounded-full border-2 border-background" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="text-xs">
-          Search & Filter
-        </TooltipContent>
-      </Tooltip>
+    <TooltipProvider>
+      <aside
+        id="vertical-actions-panel"
+        className="w-16 border-r bg-card/90 backdrop-blur-sm flex flex-col items-center py-3 gap-3 shrink-0 h-full overflow-hidden z-10 shadow-sm"
+      >
+        {/* SECTION 0: SEARCH & FILTER (Always at the very top) */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isFilterActive ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setFilterDialogOpen(true)}
+              className={`h-9 w-9 p-0 rounded-lg transition-all relative ${
+                isFilterActive
+                  ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
+                  : "hover:bg-accent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              {isFilterActive && (
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-primary rounded-full border border-background" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            Search & Filter
+          </TooltipContent>
+        </Tooltip>
 
-      {/* Divider */}
-      <div className="w-10 border-b border-border/80" />
+        {/* Divider */}
+        <div className="w-8 border-b border-border/80" />
 
-      {/* Item Lifecycle Context Actions */}
+        {/* SECTION 2: TRAY SWITCHER */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={trayMode === "advanced" ? "secondary" : "ghost"}
+              size="sm"
+              className={`h-9 w-9 p-0 rounded-lg transition-all ${
+                trayMode === "advanced"
+                  ? "bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500/20"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setTrayMode((prev) => (prev === "item" ? "advanced" : "item"))}
+            >
+              <Layers className="w-4.5 h-4.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs font-semibold">
+            {trayMode === "item" ? "Show Advanced Actions" : "Show Item Actions"}
+          </TooltipContent>
+        </Tooltip>
 
-      {/* Edit Modifiers */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!item || !hasEditableModifiers}
-            onClick={() => item && onEditModifiers(item)}
-            className="h-10 w-10 p-0 rounded-xl hover:bg-accent disabled:opacity-30 text-primary"
-            title=""
-          >
-            <Pencil className="w-5 h-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="text-xs">
-          {!item
-            ? "Select exactly one item to edit modifiers"
-            : !hasEditableModifiers
-            ? "No editable modifiers available"
-            : `Edit modifiers for ${item.name}`}
-        </TooltipContent>
-      </Tooltip>
+        {/* SECTION 1: SELECTION CONTROLS (Only visible in advanced/multi-select mode) */}
+        {trayMode === "advanced" && (
+          <>
+            <div className="w-8 border-b border-border/80" />
+            <div className="flex flex-col items-center gap-2 animate-in fade-in duration-200">
+              {/* Multi-Select Toggle */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isMultiSelectMode ? "secondary" : "ghost"}
+                    size="sm"
+                    className={`h-9 w-9 p-0 rounded-lg transition-all ${
+                      isMultiSelectMode
+                        ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => {
+                      const next = !isMultiSelectMode;
+                      setIsMultiSelectMode(next);
+                      if (!next && selectedLineIds.size > 1) {
+                        const first = Array.from(selectedLineIds)[0];
+                        setSelectedLineIds(new Set([first]));
+                      }
+                    }}
+                  >
+                    <ListChecks className="w-4.5 h-4.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {isMultiSelectMode ? "Disable Multi-Select" : "Enable Multi-Select"}
+                </TooltipContent>
+              </Tooltip>
 
-      {/* Add Note */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!item}
-            onClick={() => item && onGroupNoteOpen([item.lineId])}
-            className="h-10 w-10 p-0 rounded-xl hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-            title=""
-          >
-            <StickyNote className="w-5 h-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="text-xs">
-          {!item ? "Select exactly one item to add a note" : `Add note to ${item.name}`}
-        </TooltipContent>
-      </Tooltip>
+              {/* Select All / Clear Selection */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 rounded-lg text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    onClick={() => {
+                      if (hasSelection) {
+                        setSelectedLineIds(new Set());
+                      } else if (isMultiSelectMode) {
+                        setSelectedLineIds(new Set(filteredRootItems.map((i) => i.lineId)));
+                      }
+                    }}
+                    disabled={!hasSelection && !isMultiSelectMode}
+                  >
+                    {hasSelection ? (
+                      <CheckSquare className="w-4.5 h-4.5 text-primary" />
+                    ) : (
+                      <Square className="w-4.5 h-4.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {hasSelection ? "Clear Selection" : "Select All Items"}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </>
+        )}
 
-      {/* Allocation Config */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!item}
-            onClick={() => item && onAllocConfig(item)}
-            className="h-10 w-10 p-0 rounded-xl hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-            title=""
-          >
-            <Settings2 className="w-5 h-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="text-xs">
-          {!item ? "Select exactly one item to configure allocations" : `Configure allocations for ${item.name}`}
-        </TooltipContent>
-      </Tooltip>
+        {/* Divider */}
+        <div className="w-8 border-b border-border/80" />
 
-      {/* Switch Choice (Combo Swap) */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!item || !canSwitchCombo}
-            onClick={() => {
-              if (item && comboSwapTarget && item.parentLineId) {
-                onSwapComboChoice(item.lineId, item.parentLineId, comboSwapTarget.slotSku);
-              }
-            }}
-            className="h-10 w-10 p-0 rounded-xl hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-            title=""
-          >
-            <Workflow className="w-5 h-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="text-xs">
-          {!item
-            ? "Select exactly one item to switch"
-            : !canSwitchCombo
-            ? "No alternate combo choice available"
-            : `Switch combo choice for ${item.name}`}
-        </TooltipContent>
-      </Tooltip>
+        {/* SECTION 3: ACTIONS TRAY */}
+        <div className="flex-1 flex flex-col items-center gap-3 overflow-y-auto w-full px-1">
+          {trayMode === "item" ? (
+            /* TRAY A: DEFAULT SINGLE ITEM ACTIONS */
+            <>
 
-      {/* Remove Item */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!item || isComboLinkedChild}
-            onClick={() => item && onRemoveModifier(item.lineId)}
-            className="h-10 w-10 p-0 rounded-xl hover:bg-destructive/15 text-destructive disabled:opacity-30"
-            title=""
-          >
-            <Trash2 className="w-5 h-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="text-xs">
-          {!item
-            ? "Select exactly one item to remove"
-            : isComboLinkedChild
-            ? "Combo-linked children cannot be removed here"
-            : `Remove ${item.name}`}
-        </TooltipContent>
-      </Tooltip>
+              {/* Edit Modifiers */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!item || !hasEditableModifiers}
+                    onClick={() => item && onEditModifiers(item)}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-primary"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!item
+                    ? "Select exactly one item to edit modifiers"
+                    : !hasEditableModifiers
+                      ? "No editable modifiers available"
+                      : `Edit modifiers for ${item.name}`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Add Note */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!item}
+                    onClick={() => item && onGroupNoteOpen([item.lineId])}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <StickyNote className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!item ? "Select exactly one item to add a note" : `Add note to ${item.name}`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Allocation Config */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!item}
+                    onClick={() => item && onAllocConfig(item)}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!item
+                    ? "Select exactly one item to configure allocations"
+                    : `Configure allocations for ${item.name}`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Switch Combo Choice */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!item || !canSwitchCombo}
+                    onClick={() => {
+                      if (item && comboSwapTarget && item.parentLineId) {
+                        onSwapComboChoice(item.lineId, item.parentLineId, comboSwapTarget.slotSku);
+                      }
+                    }}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Workflow className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!item
+                    ? "Select exactly one item to switch"
+                    : !canSwitchCombo
+                      ? "No alternate combo choice available"
+                      : `Switch combo choice for ${item.name}`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Remove Modifier/Item */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!item || isComboLinkedChild}
+                    onClick={() => item && onRemoveModifier(item.lineId)}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-destructive/15 text-destructive disabled:opacity-30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!item
+                    ? "Select exactly one item to remove"
+                    : isComboLinkedChild
+                      ? "Combo-linked children cannot be removed here"
+                      : `Remove ${item.name}`}
+                </TooltipContent>
+              </Tooltip>
+            </>
+          ) : (
+            /* TRAY B: ADVANCED MULTI-SELECT/BATCH ACTIONS */
+            <>
+              {/* Split Qty */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={onSplitQtyOpen}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Split className="w-4 h-4 rotate-90" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to split quantity" : "Split quantity of selected items"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Split to Units */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={onSplitLineOpen}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Split className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to split to units" : "Split selected items to individual units of 1"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Duplicate */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={() => onDuplicateItems(Array.from(selectedLineIds))}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to duplicate" : `Duplicate selected items`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Dup & Move */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={onDupMoveOpen}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <BringToFront className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to clone & move" : `Clone & assign to another guest`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Remove Items */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={() => {
+                      onRemoveModifier(Array.from(selectedLineIds)[0]); // Fallback remove or batch remove
+                      setSelectedLineIds(new Set());
+                    }}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-destructive/15 text-destructive disabled:opacity-30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to remove" : `Remove selected items`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Merge Identical */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions || !canMerge}
+                    onClick={() => onMergeItems(Array.from(selectedLineIds))}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Combine className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection
+                    ? "Select identical items to merge"
+                    : !canMerge
+                      ? "Selected items cannot be merged"
+                      : "Merge identical items"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Break Combo */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions || !canBreak}
+                    onClick={() => onBreakItems(Array.from(selectedLineIds))}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Unlink className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection
+                    ? "Select combo to break"
+                    : !canBreak
+                      ? "Selected items cannot be broken"
+                      : "Break combo package"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Combine to Combo */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions || !canCombine}
+                    onClick={onCombineOpen}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <PackageCheck className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection
+                    ? "Select items to combine"
+                    : !canCombine
+                      ? "Selected items cannot be combined"
+                      : "Bundle items into combo package"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Assign Guest */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={onAssignGuestOpen}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <User className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to assign guest" : "Assign Guest to selected items"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Assign Payment */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={onAssignPaymentOpen}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to assign payment" : "Assign Payment to selected items"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Assign Fulfillment */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={onAssignFulfillmentOpen}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Clock className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to assign fulfillment" : "Assign Fulfillment to selected items"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Edit Modifiers (Bulk) */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || !canEditModifiersBulk}
+                    onClick={onEditModifiersBulk}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-primary"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection
+                    ? "Select items to edit modifiers"
+                    : !canEditModifiersBulk
+                      ? "No editable modifiers available"
+                      : "Edit modifiers for selected items"}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Add Group Note */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!hasSelection || disableNonModActions}
+                    onClick={() => onGroupNoteOpen(Array.from(selectedLineIds))}
+                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <StickyNote className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!hasSelection ? "Select items to add note" : "Add note to selected items"}
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </div>
+      </aside>
 
       {/* Unified Search & Filter Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
         <DialogContent className="sm:max-w-md p-6 max-h-[90vh] flex flex-col">
           <DialogHeader className="space-y-1.5 pb-2 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
@@ -293,7 +724,7 @@ export function VerticalActionsPanel({
                 <label className="text-xs md:text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
                   <Filter className="w-3.5 h-3.5" /> Filter by Tags
                 </label>
-                {isActive && (
+                {isFilterActive && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -308,7 +739,7 @@ export function VerticalActionsPanel({
                   </Button>
                 )}
               </div>
-              
+
               <div className="max-h-[30vh] sm:max-h-60 overflow-y-auto pt-1.5 space-y-1.5 pr-1 border rounded-xl p-2 bg-muted/20">
                 {availableTags.map((tag) => {
                   const config = iconConfigs[tag];
@@ -378,13 +809,13 @@ export function VerticalActionsPanel({
           <DialogFooter className="flex justify-end pt-3 border-t shrink-0">
             <Button
               className="h-10 text-sm font-semibold px-5"
-              onClick={() => setDialogOpen(false)}
+              onClick={() => setFilterDialogOpen(false)}
             >
               Done
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </aside>
+    </TooltipProvider>
   );
 }

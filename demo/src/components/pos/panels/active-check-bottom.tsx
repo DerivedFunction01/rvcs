@@ -1,5 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { NumberFractionOverflow, useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import {
+  NumberFractionOverflow,
+  useFormatNumber,
+} from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
 import { ItemStatus } from "@/lib/vcs/types";
 import { Minus, Plus, ChevronDown } from "lucide-react";
@@ -64,7 +67,7 @@ export function ActiveCheckBottom({
     >
       {/* Top Row: Quantity Editor */}
       <div className="flex-1 flex items-center justify-center">
-        {item && catalogEntry ? (
+        {selectedItems.length === 1 && item && catalogEntry ? (
           <div className="flex items-center gap-4">
             {hasInlineQty && !mainQtyLocked && (
               <div className="inline-flex items-stretch rounded-full border bg-background p-0.5 shadow-xs shrink-0">
@@ -128,9 +131,49 @@ export function ActiveCheckBottom({
               />
             )}
           </div>
+        ) : selectedItems.length > 1 ? (
+          <div className="flex items-stretch rounded-xl border bg-background shadow-xs overflow-hidden h-12">
+            <Button
+              variant="ghost"
+              className="h-full w-12 p-0 rounded-none border-r hover:bg-muted"
+              onClick={(e) => {
+                e.stopPropagation();
+                const ids = selectedItems.map((i) => i.lineId);
+                useVCSStore.getState().modifyItemsQty(ids, -1);
+              }}
+            >
+              <Minus className="w-4 h-4" />
+            </Button>
+            <button
+              type="button"
+              className="px-6 min-h-0 self-stretch flex flex-col items-center justify-center bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPadTarget("main");
+              }}
+            >
+              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider leading-none mb-0.5">
+                Set Qty ({selectedItems.length} items)
+              </span>
+              <span className="text-base font-mono font-bold text-foreground leading-none">
+                Multiple
+              </span>
+            </button>
+            <Button
+              variant="ghost"
+              className="h-full w-12 p-0 rounded-none border-l hover:bg-muted"
+              onClick={(e) => {
+                e.stopPropagation();
+                const ids = selectedItems.map((i) => i.lineId);
+                useVCSStore.getState().modifyItemsQty(ids, 1);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
         ) : (
           <span className="text-xs font-semibold text-muted-foreground/50 tracking-wide select-none">
-            Select item to edit quantity
+            Select items to edit quantity
           </span>
         )}
       </div>
@@ -158,7 +201,8 @@ export function ActiveCheckBottom({
                     Tax & Fees <ChevronDown className="w-2.5 h-2.5" />
                   </div>
                   <div className="font-mono font-bold text-sm tabular-nums text-muted-foreground leading-none">
-                    ${formatNumber(projectedState.financials.chargeTotal, 2, 10)}
+                    $
+                    {formatNumber(projectedState.financials.chargeTotal, 2, 10)}
                   </div>
                 </button>
               </PopoverTrigger>
@@ -200,36 +244,53 @@ export function ActiveCheckBottom({
         </div>
       </div>
 
-      {item && catalogEntry && padTarget && (
+      {selectedItems.length > 0 && padTarget && (
         <NumberPadDialog
           open={padTarget !== null}
           onOpenChange={(open) => {
             if (!open) setPadTarget(null);
           }}
           title={padTarget === "main" ? "Quantity" : "Measurement"}
-          description={`Set the ${
-            padTarget === "main" ? "quantity" : "measurement"
-          } for ${item.name}`}
+          description={
+            selectedItems.length === 1 && item
+              ? `Set the ${padTarget === "main" ? "quantity" : "measurement"} for ${item.name}`
+              : `Set the quantity for ${selectedItems.length} selected items`
+          }
           initialValue={
-            padTarget === "main" ? item.qty : item.inlineQty ?? 1
+            padTarget === "main"
+              ? item
+                ? item.qty
+                : 1
+              : (item?.inlineQty ?? 1)
           }
           min={
             padTarget === "main"
-              ? catalogEntry.mainQtyIncrement ?? 1
+              ? (catalogEntry?.mainQtyIncrement ?? 1)
               : inlineStep
           }
           increment={
             padTarget === "main"
-              ? catalogEntry.mainQtyIncrement ?? 1
+              ? (catalogEntry?.mainQtyIncrement ?? 1)
               : inlineStep
           }
           onConfirm={(val) => {
             if (padTarget === "main") {
-              useVCSStore.getState().modifyItemQty(item.lineId, item.qty, val);
+              if (selectedItems.length === 1 && item) {
+                useVCSStore
+                  .getState()
+                  .modifyItemQty(item.lineId, item.qty, val);
+              } else {
+                const store = useVCSStore.getState();
+                for (const i of selectedItems) {
+                  store.modifyItemQty(i.lineId, i.qty, val);
+                }
+              }
             } else {
-              useVCSStore
-                .getState()
-                .modifyItemInlineQty(item.lineId, item.inlineQty ?? 1, val);
+              if (item) {
+                useVCSStore
+                  .getState()
+                  .modifyItemInlineQty(item.lineId, item.inlineQty ?? 1, val);
+              }
             }
           }}
         />

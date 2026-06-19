@@ -1,43 +1,24 @@
 import { LineItemNode } from "@/components/pos/items/line-item-node";
-import {
-  AlertCircle,
-  ShoppingCart,
-} from "lucide-react";
-import { useState, useMemo } from "react";
-import { toast } from "sonner";
-import { useVCSStore } from "@/store/vcs-store";
-import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
+import { AlertCircle, ShoppingCart } from "lucide-react";
 export function ActiveCheckPanel(props: any) {
   const {
     activeBranch,
     mainBranchName,
     isMergedToMain,
     isViewingHistory,
-    projectedState,
     guests,
-    resolveGuestName,
     hideCanceled,
     detailLevel,
-    isCompactMode,
     isMultiSelectMode,
     filteredRootItems,
     resolvedAllocations,
     defaultPaymentAllocId,
-    removeItem,
-    handleOpenModifierDialog,
-    handleOpenNoteDialog,
-    handleAllocConfig,
-    handleOpenSwapDialog,
-    modifierItems,
     selectedLineIds,
     setSelectedLineIds,
-    handleSelectToggle,
     collapsedItems,
     handleToggleCollapse,
     checklistRef,
   } = props;
-
-  const formatNumber = useFormatNumber();
 
   return (
     <main className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -74,18 +55,7 @@ export function ActiveCheckPanel(props: any) {
                 item={item}
                 allocations={resolvedAllocations}
                 defaultPaymentAllocId={defaultPaymentAllocId}
-                onRemove={removeItem}
-                onAddModifier={handleOpenModifierDialog}
-                onAddNote={handleOpenNoteDialog}
-                onAllocConfig={handleAllocConfig}
-                onSwapComboChoice={handleOpenSwapDialog}
-                onDuplicateItem={(lineId) => {
-                  const newId = useVCSStore.getState().duplicateItem(lineId);
-                  if (newId) setSelectedLineIds(new Set([newId]));
-                  toast.success("Item duplicated");
-                }}
                 depth={0}
-                modifiers={modifierItems}
                 guests={guests}
                 isSelected={selectedLineIds.has(item.lineId)}
                 selectedLineIds={selectedLineIds}
@@ -104,7 +74,6 @@ export function ActiveCheckPanel(props: any) {
                 onToggleCollapse={handleToggleCollapse}
                 collapsedItems={collapsedItems}
                 detailLevel={detailLevel}
-                isCompactMode={isCompactMode}
                 hideCanceled={hideCanceled}
               />
             ))}

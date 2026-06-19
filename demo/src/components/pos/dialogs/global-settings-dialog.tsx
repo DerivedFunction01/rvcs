@@ -82,16 +82,6 @@ export function GlobalSettingsDialog({
             </div>
 
             <div className="flex items-center justify-between">
-              <label htmlFor="bulk-collapsed" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
-                Bulk Actions Panel Collapsed
-              </label>
-              <Checkbox
-                id="bulk-collapsed"
-                checked={localPrefs.isBulkActionsCollapsed}
-                onCheckedChange={(checked) => setLocalPrefs((prev: any) => ({ ...prev, isBulkActionsCollapsed: !!checked }))}
-              />
-            </div>
-            <div className="flex items-center justify-between">
               <label htmlFor="ledger-collapsed" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
                 Ledger Panel Collapsed
               </label>
