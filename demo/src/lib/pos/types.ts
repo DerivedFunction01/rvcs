@@ -154,6 +154,11 @@ export enum CatalogNavigationMode {
   Page = "Page",
 }
 
+export enum CatalogCategoryMode {
+  Hidden = "Hidden",
+  Buttons = "Buttons",
+}
+
 export interface CatalogDetailDisplayPrefs {
   showSku: boolean;
   showIcons: boolean;

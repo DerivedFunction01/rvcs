@@ -10,12 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CatalogNavigationMode, type CatalogDetailDisplayPrefs } from "@/lib/pos/types";
+import { CatalogCategoryMode, CatalogNavigationMode, type CatalogDetailDisplayPrefs } from "@/lib/pos/types";
 import { useMemo } from "react";
 
 export interface CatalogLayoutPrefs {
   detailDisplay: CatalogDetailDisplayPrefs;
   navigationMode: CatalogNavigationMode;
+  categoryMode: CatalogCategoryMode;
   gridRows: number;
   gridCols: number;
 }
@@ -40,7 +41,7 @@ export function CatalogDetailDialog({
     if (value.detailDisplay.showSku) displayParts.push("SKU");
     if (value.detailDisplay.showIcons) displayParts.push("Icons");
     if (value.detailDisplay.showPrice) displayParts.push("Price");
-    return `${displayParts.join(", ")} · ${value.navigationMode}`;
+    return `${displayParts.join(", ")} · ${value.navigationMode} · ${value.categoryMode}`;
   }, [value]);
 
   return (
@@ -59,58 +60,46 @@ export function CatalogDetailDialog({
               <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Catalog Detail
               </div>
-              <div className="grid grid-cols-2 gap-3 md:gap-4">
-                <div className="flex items-center justify-between gap-2 rounded-lg border bg-background/50 px-3 py-3">
-                  <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
-                    Show SKU
-                  </label>
-                  <Checkbox
-                    checked={value.detailDisplay.showSku}
-                    onCheckedChange={(checked) =>
-                      onChange({
-                        ...value,
-                        detailDisplay: {
-                          ...value.detailDisplay,
-                          showSku: !!checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2 rounded-lg border bg-background/50 px-3 py-3">
-                  <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
-                    Show Icons
-                  </label>
-                  <Checkbox
-                    checked={value.detailDisplay.showIcons}
-                    onCheckedChange={(checked) =>
-                      onChange({
-                        ...value,
-                        detailDisplay: {
-                          ...value.detailDisplay,
-                          showIcons: !!checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-2 rounded-lg border bg-background/50 px-3 py-3">
-                  <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
-                    Show Price
-                  </label>
-                  <Checkbox
-                    checked={value.detailDisplay.showPrice}
-                    onCheckedChange={(checked) =>
-                      onChange({
-                        ...value,
-                        detailDisplay: {
-                          ...value.detailDisplay,
-                          showPrice: !!checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-3 md:gap-4">
+                <ToggleRow
+                  label="Show SKU"
+                  checked={value.detailDisplay.showSku}
+                  onToggle={() =>
+                    onChange({
+                      ...value,
+                      detailDisplay: {
+                        ...value.detailDisplay,
+                        showSku: !value.detailDisplay.showSku,
+                      },
+                    })
+                  }
+                />
+                <ToggleRow
+                  label="Show Icons"
+                  checked={value.detailDisplay.showIcons}
+                  onToggle={() =>
+                    onChange({
+                      ...value,
+                      detailDisplay: {
+                        ...value.detailDisplay,
+                        showIcons: !value.detailDisplay.showIcons,
+                      },
+                    })
+                  }
+                />
+                <ToggleRow
+                  label="Show Price"
+                  checked={value.detailDisplay.showPrice}
+                  onToggle={() =>
+                    onChange({
+                      ...value,
+                      detailDisplay: {
+                        ...value.detailDisplay,
+                        showPrice: !value.detailDisplay.showPrice,
+                      },
+                    })
+                  }
+                />
                 <div className="rounded-lg border bg-background/50 px-3 py-3 text-[10px] md:text-xs text-muted-foreground flex items-center justify-center text-center leading-tight">
                   {summary}
                 </div>
@@ -140,11 +129,31 @@ export function CatalogDetailDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(CatalogNavigationMode).map((mode) => (
-                      <SelectItem key={mode} value={mode}>
-                        {mode}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value={CatalogNavigationMode.Scroll}>Scroll Grid</SelectItem>
+                    <SelectItem value={CatalogNavigationMode.Page}>Paged Grid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/50 px-3 py-3">
+                <label className="text-xs md:text-sm font-semibold uppercase text-muted-foreground cursor-pointer">
+                  Categories
+                </label>
+                <Select
+                  value={value.categoryMode}
+                  onValueChange={(val) =>
+                    onChange({
+                      ...value,
+                      categoryMode: val as CatalogCategoryMode,
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-32 h-9 text-xs md:text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CatalogCategoryMode.Hidden}>Hidden</SelectItem>
+                    <SelectItem value={CatalogCategoryMode.Buttons}>Buttons</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -191,7 +200,7 @@ export function CatalogDetailDialog({
           </div>
         </div>
 
-        <div className="mt-3 flex justify-end landscape:hidden">
+        <div className="mt-3 flex justify-start landscape:hidden">
           <button
             type="button"
             className="h-12 rounded-md border bg-background px-4 text-sm font-medium hover:bg-accent"
@@ -202,7 +211,7 @@ export function CatalogDetailDialog({
         </div>
 
         {/* Large button for landscape/desktop touchscreens */}
-        <div className="hidden landscape:flex justify-end mt-2">
+        <div className="hidden landscape:flex justify-start mt-2">
           <button
             type="button"
             className="h-16 md:h-20 rounded-md border bg-background px-6 md:px-8 text-base md:text-lg font-medium hover:bg-accent"
@@ -213,5 +222,36 @@ export function CatalogDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ToggleRow({
+  label,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={checked}
+      className="flex items-center justify-between gap-3 rounded-lg border bg-background/50 px-3 py-4 text-left hover:bg-accent/50 transition-colors cursor-pointer"
+      onClick={onToggle}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onToggle();
+        }
+      }}
+    >
+      <span className="text-xs md:text-sm font-semibold uppercase text-muted-foreground">
+        {label}
+      </span>
+      <Checkbox checked={checked} />
+    </div>
   );
 }

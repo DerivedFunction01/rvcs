@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { CatalogDetailDialog } from "@/components/pos/dialogs/catalog-detail-dialog";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 import { formatLabel } from "@/lib/pos/ui-utils";
-import { CatalogNavigationMode, type CatalogDetailDisplayPrefs } from "@/lib/pos/types";
+import { CatalogCategoryMode, CatalogNavigationMode, type CatalogDetailDisplayPrefs } from "@/lib/pos/types";
 import type { CatalogItemEntry } from "@/lib/vcs/types";
 import type { IconConfig } from "@/store/vcs-store";
 import { usePreferencesStore } from "@/store/preferences-store";
@@ -41,13 +41,18 @@ export function CatalogPanel({
   const [requireTags, setRequireTags] = useState<Set<string>>(new Set());
   const [avoidTags, setAvoidTags] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
+  const [categoryPage, setCategoryPage] = useState(0);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [catalogLayoutOpen, setCatalogLayoutOpen] = useState(false);
 
   const formatNumber = useFormatNumber();
   const detailDisplay = prefs.catalogDetailDisplay;
   const navigationMode = prefs.catalogNavigationMode;
+  const categoryMode = prefs.catalogCategoryMode;
   const gridRows = prefs.catalogGridRows;
   const gridCols = prefs.catalogGridCols;
+  const isPageMode = navigationMode === CatalogNavigationMode.Page;
+  const isCategoryMode = categoryMode === CatalogCategoryMode.Buttons;
 
   const filteredSections = useMemo(() => {
     return Object.entries(groupedCatalog)
@@ -67,19 +72,66 @@ export function CatalogPanel({
   }, [filteredSections]);
 
   useEffect(() => {
+    if (categoryMode === CatalogCategoryMode.Buttons) {
+      setActiveCategory((current) => {
+        if (current && filteredSections.some((section) => section.category === current)) {
+          return current;
+        }
+        return filteredSections[0]?.category ?? null;
+      });
+    } else {
+      setActiveCategory(null);
+    }
+  }, [categoryMode, filteredSections]);
+
+  useEffect(() => {
     setPage(0);
   }, [catalogFilter, requireTags, avoidTags, navigationMode, gridRows, gridCols]);
 
+  useEffect(() => {
+    if (isCategoryMode) setPage(0);
+  }, [activeCategory, isCategoryMode]);
+
+  useEffect(() => {
+    setCategoryPage(0);
+  }, [catalogFilter, requireTags, avoidTags, categoryMode]);
+
   const pageSize = gridRows * gridCols;
-  const pageCount = Math.max(1, Math.ceil(flatFilteredItems.length / pageSize));
+  const categoryFilteredItems = isCategoryMode
+    ? (() => {
+        const section = filteredSections.find((entry) => entry.category === activeCategory);
+        return (section?.items ?? []).map((item) => ({
+          category: section?.category ?? "",
+          item,
+        }));
+      })()
+    : flatFilteredItems;
+  const pageCount = Math.max(1, Math.ceil(categoryFilteredItems.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
+  const categoriesPerPage = 10;
+  const categoryPageCount = Math.max(1, Math.ceil(filteredSections.length / categoriesPerPage));
+  const currentCategoryPage = Math.min(categoryPage, categoryPageCount - 1);
+  const visibleCategories = filteredSections.slice(
+    currentCategoryPage * categoriesPerPage,
+    currentCategoryPage * categoriesPerPage + categoriesPerPage,
+  );
   const pagedItems =
     navigationMode === CatalogNavigationMode.Page
-      ? flatFilteredItems.slice(currentPage * pageSize, currentPage * pageSize + pageSize)
-      : flatFilteredItems;
+      ? categoryFilteredItems.slice(currentPage * pageSize, currentPage * pageSize + pageSize)
+      : categoryFilteredItems;
   const ghostCount = navigationMode === CatalogNavigationMode.Page ? Math.max(0, pageSize - pagedItems.length) : 0;
+  const gridItems: CatalogRow[] = navigationMode === CatalogNavigationMode.Page ? pagedItems : categoryFilteredItems;
+  const gridContainerStyle = {
+    gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+    gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+    gridAutoRows: "minmax(7rem, 1fr)",
+  };
 
-  const widthClass = navigationMode === CatalogNavigationMode.Page ? "w-[38rem] xl:w-[46rem]" : "w-[30rem] xl:w-[36rem]";
+  const widthClass = isCategoryMode
+    ? "w-[52rem] xl:w-[60rem]"
+    : navigationMode === CatalogNavigationMode.Scroll
+      ? "w-[30rem] xl:w-[36rem]"
+      : "w-[38rem] xl:w-[46rem]";
 
   return (
     <aside className={`${widthClass} border-r bg-card flex flex-col shrink-0`}>
@@ -95,7 +147,7 @@ export function CatalogPanel({
               onClick={() => setCatalogLayoutOpen(true)}
             >
               <span>Layout</span>
-              <span className="text-muted-foreground truncate">{summarizeCatalogLayout(detailDisplay, navigationMode, gridRows, gridCols)}</span>
+              <span className="text-muted-foreground truncate">{summarizeCatalogLayout(detailDisplay, navigationMode, categoryMode, gridRows, gridCols)}</span>
             </Button>
           </div>
         </div>
@@ -205,14 +257,65 @@ export function CatalogPanel({
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-2">
-          {navigationMode === CatalogNavigationMode.Page ? (
-            <div className="space-y-3">
-              <div
-                className="grid gap-2"
-                style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
-              >
-                {pagedItems.map(({ category, item }) => (
+        <div className="p-2 min-h-full flex flex-col">
+          <div className={`flex-1 min-h-0 flex ${isCategoryMode ? "gap-3" : "flex-col"}`}>
+            {isCategoryMode && (
+              <div className="w-36 xl:w-40 shrink-0 flex flex-col min-h-0">
+                <div className="flex items-center justify-between gap-2 pb-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Categories
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {currentCategoryPage + 1}/{categoryPageCount}
+                  </span>
+                </div>
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <div className="h-full flex flex-col gap-2">
+                    <div className="grid grid-rows-10 gap-2 flex-1 min-h-0">
+                      {visibleCategories.map((section) => {
+                        const isActive = section.category === activeCategory;
+                        return (
+                          <Button
+                            key={section.category}
+                            variant={isActive ? "default" : "outline"}
+                            className="h-full min-h-12 px-3 text-sm justify-between"
+                            onClick={() => setActiveCategory(section.category)}
+                          >
+                            <span className="truncate text-left">{section.category}</span>
+                            <span className="ml-2 shrink-0 text-xs opacity-70">{section.items.length}</span>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {currentCategoryPage > 0 ? (
+                        <Button variant="ghost" className="h-11" onClick={() => setCategoryPage((prev) => Math.max(0, prev - 1))}>
+                          <ChevronLeft className="w-4 h-4 mr-1" />
+                          Prev
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" className="h-11 opacity-0 pointer-events-none" tabIndex={-1} aria-hidden="true">
+                          Prev
+                        </Button>
+                      )}
+                      {currentCategoryPage + 1 < categoryPageCount ? (
+                        <Button variant="ghost" className="h-11" onClick={() => setCategoryPage((prev) => Math.min(categoryPageCount - 1, prev + 1))}>
+                          Next
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" className="h-11 opacity-0 pointer-events-none" tabIndex={-1} aria-hidden="true">
+                          Next
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <div className={`grid gap-2 flex-1 min-h-0 ${isPageMode ? "" : "auto-rows-fr"}`} style={gridContainerStyle}>
+                {gridItems.map(({ category, item }) => (
                   <CatalogItemCard
                     key={item.sku}
                     item={item}
@@ -223,58 +326,40 @@ export function CatalogPanel({
                     onAddItem={onAddItem}
                   />
                 ))}
-                {Array.from({ length: ghostCount }).map((_, idx) => (
-                  <div
-                    key={`ghost-${currentPage}-${idx}`}
-                    className="min-h-24 rounded-lg border border-dashed border-transparent opacity-0 pointer-events-none"
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {currentPage > 0 ? (
-                  <Button variant="ghost" className="h-12" onClick={() => setPage((prev) => Math.max(0, prev - 1))}>
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    Prev Page
-                  </Button>
-                ) : (
-                  <Button variant="ghost" className="h-12 opacity-0 pointer-events-none" tabIndex={-1} aria-hidden="true">
-                    Prev Page
-                  </Button>
-                )}
-                {currentPage + 1 < pageCount ? (
-                  <Button variant="ghost" className="h-12" onClick={() => setPage((prev) => Math.min(pageCount - 1, prev + 1))}>
-                    Next Page
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                ) : (
-                  <Button variant="ghost" className="h-12 opacity-0 pointer-events-none" tabIndex={-1} aria-hidden="true">
-                    Next Page
-                  </Button>
-                )}
+                {navigationMode === CatalogNavigationMode.Page &&
+                  Array.from({ length: ghostCount }).map((_, idx) => (
+                    <div
+                      key={`ghost-${currentPage}-${idx}`}
+                      className="min-h-24 rounded-lg border border-dashed border-transparent opacity-0 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                  ))}
               </div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredSections.map((section) => (
-                <div key={section.category}>
-                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5 mt-1">
-                    {section.category}
-                  </div>
-                  <div className="space-y-1">
-                    {section.items.map((item) => (
-                      <CatalogListItem
-                        key={item.sku}
-                        item={item}
-                        detailDisplay={detailDisplay}
-                        iconConfigs={iconConfigs}
-                        formatNumber={formatNumber}
-                        onAddItem={onAddItem}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
+          </div>
+
+          {navigationMode === CatalogNavigationMode.Page && (
+            <div className="grid grid-cols-2 gap-2 pt-3">
+              {currentPage > 0 ? (
+                <Button variant="ghost" className="h-12" onClick={() => setPage((prev) => Math.max(0, prev - 1))}>
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Prev Page
+                </Button>
+              ) : (
+                <Button variant="ghost" className="h-12 opacity-0 pointer-events-none" tabIndex={-1} aria-hidden="true">
+                  Prev Page
+                </Button>
+              )}
+              {currentPage + 1 < pageCount ? (
+                <Button variant="ghost" className="h-12" onClick={() => setPage((prev) => Math.min(pageCount - 1, prev + 1))}>
+                  Next Page
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              ) : (
+                <Button variant="ghost" className="h-12 opacity-0 pointer-events-none" tabIndex={-1} aria-hidden="true">
+                  Next Page
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -286,6 +371,7 @@ export function CatalogPanel({
         value={{
           detailDisplay,
           navigationMode,
+          categoryMode,
           gridRows,
           gridCols,
         }}
@@ -293,6 +379,7 @@ export function CatalogPanel({
           updateRepoPreferences(repoId, {
             catalogDetailDisplay: next.detailDisplay,
             catalogNavigationMode: next.navigationMode,
+            catalogCategoryMode: next.categoryMode,
             catalogGridRows: next.gridRows,
             catalogGridCols: next.gridCols,
           })
@@ -305,6 +392,7 @@ export function CatalogPanel({
 function summarizeCatalogLayout(
   detailDisplay: CatalogDetailDisplayPrefs,
   navigationMode: CatalogNavigationMode,
+  categoryMode: CatalogCategoryMode,
   gridRows: number,
   gridCols: number,
 ) {
@@ -313,7 +401,8 @@ function summarizeCatalogLayout(
   if (detailDisplay.showIcons) parts.push("Icons");
   if (detailDisplay.showPrice) parts.push("Price");
   const layout = navigationMode === CatalogNavigationMode.Page ? `${gridRows}x${gridCols}` : "Scroll";
-  return `${parts.join(" + ")} · ${layout}`;
+  const categoryLabel = categoryMode === CatalogCategoryMode.Buttons ? "Category Buttons" : "No Categories";
+  return `${parts.join(" + ")} · ${layout} · ${categoryLabel}`;
 }
 
 function matchesCatalogFilters(
@@ -341,70 +430,6 @@ function matchesCatalogFilters(
   return true;
 }
 
-function CatalogListItem({
-  item,
-  detailDisplay,
-  iconConfigs,
-  formatNumber,
-  onAddItem,
-}: {
-  item: CatalogItemEntry;
-  detailDisplay: CatalogDetailDisplayPrefs;
-  iconConfigs: Record<string, IconConfig>;
-  formatNumber: (value: number, decimals?: number) => string;
-  onAddItem: (sku: string) => void;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={() => onAddItem(item.sku)}
-          className="w-full text-left rounded-lg px-2.5 py-2 hover:bg-accent transition-colors group flex justify-between items-center"
-        >
-          <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                {item.name}
-              </span>
-              {detailDisplay.showIcons &&
-                (item.dietaryFlags.length > 0 || item.allergens.length > 0) && (
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    {item.dietaryFlags.map((flag) => {
-                      const config = iconConfigs[flag];
-                      if (!config) return null;
-                      const Icon = (LucideIcons as any)[config.icon] || LucideIcons.Info;
-                      return <Icon key={flag} className={`w-3.5 h-3.5 ${config.color}`} />;
-                    })}
-                    {item.allergens.map((allergen) => {
-                      const config = iconConfigs[allergen];
-                      const Icon = config ? (LucideIcons as any)[config.icon] || LucideIcons.Info : LucideIcons.Info;
-                      const color = config ? config.color : "text-muted-foreground";
-                      return <Icon key={allergen} className={`w-3.5 h-3.5 ${color}`} />;
-                    })}
-                  </div>
-                )}
-            </div>
-            {detailDisplay.showSku && (
-              <div className="text-[10px] text-muted-foreground font-mono">
-                {item.sku}
-              </div>
-            )}
-          </div>
-          {detailDisplay.showPrice && (
-            <span className="font-mono text-xs font-semibold text-muted-foreground group-hover:text-foreground shrink-0 ml-2">
-              ${formatNumber(item.basePrice, 2)}
-            </span>
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right" className="text-xs">
-        <div>{item.name}</div>
-        <div className="text-muted-foreground">{item.sku}</div>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 function CatalogItemCard({
   item,
   category,
@@ -425,11 +450,11 @@ function CatalogItemCard({
       <TooltipTrigger asChild>
         <button
           onClick={() => onAddItem(item.sku)}
-          className="min-h-24 rounded-lg border bg-background p-2 text-left hover:border-primary/40 hover:bg-accent/40 transition-colors flex flex-col justify-between gap-2"
+          className="h-28 rounded-lg border bg-background p-2 text-left hover:border-primary/40 hover:bg-accent/40 transition-colors flex flex-col justify-between gap-2 overflow-hidden"
         >
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium truncate">{item.name}</span>
+          <div className="space-y-1 min-w-0 flex-1 min-h-0">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-medium truncate leading-tight">{item.name}</span>
               {detailDisplay.showPrice && (
                 <span className="font-mono text-[10px] text-muted-foreground shrink-0">
                   {formatNumber(item.basePrice, 2)}
@@ -443,7 +468,7 @@ function CatalogItemCard({
             )}
             {detailDisplay.showIcons &&
               (item.dietaryFlags.length > 0 || item.allergens.length > 0) && (
-                <div className="flex flex-wrap gap-1 pt-1">
+                <div className="flex flex-wrap gap-1 pt-1 min-h-4">
                   {item.dietaryFlags.map((flag) => {
                     const config = iconConfigs[flag];
                     if (!config) return null;

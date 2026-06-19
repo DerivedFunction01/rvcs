@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CatalogNavigationMode, type CatalogDetailDisplayPrefs, ViewMode } from "@/lib/pos/types";
+import { CatalogCategoryMode, CatalogNavigationMode, type CatalogDetailDisplayPrefs, ViewMode } from "@/lib/pos/types";
 
 export interface AppPreferences {
   detailLevel: ViewMode;
@@ -12,6 +12,7 @@ export interface AppPreferences {
   inlineModifierPriceDisplayDelta: boolean;
   catalogDetailDisplay: CatalogDetailDisplayPrefs;
   catalogNavigationMode: CatalogNavigationMode;
+  catalogCategoryMode: CatalogCategoryMode;
   catalogGridRows: number;
   catalogGridCols: number;
   splitLineWarnThreshold: number;
@@ -36,6 +37,7 @@ export const defaultAppPreferences: AppPreferences = {
     showPrice: false,
   },
   catalogNavigationMode: CatalogNavigationMode.Scroll,
+  catalogCategoryMode: CatalogCategoryMode.Hidden,
   catalogGridRows: 4,
   catalogGridCols: 5,
   splitLineWarnThreshold: 10,

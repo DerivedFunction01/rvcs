@@ -210,7 +210,7 @@ export function GuestFilterDialog({
                     </div>
 
                     {/* Right Column */}
-                    <div className="shrink-0 landscape:w-96 landscape:md:w-[30rem] flex flex-col min-h-0 landscape:mt-10 landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 landscape:pt-0">
+                    <div className="shrink-0 landscape:w-96 landscape:md:w-120 flex flex-col min-h-0 landscape:mt-10 landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 landscape:pt-0">
                         <div className="hidden landscape:flex landscape:md:hidden bg-muted/50 p-1 rounded-lg gap-1 mb-3 shrink-0">
                             <Button
                                 variant={activeTab === "assignees" ? "default" : "ghost"}
