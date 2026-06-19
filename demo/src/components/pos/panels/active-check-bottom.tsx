@@ -454,9 +454,9 @@ export function ActiveCheckBottom({
           >
             <Undo2 className="w-4 h-4 mb-1" />
             <span>Undo</span>
-            <span className="text-[8px] text-muted-foreground/60 font-normal mt-0.5 normal-case">
+            {/* <span className="text-[8px] text-muted-foreground/60 font-normal mt-0.5 normal-case">
               Auto: {autoSquash ? "ON" : "OFF"}
-            </span>
+            </span> */}
           </Button>
         </div>
       </div>
