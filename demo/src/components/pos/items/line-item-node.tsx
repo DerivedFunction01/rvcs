@@ -180,7 +180,7 @@ export function LineItemNode({
             )}
 
             <span className="text-xs text-muted-foreground font-mono shrink-0">
-              x{formatNumber(isCanceled ? item.canceledQty : item.qty)}
+              {formatNumber(isCanceled ? item.canceledQty : item.qty)}
             </span>
 
             <span
@@ -216,14 +216,6 @@ export function LineItemNode({
                 className="text-[9px] h-3.5 px-1 shrink-0"
               >
                 Void
-              </Badge>
-            )}
-            {isPending && !isCanceled && (
-              <Badge
-                variant="secondary"
-                className="text-[9px] h-3.5 px-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0"
-              >
-                *new*
               </Badge>
             )}
             {isChanged && !isCanceled && (
