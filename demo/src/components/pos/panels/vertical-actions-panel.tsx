@@ -15,7 +15,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import {
   Search,
   Filter,
@@ -65,7 +70,11 @@ interface VerticalActionsPanelProps {
   onRemoveModifier: (lineId: string) => void;
   onEditModifiers: (item: ProjectedLineItem) => void;
   onAllocConfig: (item: ProjectedLineItem) => void;
-  onSwapComboChoice: (lineId: string, parentLineId: string, slotSku: string) => void;
+  onSwapComboChoice: (
+    lineId: string,
+    parentLineId: string,
+    slotSku: string,
+  ) => void;
   onGroupNoteOpen: (ids: string[]) => void;
 
   // Selection props
@@ -146,14 +155,18 @@ export function VerticalActionsPanel({
   const [trayMode, setTrayMode] = useState<"item" | "advanced">("item");
 
   const isSearchActive = !!catalogFilter.trim();
-  const isFilterActive = requireTags.size + avoidTags.size > 0 || isSearchActive;
+  const isFilterActive =
+    requireTags.size + avoidTags.size > 0 || isSearchActive;
 
   // Single item calculations (for item mode)
   const item = selectedItems.length === 1 ? selectedItems[0] : null;
   const catalogEntry = item ? catalog[item.sku] : null;
 
-  const parentItem = item?.parentLineId ? projectedState.items[item.parentLineId] : null;
-  const isComboLinkedChild = !!parentItem && !!catalog[parentItem.sku]?.comboChoices?.length;
+  const parentItem = item?.parentLineId
+    ? projectedState.items[item.parentLineId]
+    : null;
+  const isComboLinkedChild =
+    !!parentItem && !!catalog[parentItem.sku]?.comboChoices?.length;
 
   const hasEditableModifiers = useMemo(() => {
     if (!item || !catalogEntry) return false;
@@ -171,7 +184,11 @@ export function VerticalActionsPanel({
     if (!isComboLinkedChild || !item || !item.parentLineId) return null;
     const pItem = projectedState.items[item.parentLineId];
     const pCatalogEntry = pItem ? catalog[pItem.sku] : null;
-    return pCatalogEntry?.comboChoices?.find((choice) => choice.optionSku === item.sku) ?? null;
+    return (
+      pCatalogEntry?.comboChoices?.find(
+        (choice) => choice.optionSku === item.sku,
+      ) ?? null
+    );
   }, [isComboLinkedChild, item, projectedState, catalog]);
 
   const canSwitchCombo = !!comboSwapTarget;
@@ -209,6 +226,230 @@ export function VerticalActionsPanel({
           </TooltipContent>
         </Tooltip>
 
+        {/* SHARED ACTIONS SECTION (Always visible, adapts function based on mode) */}
+        {/* 1. Edit Modifiers */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                trayMode === "item"
+                  ? !item || !hasEditableModifiers
+                  : !hasSelection || !canEditModifiersBulk
+              }
+              onClick={() => {
+                if (trayMode === "item") {
+                  if (item) onEditModifiers(item);
+                } else {
+                  onEditModifiersBulk();
+                }
+              }}
+              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-primary"
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {trayMode === "item"
+              ? !item
+                ? "Select exactly one item to edit modifiers"
+                : !hasEditableModifiers
+                  ? "No editable modifiers available"
+                  : `Edit modifiers for ${item.name}`
+              : !hasSelection
+                ? "Select items to edit modifiers"
+                : !canEditModifiersBulk
+                  ? "No editable modifiers available"
+                  : "Edit modifiers for selected items"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* 2. Add Note */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={trayMode === "item" ? !item : !hasSelection}
+              onClick={() => {
+                if (trayMode === "item") {
+                  if (item) onGroupNoteOpen([item.lineId]);
+                } else {
+                  onGroupNoteOpen(Array.from(selectedLineIds));
+                }
+              }}
+              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+            >
+              <StickyNote className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {trayMode === "item"
+              ? !item
+                ? "Select exactly one item to add a note"
+                : `Add note to ${item.name}`
+              : !hasSelection
+                ? "Select items to add note"
+                : "Add note to selected items"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* 3. Duplicate */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                trayMode === "item"
+                  ? !item || disableNonModActions
+                  : !hasSelection || disableNonModActions
+              }
+              onClick={() => {
+                if (trayMode === "item") {
+                  if (item) onDuplicateItems([item.lineId]);
+                } else {
+                  onDuplicateItems(Array.from(selectedLineIds));
+                }
+              }}
+              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {trayMode === "item"
+              ? !item
+                ? "Select exactly one item to duplicate"
+                : `Duplicate ${item.name}`
+              : !hasSelection
+                ? "Select items to duplicate"
+                : "Duplicate selected items"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* 4. Dup & Move */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                trayMode === "item"
+                  ? !item || disableNonModActions
+                  : !hasSelection || disableNonModActions
+              }
+              onClick={onDupMoveOpen}
+              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+            >
+              <BringToFront className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {trayMode === "item"
+              ? !item
+                ? "Select exactly one item to duplicate & move"
+                : `Duplicate & move ${item.name}`
+              : !hasSelection
+                ? "Select items to duplicate & move"
+                : "Duplicate & move selected items"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* 5. Split Qty */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                trayMode === "item"
+                  ? !item || disableNonModActions
+                  : !hasSelection || disableNonModActions
+              }
+              onClick={onSplitQtyOpen}
+              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+            >
+              <Split className="w-4 h-4 rotate-90" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {trayMode === "item"
+              ? !item
+                ? "Select exactly one item to split quantity"
+                : `Split quantity for ${item.name}`
+              : !hasSelection
+                ? "Select items to split quantity"
+                : "Split quantity of selected items"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* 6. Split to Units */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                trayMode === "item"
+                  ? !item || disableNonModActions
+                  : !hasSelection || disableNonModActions
+              }
+              onClick={onSplitLineOpen}
+              className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+            >
+              <Split className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {trayMode === "item"
+              ? !item
+                ? "Select exactly one item to split to units"
+                : `Split ${item.name} to units of 1`
+              : !hasSelection
+                ? "Select items to split to units"
+                : "Split selected items to units of 1"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* 3. Remove Item / Modifier */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                trayMode === "item"
+                  ? !item || isComboLinkedChild
+                  : !hasSelection || disableNonModActions
+              }
+              onClick={() => {
+                if (trayMode === "item") {
+                  if (item) onRemoveModifier(item.lineId);
+                } else {
+                  onRemoveModifier(Array.from(selectedLineIds)[0]);
+                  setSelectedLineIds(new Set());
+                }
+              }}
+              className="h-9 w-9 p-0 rounded-lg hover:bg-destructive/15 text-destructive disabled:opacity-30"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {trayMode === "item"
+              ? !item
+                ? "Select exactly one item to remove"
+                : isComboLinkedChild
+                  ? "Combo-linked children cannot be removed here"
+                  : `Remove ${item.name}`
+              : !hasSelection
+                ? "Select items to remove"
+                : `Remove selected items`}
+          </TooltipContent>
+        </Tooltip>
+
         {/* Divider */}
         <div className="w-8 border-b border-border/80" />
 
@@ -241,7 +482,9 @@ export function VerticalActionsPanel({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" className="text-xs font-semibold">
-            {trayMode === "item" ? "Show Advanced Actions" : "Show Item Actions"}
+            {trayMode === "item"
+              ? "Show Advanced Actions"
+              : "Show Item Actions"}
           </TooltipContent>
         </Tooltip>
 
@@ -274,7 +517,9 @@ export function VerticalActionsPanel({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="text-xs">
-                  {isMultiSelectMode ? "Disable Multi-Select" : "Enable Multi-Select"}
+                  {isMultiSelectMode
+                    ? "Disable Multi-Select"
+                    : "Enable Multi-Select"}
                 </TooltipContent>
               </Tooltip>
 
@@ -289,7 +534,9 @@ export function VerticalActionsPanel({
                       if (hasSelection) {
                         setSelectedLineIds(new Set());
                       } else if (isMultiSelectMode) {
-                        setSelectedLineIds(new Set(filteredRootItems.map((i) => i.lineId)));
+                        setSelectedLineIds(
+                          new Set(filteredRootItems.map((i) => i.lineId)),
+                        );
                       }
                     }}
                     disabled={!hasSelection && !isMultiSelectMode}
@@ -317,47 +564,6 @@ export function VerticalActionsPanel({
           {trayMode === "item" ? (
             /* TRAY A: DEFAULT SINGLE ITEM ACTIONS */
             <>
-
-              {/* Edit Modifiers */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!item || !hasEditableModifiers}
-                    onClick={() => item && onEditModifiers(item)}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-primary"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!item
-                    ? "Select exactly one item to edit modifiers"
-                    : !hasEditableModifiers
-                      ? "No editable modifiers available"
-                      : `Edit modifiers for ${item.name}`}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Add Note */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!item}
-                    onClick={() => item && onGroupNoteOpen([item.lineId])}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-                  >
-                    <StickyNote className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!item ? "Select exactly one item to add a note" : `Add note to ${item.name}`}
-                </TooltipContent>
-              </Tooltip>
-
               {/* Allocation Config */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -387,7 +593,11 @@ export function VerticalActionsPanel({
                     disabled={!item || !canSwitchCombo}
                     onClick={() => {
                       if (item && comboSwapTarget && item.parentLineId) {
-                        onSwapComboChoice(item.lineId, item.parentLineId, comboSwapTarget.slotSku);
+                        onSwapComboChoice(
+                          item.lineId,
+                          item.parentLineId,
+                          comboSwapTarget.slotSku,
+                        );
                       }
                     }}
                     className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
@@ -403,132 +613,19 @@ export function VerticalActionsPanel({
                       : `Switch combo choice for ${item.name}`}
                 </TooltipContent>
               </Tooltip>
-
-              {/* Remove Modifier/Item */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!item || isComboLinkedChild}
-                    onClick={() => item && onRemoveModifier(item.lineId)}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-destructive/15 text-destructive disabled:opacity-30"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!item
-                    ? "Select exactly one item to remove"
-                    : isComboLinkedChild
-                      ? "Combo-linked children cannot be removed here"
-                      : `Remove ${item.name}`}
-                </TooltipContent>
-              </Tooltip>
             </>
           ) : (
             /* TRAY B: ADVANCED MULTI-SELECT/BATCH ACTIONS */
             <>
-              {/* Split Qty */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!hasSelection || disableNonModActions}
-                    onClick={onSplitQtyOpen}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-                  >
-                    <Split className="w-4 h-4 rotate-90" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to split quantity" : "Split quantity of selected items"}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Split to Units */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!hasSelection || disableNonModActions}
-                    onClick={onSplitLineOpen}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-                  >
-                    <Split className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to split to units" : "Split selected items to individual units of 1"}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Duplicate */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!hasSelection || disableNonModActions}
-                    onClick={() => onDuplicateItems(Array.from(selectedLineIds))}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to duplicate" : `Duplicate selected items`}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Dup & Move */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!hasSelection || disableNonModActions}
-                    onClick={onDupMoveOpen}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-                  >
-                    <BringToFront className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to clone & move" : `Clone & assign to another guest`}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Remove Items */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!hasSelection || disableNonModActions}
-                    onClick={() => {
-                      onRemoveModifier(Array.from(selectedLineIds)[0]); // Fallback remove or batch remove
-                      setSelectedLineIds(new Set());
-                    }}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-destructive/15 text-destructive disabled:opacity-30"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to remove" : `Remove selected items`}
-                </TooltipContent>
-              </Tooltip>
-
               {/* Merge Identical */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    disabled={!hasSelection || disableNonModActions || !canMerge}
+                    disabled={
+                      !hasSelection || disableNonModActions || !canMerge
+                    }
                     onClick={() => onMergeItems(Array.from(selectedLineIds))}
                     className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
@@ -550,7 +647,9 @@ export function VerticalActionsPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    disabled={!hasSelection || disableNonModActions || !canBreak}
+                    disabled={
+                      !hasSelection || disableNonModActions || !canBreak
+                    }
                     onClick={() => onBreakItems(Array.from(selectedLineIds))}
                     className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
@@ -572,7 +671,9 @@ export function VerticalActionsPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    disabled={!hasSelection || disableNonModActions || !canCombine}
+                    disabled={
+                      !hasSelection || disableNonModActions || !canCombine
+                    }
                     onClick={onCombineOpen}
                     className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
                   >
@@ -602,7 +703,9 @@ export function VerticalActionsPanel({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to assign guest" : "Assign Guest to selected items"}
+                  {!hasSelection
+                    ? "Select items to assign guest"
+                    : "Assign Guest to selected items"}
                 </TooltipContent>
               </Tooltip>
 
@@ -620,7 +723,9 @@ export function VerticalActionsPanel({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to assign payment" : "Assign Payment to selected items"}
+                  {!hasSelection
+                    ? "Select items to assign payment"
+                    : "Assign Payment to selected items"}
                 </TooltipContent>
               </Tooltip>
 
@@ -638,47 +743,9 @@ export function VerticalActionsPanel({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to assign fulfillment" : "Assign Fulfillment to selected items"}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Edit Modifiers (Bulk) */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!hasSelection || !canEditModifiersBulk}
-                    onClick={onEditModifiersBulk}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-primary"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
                   {!hasSelection
-                    ? "Select items to edit modifiers"
-                    : !canEditModifiersBulk
-                      ? "No editable modifiers available"
-                      : "Edit modifiers for selected items"}
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Add Group Note */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!hasSelection || disableNonModActions}
-                    onClick={() => onGroupNoteOpen(Array.from(selectedLineIds))}
-                    className="h-9 w-9 p-0 rounded-lg hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-                  >
-                    <StickyNote className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="text-xs">
-                  {!hasSelection ? "Select items to add note" : "Add note to selected items"}
+                    ? "Select items to assign fulfillment"
+                    : "Assign Fulfillment to selected items"}
                 </TooltipContent>
               </Tooltip>
             </>
@@ -760,7 +827,8 @@ export function VerticalActionsPanel({
                     : Info;
                   const isRequired = requireTags.has(tag);
                   const isAvoided = avoidTags.has(tag);
-                  let stateClass = "hover:bg-accent text-foreground bg-card border";
+                  let stateClass =
+                    "hover:bg-accent text-foreground bg-card border";
                   let iconColor = config
                     ? config.color
                     : "text-muted-foreground";
