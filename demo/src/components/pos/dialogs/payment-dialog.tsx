@@ -30,7 +30,7 @@ interface PaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   projectedState: any;
   guests: Array<{ id: string; name: string }>;
-  onCompletePayment: () => void;
+  onCompletePayment: (method: string) => void;
 }
 
 export function printReceipt(projectedState: any, formatNumber: any) {
@@ -682,7 +682,9 @@ export function PaymentDialog({
                 className="flex-1 text-xs font-bold bg-primary hover:bg-primary/95 text-primary-foreground"
                 disabled={!isAllPaid && activePayingGuests.length > 0}
                 onClick={() => {
-                  onCompletePayment();
+                  const methodsUsed = Array.from(new Set(Object.values(guestMethods)));
+                  const finalMethod = methodsUsed.length > 1 ? "split" : (methodsUsed[0] || "card");
+                  onCompletePayment(finalMethod);
                   onOpenChange(false);
                   toast.success("Checkout successfully processed!");
                 }}

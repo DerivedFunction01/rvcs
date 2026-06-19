@@ -138,14 +138,40 @@ export function OrderHistoryScreen() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 text-xs"
-              onClick={() => router.push("/")}
-            >
-              Back to Terminal
-            </Button>
+            <div className="flex items-center gap-1 border bg-background/50 p-0.5 rounded-lg mr-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
+                onClick={() => router.push("/")}
+              >
+                Terminal
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md"
+                onClick={() => router.push("/history")}
+              >
+                Drafts
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
+                onClick={() => router.push("/orders")}
+              >
+                Orders
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
+                onClick={() => router.push("/admin")}
+              >
+                Admin
+              </Button>
+            </div>
             <Button
               size="sm"
               className="h-9 text-xs gap-1.5 font-bold"

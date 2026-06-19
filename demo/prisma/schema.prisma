@@ -320,3 +320,37 @@ model DeliveryLocation {
 
   @@index([customerId])
 }
+
+// ─── Settled Order Archive (Flat Schema for Reporting) ──────────────────────────
+
+model CompletedOrder {
+  id            String               @id @default(cuid())
+  orderNumber   String               @unique // e.g. "ORD-20260619-001"
+  repoId        String?              // Lineage to originating VCS repository
+  customerName  String
+  customerPhone String?
+  serverName    String
+  orderType     String               // e.g. "dine_in", "pickup", "delivery"
+  subtotal      Float
+  taxTotal      Float
+  grandTotal    Float
+  paymentMethod String               // "cash" | "card" | "split"
+  paymentStatus String               // "paid" | "refunded" | "voided"
+  settledAt     DateTime             @default(now())
+  createdAt     DateTime             @default(now())
+  
+  items         CompletedOrderItem[]
+}
+
+model CompletedOrderItem {
+  id           String         @id @default(cuid())
+  orderId      String
+  order        CompletedOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sku          String
+  name         String
+  qty          Float
+  basePrice    Float
+  totalPrice   Float
+  modifiers    String         @default("[]") // JSON string of modifiers
+  guestId      String?        // Owner guest ID if split
+}

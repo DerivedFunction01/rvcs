@@ -815,6 +815,41 @@ export function POSTerminalScreen({
         {/* ─── Header ────────────────────────────────────────────────────── */}
         <header className="border-b bg-card px-4 py-2 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 border bg-background/50 p-0.5 rounded-lg mr-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md"
+                onClick={() => router.push("/")}
+              >
+                Terminal
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
+                onClick={() => router.push("/history")}
+              >
+                Drafts
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
+                onClick={() => router.push("/orders")}
+              >
+                Orders
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
+                onClick={() => router.push("/admin")}
+              >
+                Admin
+              </Button>
+            </div>
+
             {getBranchButton(
               activeBranch,
               mainActiveBranch,
@@ -1452,8 +1487,24 @@ export function POSTerminalScreen({
         onOpenChange={setPaymentOpen}
         projectedState={projectedState}
         guests={guests.map((g) => ({ id: g.id, name: g.alias || g.id }))}
-        onCompletePayment={() => {
-          useVCSStore.getState().resetOrder();
+        onCompletePayment={(method) => {
+          const store = useVCSStore.getState();
+          fetch("/api/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectedState: store.projectedState,
+              paymentMethod: method,
+            }),
+          })
+            .then((r) => r.json())
+            .then(() => {
+              store.resetOrder();
+            })
+            .catch((err) => {
+              console.error("Failed to archive completed order:", err);
+              store.resetOrder();
+            });
         }}
       />
     </TooltipProvider>
