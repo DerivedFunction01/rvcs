@@ -1132,6 +1132,7 @@ export function POSTerminalScreen({
             setCatalogLayoutOpen={setCatalogLayoutOpen}
           />
           <VerticalModifierPanel
+            repoId={repoId}
             selectedItems={selectedItems}
             catalog={catalog}
             compatibleModifiers={compatibleModifiers}

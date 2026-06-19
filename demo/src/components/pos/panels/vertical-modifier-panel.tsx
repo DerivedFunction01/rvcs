@@ -11,6 +11,7 @@ import { usePreferencesStore } from "@/store/preferences-store";
 import { Scaling, Settings2, Sparkles } from "lucide-react";
 
 export interface VerticalModifierPanelProps {
+  repoId: string;
   selectedItems: ProjectedLineItem[];
   catalog: Record<string, CatalogItemEntry>;
   compatibleModifiers: CatalogItemEntry[];
@@ -18,6 +19,7 @@ export interface VerticalModifierPanelProps {
 }
 
 export function VerticalModifierPanel({
+  repoId,
   selectedItems,
   catalog,
   compatibleModifiers,
@@ -25,6 +27,11 @@ export function VerticalModifierPanel({
 }: VerticalModifierPanelProps) {
   const formatNumber = useFormatNumber();
   const projectedState = useVCSStore((state) => state.projectedState);
+
+  const getPreferences = usePreferencesStore((state) => state.getPreferences);
+  const prefs = getPreferences(repoId);
+  const showPrice = prefs.catalogDetailDisplay.showPrice;
+
   const defaultShowDeltaPrice = usePreferencesStore(
     (state) => state.defaultPrefs.inlineModifierPriceDisplayDelta,
   );
@@ -112,16 +119,16 @@ export function VerticalModifierPanel({
         {sizeGroup && sizeOptions.length > 0 && (
           <div className="flex flex-col min-h-0">
             {/* Minimal Section Label */}
-            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/10 border-b text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/10 border-b text-xs font-bold text-muted-foreground uppercase tracking-wider select-none">
               <span>{sizeGroup?.name || "Sizing"}</span>
-              {showDeltaPrice && (
-                <span className="text-[9px] font-mono text-muted-foreground/60 normal-case font-normal">
+              {showPrice && showDeltaPrice && (
+                <span className="text-[10px] font-mono text-muted-foreground/60 normal-case font-normal">
                   base ${formatNumber(activeSizePrice, 2)}
                 </span>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-px bg-border/80 border-b overflow-hidden">
+            <div className="grid grid-cols-2 gap-0 border-l overflow-hidden">
               {pagedSizeOptions.map((opt) => {
                 const isActive = activeSizeChild?.sku === opt.sku;
                 const netPrice = catalogEntry.basePrice + opt.basePrice;
@@ -139,18 +146,18 @@ export function VerticalModifierPanel({
                   <Button
                     key={opt.sku}
                     variant={isActive ? "default" : "outline"}
-                    className={`h-16 flex flex-col items-center justify-center p-1.5 rounded-none border-0 shadow-none transition-all text-center cursor-pointer bg-background ${
+                    className={`h-16 flex flex-col items-center justify-center p-1.5 rounded-none border-b border-r border-t-0 border-l-0 shadow-none transition-all text-center cursor-pointer bg-background ${
                       isActive
                         ? "bg-primary text-primary-foreground font-bold"
                         : "hover:bg-accent/40"
                     }`}
                     onClick={() => handleSizeChange(opt.sku)}
                   >
-                    <span className="text-[10px] font-semibold truncate w-full">
+                    <span className="text-xs font-semibold truncate w-full">
                       {opt.name}
                     </span>
-                    {priceLabel && (
-                      <span className="text-[8px] font-mono opacity-80 mt-0.5 leading-none">
+                    {showPrice && priceLabel && (
+                      <span className="text-[10px] font-mono opacity-80 mt-0.5 leading-none">
                         {priceLabel}
                       </span>
                     )}
@@ -162,7 +169,7 @@ export function VerticalModifierPanel({
               {Array.from({ length: ghostSizeCount }).map((_, idx) => (
                 <div
                   key={`ghost-size-${idx}`}
-                  className="h-16 bg-background opacity-20 pointer-events-none"
+                  className="h-16 bg-muted/5 border-b border-r pointer-events-none"
                 />
               ))}
             </div>
@@ -197,16 +204,16 @@ export function VerticalModifierPanel({
         {allowedStates.length > 0 && (
           <div className="flex flex-col min-h-0">
             {/* Minimal Section Label */}
-            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/10 border-b text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/10 border-b text-xs font-bold text-muted-foreground uppercase tracking-wider select-none">
               <span>Modifier State</span>
-              {showDeltaPrice && (
-                <span className="text-[9px] font-mono text-muted-foreground/60 normal-case font-normal">
+              {showPrice && showDeltaPrice && (
+                <span className="text-[10px] font-mono text-muted-foreground/60 normal-case font-normal">
                   base ${formatNumber(catalogEntry.basePrice, 2)}
                 </span>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-px bg-border/80 border-b overflow-hidden">
+            <div className="grid grid-cols-2 gap-0 border-l overflow-hidden">
               {pagedStates.map((stateOpt) => {
                 const isActive = item.selectedModifierState === stateOpt.state;
                 const hasPrice = stateOpt.priceOverride !== null;
@@ -230,7 +237,7 @@ export function VerticalModifierPanel({
                   <Button
                     key={stateOpt.state}
                     variant={isActive ? "default" : "outline"}
-                    className={`h-16 flex flex-col items-center justify-center p-1.5 rounded-none border-0 shadow-none transition-all text-center cursor-pointer bg-background ${
+                    className={`h-16 flex flex-col items-center justify-center p-1.5 rounded-none border-b border-r border-t-0 border-l-0 shadow-none transition-all text-center cursor-pointer bg-background ${
                       isActive
                         ? "bg-primary text-primary-foreground font-bold"
                         : "hover:bg-accent/40"
@@ -239,11 +246,11 @@ export function VerticalModifierPanel({
                       onUpdateModifierState(item.sku, stateOpt.state)
                     }
                   >
-                    <span className="text-[10px] font-semibold truncate w-full">
+                    <span className="text-xs font-semibold truncate w-full">
                       {stateOpt.state}
                     </span>
-                    {priceLabel && (
-                      <span className="text-[8px] font-mono opacity-80 mt-0.5 leading-none">
+                    {showPrice && priceLabel && (
+                      <span className="text-[10px] font-mono opacity-80 mt-0.5 leading-none">
                         {priceLabel}
                       </span>
                     )}
@@ -255,7 +262,7 @@ export function VerticalModifierPanel({
               {Array.from({ length: ghostStateCount }).map((_, idx) => (
                 <div
                   key={`ghost-state-${idx}`}
-                  className="h-16 bg-background opacity-20 pointer-events-none"
+                  className="h-16 bg-muted/5 border-b border-r pointer-events-none"
                 />
               ))}
             </div>
@@ -290,7 +297,7 @@ export function VerticalModifierPanel({
       </div>
 
       {/* Delta/Net Toggle at bottom */}
-      {item && (sizeGroup || allowedStates.length > 0) && (
+      {showPrice && item && (sizeGroup || allowedStates.length > 0) && (
         <div className="p-3 border-t bg-muted/10 flex items-center justify-between shrink-0">
           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
             Price Mode

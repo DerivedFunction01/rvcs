@@ -206,7 +206,7 @@ export function CatalogPanel({
     >
 
       {/* Main Panel Content split into Column Layout */}
-      <div className="flex-1 min-h-0 flex flex-row p-2 gap-3 dynamic-content-area">
+      <div className="flex-1 min-h-0 flex flex-row p-0 gap-0 dynamic-content-area">
         {/* Independent Static Category Column */}
         {isCategoryMode &&
           getCategoryColumn(
@@ -237,7 +237,7 @@ export function CatalogPanel({
                 Array.from({ length: ghostCount }).map((_, idx) => (
                   <div
                     key={`ghost-${currentPage}-${idx}`}
-                    className="min-h-24 rounded-lg border border-dashed border-transparent opacity-0 pointer-events-none w-full"
+                    className="h-28 w-full border border-border/40 bg-muted/5 opacity-55 pointer-events-none"
                     aria-hidden="true"
                   />
                 ))}
