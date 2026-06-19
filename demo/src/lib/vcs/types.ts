@@ -297,11 +297,17 @@ export interface ProjectedLineItem {
   status: ItemStatus;
 }
 
+export interface PaymentTypeBreakdown {
+  method: string;
+  amount: number;
+}
+
 export interface PersonBreakdown {
   person: string;
   subtotal: number;
   items: string[]; // line IDs
   paymentMethod: string | null;
+  paymentBreakdown?: PaymentTypeBreakdown[];
 }
 
 // ─── Charge / Tax Breakdown ────────────────────────────────────────────────────

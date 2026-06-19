@@ -23,6 +23,7 @@ import {
   PaymentStrategyType,
   AllocationType,
   ItemStatus,
+  PaymentTypeBreakdown,
 } from "./types";
 import { deriveCloneId, generateAllocationId } from "./id";
 
@@ -871,10 +872,15 @@ function buildProjectedState(
 
   const personMap = new Map<
     string,
-    { subtotal: number; items: string[]; paymentMethod: string | null }
+    {
+      subtotal: number;
+      items: string[];
+      paymentMethod: string | null;
+      paymentBreakdown: Map<string, number>;
+    }
   >();
   for (const person of people) {
-    personMap.set(person, { subtotal: 0, items: [], paymentMethod: null });
+    personMap.set(person, { subtotal: 0, items: [], paymentMethod: null, paymentBreakdown: new Map() });
   }
 
   const globalFixedBalances = new Map<string, number>();
@@ -900,7 +906,7 @@ function buildProjectedState(
     const assignee = getAssignee(root, allocations) || "Guest";
     // Ensure assignee is in the map
     if (assignee !== "Guest" && !personMap.has(assignee)) {
-      personMap.set(assignee, { subtotal: 0, items: [], paymentMethod: null });
+      personMap.set(assignee, { subtotal: 0, items: [], paymentMethod: null, paymentBreakdown: new Map() });
     }
 
     const paymentAllocs = root.allocations
@@ -913,8 +919,9 @@ function buildProjectedState(
       // No payment allocations: assignee pays the full amount
       const pData = personMap.get(assignee) || {
         subtotal: 0,
-        items: [],
-        paymentMethod: null,
+        items: [] as string[],
+        paymentMethod: null as string | null,
+        paymentBreakdown: new Map<string, number>(),
       };
       pData.subtotal += lineTotal;
       pData.items.push(root.lineId);
@@ -922,6 +929,8 @@ function buildProjectedState(
       if (defaultPaymentMethod) {
         pData.paymentMethod = defaultPaymentMethod;
       }
+      const pmType = defaultPaymentMethod || "card";
+      pData.paymentBreakdown.set(pmType, (pData.paymentBreakdown.get(pmType) || 0) + lineTotal);
       personMap.set(assignee, pData);
     } else {
       let remaining = lineTotal;
@@ -1005,8 +1014,9 @@ function buildProjectedState(
           const payer = alloc.payer || assignee;
           const pData = personMap.get(payer) || {
             subtotal: 0,
-            items: [],
-            paymentMethod: null,
+            items: [] as string[],
+            paymentMethod: null as string | null,
+            paymentBreakdown: new Map<string, number>(),
           };
           pData.subtotal += amount;
           if (!pData.items.includes(root.lineId)) {
@@ -1015,6 +1025,8 @@ function buildProjectedState(
           if (alloc.method) {
             pData.paymentMethod = alloc.method;
           }
+          const pmType = alloc.method || "card";
+          pData.paymentBreakdown.set(pmType, (pData.paymentBreakdown.get(pmType) || 0) + amount);
           personMap.set(payer, pData);
         }
       }
@@ -1032,6 +1044,12 @@ function buildProjectedState(
           subtotal: Math.round(data.subtotal * 100) / 100,
           items: data.items,
           paymentMethod: data.paymentMethod,
+          paymentBreakdown: Array.from(data.paymentBreakdown.entries()).map(
+            ([method, amt]) => ({
+              method,
+              amount: Math.round(amt * 100) / 100,
+            }),
+          ),
         }),
       ),
     },

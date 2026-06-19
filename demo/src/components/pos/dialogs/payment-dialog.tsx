@@ -25,6 +25,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+export enum PaymentMethodType {
+  Cash = "Cash",
+  Visa = "Visa",
+  Mastercard = "Mastercard",
+  AMEX = "AMEX",
+  Card = "Card",
+}
+
 interface PaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -178,19 +186,37 @@ export function PaymentDialog({
     (pb: any) => pb.subtotal > 0,
   );
 
+  // Helper: Retrieve default payment method from allocations if specified
+  const getPayerDefaultMethod = (person: string): string => {
+    if (!projectedState || !projectedState.allocations) return "card";
+    const allocations = Object.values(projectedState.allocations);
+    const paymentAlloc = allocations.find(
+      (a: any) => a.type === "payment" && a.payer === person,
+    ) as any;
+    if (paymentAlloc && paymentAlloc.method) {
+      const methodStr = paymentAlloc.method.toLowerCase();
+      if (methodStr === "cash" || methodStr === "card") {
+        return methodStr;
+      }
+    }
+    return "card"; // fallback default
+  };
+
   // Initialize remaining dues if not set or when dialog opens
   React.useEffect(() => {
     if (open && activePayingGuests.length > 0) {
       const initialDues: Record<string, number> = {};
+      const initialMethods: Record<string, string> = {};
       activePayingGuests.forEach((pb: any) => {
         const guestTotal =
           (pb.subtotal / (projectedState?.financials?.subtotal || 1)) *
           (projectedState?.financials?.grandTotal || 0);
         initialDues[pb.person] = guestTotal;
+        initialMethods[pb.person] = getPayerDefaultMethod(pb.person);
       });
       setRemainingDues(initialDues);
+      setGuestMethods(initialMethods);
       setPaidGuests({});
-      setGuestMethods({});
       setReceivedAmounts({});
       setChangeAmounts({});
       setActivePayingPersonId(null);
@@ -227,14 +253,31 @@ export function PaymentDialog({
         );
       }
     } else {
-      // Card payment (always full)
-      setReceivedAmounts((prev) => ({ ...prev, [person]: totalDue }));
-      setChangeAmounts((prev) => ({ ...prev, [person]: 0 }));
-      setRemainingDues((prev) => ({ ...prev, [person]: 0 }));
-      setPaidGuests((prev) => ({ ...prev, [person]: true }));
-      toast.success(
-        `Processed card payment of $${formatNumber(totalDue, 2)} for ${resolveGuestName(person)}`,
-      );
+      // Card payment
+      if (amountPaid >= totalDue) {
+        // Full card payment
+        setReceivedAmounts((prev) => ({
+          ...prev,
+          [person]: (receivedAmounts[person] || 0) + totalDue,
+        }));
+        setChangeAmounts((prev) => ({ ...prev, [person]: 0 }));
+        setRemainingDues((prev) => ({ ...prev, [person]: 0 }));
+        setPaidGuests((prev) => ({ ...prev, [person]: true }));
+        toast.success(
+          `Processed card payment of $${formatNumber(totalDue, 2)} for ${resolveGuestName(person)}`,
+        );
+      } else {
+        // Partial card payment
+        const newDue = totalDue - amountPaid;
+        setRemainingDues((prev) => ({ ...prev, [person]: newDue }));
+        setReceivedAmounts((prev) => ({
+          ...prev,
+          [person]: (receivedAmounts[person] || 0) + amountPaid,
+        }));
+        toast.info(
+          `Processed partial card payment of $${formatNumber(amountPaid, 2)} for ${resolveGuestName(person)}. Remaining Due: $${formatNumber(newDue, 2)}`,
+        );
+      }
     }
     setActivePayingPersonId(null);
   };
@@ -280,14 +323,19 @@ export function PaymentDialog({
     ? (remainingDues[currentPayingPerson.person] ?? 0)
     : 0;
   const selectedMethod = currentPayingPerson
-    ? guestMethods[currentPayingPerson.person] || "card"
+    ? guestMethods[currentPayingPerson.person] ||
+      getPayerDefaultMethod(currentPayingPerson.person)
     : "card";
 
   const parsedCashInput = parseFloat(cashInput) || 0;
   const cashChange =
-    parsedCashInput >= currentDue ? parsedCashInput - currentDue : 0;
+    selectedMethod === "cash" && parsedCashInput >= currentDue
+      ? parsedCashInput - currentDue
+      : 0;
   const cashRemaining =
-    parsedCashInput < currentDue ? currentDue - parsedCashInput : currentDue;
+    selectedMethod === "cash" && parsedCashInput < currentDue
+      ? currentDue - parsedCashInput
+      : currentDue;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -332,6 +380,7 @@ export function PaymentDialog({
                       ...prev,
                       [currentPayingPerson.person]: "card",
                     }));
+                    setCashInput("");
                   }}
                 >
                   <CreditCard className="w-4 h-4" />
@@ -354,149 +403,152 @@ export function PaymentDialog({
               </div>
             </div>
 
-            {/* Method Details */}
-            {selectedMethod === "card" ? (
-              <div className="flex flex-col items-center justify-center border border-dashed rounded-xl p-8 space-y-4 bg-muted/5">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary animate-pulse">
-                  <CreditCard className="w-6 h-6" />
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="text-sm font-semibold">
-                    Simulating Card Terminal
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-xs">
-                    Please prompt the customer to tap, swipe, or insert their
-                    card on the reader.
-                  </p>
-                </div>
-                <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 text-xs rounded-xl"
-                  onClick={() =>
-                    handlePayGuest(
-                      currentPayingPerson.person,
-                      "card",
-                      currentDue,
-                      currentDue,
-                    )
-                  }
-                >
-                  Simulate Successful Swipe
-                </Button>
-              </div>
-            ) : (
-              /* CASH METHOD WITH NUMPAD & QUICK BUTTONS */
-              <div className="space-y-4">
-                {/* Tender display & Change details */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="border rounded-xl p-3 bg-muted/10">
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                      Amount Tendered
-                    </span>
-                    <div className="text-xl font-bold font-mono text-primary mt-1">
-                      $
-                      {cashInput === ""
-                        ? "0.00"
-                        : formatNumber(parsedCashInput, 2)}
-                    </div>
-                  </div>
-                  <div
-                    className={`border rounded-xl p-3 ${parsedCashInput >= currentDue ? "bg-emerald-500/10 border-emerald-500/25" : "bg-amber-500/10 border-amber-500/25"}`}
-                  >
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                      {parsedCashInput >= currentDue
-                        ? "Change Due"
-                        : "Remaining Due"}
-                    </span>
-                    <div
-                      className={`text-xl font-bold font-mono mt-1 ${parsedCashInput >= currentDue ? "text-emerald-500" : "text-amber-500"}`}
-                    >
-                      $
-                      {parsedCashInput >= currentDue
-                        ? formatNumber(cashChange, 2)
-                        : formatNumber(cashRemaining, 2)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Cash Buttons */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                    Quick Cash Received
-                  </span>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {/* Contextual/smart quick buttons */}
-                    <Button
-                      variant="outline"
-                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
-                      onClick={() => setCashInput(currentDue.toFixed(2))}
-                    >
-                      Exact
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
-                      disabled={Math.ceil(currentDue / 5) * 5 === currentDue}
-                      onClick={() =>
-                        setCashInput((Math.ceil(currentDue / 5) * 5).toFixed(2))
-                      }
-                    >
-                      Next $5
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
-                      disabled={Math.ceil(currentDue / 10) * 10 === currentDue}
-                      onClick={() =>
-                        setCashInput(
-                          (Math.ceil(currentDue / 10) * 10).toFixed(2),
-                        )
-                      }
-                    >
-                      Next $10
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-8 text-[11px] font-bold px-2 rounded-lg"
-                      disabled={Math.ceil(currentDue / 20) * 20 === currentDue}
-                      onClick={() =>
-                        setCashInput(
-                          (Math.ceil(currentDue / 20) * 20).toFixed(2),
-                        )
-                      }
-                    >
-                      Next $20
-                    </Button>
-
-                    {/* Standard bill denominations */}
-                    {[5, 10, 20, 40, 50, 100, 200].map((bill) => (
+            {/* Granular payment breakdown if multiple types exist */}
+            {currentPayingPerson?.paymentBreakdown && currentPayingPerson.paymentBreakdown.length > 1 && (
+              <div className="bg-muted/15 border border-dashed p-3 rounded-xl space-y-2">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                  Suggested Breakdown (Click to Apply Preset)
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {currentPayingPerson.paymentBreakdown.map((item: any, idx: number) => {
+                    const scaledItemAmount = item.amount * (projectedState?.financials?.grandTotal || 0) / (projectedState?.financials?.subtotal || 1);
+                    const methodKey = item.method.toLowerCase() === PaymentMethodType.Cash.toLowerCase() ? "cash" : "card";
+                    return (
                       <Button
-                        key={bill}
+                        key={idx}
                         variant="outline"
-                        className="h-8 text-[11px] font-semibold rounded-lg"
-                        onClick={() => setCashInput(bill.toString())}
+                        className="h-10 text-xs flex justify-between px-3 font-mono rounded-lg border border-primary/20 hover:bg-primary/5 hover:border-primary"
+                        onClick={() => {
+                          setGuestMethods((prev) => ({
+                            ...prev,
+                            [currentPayingPerson.person]: methodKey,
+                          }));
+                          setCashInput(scaledItemAmount.toFixed(2));
+                        }}
                       >
-                        ${bill}
+                        <span className="capitalize font-sans font-semibold text-foreground">
+                          {item.method.toLowerCase()}
+                        </span>
+                        <span className="font-bold text-primary">
+                          ${formatNumber(scaledItemAmount, 2)}
+                        </span>
                       </Button>
-                    ))}
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Unified Cash & Card Numpad/Quick Charge Controls */}
+            <div className="space-y-4">
+              {/* Tender display & Change details */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border rounded-xl p-3 bg-muted/10">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                    {selectedMethod === "cash"
+                      ? "Amount Tendered"
+                      : "Amount to Charge"}
+                  </span>
+                  <div className="text-xl font-bold font-mono text-primary mt-1">
+                    $
+                    {cashInput === ""
+                      ? "0.00"
+                      : formatNumber(parsedCashInput, 2)}
                   </div>
                 </div>
+                <div
+                  className={`border rounded-xl p-3 ${
+                    selectedMethod === "cash" && parsedCashInput >= currentDue
+                      ? "bg-emerald-500/10 border-emerald-500/25"
+                      : "bg-amber-500/10 border-amber-500/25"
+                  }`}
+                >
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                    {selectedMethod === "cash" && parsedCashInput >= currentDue
+                      ? "Change Due"
+                      : "Remaining Due"}
+                  </span>
+                  <div
+                    className={`text-xl font-bold font-mono mt-1 ${
+                      selectedMethod === "cash" && parsedCashInput >= currentDue
+                        ? "text-emerald-500"
+                        : "text-amber-500"
+                    }`}
+                  >
+                    $
+                    {selectedMethod === "cash" && parsedCashInput >= currentDue
+                      ? formatNumber(cashChange, 2)
+                      : formatNumber(cashRemaining, 2)}
+                  </div>
+                </div>
+              </div>
 
-                {/* Numeric Keypad Grid */}
-                <div className="grid grid-cols-12 gap-3">
-                  <div className="col-span-8 grid grid-cols-3 gap-2">
-                    {[
-                      "1",
-                      "2",
-                      "3",
-                      "4",
-                      "5",
-                      "6",
-                      "7",
-                      "8",
-                      "9",
-                      ".",
-                      "0",
-                    ].map((num) => (
+              {/* Quick Cash/Charge Buttons */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                  {selectedMethod === "cash"
+                    ? "Quick Cash Received"
+                    : "Quick Charge Presets"}
+                </span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {/* Contextual/smart quick buttons */}
+                  <Button
+                    variant="outline"
+                    className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                    onClick={() => setCashInput(currentDue.toFixed(2))}
+                  >
+                    Exact
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                    disabled={Math.ceil(currentDue / 5) * 5 === currentDue}
+                    onClick={() =>
+                      setCashInput((Math.ceil(currentDue / 5) * 5).toFixed(2))
+                    }
+                  >
+                    Next $5
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                    disabled={Math.ceil(currentDue / 10) * 10 === currentDue}
+                    onClick={() =>
+                      setCashInput((Math.ceil(currentDue / 10) * 10).toFixed(2))
+                    }
+                  >
+                    Next $10
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 text-[11px] font-bold px-2 rounded-lg"
+                    disabled={Math.ceil(currentDue / 20) * 20 === currentDue}
+                    onClick={() =>
+                      setCashInput((Math.ceil(currentDue / 20) * 20).toFixed(2))
+                    }
+                  >
+                    Next $20
+                  </Button>
+
+                  {/* Standard bill denominations */}
+                  {[5, 10, 20, 40, 50, 100, 200].map((bill) => (
+                    <Button
+                      key={bill}
+                      variant="outline"
+                      className="h-8 text-[11px] font-semibold rounded-lg"
+                      onClick={() => setCashInput(bill.toString())}
+                    >
+                      ${bill}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Numeric Keypad Grid */}
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-8 grid grid-cols-3 gap-2">
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0"].map(
+                    (num) => (
                       <Button
                         key={num}
                         variant="secondary"
@@ -505,41 +557,41 @@ export function PaymentDialog({
                       >
                         {num}
                       </Button>
-                    ))}
-                    <Button
-                      variant="secondary"
-                      className="h-10 text-xs font-bold rounded-lg text-rose-500 active:scale-95 transition-transform"
-                      onClick={handleBackspace}
-                    >
-                      ⌫
-                    </Button>
-                  </div>
-                  <div className="col-span-4 flex flex-col gap-2">
-                    <Button
-                      variant="destructive"
-                      className="flex-1 font-bold text-xs rounded-lg active:scale-95 transition-transform"
-                      onClick={handleClear}
-                    >
-                      Clear
-                    </Button>
-                    <Button
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg active:scale-95 transition-transform"
-                      disabled={parsedCashInput <= 0}
-                      onClick={() =>
-                        handlePayGuest(
-                          currentPayingPerson.person,
-                          "cash",
-                          parsedCashInput,
-                          currentDue,
-                        )
-                      }
-                    >
-                      Confirm
-                    </Button>
-                  </div>
+                    ),
+                  )}
+                  <Button
+                    variant="secondary"
+                    className="h-10 text-xs font-bold rounded-lg text-rose-500 active:scale-95 transition-transform"
+                    onClick={handleBackspace}
+                  >
+                    ⌫
+                  </Button>
+                </div>
+                <div className="col-span-4 flex flex-col gap-2">
+                  <Button
+                    variant="destructive"
+                    className="flex-1 font-bold text-xs rounded-lg active:scale-95 transition-transform"
+                    onClick={handleClear}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg active:scale-95 transition-transform"
+                    disabled={parsedCashInput <= 0}
+                    onClick={() =>
+                      handlePayGuest(
+                        currentPayingPerson.person,
+                        selectedMethod,
+                        parsedCashInput,
+                        currentDue,
+                      )
+                    }
+                  >
+                    {selectedMethod === "card" ? "Charge Card" : "Confirm"}
+                  </Button>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         ) : (
           /* STANDARD GUEST CHECKOUT SCREEN */
@@ -600,6 +652,8 @@ export function PaymentDialog({
                       const isPaid = paidGuests[pb.person];
                       const currentDue = remainingDues[pb.person] ?? 0;
                       const hasPaidSome = (receivedAmounts[pb.person] ?? 0) > 0;
+                      const ratio = (projectedState?.financials?.grandTotal || 0) / (projectedState?.financials?.subtotal || 1);
+                      const breakdown = pb.paymentBreakdown || [];
 
                       return (
                         <div
@@ -644,6 +698,24 @@ export function PaymentDialog({
                             </div>
                           </div>
 
+                          {/* Granular payment breakdown if multiple types exist */}
+                          {breakdown.length > 1 && (
+                            <div className="pl-6 pr-2 py-1.5 bg-muted/10 rounded-md border border-dashed border-muted space-y-1">
+                              <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">
+                                Payment Breakdown
+                              </span>
+                              {breakdown.map((item: any, idx: number) => {
+                                const scaledItemAmount = item.amount * ratio;
+                                return (
+                                  <div key={idx} className="flex justify-between text-xs font-mono text-muted-foreground">
+                                    <span className="capitalize">{item.method.toLowerCase()}</span>
+                                    <span>${formatNumber(scaledItemAmount, 2)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
                           {!isPaid && (
                             <div className="flex items-center justify-end gap-4 pt-1.5 border-t border-dashed">
                               <Button
@@ -682,8 +754,13 @@ export function PaymentDialog({
                 className="flex-1 text-xs font-bold bg-primary hover:bg-primary/95 text-primary-foreground"
                 disabled={!isAllPaid && activePayingGuests.length > 0}
                 onClick={() => {
-                  const methodsUsed = Array.from(new Set(Object.values(guestMethods)));
-                  const finalMethod = methodsUsed.length > 1 ? "split" : (methodsUsed[0] || "card");
+                  const methodsUsed = Array.from(
+                    new Set(Object.values(guestMethods)),
+                  );
+                  const finalMethod =
+                    methodsUsed.length > 1
+                      ? "split"
+                      : methodsUsed[0] || "card";
                   onCompletePayment(finalMethod);
                   onOpenChange(false);
                   toast.success("Checkout successfully processed!");
