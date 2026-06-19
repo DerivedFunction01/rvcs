@@ -204,7 +204,6 @@ export function CatalogPanel({
     <aside
       className={`${widthClass} border-r-2 border-r-slate-300 dark:border-r-slate-700 bg-card flex flex-col shrink-0 h-full overflow-hidden`}
     >
-
       {/* Main Panel Content split into Column Layout */}
       <div className="flex-1 min-h-0 flex flex-row p-0 gap-0 dynamic-content-area">
         {/* Independent Static Category Column */}
@@ -231,6 +230,7 @@ export function CatalogPanel({
                   iconConfigs={iconConfigs}
                   formatNumber={formatNumber}
                   onAddItem={onAddItem}
+                  isCategoryMode={isCategoryMode}
                 />
               ))}
               {navigationMode === CatalogNavigationMode.Page &&
@@ -337,7 +337,9 @@ function getCategoryColumn(
                 key={section.category}
                 variant={isActive ? "default" : "outline"}
                 className={`h-full min-h-8 px-3 text-sm justify-center w-full rounded-none border-b border-r border-t-0 border-l-0 shadow-none bg-background ${
-                  isActive ? "bg-primary text-primary-foreground font-bold" : "border-border/80 hover:bg-accent/40"
+                  isActive
+                    ? "bg-primary text-primary-foreground font-bold"
+                    : "border-border/80 hover:bg-accent/40"
                 }`}
                 onClick={() => setActiveCategory(section.category)}
               >
@@ -345,7 +347,9 @@ function getCategoryColumn(
               </Button>
             );
           })}
-          {Array.from({ length: Math.max(0, 16 - visibleCategories.length) }).map((_, idx) => (
+          {Array.from({
+            length: Math.max(0, 16 - visibleCategories.length),
+          }).map((_, idx) => (
             <div
               key={`category-ghost-${idx}`}
               className="h-full w-full border-b border-r border-t-0 border-l-0 border-border/80 bg-muted/5 pointer-events-none"
@@ -403,7 +407,6 @@ function getCategoryColumn(
   );
 }
 
-
 function summarizeCatalogLayout(
   detailDisplay: CatalogDetailDisplayPrefs,
   navigationMode: CatalogNavigationMode,
@@ -459,6 +462,7 @@ function CatalogItemCard({
   iconConfigs,
   formatNumber,
   onAddItem,
+  isCategoryMode,
 }: {
   item: CatalogItemEntry;
   category: string;
@@ -466,33 +470,79 @@ function CatalogItemCard({
   iconConfigs: Record<string, IconConfig>;
   formatNumber: (value: number, decimals?: number) => string;
   onAddItem: (sku: string) => void;
+  isCategoryMode: boolean;
 }) {
+  const detailCount = [
+    detailDisplay.showSku && item.sku,
+    detailDisplay.showPrice,
+    detailDisplay.showIcons &&
+      (item.dietaryFlags.length > 0 || item.allergens.length > 0),
+  ].filter(Boolean).length;
+
+  const isMinimal = detailCount <= 1;
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           onClick={() => onAddItem(item.sku)}
-          className="h-28 w-full border bg-background p-2 text-left hover:border-primary/40 hover:bg-accent/40 transition-colors flex flex-col justify-between gap-2 overflow-hidden shrink-0"
+          className={`h-28 w-full border bg-background p-2 transition-colors flex flex-col justify-between gap-2 overflow-hidden shrink-0 hover:border-primary/40 hover:bg-accent/40 ${
+            isMinimal && isCategoryMode
+              ? "items-center justify-center text-center"
+              : "text-left"
+          }`}
         >
-          <div className="space-y-1 min-w-0 flex-1 min-h-0 w-full">
-            <div className="flex items-start justify-between gap-2 w-full">
-              <span className="text-sm font-medium leading-tight flex-1">
+          <div
+            className={`min-w-0 w-full flex-1 flex flex-col ${
+              isMinimal
+                ? "justify-center items-center gap-1"
+                : "space-y-1 min-h-0"
+            }`}
+          >
+            <div
+              className={`flex w-full ${
+                isMinimal
+                  ? "justify-center items-center text-center flex-col gap-0.5"
+                  : "items-start justify-between gap-2"
+              }`}
+            >
+              <span
+                className={`leading-tight ${
+                  isMinimal
+                    ? "text-base font-semibold text-center"
+                    : "text-sm font-medium flex-1"
+                }`}
+              >
                 {item.name}
               </span>
               {detailDisplay.showPrice && (
-                <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                <span
+                  className={`${
+                    isMinimal
+                      ? "font-mono text-xs text-muted-foreground"
+                      : "font-mono text-[10px] text-muted-foreground shrink-0"
+                  }`}
+                >
                   {formatNumber(item.basePrice, 2)}
                 </span>
               )}
             </div>
             {detailDisplay.showSku && (
-              <div className="text-[10px] text-muted-foreground font-mono truncate w-full">
+              <div
+                className={`text-[10px] text-muted-foreground font-mono truncate w-full ${
+                  isMinimal ? "text-center" : ""
+                }`}
+              >
                 {item.sku}
               </div>
             )}
             {detailDisplay.showIcons &&
               (item.dietaryFlags.length > 0 || item.allergens.length > 0) && (
-                <div className="flex flex-wrap gap-1 pt-1 min-h-4 w-full">
+                <div
+                  className={`flex flex-wrap gap-1 pt-1 min-h-4 w-full ${
+                    isMinimal ? "justify-center" : ""
+                  }`}
+                >
                   {item.dietaryFlags.map((flag) => {
                     const config = iconConfigs[flag];
                     if (!config) return null;
@@ -519,19 +569,18 @@ function CatalogItemCard({
                   })}
                 </div>
               )}
-            {!detailDisplay.showSku &&
-              !detailDisplay.showIcons &&
-              !detailDisplay.showPrice && (
-                <div className="text-[10px] text-muted-foreground/70">
-                  Tap to add
-                </div>
-              )}
           </div>
-          <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground w-full mt-auto">
-            <span className="uppercase tracking-wider truncate flex-1">
-              {category}
-            </span>
-          </div>
+          {!isCategoryMode && (
+            <div
+              className={`flex items-center justify-between gap-2 text-[10px] text-muted-foreground w-full mt-auto ${
+                isMinimal ? "justify-center text-center" : ""
+              }`}
+            >
+              <span className="uppercase tracking-wider truncate flex-1">
+                {category}
+              </span>
+            </div>
+          )}
         </button>
       </TooltipTrigger>
       <TooltipContent side="right" className="text-xs">
