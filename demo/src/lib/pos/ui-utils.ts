@@ -16,6 +16,7 @@ export interface Guest {
   number: number; // Stable sequential number
   alias?: string; // Optional custom name/alias
   description?: string; // Optional custom description/details
+  multiplier?: number;
 }
 
 export const PAYMENT_METHODS = ["Cash", "Visa", "Mastercard", "AMEX"];

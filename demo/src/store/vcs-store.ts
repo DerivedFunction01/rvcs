@@ -184,8 +184,8 @@ interface VCSStore {
   loadIconConfigs: (configs: IconConfig[]) => void;
 
   // Actions — Guests
-  guests: () => Array<{ id: string; name: string }>;
-  addGuest: (name: string) => string;
+  guests: () => Array<{ id: string; name: string; multiplier?: number }>;
+  addGuest: (name: string, multiplier?: number) => string;
   updateGuest: (id: string, name: string) => void;
   hideGuest: (id: string) => void;
 
@@ -789,25 +789,30 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     guests: () => {
       const state = get().projectedState;
-      const guestsList: Array<{ id: string; name: string }> = [];
+      const guestsList: Array<{ id: string; name: string; multiplier?: number }> = [];
       for (const alloc of Object.values(state.allocations)) {
         if (alloc.type === AllocationType.Assignment && !alloc.hidden) {
           if (alloc.allocationId.startsWith("alloc-assign-")) {
             continue;
           }
-          guestsList.push({ id: alloc.allocationId, name: alloc.entity });
+          guestsList.push({
+            id: alloc.allocationId,
+            name: alloc.entity,
+            multiplier: alloc.multiplier ?? 1,
+          });
         }
       }
       return guestsList;
     },
 
-    addGuest: (name: string) => {
+    addGuest: (name: string, multiplier = 1) => {
       const store = get();
       const allocId = generateAllocationId("guest");
       const assignmentAlloc: AssignmentAllocation = {
         allocationId: allocId,
         type: AllocationType.Assignment,
         entity: name,
+        multiplier,
       };
       const paymentMethods = PAYMENT_METHODS;
       const sanitized =
@@ -860,7 +865,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const alloc = store.projectedState.allocations[id];
       if (alloc && alloc.type === AllocationType.Assignment) {
-        const updatedAlloc: AssignmentAllocation = {
+      const updatedAlloc: AssignmentAllocation = {
           ...alloc,
           entity: name,
         };

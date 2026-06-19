@@ -51,6 +51,7 @@ export interface AssignmentAllocation {
   correlationId?: string | null;
   type: AllocationType.Assignment;
   entity: string;
+  multiplier?: number;
   hidden?: boolean;
 }
 

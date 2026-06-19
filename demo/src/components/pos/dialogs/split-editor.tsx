@@ -25,6 +25,7 @@ export interface PaymentSplitEntry {
   strategyType: PaymentStrategyType;
   value: number;
   method?: string | null;
+  multiplier?: number;
 }
 
 const STRATEGY_OPTIONS = [
@@ -204,13 +205,13 @@ export function validateSplit(
 ) {
   const totalPercentage = splits
     .filter((s) => s.strategyType === PaymentStrategyType.Percentage)
-    .reduce((sum, s) => sum + s.value, 0);
+    .reduce((sum, s) => sum + s.value * (s.multiplier ?? 1), 0);
   const totalFixedItem = splits
     .filter((s) => s.strategyType === PaymentStrategyType.FixedItem)
-    .reduce((sum, s) => sum + s.value, 0);
+    .reduce((sum, s) => sum + s.value * (s.multiplier ?? 1), 0);
   const totalFixedGlobal = splits
     .filter((s) => s.strategyType === PaymentStrategyType.FixedGlobal)
-    .reduce((sum, s) => sum + s.value, 0);
+    .reduce((sum, s) => sum + s.value * (s.multiplier ?? 1), 0);
 
   if (splits.length < 1) return false;
   if (itemTotalPrice !== undefined) {
@@ -236,11 +237,13 @@ function GuestSelectionDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  availableGuests: string[];
-  onSelectGuests: (guests: string[]) => void;
+  availableGuests: Array<{ id: string; label: string; multiplier: number }>;
+  onSelectGuests: (guests: Array<{ id: string; multiplier: number }>) => void;
   palette?: string[];
 }) {
   const [selectedGuests, setSelectedGuests] = useState<Set<string>>(new Set());
+  const [multiplier, setMultiplier] = useState(1);
+  const [multiplierPadOpen, setMultiplierPadOpen] = useState(false);
 
   const handleClose = () => {
     setSelectedGuests(new Set());
@@ -248,7 +251,7 @@ function GuestSelectionDialog({
   };
 
   const handleConfirm = () => {
-    onSelectGuests(Array.from(selectedGuests));
+    onSelectGuests(Array.from(selectedGuests).map((id) => ({ id, multiplier })));
     handleClose();
   };
 
@@ -264,9 +267,10 @@ function GuestSelectionDialog({
 
         <GuestGridPicker
           open={open}
-          items={availableGuests.map((guestName) => ({
-            id: guestName,
-            label: guestName,
+          items={availableGuests.map((guest) => ({
+            id: guest.id,
+            label: guest.label,
+            secondary: guest.multiplier > 1 ? `x${guest.multiplier}` : undefined,
           }))}
           selectedIds={selectedGuests}
           onToggle={(guestName) => {
@@ -282,9 +286,23 @@ function GuestSelectionDialog({
           palette={palette}
           showSelectAll
           showClearAll
-          onSelectAll={() => setSelectedGuests(new Set(availableGuests))}
+          onSelectAll={() => setSelectedGuests(new Set(availableGuests.map((g) => g.id)))}
           onClearAll={() => setSelectedGuests(new Set())}
           showCheckbox
+          header={
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Multiplier
+              </span>
+              <Button
+                variant="outline"
+                className="h-9 px-3 text-xs md:h-10 md:px-4 md:text-sm font-semibold"
+                onClick={() => setMultiplierPadOpen(true)}
+              >
+                x{multiplier}
+              </Button>
+            </div>
+          }
           footer={
             <div className="flex gap-2 shrink-0 pt-4 border-t">
               <Button
@@ -304,6 +322,18 @@ function GuestSelectionDialog({
             </div>
           }
         />
+        {multiplierPadOpen && (
+          <NumberPadDialog
+            open={multiplierPadOpen}
+            onOpenChange={setMultiplierPadOpen}
+            title="Guest Multiplier"
+            description="Set how many internal guests this selection represents."
+            initialValue={multiplier}
+            min={1}
+            increment={1}
+            onConfirm={(val) => setMultiplier(val)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -328,7 +358,7 @@ export function SplitEditor({
       "#94a3b8",
     ];
   const guests = useMemo(() => {
-    return getGuests().map((g) => g.name);
+    return getGuests();
   }, [getGuests, allocationsState]);
 
   const [dialogNewGuestName, setDialogNewGuestName] = useState("");
@@ -375,7 +405,7 @@ export function SplitEditor({
   const availableGuests = useMemo(
     () =>
       guests.filter(
-        (g) => !splits.some((s) => s.entity.toLowerCase() === g.toLowerCase()),
+        (g) => !splits.some((s) => s.entity.toLowerCase() === g.name.toLowerCase()),
       ),
     [guests, splits],
   );
@@ -395,7 +425,7 @@ export function SplitEditor({
   }, [splits, onChange]);
 
   const handleAddSpecificGuest = useCallback(
-    (entity: string) => {
+    (entity: string, multiplier = 1) => {
       const trimmed = entity.trim();
       if (!trimmed) return;
       if (splits.some((s) => s.entity.toLowerCase() === trimmed.toLowerCase()))
@@ -415,6 +445,7 @@ export function SplitEditor({
         ...splits,
         {
           entity: trimmed,
+          multiplier,
           strategyType: quickAddStrategy,
           value: isAutoPercent ? Math.floor(100 / n) : valueToUse,
           method: quickAddMethod === "any" ? null : quickAddMethod,
@@ -441,17 +472,19 @@ export function SplitEditor({
   );
 
   const handleAddMultipleGuests = useCallback(
-    (guestNames: string[]) => {
+    (guestEntries: Array<{ id: string; multiplier: number }>) => {
       let newSplits = [...splits];
 
-      for (const name of guestNames) {
-        const trimmed = name.trim();
+      for (const entry of guestEntries) {
+        const guest = guests.find((g) => g.id === entry.id);
+        const trimmed = guest?.name.trim() || "";
         if (!trimmed) continue;
         if (newSplits.some((s) => s.entity.toLowerCase() === trimmed.toLowerCase()))
           continue;
 
         newSplits.push({
           entity: trimmed,
+          multiplier: Math.max(1, entry.multiplier),
           strategyType: quickAddStrategy,
           value: 0,
           method: quickAddMethod === "any" ? null : quickAddMethod,
@@ -481,7 +514,7 @@ export function SplitEditor({
 
       onChange(newSplits);
     },
-    [splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue],
+    [splits, onChange, quickAddStrategy, quickAddMethod, quickAddValue, guests],
   );
 
   const handleAddNewGuest = useCallback(() => {
@@ -553,6 +586,7 @@ export function SplitEditor({
             <div className="flex flex-col gap-1 flex-1 min-w-0">
               <div className="text-xs md:text-sm font-semibold truncate">
                 {split.entity}
+                {split.multiplier && split.multiplier > 1 ? ` ×${split.multiplier}` : ""}
               </div>
               <div className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider">
                 Customize split controls
@@ -730,7 +764,11 @@ export function SplitEditor({
       <GuestSelectionDialog
         open={guestSelectionOpen}
         onOpenChange={setGuestSelectionOpen}
-        availableGuests={availableGuests}
+        availableGuests={availableGuests.map((guest) => ({
+          id: guest.id,
+          label: guest.name,
+          multiplier: guest.multiplier ?? 1,
+        }))}
         onSelectGuests={handleAddMultipleGuests}
         palette={globalGuestPalette}
       />

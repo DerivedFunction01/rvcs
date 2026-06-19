@@ -38,29 +38,22 @@ export function AddGuestDialog({
     }
   }, [open]);
 
-  const handleSubmit = () => {
+  const handleSubmitMultiplier = () => {
     const currentMax = guests.length;
-    if (count === 1) {
-      const a = alias.trim() || `Guest ${currentMax + 1}`;
-      addGuestAction(a);
-    } else {
-      for (let i = 0; i < count; i++) {
-        addGuestAction(`Guest ${currentMax + 1 + i}`);
-      }
+    const a = alias.trim() || `Guest ${currentMax + 1}`;
+    addGuestAction(a, count);
+    onOpenChange(false);
+  };
+
+  const handleSubmitMany = () => {
+    const currentMax = guests.length;
+    for (let i = 0; i < count; i++) {
+      addGuestAction(`Guest ${currentMax + 1 + i}`, 1);
     }
     onOpenChange(false);
   };
 
-  const actionButtons = (
-    <>
-      <Button variant="outline" className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={() => onOpenChange(false)}>
-        Cancel
-      </Button>
-      <Button className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={handleSubmit}>
-        Add {count} Guest{count !== 1 ? "s" : ""}
-      </Button>
-    </>
-  );
+  const showSeparateGuestCountAction = count > 1;
 
   return (
     <>
@@ -79,7 +72,7 @@ export function AddGuestDialog({
           <div className="flex flex-col landscape:flex-row gap-4 flex-1 min-w-0 w-full">
             <div className="space-y-1.5 shrink-0">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Number of guests to add
+                Guest count / multiplier
               </label>
               <div className="flex items-center gap-4 sm:gap-3">
                 <Button
@@ -118,18 +111,38 @@ export function AddGuestDialog({
                   placeholder="e.g. John"
                   className="h-14 sm:h-12 text-base"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSubmit();
+                    if (e.key === "Enter") handleSubmitMultiplier();
                   }}
                 />
               </div>
             )}
           </div>
           <div className="hidden landscape:flex flex-row gap-2 shrink-0">
-            {actionButtons}
+            <Button variant="outline" className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            {showSeparateGuestCountAction && (
+              <Button variant="outline" className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={handleSubmitMany}>
+                Add {count} Guest{count !== 1 ? "s" : ""}
+              </Button>
+            )}
+            <Button className="flex-1 sm:flex-none h-14 sm:h-12 text-base" onClick={handleSubmitMultiplier}>
+              Add Guest x{count}
+            </Button>
           </div>
         </div>
-        <DialogFooter className="gap-3 sm:gap-2 flex-row sm:flex-row pt-2 landscape:hidden w-full space-x-0 sm:space-x-0">
-          {actionButtons}
+        <DialogFooter className="gap-3 sm:gap-2 flex-col sm:flex-row pt-2 landscape:hidden w-full space-x-0 sm:space-x-0">
+          <Button variant="outline" className="flex-1 h-14 sm:h-12 text-base" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          {showSeparateGuestCountAction && (
+            <Button variant="outline" className="flex-1 h-14 sm:h-12 text-base" onClick={handleSubmitMany}>
+              Add {count} Guest{count !== 1 ? "s" : ""}
+            </Button>
+          )}
+          <Button className="flex-1 h-14 sm:h-12 text-base" onClick={handleSubmitMultiplier}>
+            Add Guest x{count}
+          </Button>
         </DialogFooter>
       </DialogContent>
       </Dialog>
@@ -194,17 +207,24 @@ export function GuestPickerDialog({
             const guest = guests.find((g: any) => g.id === item.id);
             if (!guest) return null;
             return (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 sm:h-8 sm:w-8 shrink-0 opacity-100 transition-opacity"
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={`Edit ${guest.name || "guest"}`}
+                className="inline-flex h-10 w-10 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={(e) => {
                   e.stopPropagation();
                   onEditGuest(guest);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onEditGuest(guest);
+                  }
+                }}
               >
                 <Pencil className="h-5 w-5 sm:h-4 sm:w-4 text-muted-foreground sm:hover:text-foreground" />
-              </Button>
+              </span>
             );
           }}
           footer={

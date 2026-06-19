@@ -382,6 +382,7 @@ export function GlobalSettingsDialog({
           navigationMode: localPrefs.catalogNavigationMode,
           gridRows: localPrefs.catalogGridRows,
           gridCols: localPrefs.catalogGridCols,
+          categoryMode: localPrefs.catalogCategoryMode,
         }}
         onChange={(next) =>
           setLocalPrefs((prev: any) => ({
@@ -390,6 +391,7 @@ export function GlobalSettingsDialog({
             catalogNavigationMode: next.navigationMode,
             catalogGridRows: next.gridRows,
             catalogGridCols: next.gridCols,
+            catalogCategoryMode: next.categoryMode,
           }))
         }
       />
