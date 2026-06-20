@@ -160,6 +160,7 @@ interface InternalLineItem {
   resolvedPrice: number;
   isConfirmed: boolean;
   hasPendingChanges?: boolean;
+  addItemCommitHash?: string;
 }
 
 function isMainQtyLocked(
@@ -275,6 +276,53 @@ export function projectState(
   return buildProjectedState(items, allocations, catalog);
 }
 
+function isCommitConfirmedBefore(
+  log: VCSCommit[],
+  addItemHash: string,
+  removeItemHash: string,
+): boolean {
+  if (!addItemHash || !removeItemHash) return false;
+
+  const hasAncestor = (startHash: string, targetHash: string): boolean => {
+    const queue = [startHash];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current === targetHash) return true;
+      if (visited.has(current)) continue;
+      visited.add(current);
+
+      const commit = log.find((c) => c.commitHash === current);
+      if (commit) {
+        if (commit.parentHash) queue.push(commit.parentHash);
+        if (commit.mergeParentHashes) {
+          queue.push(...commit.mergeParentHashes);
+        }
+      }
+    }
+    return false;
+  };
+
+  for (const c of log) {
+    const isMergeOrInit =
+      (c.branch === "main" &&
+        c.mergeParentHashes &&
+        c.mergeParentHashes.length > 0) ||
+      c.authorId === "system-init";
+
+    if (isMergeOrInit) {
+      if (hasAncestor(c.commitHash, addItemHash)) {
+        if (!hasAncestor(c.commitHash, removeItemHash)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 // ─── Delta Application ─────────────────────────────────────────────────────────
 
 function applyDelta(
@@ -323,7 +371,15 @@ function applyDelta(
           break;
         }
 
-        if (item.isConfirmed) {
+        const isConfirmedBefore =
+          item.isConfirmed &&
+          isCommitConfirmedBefore(
+            fullLog,
+            item.addItemCommitHash || "",
+            commitHash,
+          );
+
+        if (isConfirmedBefore) {
           const removeAmount = Math.min(item.qty, delta.qty);
           item.qty -= removeAmount;
           item.canceledQty += removeAmount;
@@ -880,7 +936,12 @@ function buildProjectedState(
     }
   >();
   for (const person of people) {
-    personMap.set(person, { subtotal: 0, items: [], paymentMethod: null, paymentBreakdown: new Map() });
+    personMap.set(person, {
+      subtotal: 0,
+      items: [],
+      paymentMethod: null,
+      paymentBreakdown: new Map(),
+    });
   }
 
   const globalFixedBalances = new Map<string, number>();
@@ -906,7 +967,12 @@ function buildProjectedState(
     const assignee = getAssignee(root, allocations) || "Guest";
     // Ensure assignee is in the map
     if (assignee !== "Guest" && !personMap.has(assignee)) {
-      personMap.set(assignee, { subtotal: 0, items: [], paymentMethod: null, paymentBreakdown: new Map() });
+      personMap.set(assignee, {
+        subtotal: 0,
+        items: [],
+        paymentMethod: null,
+        paymentBreakdown: new Map(),
+      });
     }
 
     const paymentAllocs = root.allocations
@@ -930,7 +996,10 @@ function buildProjectedState(
         pData.paymentMethod = defaultPaymentMethod;
       }
       const pmType = defaultPaymentMethod || "card";
-      pData.paymentBreakdown.set(pmType, (pData.paymentBreakdown.get(pmType) || 0) + lineTotal);
+      pData.paymentBreakdown.set(
+        pmType,
+        (pData.paymentBreakdown.get(pmType) || 0) + lineTotal,
+      );
       personMap.set(assignee, pData);
     } else {
       let remaining = lineTotal;
@@ -1026,7 +1095,10 @@ function buildProjectedState(
             pData.paymentMethod = alloc.method;
           }
           const pmType = alloc.method || "card";
-          pData.paymentBreakdown.set(pmType, (pData.paymentBreakdown.get(pmType) || 0) + amount);
+          pData.paymentBreakdown.set(
+            pmType,
+            (pData.paymentBreakdown.get(pmType) || 0) + amount,
+          );
           personMap.set(payer, pData);
         }
       }
