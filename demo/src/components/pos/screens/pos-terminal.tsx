@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
+import { ComboEditDialog } from "@/components/pos/dialogs/combo-edit-dialog";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
 import { usePostTerminalActions } from "@/components/pos/screens/hooks/use-post-terminal-actions";
@@ -312,6 +313,13 @@ export function POSTerminalScreen({
   const [combineDialogOpen, setCombineDialogOpen] = React.useState(false);
   const [qtyStepPadOpen, setQtyStepPadOpen] = React.useState(false);
   const [paymentOpen, setPaymentOpen] = React.useState(false);
+  const [comboEditItemId, setComboEditItemId] = React.useState<string | null>(
+    null,
+  );
+  const comboEditItem = comboEditItemId
+    ? projectedState.items[comboEditItemId]
+    : null;
+  const [comboEditDialogOpen, setComboEditDialogOpen] = React.useState(false);
   const formatNumber = useFormatNumber();
 
   const hasCollapsedItems = collapsedItems.size > 0;
@@ -799,6 +807,30 @@ export function POSTerminalScreen({
     handleAttachNoteToOrder,
   } = terminalActions;
 
+  const handleAddItemExtended = React.useCallback(
+    (sku: string) => {
+      handleAddItem(sku);
+
+      const entry = catalog[sku];
+      if (entry?.comboChoices && entry.comboChoices.length > 0) {
+        setTimeout(() => {
+          const currentProj = useVCSStore.getState().projectedState;
+          const rootItems = Object.values(currentProj.items).filter(
+            (item: any) =>
+              !item.parentLineId && item.status !== ItemStatus.Canceled,
+          );
+          const matched = rootItems.filter((item: any) => item.sku === sku);
+          if (matched.length > 0) {
+            const newItem = matched[matched.length - 1];
+            setComboEditItemId(newItem.lineId);
+            setComboEditDialogOpen(true);
+          }
+        }, 50);
+      }
+    },
+    [handleAddItem, catalog],
+  );
+
   const handleAddModifierInline = React.useCallback(
     (sku: string, state?: string) => {
       if (selectedItems.length !== 1) return;
@@ -1141,7 +1173,7 @@ export function POSTerminalScreen({
             groupedCatalog={groupedCatalog}
             availableTags={availableTags}
             iconConfigs={iconConfigs}
-            onAddItem={handleAddItem}
+            onAddItem={handleAddItemExtended}
             catalogFilter={catalogFilter}
             setCatalogFilter={setCatalogFilter}
             requireTags={requireTags}
@@ -1227,6 +1259,10 @@ export function POSTerminalScreen({
             onRemoveModifier={handleRemoveModifierInline}
             onEditModifiers={handleOpenModifierDialog}
             onAllocConfig={handleAllocConfig}
+            onModifyCombo={(item) => {
+              setComboEditItemId(item.lineId);
+              setComboEditDialogOpen(true);
+            }}
             onSwapComboChoice={handleOpenSwapDialog}
             onGroupNoteOpen={handleOpenGroupNoteDialog}
             selectedLineIds={selectedLineIds}
@@ -1565,6 +1601,17 @@ export function POSTerminalScreen({
               console.error("Failed to archive completed order:", err);
               store.resetOrder();
             });
+        }}
+      />
+      <ComboEditDialog
+        open={comboEditDialogOpen}
+        onOpenChange={setComboEditDialogOpen}
+        comboItem={comboEditItem}
+        catalog={catalog}
+        onSwapChoice={(oldLineId, parentLineId, newSku, modifierSku) => {
+          useVCSStore
+            .getState()
+            .swapComboChoice(oldLineId, parentLineId, newSku, modifierSku);
         }}
       />
     </TooltipProvider>

@@ -48,6 +48,7 @@ import {
   Split,
   ChevronLeft,
   HatGlasses,
+  Flame,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { formatLabel } from "@/lib/pos/ui-utils";
@@ -76,6 +77,7 @@ interface VerticalActionsPanelProps {
     parentLineId: string,
     slotSku: string,
   ) => void;
+  onModifyCombo?: (item: ProjectedLineItem) => void;
   onGroupNoteOpen: (ids: string[]) => void;
 
   // Selection props
@@ -125,6 +127,7 @@ export function VerticalActionsPanel({
   onEditModifiers,
   onAllocConfig,
   onSwapComboChoice,
+  onModifyCombo,
   onGroupNoteOpen,
 
   // Selection
@@ -197,6 +200,7 @@ export function VerticalActionsPanel({
   }, [isComboLinkedChild, item, projectedState, catalog]);
 
   const canSwitchCombo = !!comboSwapTarget;
+  const isComboRoot = !!item && !item.parentLineId && !!catalog[item.sku]?.comboChoices?.length;
 
   // Multi-item checks (for advanced mode)
   const hasSelection = selectedLineIds.size > 0;
@@ -502,6 +506,32 @@ export function VerticalActionsPanel({
                   {!item
                     ? "Select exactly one item to configure allocations"
                     : `Configure allocations for ${item.name}`}
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Modify Combo */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!item || !isComboRoot}
+                    onClick={() => {
+                      if (item && onModifyCombo) {
+                        onModifyCombo(item);
+                      }
+                    }}
+                    className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
+                  >
+                    <Flame className="w-4 h-4 text-amber-500" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="text-xs">
+                  {!item
+                    ? "Select exactly one item to modify combo"
+                    : !isComboRoot
+                      ? "Selected item is not a combo root"
+                      : `Modify choices for ${item.name}`}
                 </TooltipContent>
               </Tooltip>
 
