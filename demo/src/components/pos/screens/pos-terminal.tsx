@@ -25,7 +25,6 @@ import { PosBranchDialogs } from "@/components/pos/screens/dialogs/pos-branch-di
 import { PosChoiceDialogs } from "@/components/pos/screens/dialogs/pos-choice-dialogs";
 import { PosGuestDialogs } from "@/components/pos/screens/dialogs/pos-guest-dialogs";
 import { PosOtherDialogs } from "@/components/pos/screens/dialogs/pos-other-dialogs";
-import { GlobalSettingsDialog } from "@/components/pos/dialogs/global-settings-dialog";
 
 import { ActiveCheckPanel } from "@/components/pos/panels/active-check-panel";
 import { CatalogPanel } from "@/components/pos/panels/catalog-panel";
@@ -35,7 +34,10 @@ import { ActiveCheckBottom } from "@/components/pos/panels/active-check-bottom";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
 import { VerticalActionsPanel } from "@/components/pos/panels/vertical-actions-panel";
 import { PosScreen } from "@/lib/pos/types";
-import { PaymentDialog, printReceipt } from "@/components/pos/dialogs/payment-dialog";
+import {
+  PaymentDialog,
+  printReceipt,
+} from "@/components/pos/dialogs/payment-dialog";
 
 import { OrderDefaultsDialog } from "@/components/pos/dialogs/order-defaults-dialog";
 import { GuestFilterDialog } from "@/components/pos/dialogs/filter-guest-dialog";
@@ -47,6 +49,8 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -86,8 +90,10 @@ import {
   Layers,
   Lightbulb,
   Lock,
+  LogOut,
   MessageSquare,
-  Settings2,
+  Save,
+  Trash2,
   User,
   XCircle,
   ChevronsUpDown,
@@ -223,8 +229,6 @@ export function POSTerminalScreen({
     setHistoryOpDialog,
     setIsBranchManagerOpen,
     branchToConfig,
-    showResetConfirm,
-    setShowResetConfirm,
   } = branchDialogs;
 
   const repoId = engine.getRepo().contextId;
@@ -284,7 +288,8 @@ export function POSTerminalScreen({
   );
 
   const [hideCanceled, setHideCanceled] = React.useState(false);
-  const [globalSettingsOpen, setGlobalSettingsOpen] = React.useState(false);
+
+  const [exitDialogOpen, setExitDialogOpen] = React.useState(false);
   const [orderDefaultsOpen, setOrderDefaultsOpen] = React.useState(false);
   const [guestFilterOpen, setGuestFilterOpen] = React.useState(false);
   const [catalogFilter, setCatalogFilter] = React.useState("");
@@ -737,7 +742,6 @@ export function POSTerminalScreen({
     branchToConfig,
     noteItem,
     setNoteDialogOpen,
-    setShowResetConfirm,
     setAddGuestOpen,
   });
   const {
@@ -745,7 +749,6 @@ export function POSTerminalScreen({
     handleRemoveNoteFromItems,
     handleCleanupStaleNotes,
     handleAttachNoteToOrder,
-    handleResetOrder,
   } = terminalActions;
 
   const handleAddModifierInline = React.useCallback(
@@ -813,16 +816,6 @@ export function POSTerminalScreen({
         {/* ─── Header ────────────────────────────────────────────────────── */}
         <header className="border-b bg-card px-4 py-2 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs font-bold gap-1 px-2.5 rounded-lg hover:bg-accent hover:text-accent-foreground"
-              onClick={() => router.push("/admin")}
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>User Settings</span>
-            </Button>
-
             {getBranchButton(
               activeBranch,
               mainActiveBranch,
@@ -1079,51 +1072,16 @@ export function POSTerminalScreen({
               </Tooltip>
             </div>
 
-            <SeparatorUI orientation="vertical" className="h-6" />
-
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="h-7 text-xs px-2 text-muted-foreground"
-              onClick={() => setGlobalSettingsOpen(true)}
-              title="Global Settings"
+              className="h-7 text-xs px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setExitDialogOpen(true)}
+              title="Exit order"
             >
-              <Settings2 className="w-3 h-3 mr-1" />
-              Settings
+              <LogOut className="w-3 h-3 mr-1" />
+              Exit
             </Button>
-            {showResetConfirm ? (
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-destructive">
-                  End this order?
-                </span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-7 text-xs px-2"
-                  onClick={handleResetOrder}
-                >
-                  Confirm
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-2"
-                  onClick={() => setShowResetConfirm(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs px-2 text-muted-foreground"
-                onClick={() => setShowResetConfirm(true)}
-              >
-                <XCircle className="w-3 h-3 mr-1" />
-                New Order
-              </Button>
-            )}
           </div>
         </header>
 
@@ -1386,10 +1344,57 @@ export function POSTerminalScreen({
         selectedLineIdsSize={selectedLineIds.size}
         selectedLineIdsArray={Array.from(selectedLineIds)}
       />
-      <GlobalSettingsDialog
-        open={globalSettingsOpen}
-        onOpenChange={setGlobalSettingsOpen}
-      />
+      {/* ─── Exit Confirmation Dialog ────────────────────────────────── */}
+      <Dialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <LogOut className="w-4 h-4 text-muted-foreground" />
+              Exit Order
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Would you like to save this order as a draft before exiting, or
+              discard it entirely?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col mt-2">
+            <Button
+              className="w-full gap-2"
+              onClick={async () => {
+                setExitDialogOpen(false);
+                const store = useVCSStore.getState();
+                if (store.isInitialized) await store.saveDraft();
+                store.resetOrder();
+                toast.success("Draft saved — ready for a new order");
+                router.push("/history");
+              }}
+            >
+              <Save className="w-4 h-4" />
+              Save & Exit
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+              onClick={() => {
+                setExitDialogOpen(false);
+                useVCSStore.getState().resetOrder();
+                toast.info("Order discarded");
+              }}
+            >
+              <Trash2 className="w-4 h-4" />
+              Discard & Exit
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full text-xs text-muted-foreground"
+              onClick={() => setExitDialogOpen(false)}
+            >
+              Stay on Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <OrderDefaultsDialog
         open={orderDefaultsOpen}
         onOpenChange={setOrderDefaultsOpen}

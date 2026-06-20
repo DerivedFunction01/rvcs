@@ -28,7 +28,6 @@ export function usePostTerminalActions({
   branchToConfig,
   noteItem,
   setNoteDialogOpen,
-  setShowResetConfirm,
   setAddGuestOpen,
 }: {
   selectedPerson: string;
@@ -45,7 +44,6 @@ export function usePostTerminalActions({
   branchToConfig: string | null;
   noteItem: ProjectedLineItem | null;
   setNoteDialogOpen: (open: boolean) => void;
-  setShowResetConfirm: (open: boolean) => void;
   setAddGuestOpen: (open: boolean) => void;
 }) {
   const {
@@ -358,17 +356,6 @@ export function usePostTerminalActions({
     [createBranch, viewingHash],
   );
 
-  const handleResetOrder = useCallback(async () => {
-    const store = useVCSStore.getState();
-    if (store.isInitialized) {
-      await store.saveDraft();
-    }
-    resetOrder();
-    setShowResetConfirm(false);
-    setAddGuestOpen(false);
-    toast.success("Order reset — ready for a new order");
-  }, [resetOrder, setShowResetConfirm, setAddGuestOpen]);
-
   return {
     handleConfirmHistoryOp,
     handleSaveCustomerFields,
@@ -389,6 +376,5 @@ export function usePostTerminalActions({
     handleCleanupStaleNotes,
     handleAttachNoteToOrder,
     handleCreateBranch,
-    handleResetOrder,
   };
 }
