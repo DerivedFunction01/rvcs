@@ -380,8 +380,22 @@ export class VCSEngine {
     );
   }
 
+  getSystemBranch(): string {
+    const termId = this.repo.terminalId;
+    if (termId) {
+      const termSystem = `term-${termId}/system`;
+      if (this.repo.branches[termSystem]) {
+        return termSystem;
+      }
+    }
+    const systemBranchName = Object.keys(this.repo.branches).find(
+      (name) => this.repo.branches[name]?.type === BranchType.System,
+    );
+    return systemBranchName || "system";
+  }
+
   getSystemHash(): string | null {
-    return this.repo.branches["system"]?.headHash ?? null;
+    return this.repo.branches[this.getSystemBranch()]?.headHash ?? null;
   }
 
   getConfirmedHash(): string | null {
@@ -553,6 +567,13 @@ export class VCSEngine {
   }
 
   getMainActiveBranch(): string {
+    const termId = this.repo.terminalId;
+    if (termId) {
+      const termMain = `term-${termId}/main`;
+      if (this.repo.branches[termMain]) {
+        return termMain;
+      }
+    }
     const mainBranchName = Object.keys(this.repo.branches).find(
       (name) => this.repo.branches[name]?.type === BranchType.Main,
     );

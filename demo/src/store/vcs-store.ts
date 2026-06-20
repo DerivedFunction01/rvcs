@@ -138,15 +138,20 @@ function isMainQtyLocked(
 
 // ─── Create Default Repo ──────────────────────────────────────────────────────
 
-function createFreshRepo(orderContext?: OrderContext): VCSRepo {
+function createFreshRepo(
+  orderContext?: OrderContext,
+  terminalId: string = "term-1",
+): VCSRepo {
+  const mainBranchName = `term-${terminalId}/main`;
   return {
     contextType: RepoContextType.Cart,
     contextId: generateContextId(),
     orderContext,
     preferences: {},
     log: [],
-    branches: { main: { headHash: null, type: BranchType.Main } },
-    activeBranch: "main",
+    branches: { [mainBranchName]: { headHash: null, type: BranchType.Main } },
+    activeBranch: mainBranchName,
+    terminalId,
   };
 }
 
@@ -167,6 +172,7 @@ interface VCSStore {
   orderContext: OrderContext | null;
   defaultPaymentMethod: string; // from POS config
   preferences: Record<string, unknown>;
+  terminalId: string | null;
   currentScreen: PosScreen;
   setScreen: (screen: PosScreen) => void;
 
@@ -483,6 +489,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     orderContext: null,
     defaultPaymentMethod: "cash",
     preferences: {},
+    terminalId: "term-1",
     currentScreen: PosScreen.Terminal,
     setScreen: (screen) => set({ currentScreen: screen }),
 
@@ -568,7 +575,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           orderContext.orderType = matchedEnum;
         }
       }
-      const repo = createFreshRepo(orderContext);
+      const repo = createFreshRepo(orderContext, get().terminalId || "term-1");
       const newEngine = new VCSEngine(repo);
       // Restore catalog if already loaded
       const store = get();
@@ -734,7 +741,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           // ignore
         }
       }
-      const repo = createFreshRepo();
+      const repo = createFreshRepo(undefined, get().terminalId || "term-1");
       const newEngine = new VCSEngine(repo);
       const store = get();
       if (store.catalogLoaded) {
@@ -3486,7 +3493,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       let parentBranch = fromBranch;
 
       const mainBranch = store.engine.getMainActiveBranch();
-      if (fromBranch === mainBranch || store.engine.getRepo().branches[fromBranch]?.type === BranchType.Main) {
+      if (
+        fromBranch === mainBranch ||
+        store.engine.getRepo().branches[fromBranch]?.type === BranchType.Main
+      ) {
         const serverName = store.orderContext?.serverName || "server";
         let draftBranchName = generateDraftBranchName(serverName);
         let suffix = 2;
@@ -3541,7 +3551,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const hypotheticalSources =
         (store.preferences.hypotheticalSources as Record<string, string>) || {};
-      const parentBranch = hypotheticalSources[hypBranch] || store.engine.getMainActiveBranch();
+      const parentBranch =
+        hypotheticalSources[hypBranch] || store.engine.getMainActiveBranch();
 
       if (keep) {
         store.commitMerge([hypBranch], parentBranch, []);
@@ -3595,7 +3606,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const active = store.engine.getActiveBranch();
       const mainBranch = store.engine.getMainActiveBranch();
       const activeBranchType = store.engine.getRepo().branches[active]?.type;
-      if (active === mainBranch || activeBranchType === BranchType.Main) return true;
+      if (active === mainBranch || activeBranchType === BranchType.Main)
+        return true;
       try {
         const head = store.engine.getRepo().branches[active]?.headHash;
         if (!head) return true;
@@ -3828,6 +3840,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             contextType: repo.contextType || "cart",
             serverName: (repo.orderContext as any)?.serverName || "Tom",
             orderContext: repo.orderContext,
+            terminalId: store.terminalId || undefined,
             commits: repo.log.map((c) => ({
               commitHash: c.commitHash,
               parentHash: c.parentHash,
@@ -3853,19 +3866,25 @@ export const useVCSStore = create<VCSStore>((set, get) => {
 
     checkoutRepo: async (repoId: string) => {
       try {
-        const response = await fetch(`/api/sync/pull?contextId=${repoId}`);
+        const store = get();
+        const termId = store.terminalId || "term-1";
+        const response = await fetch(
+          `/api/sync/pull?contextId=${repoId}&terminalId=${termId}`,
+        );
         if (!response.ok) {
           throw new Error("Failed to fetch repository from backend");
         }
         const data = await response.json();
         const { commits, contextId, orderContext } = data;
 
+        const termMain = `term-${termId}/main`;
+
         // Reconstruct branches by finding the latest commit for each branch name
         const branches: Record<
           string,
           { headHash: string | null; type?: BranchType }
         > = {
-          main: { headHash: null },
+          [termMain]: { headHash: null, type: BranchType.Main },
         };
 
         // Ensure system branch exists
@@ -3876,9 +3895,12 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           const branchName = commit.branch;
           if (!branches[branchName]) {
             let type = BranchType.Parallel;
-            if (branchName === "main") {
+            if (branchName === termMain || branchName === "main") {
               type = BranchType.Main;
-            } else if (branchName === "system") {
+            } else if (
+              branchName === `term-${termId}/system` ||
+              branchName === "system"
+            ) {
               type = BranchType.System;
             }
             branches[branchName] = { headHash: null, type };
@@ -3887,7 +3909,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
 
         // Determine activeBranch: the one with the most recent commit, or fallback to main
-        let activeBranch = "main";
+        let activeBranch = termMain;
         if (commits.length > 0) {
           // Find the last non-system commit
           const lastNonSystemCommit = [...commits]
@@ -3906,10 +3928,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           log: commits,
           branches: branches as any,
           activeBranch,
+          terminalId: termId,
         };
 
         const newEngine = new VCSEngine(repo);
-        const store = get();
         if (store.catalogLoaded) {
           newEngine.setCatalog(Object.values(store.catalog));
         }

@@ -432,6 +432,9 @@ export interface VCSRepo {
   branches: BranchMap;
   activeBranch: string;
   mainActiveBranch?: string;
+  terminalId?: string;
+  dbMainHead?: string | null;
+  dbSystemHead?: string | null;
 }
 
 // ─── Merge Semantics ──────────────────────────────────────────────────────────
