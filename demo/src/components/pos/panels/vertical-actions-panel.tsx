@@ -47,6 +47,7 @@ import {
   Equal,
   Split,
   ChevronLeft,
+  HatGlasses,
 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { formatLabel } from "@/lib/pos/ui-utils";
@@ -102,6 +103,9 @@ interface VerticalActionsPanelProps {
   canCombine: boolean;
   onEditModifiersBulk: () => void;
   canEditModifiersBulk: boolean;
+  isHypotheticalMode: boolean;
+  onEnterHypothetical: () => void;
+  onExitHypothetical: () => void;
 }
 
 export function VerticalActionsPanel({
@@ -148,6 +152,9 @@ export function VerticalActionsPanel({
   canCombine,
   onEditModifiersBulk,
   canEditModifiersBulk,
+  isHypotheticalMode,
+  onEnterHypothetical,
+  onExitHypothetical,
 }: VerticalActionsPanelProps) {
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const [trayMode, setTrayMode] = useState<"item" | "advanced">("item");
@@ -221,6 +228,31 @@ export function VerticalActionsPanel({
           </TooltipTrigger>
           <TooltipContent side="left" className="text-xs">
             Search & Filter
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Hypothetical / What-if Mode Toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isHypotheticalMode ? "secondary" : "ghost"}
+              size="sm"
+              onClick={
+                isHypotheticalMode ? onExitHypothetical : onEnterHypothetical
+              }
+              className={`h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none transition-all ${
+                isHypotheticalMode
+                  ? "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20 animate-pulse"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+            >
+              <HatGlasses className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            {isHypotheticalMode
+              ? "End What-If Session"
+              : "Start What-If Session"}
           </TooltipContent>
         </Tooltip>
 

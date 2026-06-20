@@ -26,7 +26,7 @@ import {
   Filter,
   GitBranch,
   GitCommitHorizontal,
-  Lightbulb,
+  HatGlasses,
   PanelRightClose,
   PanelRightOpen,
   RotateCcw,
@@ -434,7 +434,7 @@ export function CommitLedgerPanel(props: any) {
                                   >
                                     {branches[commit.branch]?.type ===
                                     "hypothetical" ? (
-                                      <Lightbulb className="w-2.5 h-2.5" />
+                                      <HatGlasses className="w-2.5 h-2.5" />
                                     ) : (
                                       <GitBranch className="w-2.5 h-2.5" />
                                     )}

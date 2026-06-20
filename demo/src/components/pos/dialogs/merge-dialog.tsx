@@ -46,7 +46,13 @@ import type {
   ProjectedLineItem,
   ProjectedState,
 } from "@/lib/vcs/types";
-import { AllocationType, DeltaActionType, MergeConflictType, SquashType, TimeBlockType } from "@/lib/vcs/types";
+import {
+  AllocationType,
+  DeltaActionType,
+  MergeConflictType,
+  SquashType,
+  TimeBlockType,
+} from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
 import {
   AlertTriangle,
@@ -61,7 +67,7 @@ import {
   Eye,
   GitBranch,
   GitMerge,
-  Lightbulb,
+  HatGlasses,
   Loader2,
   Lock,
   Package,
@@ -71,7 +77,7 @@ import {
   Tag,
   TriangleAlert,
   User,
-  Zap
+  Zap,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
@@ -165,7 +171,7 @@ function BranchBadge({
       }`}
     >
       {isHypothetical ? (
-        <Lightbulb className="w-2.5 h-2.5" />
+        <HatGlasses className="w-2.5 h-2.5" />
       ) : (
         <GitBranch className="w-2.5 h-2.5" />
       )}
@@ -185,31 +191,37 @@ function ConflictCard({
   onChange: (id: string, resolution: string) => void;
   autoMergedState?: ProjectedState;
 }) {
-  const isSemanticWarning = conflict.type === MergeConflictType.ModifyQtyModifyInlineQty;
+  const isSemanticWarning =
+    conflict.type === MergeConflictType.ModifyQtyModifyInlineQty;
 
   const options: {
     branch: string | "both";
     label: string;
     description: string;
-  }[]  = [];
+  }[] = [];
 
   if (isSemanticWarning) {
     options.push({
       branch: "both",
       label: "Acknowledge & Keep Both",
-      description: "Allow both count and measurement changes to compound naturally.",
+      description:
+        "Allow both count and measurement changes to compound naturally.",
     });
   }
 
   options.push({
     branch: conflict.branchA,
-    label: isSemanticWarning ? `Revert ${conflict.branchB} and Keep ${conflict.branchA}` : conflict.branchA,
+    label: isSemanticWarning
+      ? `Revert ${conflict.branchB} and Keep ${conflict.branchA}`
+      : conflict.branchA,
     description: deltaDescription(conflict.deltaA, conflict.branchA),
   });
 
   options.push({
     branch: conflict.branchB,
-    label: isSemanticWarning ? `Revert ${conflict.branchA} and Keep ${conflict.branchB}` : conflict.branchB,
+    label: isSemanticWarning
+      ? `Revert ${conflict.branchA} and Keep ${conflict.branchB}`
+      : conflict.branchB,
     description: deltaDescription(conflict.deltaB, conflict.branchB),
   });
 
@@ -358,7 +370,10 @@ function findItemForConflict(
     const log = useVCSStore.getState().engine.getRepo().log;
     for (const commit of log) {
       for (const delta of commit.deltas) {
-        if (delta.action === DeltaActionType.AddItem && delta.lineId === lineId) {
+        if (
+          delta.action === DeltaActionType.AddItem &&
+          delta.lineId === lineId
+        ) {
           const sku = delta.sku;
           const catalogEntry = useVCSStore.getState().catalog[sku];
           if (catalogEntry) {
@@ -432,9 +447,15 @@ function formatAllocationBlock(
     if (ful.time) {
       if (ful.time.type === TimeBlockType.Immediate) {
         timePart = " (On Confirmation)";
-      } else if (ful.time.type === TimeBlockType.Scheduled && ful.time.calculatedAt) {
+      } else if (
+        ful.time.type === TimeBlockType.Scheduled &&
+        ful.time.calculatedAt
+      ) {
         timePart = ` (Scheduled @ ${formatFulfillmentTime(ful.time.calculatedAt, initiatedAt)})`;
-      } else if (ful.time.type === TimeBlockType.Deferred && ful.time.calculatedAt) {
+      } else if (
+        ful.time.type === TimeBlockType.Deferred &&
+        ful.time.calculatedAt
+      ) {
         timePart = ` (Deferred @ ${formatFulfillmentTime(ful.time.calculatedAt, initiatedAt)})`;
       }
     }
@@ -1082,8 +1103,18 @@ function ConflictsDialog({
                     <div className="flex flex-wrap gap-1.5">
                       {activeConflict.resolution === "both" ? (
                         <>
-                          {renderIncomingChangeBadges(activeConflict.deltaA, autoMergedState, catalog, initiatedAt)}
-                          {renderIncomingChangeBadges(activeConflict.deltaB, autoMergedState, catalog, initiatedAt)}
+                          {renderIncomingChangeBadges(
+                            activeConflict.deltaA,
+                            autoMergedState,
+                            catalog,
+                            initiatedAt,
+                          )}
+                          {renderIncomingChangeBadges(
+                            activeConflict.deltaB,
+                            autoMergedState,
+                            catalog,
+                            initiatedAt,
+                          )}
                         </>
                       ) : (
                         renderIncomingChangeBadges(
@@ -1168,7 +1199,12 @@ function ConflictsDialog({
             )}
 
             <div className="pt-4 border-t mt-auto shrink-0 hidden landscape:block">
-              <Button className="w-full h-9" onClick={() => onOpenChange(false)}>Done</Button>
+              <Button
+                className="w-full h-9"
+                onClick={() => onOpenChange(false)}
+              >
+                Done
+              </Button>
             </div>
           </div>
 
@@ -1207,7 +1243,9 @@ function ConflictsDialog({
                     </div>
                   </div>
 
-                  <div className={`p-3 rounded-xl border bg-background/50 space-y-3 transition-all animate-fadeIn ${showDetails ? 'block' : 'hidden landscape:block'}`}>
+                  <div
+                    className={`p-3 rounded-xl border bg-background/50 space-y-3 transition-all animate-fadeIn ${showDetails ? "block" : "hidden landscape:block"}`}
+                  >
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                       Detailed Changes Comparison
                     </p>
@@ -1251,9 +1289,11 @@ function ConflictsDialog({
             </div>
           )}
         </div>
-        
+
         <div className="pt-4 border-t shrink-0 landscape:hidden mt-2">
-          <Button className="w-full h-9" onClick={() => onOpenChange(false)}>Done</Button>
+          <Button className="w-full h-9" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -1265,7 +1305,7 @@ function ConflictsDialog({
 function renderLineItem(
   item: ProjectedLineItem,
   depth: number = 0,
-  formatNumber: (value: number, decimals?: number) => string
+  formatNumber: (value: number, decimals?: number) => string,
 ): React.ReactNode {
   const indent = depth * 12;
   return (
@@ -1357,12 +1397,14 @@ function MergedStateSheet({
 
             {/* Person breakdown */}
             {(() => {
-              const activePayers = personBreakdown.filter(pb => pb.subtotal > 0).sort((a, b) => b.subtotal - a.subtotal);
+              const activePayers = personBreakdown
+                .filter((pb) => pb.subtotal > 0)
+                .sort((a, b) => b.subtotal - a.subtotal);
               if (activePayers.length === 0) return null;
-              
+
               const visible = activePayers.slice(0, 5);
               const hiddenCount = activePayers.length - visible.length;
-              
+
               return (
                 <section className="space-y-2">
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1397,14 +1439,20 @@ function MergedStateSheet({
                     {hiddenCount > 0 && (
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full text-xs">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs"
+                          >
                             Show {hiddenCount} more paying entities
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-md">
                           <DialogHeader>
                             <DialogTitle>All Paying Entities</DialogTitle>
-                            <DialogDescription>Full breakdown of amounts owed by each person.</DialogDescription>
+                            <DialogDescription>
+                              Full breakdown of amounts owed by each person.
+                            </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                             {activePayers.map((pb) => (
@@ -1499,7 +1547,7 @@ function StepSelectBranches({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const branchNames = Object.keys(branches).filter(b => b !== "system");
+  const branchNames = Object.keys(branches).filter((b) => b !== "system");
   const mainBranchName = useVCSStore.getState().mainActiveBranch();
   const availableSources = branchNames.filter((b) => b !== targetBranch);
   const mergeableSources = availableSources.filter(
@@ -1517,7 +1565,10 @@ function StepSelectBranches({
   const filteredSources = availableSources.filter((b) => {
     const q = debouncedQuery.toLowerCase().trim();
     if (!q) return true;
-    return b.toLowerCase().includes(q) || branches[b]?.label?.toLowerCase().includes(q);
+    return (
+      b.toLowerCase().includes(q) ||
+      branches[b]?.label?.toLowerCase().includes(q)
+    );
   });
 
   return (
@@ -1529,39 +1580,39 @@ function StepSelectBranches({
             Merge into (target)
           </label>
           <Select
-          value={targetBranch}
-          onValueChange={(v) => {
-            setTargetBranch(v);
-            setSelectedSources(new Set());
-          }}
-        >
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {branchNames.map((b) => {
-              const isLocked =
-                b !== mainBranchName && isAlreadyMerged(b, mainBranchName);
-              return (
-                <SelectItem key={b} value={b} disabled={isLocked}>
-                  <div className="flex items-center gap-2 w-full">
-                    <BranchBadge name={b} pointer={branches[b]} />
-                    {b === activeBranch && (
-                      <span className="text-[10px] text-muted-foreground">
-                        (active)
-                      </span>
-                    )}
-                    {isLocked && (
-                      <span className="text-[9px] text-muted-foreground/60 flex items-center gap-1 font-sans ml-auto">
-                        <Lock className="w-2.5 h-2.5" /> merged to main
-                      </span>
-                    )}
-                  </div>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
+            value={targetBranch}
+            onValueChange={(v) => {
+              setTargetBranch(v);
+              setSelectedSources(new Set());
+            }}
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {branchNames.map((b) => {
+                const isLocked =
+                  b !== mainBranchName && isAlreadyMerged(b, mainBranchName);
+                return (
+                  <SelectItem key={b} value={b} disabled={isLocked}>
+                    <div className="flex items-center gap-2 w-full">
+                      <BranchBadge name={b} pointer={branches[b]} />
+                      {b === activeBranch && (
+                        <span className="text-[10px] text-muted-foreground">
+                          (active)
+                        </span>
+                      )}
+                      {isLocked && (
+                        <span className="text-[9px] text-muted-foreground/60 flex items-center gap-1 font-sans ml-auto">
+                          <Lock className="w-2.5 h-2.5" /> merged to main
+                        </span>
+                      )}
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2 relative mt-auto">
@@ -1585,7 +1636,9 @@ function StepSelectBranches({
         <div className="pt-4 border-t mt-4 shrink-0 hidden landscape:block">
           <Button
             onClick={onNext}
-            disabled={selectedSources.size === 0 || mergeableSources.length === 0}
+            disabled={
+              selectedSources.size === 0 || mergeableSources.length === 0
+            }
             className="w-full h-9 gap-2"
           >
             <GitMerge className="w-4 h-4" />
@@ -1608,55 +1661,55 @@ function StepSelectBranches({
               </p>
             ) : (
               filteredSources.map((b) => {
-              const checked = selectedSources.has(b);
-              const alreadyMerged = isAlreadyMerged(b, targetBranch);
-              return (
-                <div
-                  key={b}
-                  className={`flex items-center gap-3 px-3 py-2.5 transition-colors ${
-                    alreadyMerged
-                      ? "opacity-60 cursor-not-allowed"
-                      : `cursor-pointer ${checked ? "bg-primary/5" : "hover:bg-accent/40"}`
-                  }`}
-                  onClick={() => toggleSource(b)}
-                >
-                  <Checkbox
-                    checked={checked}
-                    disabled={alreadyMerged}
-                    onCheckedChange={() => toggleSource(b)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-4 w-4 data-[state=checked]:border-primary"
-                  />
-                  <div className="flex-1 min-w-0 flex items-center gap-2">
-                    <BranchBadge name={b} pointer={branches[b]} />
-                    <span className="text-xs text-muted-foreground font-mono truncate">
-                      {branches[b].headHash?.slice(0, 7) ?? "no commits"}
-                    </span>
-                    {alreadyMerged && (
-                      <Badge
-                        variant="secondary"
-                        className="text-[9px] h-4 px-1.5 shrink-0"
-                      >
-                        Already merged
-                      </Badge>
-                    )}
+                const checked = selectedSources.has(b);
+                const alreadyMerged = isAlreadyMerged(b, targetBranch);
+                return (
+                  <div
+                    key={b}
+                    className={`flex items-center gap-3 px-3 py-2.5 transition-colors ${
+                      alreadyMerged
+                        ? "opacity-60 cursor-not-allowed"
+                        : `cursor-pointer ${checked ? "bg-primary/5" : "hover:bg-accent/40"}`
+                    }`}
+                    onClick={() => toggleSource(b)}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      disabled={alreadyMerged}
+                      onCheckedChange={() => toggleSource(b)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-4 w-4 data-[state=checked]:border-primary"
+                    />
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <BranchBadge name={b} pointer={branches[b]} />
+                      <span className="text-xs text-muted-foreground font-mono truncate">
+                        {branches[b].headHash?.slice(0, 7) ?? "no commits"}
+                      </span>
+                      {alreadyMerged && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] h-4 px-1.5 shrink-0"
+                        >
+                          Already merged
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })
+            )}
+          </div>
+          {selectedSources.size > 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              {selectedSources.size} source branch
+              {selectedSources.size !== 1 ? "es" : ""} selected
+            </p>
           )}
-        </div>
-        {selectedSources.size > 0 && (
-          <p className="text-[10px] text-muted-foreground">
-            {selectedSources.size} source branch
-            {selectedSources.size !== 1 ? "es" : ""} selected
-          </p>
-        )}
-        {mergeableSources.length === 0 && availableSources.length > 0 && (
-          <p className="text-[10px] text-muted-foreground">
-            All other branches are already merged into {targetBranch}.
-          </p>
-        )}
+          {mergeableSources.length === 0 && availableSources.length > 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              All other branches are already merged into {targetBranch}.
+            </p>
+          )}
         </div>
       </div>
 
@@ -1723,209 +1776,227 @@ function StepPreview({
   return (
     <>
       <div className="flex flex-col landscape:flex-row gap-4 landscape:gap-6 h-full landscape:overflow-hidden py-1">
-      {/* Left Column */}
-      <div className="flex flex-col gap-4 flex-1 min-w-0 landscape:overflow-y-auto pr-1 pb-2">
-        <div className="rounded-xl bg-muted/40 border px-3 py-2.5 space-y-1.5 shrink-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {sourceBranches.map((sb, i) => (
-              <React.Fragment key={sb}>
-                <span className="text-xs font-mono font-semibold">{sb}</span>
-                {i < sourceBranches.length - 1 && (
-                  <span className="text-muted-foreground text-xs">+</span>
-                )}
-              </React.Fragment>
-            ))}
-            <GitMerge className="w-3.5 h-3.5 text-muted-foreground mx-1" />
-            <span className="text-xs font-mono font-semibold">
-              {targetBranch}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {preview.isFastForward && (
-              <Badge className="text-[10px] h-5 bg-sky-500 hover:bg-sky-500 gap-1">
-                <Zap className="w-2.5 h-2.5" /> Fast-forward
-              </Badge>
-            )}
-            {preview.isUpToDate && (
-              <Badge variant="secondary" className="text-[10px] h-5 gap-1">
-                Already up to date
-              </Badge>
-            )}
-            {preview.lcaHash && (
-              <span className="text-[10px] text-muted-foreground font-mono">
-                LCA: {preview.lcaHash.slice(0, 7)}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Delta pool summary */}
-        <div className="space-y-1 shrink-0">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-            Delta pools
-          </p>
-          <div className="rounded-xl border divide-y">
-            <div className="flex items-center justify-between text-[10px] px-3 py-1.5">
-              <span className="font-mono">{targetBranch}</span>
-              <span className="text-muted-foreground">
-                {targetDeltaCount} delta{targetDeltaCount !== 1 ? "s" : ""}{" "}
-                <span className="text-foreground/40">(target)</span>
+        {/* Left Column */}
+        <div className="flex flex-col gap-4 flex-1 min-w-0 landscape:overflow-y-auto pr-1 pb-2">
+          <div className="rounded-xl bg-muted/40 border px-3 py-2.5 space-y-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {sourceBranches.map((sb, i) => (
+                <React.Fragment key={sb}>
+                  <span className="text-xs font-mono font-semibold">{sb}</span>
+                  {i < sourceBranches.length - 1 && (
+                    <span className="text-muted-foreground text-xs">+</span>
+                  )}
+                </React.Fragment>
+              ))}
+              <GitMerge className="w-3.5 h-3.5 text-muted-foreground mx-1" />
+              <span className="text-xs font-mono font-semibold">
+                {targetBranch}
               </span>
             </div>
-            {sourceDeltaCounts.map(({ branch, count }) => (
-              <div
-                key={branch}
-                className="flex items-center justify-between text-[10px] px-3 py-1.5"
-              >
-                <span className="font-mono">{branch}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {preview.isFastForward && (
+                <Badge className="text-[10px] h-5 bg-sky-500 hover:bg-sky-500 gap-1">
+                  <Zap className="w-2.5 h-2.5" /> Fast-forward
+                </Badge>
+              )}
+              {preview.isUpToDate && (
+                <Badge variant="secondary" className="text-[10px] h-5 gap-1">
+                  Already up to date
+                </Badge>
+              )}
+              {preview.lcaHash && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  LCA: {preview.lcaHash.slice(0, 7)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Delta pool summary */}
+          <div className="space-y-1 shrink-0">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Delta pools
+            </p>
+            <div className="rounded-xl border divide-y">
+              <div className="flex items-center justify-between text-[10px] px-3 py-1.5">
+                <span className="font-mono">{targetBranch}</span>
                 <span className="text-muted-foreground">
-                  {count} delta{count !== 1 ? "s" : ""}
+                  {targetDeltaCount} delta{targetDeltaCount !== 1 ? "s" : ""}{" "}
+                  <span className="text-foreground/40">(target)</span>
                 </span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Status line */}
-        {conflicts.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2 shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-              Clean merge — no conflicts
-            </p>
-          </div>
-        ) : preview.isUpToDate ? (
-          <div className="flex items-center gap-2 rounded-xl bg-muted/50 border px-3 py-2 shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <p className="text-xs text-muted-foreground font-medium">
-              Selected branches are already merged into {targetBranch}
-            </p>
-          </div>
-        ) : unresolvedCount > 0 ? (
-          <div className="flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 shrink-0">
-            <TriangleAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
-              {unresolvedCount} conflict{unresolvedCount !== 1 ? "s" : ""} need
-              resolution before merging
-            </p>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2 shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-              All conflicts resolved — ready to merge
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Right Column */}
-      <div className="shrink-0 landscape:w-70 landscape:md:w-96 flex flex-col landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 landscape:pt-0 landscape:overflow-y-auto pr-1 pb-2">
-        <div className="rounded-xl border p-3 space-y-2.5 bg-card/50 shrink-0">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            <ChevronsUpDown className="w-3.5 h-3.5 text-sky-500" />
-            Squash source commits before merging
-          </div>
-          <div className={`grid ${isMainTarget ? "grid-cols-2" : "grid-cols-3"} gap-2`}>
-            {(["none", SquashType.Light, SquashType.Full] as const).map((type) => {
-              if (isMainTarget && type === "none") return null;
-              const label = MERGE_SQUASH_DESCRIPTIONS[type].label;
-              const desc = type === "none" ? "Merge as-is" : type === SquashType.Light ? "Prune net-zero" : "Compress range";
-              const isSelected = squashBeforeMerge === type;
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => onSquashBeforeMergeChange(type)}
-                  className={`p-2 rounded-lg border text-center transition-all ${
-                    isSelected
-                      ? "border-sky-500 bg-sky-500/5 font-semibold text-sky-600 shadow-sm"
-                      : "border-border bg-background opacity-70 hover:opacity-100 text-muted-foreground"
-                  }`}
+              {sourceDeltaCounts.map(({ branch, count }) => (
+                <div
+                  key={branch}
+                  className="flex items-center justify-between text-[10px] px-3 py-1.5"
                 >
-                  <div className="text-[10px] font-bold">{label}</div>
-                  <div className="text-[8px] opacity-75 mt-0.5 leading-normal">{desc}</div>
-                </button>
-              );
-            })}
+                  <span className="font-mono">{branch}</span>
+                  <span className="text-muted-foreground">
+                    {count} delta{count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="text-[10px] text-muted-foreground leading-normal mt-1">
-            {MERGE_SQUASH_DESCRIPTIONS[squashBeforeMerge].desc}
-          </p>
-        </div>
 
-        {/* Two action buttons — each opens its own popup */}
-        <div className="grid grid-cols-2 gap-2 mt-4 shrink-0">
-          {/* Merged State Preview */}
-          <button
-            type="button"
-            onClick={() => setPreviewSheetOpen(true)}
-            className="flex flex-col items-center gap-2 rounded-xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 px-3 py-4 text-center transition-all cursor-pointer"
-          >
-            <Eye className="w-5 h-5 text-primary" />
-            <div>
-              <p className="text-xs font-semibold text-foreground">
-                View Order
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {rootItemCount} item{rootItemCount !== 1 ? "s" : ""}
+          {/* Status line */}
+          {conflicts.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2 shrink-0">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                Clean merge — no conflicts
               </p>
             </div>
-          </button>
+          ) : preview.isUpToDate ? (
+            <div className="flex items-center gap-2 rounded-xl bg-muted/50 border px-3 py-2 shrink-0">
+              <CheckCircle2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <p className="text-xs text-muted-foreground font-medium">
+                Selected branches are already merged into {targetBranch}
+              </p>
+            </div>
+          ) : unresolvedCount > 0 ? (
+            <div className="flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2 shrink-0">
+              <TriangleAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                {unresolvedCount} conflict{unresolvedCount !== 1 ? "s" : ""}{" "}
+                need resolution before merging
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2 shrink-0">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                All conflicts resolved — ready to merge
+              </p>
+            </div>
+          )}
+        </div>
 
-          {/* Conflicts */}
-          <button
-            type="button"
-            onClick={() => setConflictsOpen(true)}
-            className={`flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-4 text-center transition-all cursor-pointer ${
-              conflicts.length === 0
-                ? "border-emerald-300/50 bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/10"
-                : unresolvedCount > 0
-                  ? "border-amber-400/60 bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-950/10"
-                  : "border-emerald-300/50 bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/10"
-            }`}
-          >
-            {conflicts.length === 0 || unresolvedCount === 0 ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-            ) : (
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-            )}
-            <div>
-              <p className="text-xs font-semibold text-foreground">Conflicts</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {conflicts.length === 0
-                  ? "None"
+        {/* Right Column */}
+        <div className="shrink-0 landscape:w-70 landscape:md:w-96 flex flex-col landscape:border-l landscape:pl-6 border-t landscape:border-t-0 pt-4 landscape:pt-0 landscape:overflow-y-auto pr-1 pb-2">
+          <div className="rounded-xl border p-3 space-y-2.5 bg-card/50 shrink-0">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <ChevronsUpDown className="w-3.5 h-3.5 text-sky-500" />
+              Squash source commits before merging
+            </div>
+            <div
+              className={`grid ${isMainTarget ? "grid-cols-2" : "grid-cols-3"} gap-2`}
+            >
+              {(["none", SquashType.Light, SquashType.Full] as const).map(
+                (type) => {
+                  if (isMainTarget && type === "none") return null;
+                  const label = MERGE_SQUASH_DESCRIPTIONS[type].label;
+                  const desc =
+                    type === "none"
+                      ? "Merge as-is"
+                      : type === SquashType.Light
+                        ? "Prune net-zero"
+                        : "Compress range";
+                  const isSelected = squashBeforeMerge === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => onSquashBeforeMergeChange(type)}
+                      className={`p-2 rounded-lg border text-center transition-all ${
+                        isSelected
+                          ? "border-sky-500 bg-sky-500/5 font-semibold text-sky-600 shadow-sm"
+                          : "border-border bg-background opacity-70 hover:opacity-100 text-muted-foreground"
+                      }`}
+                    >
+                      <div className="text-[10px] font-bold">{label}</div>
+                      <div className="text-[8px] opacity-75 mt-0.5 leading-normal">
+                        {desc}
+                      </div>
+                    </button>
+                  );
+                },
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-normal mt-1">
+              {MERGE_SQUASH_DESCRIPTIONS[squashBeforeMerge].desc}
+            </p>
+          </div>
+
+          {/* Two action buttons — each opens its own popup */}
+          <div className="grid grid-cols-2 gap-2 mt-4 shrink-0">
+            {/* Merged State Preview */}
+            <button
+              type="button"
+              onClick={() => setPreviewSheetOpen(true)}
+              className="flex flex-col items-center gap-2 rounded-xl border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 px-3 py-4 text-center transition-all cursor-pointer"
+            >
+              <Eye className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  View Order
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {rootItemCount} item{rootItemCount !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </button>
+
+            {/* Conflicts */}
+            <button
+              type="button"
+              onClick={() => setConflictsOpen(true)}
+              className={`flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-4 text-center transition-all cursor-pointer ${
+                conflicts.length === 0
+                  ? "border-emerald-300/50 bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/10"
                   : unresolvedCount > 0
-                    ? `${unresolvedCount} unresolved`
-                    : "All resolved"}
-              </p>
-            </div>
-          </button>
-        </div>
+                    ? "border-amber-400/60 bg-amber-50/50 hover:bg-amber-50 dark:bg-amber-950/10"
+                    : "border-emerald-300/50 bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/10"
+              }`}
+            >
+              {conflicts.length === 0 || unresolvedCount === 0 ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+              )}
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  Conflicts
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {conflicts.length === 0
+                    ? "None"
+                    : unresolvedCount > 0
+                      ? `${unresolvedCount} unresolved`
+                      : "All resolved"}
+                </p>
+              </div>
+            </button>
+          </div>
 
-        <div className="flex gap-2 pt-4 border-t mt-4 landscape:mt-auto shrink-0">
-          <Button variant="outline" size="sm" className="h-9" onClick={onBack}>
-            Back
-          </Button>
-          <Button
-            size="sm"
-            className="h-9 flex-1 gap-2"
-            onClick={onConfirm}
-            disabled={!canConfirm || isCommitting}
-          >
-            {isCommitting ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Merging…
-              </>
-            ) : (
-              <>
-                <GitMerge className="w-3.5 h-3.5" /> Confirm Merge
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2 pt-4 border-t mt-4 landscape:mt-auto shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={onBack}
+            >
+              Back
+            </Button>
+            <Button
+              size="sm"
+              className="h-9 flex-1 gap-2"
+              onClick={onConfirm}
+              disabled={!canConfirm || isCommitting}
+            >
+              {isCommitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Merging…
+                </>
+              ) : (
+                <>
+                  <GitMerge className="w-3.5 h-3.5" /> Confirm Merge
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Sub-dialogs — rendered here so they overlay on top of the main dialog */}
       <ConflictsDialog
@@ -2014,7 +2085,9 @@ export function MergeBranchDialog({
   resolveGuestName,
 }: MergeDialogProps) {
   const [step, setStep] = useState<Step>("select");
-  const [targetBranch, setTargetBranch] = useState<string>(activeBranch === "system" ? "main" : activeBranch);
+  const [targetBranch, setTargetBranch] = useState<string>(
+    activeBranch === "system" ? "main" : activeBranch,
+  );
   const [selectedSources, setSelectedSources] = useState<Set<string>>(
     new Set(),
   );
@@ -2022,7 +2095,9 @@ export function MergeBranchDialog({
   const [conflicts, setConflicts] = useState<MergeConflict[]>([]);
   const [mergeCommitHash, setMergeCommitHash] = useState<string>("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const [squashBeforeMerge, setSquashBeforeMerge] = useState<"none" | SquashType>("none");
+  const [squashBeforeMerge, setSquashBeforeMerge] = useState<
+    "none" | SquashType
+  >("none");
 
   const mainBranchName = useVCSStore.getState().mainActiveBranch();
 
@@ -2036,7 +2111,9 @@ export function MergeBranchDialog({
     if (open) {
       const mainBranchName = useVCSStore.getState().mainActiveBranch();
       const isTargetLocked =
-        (activeBranch !== mainBranchName && isAlreadyMerged(activeBranch, mainBranchName)) || activeBranch === "system";
+        (activeBranch !== mainBranchName &&
+          isAlreadyMerged(activeBranch, mainBranchName)) ||
+        activeBranch === "system";
       const initialTarget = isTargetLocked ? mainBranchName : activeBranch;
       setStep("select");
       setTargetBranch(initialTarget);
@@ -2044,7 +2121,9 @@ export function MergeBranchDialog({
       setPreview(null);
       setConflicts([]);
       setMergeCommitHash("");
-      setSquashBeforeMerge(initialTarget === mainBranchName ? SquashType.Light : "none");
+      setSquashBeforeMerge(
+        initialTarget === mainBranchName ? SquashType.Light : "none",
+      );
     }
   }, [open, activeBranch, isAlreadyMerged]);
 
@@ -2097,7 +2176,7 @@ export function MergeBranchDialog({
   const handleCommit = () => {
     if (!preview) return;
     setIsCommitting(true);
-    
+
     const resolutionDeltas: Delta[] = [];
     for (const c of conflicts) {
       if (!c.resolution || c.resolution === "both") continue;
@@ -2159,7 +2238,11 @@ export function MergeBranchDialog({
           }
           if (firstPendingHash && firstPendingHash !== branchHead) {
             try {
-              engine.squashPendingCommits(firstPendingHash, squashBeforeMerge as SquashType, srcBranch);
+              engine.squashPendingCommits(
+                firstPendingHash,
+                squashBeforeMerge as SquashType,
+                srcBranch,
+              );
             } catch {
               // Non-fatal: squash may fail for single-commit branches or if already squashed
             }

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { BranchType } from "@/lib/vcs/types";
-import { AlertTriangle, GitBranch, Info, Lightbulb, Save } from "lucide-react";
+import { AlertTriangle, GitBranch, Info, HatGlasses, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface BranchConfigDialogProps {
@@ -146,11 +146,13 @@ export function BranchConfigDialog({
                   The primary ledger history. This branch serves as the
                   authoritative source of truth and cannot be reclassified.
                   <div className="mt-3 md:mt-4 p-3 md:p-4 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                    <strong className="font-semibold text-xs md:text-sm">Warning:</strong>
+                    <strong className="font-semibold text-xs md:text-sm">
+                      Warning:
+                    </strong>
                     <p className="text-[10px] md:text-xs mt-1 md:mt-1.5">
-                      Main is purely a read-only place. Any modifications made here will
-                      automatically create a new draft branch to protect the main
-                      ledger.
+                      Main is purely a read-only place. Any modifications made
+                      here will automatically create a new draft branch to
+                      protect the main ledger.
                     </p>
                   </div>
                 </div>
@@ -161,16 +163,18 @@ export function BranchConfigDialog({
                 <button
                   type="button"
                   onClick={() => setType(BranchType.Parallel)}
-                  className={`flex flex-col items-start text-left p-4 md:p-5 rounded-xl border-2 transition-all cursor-pointer min-h-32 md:min-h-40 landscape:min-h-28 ${type === BranchType.Parallel
+                  className={`flex flex-col items-start text-left p-4 md:p-5 rounded-xl border-2 transition-all cursor-pointer min-h-32 md:min-h-40 landscape:min-h-28 ${
+                    type === BranchType.Parallel
                       ? "border-emerald-500 bg-emerald-500/4 shadow-xs"
                       : "border-border hover:border-muted-foreground/30 bg-background"
-                    }`}
+                  }`}
                 >
                   <div
-                    className={`p-2 md:p-2.5 rounded-lg mb-3 ${type === BranchType.Parallel
+                    className={`p-2 md:p-2.5 rounded-lg mb-3 ${
+                      type === BranchType.Parallel
                         ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                         : "bg-muted text-muted-foreground"
-                      }`}
+                    }`}
                   >
                     <GitBranch className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
@@ -187,18 +191,20 @@ export function BranchConfigDialog({
                 <button
                   type="button"
                   onClick={() => setType(BranchType.Hypothetical)}
-                  className={`flex flex-col items-start text-left p-4 md:p-5 rounded-xl border-2 transition-all cursor-pointer min-h-32 md:min-h-40 landscape:min-h-28 ${type === BranchType.Hypothetical
+                  className={`flex flex-col items-start text-left p-4 md:p-5 rounded-xl border-2 transition-all cursor-pointer min-h-32 md:min-h-40 landscape:min-h-28 ${
+                    type === BranchType.Hypothetical
                       ? "border-amber-500 bg-amber-500/4 shadow-xs"
                       : "border-border hover:border-muted-foreground/30 bg-background"
-                    }`}
+                  }`}
                 >
                   <div
-                    className={`p-2 md:p-2.5 rounded-lg mb-3 ${type === BranchType.Hypothetical
+                    className={`p-2 md:p-2.5 rounded-lg mb-3 ${
+                      type === BranchType.Hypothetical
                         ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                         : "bg-muted text-muted-foreground"
-                      }`}
+                    }`}
                   >
-                    <Lightbulb className="w-5 h-5 md:w-6 md:h-6" />
+                    <HatGlasses className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
                   <div className="font-semibold text-xs md:text-sm text-foreground">
                     Hypothetical Branch

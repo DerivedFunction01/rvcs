@@ -34,6 +34,7 @@ import { ActiveCheckBottom } from "@/components/pos/panels/active-check-bottom";
 import { GroupNotesPanel } from "@/components/pos/panels/group-notes-panel";
 import { VerticalActionsPanel } from "@/components/pos/panels/vertical-actions-panel";
 import { PosScreen } from "@/lib/pos/types";
+import { BranchType } from "@/lib/vcs/types";
 import {
   PaymentDialog,
   printReceipt,
@@ -88,7 +89,7 @@ import {
   GitBranch,
   GitCommitHorizontal,
   Layers,
-  Lightbulb,
+  HatGlasses,
   Lock,
   LogOut,
   MessageSquare,
@@ -290,6 +291,9 @@ export function POSTerminalScreen({
   const [hideCanceled, setHideCanceled] = React.useState(false);
 
   const [exitDialogOpen, setExitDialogOpen] = React.useState(false);
+  const [hypExitDialogOpen, setHypExitDialogOpen] = React.useState(false);
+  const [hypotheticalParentBranch, setHypotheticalParentBranch] =
+    React.useState<string | null>(null);
   const [orderDefaultsOpen, setOrderDefaultsOpen] = React.useState(false);
   const [guestFilterOpen, setGuestFilterOpen] = React.useState(false);
   const [catalogFilter, setCatalogFilter] = React.useState("");
@@ -706,6 +710,67 @@ export function POSTerminalScreen({
   const log = commitLog();
   const confirmedHash = engine.getConfirmedHash();
   const branches = useVCSStore.getState().engine.getRepo().branches;
+  const isHypotheticalMode =
+    branches[currentBranchName]?.type === BranchType.Hypothetical;
+
+  const handleEnterHypothetical = React.useCallback(() => {
+    const parentBranch = currentBranchName;
+    const { parentBranch: actualParent } = useVCSStore
+      .getState()
+      .enterHypotheticalMode(parentBranch);
+    setHypotheticalParentBranch(actualParent);
+  }, [currentBranchName]);
+
+  const handleExitHypothetical = React.useCallback(() => {
+    setHypExitDialogOpen(true);
+  }, []);
+
+  const handleExitHypotheticalMode = React.useCallback(
+    (keep: boolean) => {
+      const store = useVCSStore.getState();
+      const hypBranch = currentBranchName;
+
+      let parent = hypotheticalParentBranch;
+      if (!parent) {
+        const branchNames = Object.keys(branches);
+        parent =
+          branchNames.find(
+            (b) =>
+              b !== hypBranch &&
+              b !== "system" &&
+              branches[b]?.type !== BranchType.Hypothetical,
+          ) || "main";
+      }
+
+      if (keep) {
+        try {
+          const preview = store.previewMerge([hypBranch], parent);
+          if (preview.conflicts.length > 0) {
+            toast.error("Conflicts detected. Opening Merge Dialog.");
+            branchDialogs.setIsMergeOpen(true);
+            setHypExitDialogOpen(false);
+            return;
+          }
+
+          store.commitMerge([hypBranch], parent, []);
+          store.checkoutBranch(parent);
+          store.deleteBranch(hypBranch);
+          toast.success(`Merged changes back to "${parent}"`);
+        } catch (err: any) {
+          toast.error(`Failed to merge: ${err.message || err}`);
+          return;
+        }
+      } else {
+        store.checkoutBranch(parent);
+        store.deleteBranch(hypBranch);
+        toast.success("What-if session discarded.");
+      }
+
+      setHypotheticalParentBranch(null);
+      setHypExitDialogOpen(false);
+    },
+    [currentBranchName, hypotheticalParentBranch, branches, branchDialogs],
+  );
   const mainBranchName = mainActiveBranch();
   const isMergedToMain = React.useMemo(() => {
     if (currentBranchName === mainBranchName) return false;
@@ -1163,6 +1228,9 @@ export function POSTerminalScreen({
           <VerticalActionsPanel
             catalogFilter={catalogFilter}
             setCatalogFilter={setCatalogFilter}
+            isHypotheticalMode={isHypotheticalMode}
+            onEnterHypothetical={handleEnterHypothetical}
+            onExitHypothetical={handleExitHypothetical}
             requireTags={requireTags}
             setRequireTags={setRequireTags}
             avoidTags={avoidTags}
@@ -1395,6 +1463,46 @@ export function POSTerminalScreen({
         </DialogContent>
       </Dialog>
 
+      {/* ─── What-If (Hypothetical) Session Exit Dialog ─────────────────── */}
+      <Dialog open={hypExitDialogOpen} onOpenChange={setHypExitDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <HatGlasses className="w-4 h-4 text-amber-500" />
+              End What-If Session
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Would you like to keep the changes made in this what-if session by
+              merging them back to the active draft, or discard them entirely?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col mt-2">
+            <Button
+              className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => handleExitHypotheticalMode(true)}
+            >
+              <Save className="w-4 h-4" />
+              Keep Changes
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+              onClick={() => handleExitHypotheticalMode(false)}
+            >
+              <Trash2 className="w-4 h-4" />
+              Discard Changes
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full text-xs text-muted-foreground"
+              onClick={() => setHypExitDialogOpen(false)}
+            >
+              Stay in What-If Mode
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <OrderDefaultsDialog
         open={orderDefaultsOpen}
         onOpenChange={setOrderDefaultsOpen}
@@ -1515,7 +1623,7 @@ function getBranchButton(
             ) : isMerged ? (
               <Lock className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
             ) : isHypothetical ? (
-              <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <HatGlasses className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             ) : (
               <GitBranch className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
             )}

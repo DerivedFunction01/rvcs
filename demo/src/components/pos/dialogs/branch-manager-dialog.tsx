@@ -18,7 +18,7 @@ import { BranchType } from "@/lib/vcs/types";
 import {
   GitBranch,
   GitMerge,
-  Lightbulb,
+  HatGlasses,
   Loader2,
   Plus,
   Search,
@@ -59,12 +59,13 @@ function BranchRow({
 
   return (
     <div
-      className={`flex items-center gap-2 px-4 md:px-5 py-3 md:py-4 transition-colors ${isActive
+      className={`flex items-center gap-2 px-4 md:px-5 py-3 md:py-4 transition-colors ${
+        isActive
           ? isHypothetical
             ? "bg-amber-500/10"
             : "bg-emerald-500/10"
           : "hover:bg-accent/40"
-        }`}
+      }`}
     >
       <span
         className="shrink-0"
@@ -75,7 +76,7 @@ function BranchRow({
         }
       >
         {isHypothetical ? (
-          <Lightbulb className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
+          <HatGlasses className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
         ) : (
           <GitBranch className="w-4 h-4 md:w-5 md:h-5 text-emerald-500" />
         )}
@@ -98,7 +99,10 @@ function BranchRow({
             </span>
           )}
           {isActive && (
-            <Badge variant="secondary" className="text-[9px] md:text-[10px] h-5 md:h-6 px-1.5 shrink-0">
+            <Badge
+              variant="secondary"
+              className="text-[9px] md:text-[10px] h-5 md:h-6 px-1.5 shrink-0"
+            >
               Active
             </Badge>
           )}
@@ -196,7 +200,10 @@ export function BranchManagerDialog({
     if (branch === "system") return false;
     const q = debouncedQuery.toLowerCase().trim();
     if (!q) return true;
-    return branch.toLowerCase().includes(q) || pointer.label?.toLowerCase().includes(q);
+    return (
+      branch.toLowerCase().includes(q) ||
+      pointer.label?.toLowerCase().includes(q)
+    );
   });
 
   return (

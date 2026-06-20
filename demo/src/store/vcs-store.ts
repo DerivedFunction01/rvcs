@@ -44,7 +44,7 @@ import {
   PosScreen,
 } from "@/lib/pos/types";
 import { generateAllocationId, generateLineId } from "@/lib/vcs/id";
-import { generateDraftBranchName } from "@/lib/pos/id";
+import { generateDraftBranchName, generateBranchName } from "@/lib/pos/id";
 import {
   getPaymentAllocDisplayName,
   getAssignmentAllocDisplayName,
@@ -426,6 +426,15 @@ interface VCSStore {
     config: { type?: BranchType; label?: string },
   ) => void;
   renameBranch: (oldName: string, newName: string) => void;
+  enterHypotheticalMode: (fromBranch: string) => {
+    hypBranch: string;
+    parentBranch: string;
+  };
+  exitHypotheticalMode: (
+    hypBranch: string,
+    parentBranch: string,
+    keep: boolean,
+  ) => void;
 
   // Actions — Merge
   previewMerge: (
@@ -3470,6 +3479,53 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.persist();
     },
 
+    enterHypotheticalMode: (fromBranch) => {
+      const store = get();
+      let parentBranch = fromBranch;
+
+      if (fromBranch === "main") {
+        const serverName = store.orderContext?.serverName || "server";
+        let draftBranchName = generateDraftBranchName(serverName);
+        let suffix = 2;
+        while (store.engine.getRepo().branches[draftBranchName]) {
+          draftBranchName = `${generateDraftBranchName(serverName)}-${suffix}`;
+          suffix += 1;
+        }
+        store.createBranch(draftBranchName, "main");
+
+        const nextPreferences = {
+          ...store.preferences,
+          branchContexts: {
+            ...((store.preferences.branchContexts as Record<string, any>) ||
+              {}),
+            [draftBranchName]: store.orderContext,
+          },
+        };
+        set({ preferences: nextPreferences });
+
+        parentBranch = draftBranchName;
+      }
+
+      const hypName = generateBranchName("hyp");
+      const parentHead =
+        store.engine.getRepo().branches[parentBranch]?.headHash;
+      store.createBranch(hypName, parentHead);
+      store.updateBranchConfig(hypName, {
+        type: BranchType.Hypothetical,
+        label: "What-if",
+      });
+      return { hypBranch: hypName, parentBranch };
+    },
+
+    exitHypotheticalMode: (hypBranch, parentBranch, keep) => {
+      const store = get();
+      if (keep) {
+        store.commitMerge([hypBranch], parentBranch, []);
+      }
+      store.checkoutBranch(parentBranch);
+      store.deleteBranch(hypBranch);
+    },
+
     // ─── Merge ─────────────────────────────────────────────────────────────
 
     previewMerge: (sourceBranches, targetBranch) => {
@@ -3769,10 +3825,13 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         const { commits, contextId, orderContext } = data;
 
         // Reconstruct branches by finding the latest commit for each branch name
-        const branches: Record<string, { headHash: string | null; type?: BranchType }> = {
-          main: { headHash: null }
+        const branches: Record<
+          string,
+          { headHash: string | null; type?: BranchType }
+        > = {
+          main: { headHash: null },
         };
-        
+
         // Ensure system branch exists
         branches["system"] = { headHash: null };
 
@@ -3814,7 +3873,9 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
 
         // Recover default allocations
-        const initCommit = commits.find((c: any) => c.authorId === "system-init");
+        const initCommit = commits.find(
+          (c: any) => c.authorId === "system-init",
+        );
         let defaultAssignmentAllocId: string | null = null;
         let defaultPaymentAllocId: string | null = null;
         let defaultPaymentMethod = "cash";
@@ -3830,32 +3891,37 @@ export const useVCSStore = create<VCSStore>((set, get) => {
                 defaultPaymentMethod = (
                   (delta.allocation as PaymentAllocation).method || "cash"
                 ).toLowerCase();
-              } else if (
-                delta.allocation.type === AllocationType.Fulfillment
-              ) {
+              } else if (delta.allocation.type === AllocationType.Fulfillment) {
                 activeFulfillmentConfigId = delta.allocation.allocationId;
               }
             }
           }
         }
 
-        let activePaymentConfigId: string | null = `group-default-${defaultPaymentMethod}`;
+        let activePaymentConfigId: string | null =
+          `group-default-${defaultPaymentMethod}`;
         const currentProj = newEngine.projectCurrent();
         const items = Object.values(currentProj.items);
         if (items.length > 0) {
           const lastItem = items[items.length - 1];
           const itemPayAllocs = lastItem.allocations
             .map((id) => currentProj.allocations[id])
-            .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+            .filter(
+              (a) => a?.type === AllocationType.Payment,
+            ) as PaymentAllocation[];
           if (itemPayAllocs.length > 0) {
-            activePaymentConfigId = itemPayAllocs[0].correlationId || itemPayAllocs[0].allocationId;
+            activePaymentConfigId =
+              itemPayAllocs[0].correlationId || itemPayAllocs[0].allocationId;
           }
 
           const itemFulAllocs = lastItem.allocations
             .map((id) => currentProj.allocations[id])
-            .filter((a) => a?.type === AllocationType.Fulfillment) as FulfillmentAllocation[];
+            .filter(
+              (a) => a?.type === AllocationType.Fulfillment,
+            ) as FulfillmentAllocation[];
           if (itemFulAllocs.length > 0) {
-            activeFulfillmentConfigId = itemFulAllocs[0].correlationId || itemFulAllocs[0].allocationId;
+            activeFulfillmentConfigId =
+              itemFulAllocs[0].correlationId || itemFulAllocs[0].allocationId;
           }
         }
 
@@ -3864,7 +3930,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           projectedState: evaluateBusinessRules(
             currentProj,
             store.chargeRules,
-            store.catalog
+            store.catalog,
           ),
           isInitialized: true,
           orderContext: orderContext ?? null,
