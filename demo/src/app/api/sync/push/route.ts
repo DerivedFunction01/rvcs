@@ -42,17 +42,16 @@ export async function POST(request: Request) {
       },
     });
 
-    // Find or create repo
     const repo = await db.transactionRepo.upsert({
       where: { id: contextId },
       update: {
-        serverId: server.id,
+        server: { connect: { id: server.id } },
         serverName: server.name,
         orderContext: orderContext ? JSON.stringify(orderContext) : undefined,
       },
       create: {
         id: contextId,
-        serverId: server.id,
+        server: { connect: { id: server.id } },
         serverName: server.name,
         contextType: contextType || "cart",
         contextId,
