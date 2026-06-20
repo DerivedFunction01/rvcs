@@ -472,10 +472,14 @@ function CatalogItemCard({
   onAddItem: (sku: string) => void;
   isCategoryMode: boolean;
 }) {
-  const isMinimal =
-    !detailDisplay.showSku &&
-    !detailDisplay.showIcons &&
-    !detailDisplay.showPrice;
+  // Count how many extra detail rows are actually being shown below the item name.
+  // Adjust the threshold below to control when the compact/centered "minimal" layout kicks in.
+  const detailCount =
+    (detailDisplay.showPrice ? 1 : 0) +
+    (detailDisplay.showSku ? 1 : 0) +
+    (detailDisplay.showIcons ? 1 : 0);
+  const MINIMAL_THRESHOLD = 2; // isMinimal when detailCount <= this value
+  const isMinimal = detailCount <= MINIMAL_THRESHOLD;
 
   return (
     <Tooltip>
@@ -515,6 +519,11 @@ function CatalogItemCard({
                 </span>
               )}
             </div>
+            {isMinimal && detailDisplay.showPrice && (
+              <span className="font-mono text-[10px] text-muted-foreground text-center">
+                {formatNumber(item.basePrice, 2)}
+              </span>
+            )}
             {detailDisplay.showSku && (
               <div className="text-[10px] text-muted-foreground font-mono truncate w-full">
                 {item.sku}
