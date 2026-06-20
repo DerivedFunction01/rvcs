@@ -454,6 +454,8 @@ interface VCSStore {
   // Actions — Persistence
   persist: () => void;
   hydrate: () => void;
+  saveDraft: () => Promise<any>;
+  checkoutRepo: (repoId: string) => Promise<void>;
 }
 
 // ─── Create Store ─────────────────────────────────────────────────────────────
@@ -3363,6 +3365,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         viewingHash: null,
         currentScreen: PosScreen.Terminal,
         orderContext: nextContext,
+        isInitialized: true,
         projectedState: evaluateBusinessRules(
           store.engine.projectCurrent(),
           store.chargeRules,
@@ -3715,6 +3718,168 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
       } catch {
         // Corrupted data — start fresh
+      }
+    },
+
+    saveDraft: async () => {
+      const store = get();
+      const repo = store.engine.getRepo();
+      if (!repo.orderContext) return;
+      try {
+        const response = await fetch("/api/sync/push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contextId: repo.contextId,
+            contextType: repo.contextType || "cart",
+            serverName: (repo.orderContext as any)?.serverName || "Tom",
+            orderContext: repo.orderContext,
+            commits: repo.log.map((c) => ({
+              commitHash: c.commitHash,
+              parentHash: c.parentHash,
+              mergeParentHashes: c.mergeParentHashes,
+              branch: c.branch,
+              timestamp: c.timestamp,
+              authorId: c.authorId,
+              deltas: c.deltas,
+              metadata: c.metadata,
+            })),
+          }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to save draft to backend");
+        }
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("Failed to save draft:", error);
+        toast.error("Failed to save draft to backend");
+      }
+    },
+
+    checkoutRepo: async (repoId: string) => {
+      try {
+        const response = await fetch(`/api/sync/pull?contextId=${repoId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch repository from backend");
+        }
+        const data = await response.json();
+        const { commits, contextId, orderContext } = data;
+
+        // Reconstruct branches by finding the latest commit for each branch name
+        const branches: Record<string, { headHash: string | null; type?: BranchType }> = {
+          main: { headHash: null }
+        };
+        
+        // Ensure system branch exists
+        branches["system"] = { headHash: null };
+
+        // The commits returned by pull are sorted by createdAt ASC
+        for (const commit of commits) {
+          const branchName = commit.branch;
+          if (!branches[branchName]) {
+            branches[branchName] = { headHash: null };
+          }
+          branches[branchName].headHash = commit.commitHash;
+        }
+
+        // Determine activeBranch: the one with the most recent commit, or fallback to main
+        let activeBranch = "main";
+        if (commits.length > 0) {
+          // Find the last non-system commit
+          const lastNonSystemCommit = [...commits]
+            .reverse()
+            .find((c) => c.branch !== "system");
+          if (lastNonSystemCommit) {
+            activeBranch = lastNonSystemCommit.branch;
+          }
+        }
+
+        const repo: VCSRepo = {
+          contextType: RepoContextType.Cart,
+          contextId,
+          orderContext: orderContext || undefined,
+          preferences: {},
+          log: commits,
+          branches: branches as any,
+          activeBranch,
+        };
+
+        const newEngine = new VCSEngine(repo);
+        const store = get();
+        if (store.catalogLoaded) {
+          newEngine.setCatalog(Object.values(store.catalog));
+        }
+
+        // Recover default allocations
+        const initCommit = commits.find((c: any) => c.authorId === "system-init");
+        let defaultAssignmentAllocId: string | null = null;
+        let defaultPaymentAllocId: string | null = null;
+        let defaultPaymentMethod = "cash";
+        let activeFulfillmentConfigId: string | null = null;
+
+        if (initCommit) {
+          for (const delta of initCommit.deltas) {
+            if (delta.action === DeltaActionType.DeclareAllocation) {
+              if (delta.allocation.type === AllocationType.Assignment) {
+                defaultAssignmentAllocId = delta.allocation.allocationId;
+              } else if (delta.allocation.type === AllocationType.Payment) {
+                defaultPaymentAllocId = delta.allocation.allocationId;
+                defaultPaymentMethod = (
+                  (delta.allocation as PaymentAllocation).method || "cash"
+                ).toLowerCase();
+              } else if (
+                delta.allocation.type === AllocationType.Fulfillment
+              ) {
+                activeFulfillmentConfigId = delta.allocation.allocationId;
+              }
+            }
+          }
+        }
+
+        let activePaymentConfigId: string | null = `group-default-${defaultPaymentMethod}`;
+        const currentProj = newEngine.projectCurrent();
+        const items = Object.values(currentProj.items);
+        if (items.length > 0) {
+          const lastItem = items[items.length - 1];
+          const itemPayAllocs = lastItem.allocations
+            .map((id) => currentProj.allocations[id])
+            .filter((a) => a?.type === AllocationType.Payment) as PaymentAllocation[];
+          if (itemPayAllocs.length > 0) {
+            activePaymentConfigId = itemPayAllocs[0].correlationId || itemPayAllocs[0].allocationId;
+          }
+
+          const itemFulAllocs = lastItem.allocations
+            .map((id) => currentProj.allocations[id])
+            .filter((a) => a?.type === AllocationType.Fulfillment) as FulfillmentAllocation[];
+          if (itemFulAllocs.length > 0) {
+            activeFulfillmentConfigId = itemFulAllocs[0].correlationId || itemFulAllocs[0].allocationId;
+          }
+        }
+
+        set({
+          engine: newEngine,
+          projectedState: evaluateBusinessRules(
+            currentProj,
+            store.chargeRules,
+            store.catalog
+          ),
+          isInitialized: true,
+          orderContext: orderContext ?? null,
+          defaultAssignmentAllocId,
+          defaultPaymentAllocId,
+          activePaymentConfigId,
+          activeFulfillmentConfigId,
+          defaultPaymentMethod,
+        });
+
+        // Persist locally
+        store.persist();
+      } catch (error) {
+        console.error("Failed to checkout repo:", error);
+        toast.error("Failed to load order from backend");
       }
     },
   };

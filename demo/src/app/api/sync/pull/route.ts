@@ -12,7 +12,10 @@ export async function GET(request: Request) {
     const sinceHash = searchParams.get("since_hash");
 
     if (!contextId) {
-      return NextResponse.json({ error: "contextId required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "contextId required" },
+        { status: 400 },
+      );
     }
 
     const normalizedServerName = serverName?.trim() || contextId;
@@ -39,7 +42,7 @@ export async function GET(request: Request) {
                       where: { commitHash: sinceHash },
                       select: { createdAt: true },
                     })
-                  )?.createdAt ?? new Date(0)
+                  )?.createdAt ?? new Date(0),
                 ),
               },
             }
@@ -65,6 +68,7 @@ export async function GET(request: Request) {
       contextId: repo.contextId,
       serverName: repo.serverName ?? normalizedServerName,
       status: repo.status,
+      orderContext: repo.orderContext ? JSON.parse(repo.orderContext) : null,
     });
   } catch (error) {
     console.error("Sync pull error:", error);

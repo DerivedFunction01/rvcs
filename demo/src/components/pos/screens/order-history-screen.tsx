@@ -36,71 +36,58 @@ export function OrderHistoryScreen() {
   const formatNumber = useFormatNumber();
   const router = useRouter();
 
-  const branches = store.engine.getRepo().branches;
-  const activeBranchName = store.engine.getActiveBranch();
-  const branchContexts = (store.preferences.branchContexts as Record<string, any>) || {};
+  const [draftRepos, setDraftRepos] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const activeRepoId = store.engine.getRepo().contextId;
+
+  const fetchRepos = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/repos");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setDraftRepos(data.repos || []);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to load drafts from database");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchRepos();
+  }, [fetchRepos]);
 
   const orderCards = useMemo(() => {
-    return Object.entries(branches)
-      .filter(([name]) => name !== "system")
-      .map(([name, branch]) => {
-        const headHash = branch.headHash;
-        let grandTotal = 0;
-        let subtotal = 0;
-        let itemCount = 0;
+    return [...draftRepos].sort((a, b) => {
+      if (a.id === activeRepoId) return -1;
+      if (b.id === activeRepoId) return 1;
+      return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+    });
+  }, [draftRepos, activeRepoId]);
 
-        if (headHash) {
-          try {
-            const projected = store.engine.projectAt(headHash);
-            const evaluated = evaluateBusinessRules(
-              projected,
-              store.chargeRules,
-              store.catalog
-            );
-            grandTotal = evaluated.financials.grandTotal;
-            subtotal = evaluated.financials.subtotal;
-            itemCount = Object.values(evaluated.items).filter(
-              (item) => !item.parentLineId && item.status !== "canceled"
-            ).length;
-          } catch (e) {
-            console.error("Failed to project branch state:", e);
-          }
-        }
-
-        const context = branchContexts[name] || null;
-
-        // Try to get timestamp of the latest commit for this branch
-        let lastUpdated = "Unknown";
-        if (headHash) {
-          const commit = store.engine.getRepo().log.find(
-            (c) => c.commitHash === headHash
-          );
-          if (commit?.timestamp) {
-            lastUpdated = new Date(commit.timestamp).toLocaleString();
-          }
-        }
-
-        return {
-          name,
-          headHash,
-          grandTotal,
-          subtotal,
-          itemCount,
-          lastUpdated,
-          context,
-        };
-      })
-      .sort((a, b) => {
-        // Sort active branch first, then sort by last updated timestamp
-        if (a.name === activeBranchName) return -1;
-        if (b.name === activeBranchName) return 1;
-        return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
-      });
-  }, [branches, activeBranchName, branchContexts, store.chargeRules, store.catalog, store.engine]);
-
-  const handleStartNewOrder = () => {
+  const handleStartNewOrder = async () => {
+    if (store.isInitialized) {
+      await store.saveDraft();
+    }
     store.resetOrder();
     toast.success("Ready to configure a new order");
+    router.push("/");
+  };
+
+  const handleDeleteRepo = async (repoId: string) => {
+    try {
+      const res = await fetch(`/api/repos?id=${repoId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Draft order deleted");
+      fetchRepos();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete draft");
+    }
   };
 
   const getOrderIcon = (orderType?: OrderType) => {
@@ -186,99 +173,114 @@ export function OrderHistoryScreen() {
 
       {/* Main Grid Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 overflow-y-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {orderCards.map((card) => {
-            const isActive = card.name === activeBranchName;
-            return (
-              <Card
-                key={card.name}
-                className={`relative flex flex-col justify-between transition-all duration-200 border rounded-xl overflow-hidden hover:shadow-md ${
-                  isActive
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border bg-card"
-                }`}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <Badge
-                      variant={isActive ? "default" : "secondary"}
-                      className="text-[9px] uppercase font-bold tracking-wider rounded-md"
-                    >
-                      {isActive ? "Active Order" : "Draft"}
-                    </Badge>
-                    {card.context?.orderType && (
-                      <Badge variant="outline" className="text-[9px] uppercase tracking-wider gap-1 font-bold">
-                        {getOrderIcon(card.context.orderType)}
-                        {card.context.orderTypeLabel || card.context.orderType}
+        {loading ? (
+          <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">
+            Loading draft orders...
+          </div>
+        ) : orderCards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+            <ShoppingCart className="w-8 h-8 text-muted-foreground/50" />
+            <span className="text-sm font-semibold">No draft orders found</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {orderCards.map((card) => {
+              const isActive = card.id === activeRepoId;
+              return (
+                <Card
+                  key={card.id}
+                  className={`relative flex flex-col justify-between transition-all duration-200 border rounded-xl overflow-hidden hover:shadow-md ${
+                    isActive
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <Badge
+                        variant={isActive ? "default" : "secondary"}
+                        className="text-[9px] uppercase font-bold tracking-wider rounded-md"
+                      >
+                        {isActive ? "Active Order" : "Draft"}
                       </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-base font-bold tracking-tight mt-2.5 truncate">
-                    {card.context?.customerFields?.name || "Guest Order"}
-                  </CardTitle>
-                  <CardDescription className="font-mono text-[10px] truncate max-w-full">
-                    branch: {card.name}
-                  </CardDescription>
-                </CardHeader>
+                      {card.orderContext?.orderType && (
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-wider gap-1 font-bold">
+                          {getOrderIcon(card.orderContext.orderType)}
+                          {card.orderContext.orderTypeLabel || card.orderContext.orderType}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardTitle className="text-base font-bold tracking-tight mt-2.5 truncate">
+                      {card.orderContext?.customerFields?.name || "Guest Order"}
+                    </CardTitle>
+                    <CardDescription className="font-mono text-[10px] truncate max-w-full">
+                      repo: {card.id.substring(0, 12)}...
+                    </CardDescription>
+                  </CardHeader>
 
-                <CardContent className="pb-3 text-xs space-y-2.5">
-                  {/* Meta details */}
-                  <div className="grid grid-cols-2 gap-2 border-y py-2.5 my-1 border-border/60">
-                    <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                      <User className="w-3.5 h-3.5" />
-                      <span className="truncate">
-                        {card.context?.customerFields?.phone || "No Phone"}
+                  <CardContent className="pb-3 text-xs space-y-2.5">
+                    {/* Meta details */}
+                    <div className="grid grid-cols-2 gap-2 border-y py-2.5 my-1 border-border/60">
+                      <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                        <User className="w-3.5 h-3.5" />
+                        <span className="truncate">
+                          {card.orderContext?.customerFields?.phone || "No Phone"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                        <Server className="w-3.5 h-3.5" />
+                        <span className="truncate">
+                          {card.serverName || "Tom"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Totals */}
+                    <div className="flex justify-between items-center text-sm font-semibold">
+                      <span className="text-muted-foreground text-xs font-normal">
+                        Items ({card.itemCount})
+                      </span>
+                      <span className="font-mono font-bold">
+                        ${formatNumber(card.grandTotal, 2, 10)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
-                      <Server className="w-3.5 h-3.5" />
-                      <span className="truncate">
-                        {card.context?.serverName || "Tom"}
-                      </span>
-                    </div>
-                  </div>
+                  </CardContent>
 
-                  {/* Totals */}
-                  <div className="flex justify-between items-center text-sm font-semibold">
-                    <span className="text-muted-foreground text-xs font-normal">
-                      Items ({card.itemCount})
-                    </span>
-                    <span className="font-mono font-bold">
-                      ${formatNumber(card.grandTotal, 2, 10)}
-                    </span>
-                  </div>
-                </CardContent>
-
-                <CardFooter className="pt-2 gap-2 border-t bg-muted/10 shrink-0">
-                  <Button
-                    variant={isActive ? "secondary" : "default"}
-                    className="flex-1 text-xs gap-1.5 h-9 font-bold"
-                    onClick={() => {
-                      store.checkoutBranch(card.name);
-                      toast.success(`Switched to order: ${card.context?.customerFields?.name || "Guest"}`);
-                      router.push("/");
-                    }}
-                  >
-                    <FolderOpen className="w-4 h-4" />
-                    {isActive ? "Resume" : "Open"}
-                  </Button>
-                  {card.name !== "main" && (
+                  <CardFooter className="pt-2 gap-2 border-t bg-muted/10 shrink-0">
+                    <Button
+                      variant={isActive ? "secondary" : "default"}
+                      className="flex-1 text-xs gap-1.5 h-9 font-bold"
+                      onClick={async () => {
+                        if (isActive) {
+                          router.push("/");
+                        } else {
+                          if (store.isInitialized) {
+                            await store.saveDraft();
+                          }
+                          await store.checkoutRepo(card.id);
+                          router.push("/");
+                        }
+                      }}
+                    >
+                      <FolderOpen className="w-4 h-4" />
+                      {isActive ? "Resume" : "Open"}
+                    </Button>
                     <Button
                       variant="outline"
                       size="icon"
                       disabled={isActive}
                       className="h-9 w-9 text-destructive border-destructive/20 hover:bg-destructive/10"
-                      onClick={() => store.deleteBranch(card.name)}
+                      onClick={() => handleDeleteRepo(card.id)}
                       title="Delete saved order draft"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </main>
 
       {/* Footer */}

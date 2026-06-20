@@ -1206,7 +1206,10 @@ export function POSTerminalScreen({
               projectedState={projectedState}
               onEditModifiers={handleOpenModifierDialog}
               onRemoveModifier={handleRemoveModifierInline}
-              onSave={() => {
+              onSave={async () => {
+                const store = useVCSStore.getState();
+                await store.saveDraft();
+                toast.success("Draft saved successfully!");
                 router.push("/history");
               }}
               onSend={() => {
@@ -1495,6 +1498,7 @@ export function POSTerminalScreen({
             body: JSON.stringify({
               projectedState: store.projectedState,
               paymentMethod: method,
+              repoId: store.engine.getRepo().contextId,
             }),
           })
             .then((r) => r.json())

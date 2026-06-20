@@ -9,10 +9,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const { contextId, contextType, serverName, commits } = body as {
+    const { contextId, contextType, serverName, orderContext, commits } = body as {
       contextId: string;
       contextType: string;
       serverName?: string;
+      orderContext?: Record<string, any>;
       commits: Array<{
         commitHash: string;
         parentHash: string | null;
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       update: {
         serverId: server.id,
         serverName: server.name,
+        orderContext: orderContext ? JSON.stringify(orderContext) : undefined,
       },
       create: {
         id: contextId,
@@ -54,6 +56,7 @@ export async function POST(request: Request) {
         serverName: server.name,
         contextType: contextType || "cart",
         contextId,
+        orderContext: orderContext ? JSON.stringify(orderContext) : undefined,
       },
     });
 

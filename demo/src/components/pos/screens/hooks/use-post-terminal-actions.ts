@@ -349,7 +349,11 @@ export function usePostTerminalActions({
     [createBranch, viewingHash],
   );
 
-  const handleResetOrder = useCallback(() => {
+  const handleResetOrder = useCallback(async () => {
+    const store = useVCSStore.getState();
+    if (store.isInitialized) {
+      await store.saveDraft();
+    }
     resetOrder();
     setShowResetConfirm(false);
     setAddGuestOpen(false);

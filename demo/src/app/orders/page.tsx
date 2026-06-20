@@ -63,16 +63,8 @@ export default function OrdersPage() {
   }, [hydrate]);
 
   useEffect(() => {
-    if (!isInitialized) {
-      router.push("/");
-    } else {
-      fetchOrders();
-    }
-  }, [isInitialized, router]);
-
-  if (!isInitialized) {
-    return null;
-  }
+    fetchOrders();
+  }, []);
 
   const getMethodIcon = (method: string) => {
     switch (method.toLowerCase()) {

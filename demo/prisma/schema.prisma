@@ -228,16 +228,17 @@ model TableChairLink {
 }
 
 model TransactionRepo {
-  id          String   @id @default(cuid())
-  serverId    String?
-  server      Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
-  serverName  String?  @unique // Human-friendly server name for the checkout terminal
-  contextType String   @default("cart") // "cart" | "catalog" | "inventory_warehouse"
-  contextId   String                  // e.g. "table-12", "web-session-abc"
-  status      String   @default("active") // "active" | "settled" | "void"
-  createdAt   DateTime @default(now())
-  settledAt   DateTime?
-  commits     TransactionCommit[]
+  id           String   @id @default(cuid())
+  serverId     String?
+  server       Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  serverName   String?          // Human-friendly server name for the checkout terminal
+  contextType  String   @default("cart") // "cart" | "catalog" | "inventory_warehouse"
+  contextId    String                  // e.g. "table-12", "web-session-abc"
+  status       String   @default("active") // "active" | "settled" | "void"
+  orderContext String?          // JSON string of OrderContext
+  createdAt    DateTime @default(now())
+  settledAt    DateTime?
+  commits      TransactionCommit[]
 
   @@index([serverName])
 }

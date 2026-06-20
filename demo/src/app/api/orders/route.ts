@@ -12,7 +12,7 @@ export async function GET() {
     console.error("Failed to fetch completed orders:", error);
     return NextResponse.json(
       { error: "Failed to fetch completed orders" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -25,13 +25,15 @@ export async function POST(request: Request) {
     if (!projectedState || !projectedState.financials) {
       return NextResponse.json(
         { error: "projectedState is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const financials = projectedState.financials;
-    const customerName = projectedState.orderContext?.customerFields?.name || "Guest";
-    const customerPhone = projectedState.orderContext?.customerFields?.phone || null;
+    const customerName =
+      projectedState.orderContext?.customerFields?.name || "Guest";
+    const customerPhone =
+      projectedState.orderContext?.customerFields?.phone || null;
     const serverName = projectedState.orderContext?.serverName || "Tom";
     const orderType = projectedState.orderContext?.orderType || "walk_in";
 
@@ -44,13 +46,21 @@ export async function POST(request: Request) {
 
     // Filter root items
     const rootItems = Object.values(projectedState.items || {}).filter(
-      (item: any) => !item.parentLineId && item.status !== "canceled"
+      (item: any) => !item.parentLineId && item.status !== "canceled",
     );
+
+    const repoId = body.repoId || projectedState.repoId || null;
+    if (repoId) {
+      await db.transactionRepo.updateMany({
+        where: { id: repoId },
+        data: { status: "settled", settledAt: new Date() },
+      });
+    }
 
     const completedOrder = await db.completedOrder.create({
       data: {
         orderNumber,
-        repoId: projectedState.repoId || null,
+        repoId: repoId,
         customerName,
         customerPhone,
         serverName,
@@ -64,15 +74,15 @@ export async function POST(request: Request) {
           create: rootItems.map((item: any) => {
             // Find children modifiers
             const children = Object.values(projectedState.items || {}).filter(
-              (c: any) => c.parentLineId === item.id && c.status !== "canceled"
+              (c: any) => c.parentLineId === item.id && c.status !== "canceled",
             );
 
             // Compute total price including modifiers
             const modifierTotal = children.reduce(
-              (sum: number, c: any) => sum + (c.qty * c.basePrice),
-              0
+              (sum: number, c: any) => sum + c.qty * c.basePrice,
+              0,
             );
-            const totalPrice = (item.qty * item.basePrice) + modifierTotal;
+            const totalPrice = item.qty * item.basePrice + modifierTotal;
 
             return {
               sku: item.sku,
@@ -94,7 +104,7 @@ export async function POST(request: Request) {
     console.error("Failed to archive completed order:", error);
     return NextResponse.json(
       { error: "Failed to archive completed order" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

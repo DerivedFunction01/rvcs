@@ -38,6 +38,7 @@ import {
   Truck
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Store,
@@ -130,6 +131,7 @@ export function OrderInitScreen({
   onOrderStart,
   storeLabel,
 }: OrderInitScreenProps) {
+  const router = useRouter();
   const [step, setStep] = useState<InitStep>("loading");
   const [orderTypes, setOrderTypes] = useState<OrderTypeConfig[]>([]);
   const [floorConfigs, setFloorConfigs] = useState<FloorConfig[]>([]);
@@ -488,6 +490,35 @@ export function OrderInitScreen({
               <p className="text-[10px] text-muted-foreground mt-2">
                 This is the account used for the draft branch name.
               </p>
+            </div>
+
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Existing Session & Orders
+                </h3>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Resume a saved order draft or view completed settled orders.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <Button
+                  variant="outline"
+                  className="w-full text-xs font-bold gap-1.5"
+                  onClick={() => router.push("/history")}
+                >
+                  <Clock className="w-4 h-4 text-primary" />
+                  Saved Drafts
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full text-xs font-bold gap-1.5"
+                  onClick={() => router.push("/orders")}
+                >
+                  <PackageCheck className="w-4 h-4 text-primary" />
+                  Completed Orders
+                </Button>
+              </div>
             </div>
 
             <div className="text-center">
