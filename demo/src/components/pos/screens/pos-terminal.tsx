@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { CombineDialog } from "@/components/pos/dialogs/combine-dialog";
-import { SplitIntoLinesDialog } from "@/components/pos/dialogs/split-into-lines-dialog";
 import { NumberPadDialog } from "@/components/pos/dialogs/number-pad-dialog";
 import { useFormatNumber } from "@/components/pos/hooks/use-format-number";
 
@@ -304,7 +303,6 @@ export function POSTerminalScreen({
   const [qtyStep, setQtyStep] = React.useState<number | "">(1);
   const parsedStep = Number(qtyStep) || 1;
   const [combineDialogOpen, setCombineDialogOpen] = React.useState(false);
-  const [splitLineDialogOpen, setSplitLineDialogOpen] = React.useState(false);
   const [qtyStepPadOpen, setQtyStepPadOpen] = React.useState(false);
   const [paymentOpen, setPaymentOpen] = React.useState(false);
   const formatNumber = useFormatNumber();
@@ -815,40 +813,15 @@ export function POSTerminalScreen({
         {/* ─── Header ────────────────────────────────────────────────────── */}
         <header className="border-b bg-card px-4 py-2 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 border bg-background/50 p-0.5 rounded-lg mr-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-6 text-[10px] font-bold px-2 rounded-md"
-                onClick={() => router.push("/")}
-              >
-                Terminal
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
-                onClick={() => router.push("/history")}
-              >
-                Drafts
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
-                onClick={() => router.push("/orders")}
-              >
-                Orders
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[10px] font-bold px-2 rounded-md hover:bg-background/80"
-                onClick={() => router.push("/admin")}
-              >
-                Admin
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs font-bold gap-1 px-2.5 rounded-lg hover:bg-accent hover:text-accent-foreground"
+              onClick={() => router.push("/admin")}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>User Settings</span>
+            </Button>
 
             {getBranchButton(
               activeBranch,
@@ -1301,8 +1274,7 @@ export function POSTerminalScreen({
             }}
             onModifyItemsQty={modifyItemsQty}
             onSetQtyPadOpen={() => setQtyPadOpen(true)}
-            onSplitQtyOpen={() => setSplitQtyDialogOpen(true)}
-            onSplitLineOpen={() => setSplitLineDialogOpen(true)}
+            onSplitOpen={() => setSplitQtyDialogOpen(true)}
             disableNonModActions={disableNonModActions}
             canMerge={canMerge}
             canBreak={canBreak}
@@ -1394,6 +1366,7 @@ export function POSTerminalScreen({
           selectedItems.length === 1 ? selectedItems[0].qty : null
         }
         maxSelectedQty={maxSelectedQty}
+        selectedQtys={selectedQtys}
         increment={selectedIncrement}
       />
       <PosBranchDialogs
@@ -1461,20 +1434,7 @@ export function POSTerminalScreen({
           if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
         }}
       />
-      <SplitIntoLinesDialog
-        open={splitLineDialogOpen}
-        onOpenChange={setSplitLineDialogOpen}
-        maxQty={maxSelectedQty}
-        selectedQtys={selectedQtys}
-        increment={selectedIncrement}
-        onConfirm={(val) => {
-          const newIds = splitItemsIntoIncrements(
-            Array.from(selectedLineIds),
-            val,
-          );
-          if (newIds && newIds.length > 0) setSelectedLineIds(new Set(newIds));
-        }}
-      />
+
       <NumberPadDialog
         open={qtyStepPadOpen}
         onOpenChange={setQtyStepPadOpen}

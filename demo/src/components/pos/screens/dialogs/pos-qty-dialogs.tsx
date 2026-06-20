@@ -10,6 +10,7 @@ export function PosQtyDialogs({
   selectedItemsLength,
   firstSelectedQty,
   maxSelectedQty,
+  selectedQtys = [],
   increment,
 }: {
   dialogs: ReturnType<typeof usePostTerminalQtyDialogs>;
@@ -17,6 +18,7 @@ export function PosQtyDialogs({
   selectedItemsLength: number;
   firstSelectedQty: number | null;
   maxSelectedQty: number;
+  selectedQtys: number[];
   increment?: number;
 }) {
   return (
@@ -36,6 +38,7 @@ export function PosQtyDialogs({
         open={dialogs.splitQtyDialogOpen}
         onOpenChange={dialogs.setSplitQtyDialogOpen}
         maxQty={maxSelectedQty}
+        selectedQtys={selectedQtys}
         increment={increment}
         onConfirm={actions.handleSplitQty}
       />

@@ -253,9 +253,18 @@ export function usePostTerminalActions({
 
   const handleSplitQty = useCallback(
     (type: SplitQtyType, value: number) => {
+      if (type === SplitQtyType.Increments) {
+        const newIds = useVCSStore.getState().splitItemsIntoIncrements(
+          Array.from(selectedLineIds),
+          value
+        );
+        setSelectedLineIds(new Set(newIds));
+        toast.success("Items split into increments successfully");
+        return;
+      }
       const newLineIds = useVCSStore.getState().splitItemsQty(
         Array.from(selectedLineIds),
-        type,
+        type as any,
         value
       );
       setSelectedLineIds(new Set(newLineIds));

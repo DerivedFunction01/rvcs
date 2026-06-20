@@ -168,6 +168,7 @@ export interface CatalogDetailDisplayPrefs {
 export enum SplitQtyType {
   Amount = "amount",
   Percentage = "percentage",
+  Increments = "increments",
 }
 
 export enum SplitQtyUnit {

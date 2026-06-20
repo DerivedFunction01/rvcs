@@ -9,32 +9,40 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const { contextId, contextType, serverName, orderContext, commits } = body as {
-      contextId: string;
-      contextType: string;
-      serverName?: string;
-      orderContext?: Record<string, any>;
-      commits: Array<{
-        commitHash: string;
-        parentHash: string | null;
-        mergeParentHashes: string[];
-        branch: string;
-        timestamp: string;
-        authorId: string;
-        deltas: unknown[];
-        metadata?: Record<string, unknown>;
-      }>;
-    };
+    const { contextId, contextType, serverName, orderContext, commits } =
+      body as {
+        contextId: string;
+        contextType: string;
+        serverName?: string;
+        orderContext?: Record<string, any>;
+        commits: Array<{
+          commitHash: string;
+          parentHash: string | null;
+          mergeParentHashes: string[];
+          branch: string;
+          timestamp: string;
+          authorId: string;
+          deltas: unknown[];
+          metadata?: Record<string, unknown>;
+        }>;
+      };
 
     if (!contextId || !Array.isArray(commits)) {
-      return NextResponse.json({ error: "contextId and commits array required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "contextId and commits array required" },
+        { status: 400 },
+      );
     }
 
     const normalizedServerName = serverName?.trim() || contextId;
 
-    const server = await (db as typeof db & { server: {
-      upsert: (args: unknown) => Promise<{ id: string; name: string }>;
-    } }).server.upsert({
+    const server = await (
+      db as typeof db & {
+        server: {
+          upsert: (args: unknown) => Promise<{ id: string; name: string }>;
+        };
+      }
+    ).server.upsert({
       where: { name: normalizedServerName },
       update: {},
       create: {

@@ -95,8 +95,7 @@ interface VerticalActionsPanelProps {
   onAssignFulfillmentOpen: () => void;
   onModifyItemsQty: (ids: string[], change: number) => void;
   onSetQtyPadOpen: () => void;
-  onSplitQtyOpen: () => void;
-  onSplitLineOpen: () => void;
+  onSplitOpen: () => void;
   disableNonModActions: boolean;
   canMerge: boolean;
   canBreak: boolean;
@@ -142,8 +141,7 @@ export function VerticalActionsPanel({
   onAssignFulfillmentOpen,
   onModifyItemsQty,
   onSetQtyPadOpen,
-  onSplitQtyOpen,
-  onSplitLineOpen,
+  onSplitOpen,
   disableNonModActions,
   canMerge,
   canBreak,
@@ -320,7 +318,7 @@ export function VerticalActionsPanel({
           </TooltipContent>
         </Tooltip>
 
-        {/* 5. Split Qty */}
+        {/* 5. Split */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -331,35 +329,7 @@ export function VerticalActionsPanel({
                   ? !item || disableNonModActions
                   : !hasSelection || disableNonModActions
               }
-              onClick={onSplitQtyOpen}
-              className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
-            >
-              <Split className="w-4 h-4 rotate-90" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left" className="text-xs">
-            {trayMode === "item"
-              ? !item
-                ? "Select exactly one item to split quantity"
-                : `Split quantity for ${item.name}`
-              : !hasSelection
-                ? "Select items to split quantity"
-                : "Split quantity of selected items"}
-          </TooltipContent>
-        </Tooltip>
-
-        {/* 6. Split to Units */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={
-                trayMode === "item"
-                  ? !item || disableNonModActions
-                  : !hasSelection || disableNonModActions
-              }
-              onClick={onSplitLineOpen}
+              onClick={onSplitOpen}
               className="h-16 w-full p-0 border-b border-t-0 border-x-0 border-border/80 rounded-none hover:bg-accent disabled:opacity-30 text-muted-foreground hover:text-foreground"
             >
               <Split className="w-4 h-4" />
@@ -368,11 +338,11 @@ export function VerticalActionsPanel({
           <TooltipContent side="left" className="text-xs">
             {trayMode === "item"
               ? !item
-                ? "Select exactly one item to split to units"
-                : `Split ${item.name} to units of 1`
+                ? "Select exactly one item to split"
+                : `Split ${item.name}`
               : !hasSelection
-                ? "Select items to split to units"
-                : "Split selected items to units of 1"}
+                ? "Select items to split"
+                : "Split selected items"}
           </TooltipContent>
         </Tooltip>
 
