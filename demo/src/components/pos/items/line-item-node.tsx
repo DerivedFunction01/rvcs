@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { type Guest, getGuestColor } from "@/lib/pos/ui-utils";
 import type {
@@ -5,7 +6,7 @@ import type {
   ProjectedLineItem,
   PaymentAllocation,
 } from "@/lib/vcs/types";
-import { AllocationType, ItemStatus } from "@/lib/vcs/types";
+import { AllocationType, ItemStatus, BranchType } from "@/lib/vcs/types";
 import { useVCSStore } from "@/store/vcs-store";
 import { ChevronDown, ChevronRight, Split } from "lucide-react";
 import { AllocationBadges } from "./allocation-badges";
@@ -52,6 +53,47 @@ export function LineItemNode({
   ) || ["#94a3b8"];
   const rawAllocations = projectedState.allocations;
   const formatNumber = useFormatNumber();
+
+  const activeBranch = useVCSStore((state) => state.activeBranch());
+  const log = useVCSStore((state) => state.engine.getRepo().log);
+  const preferences = useVCSStore((state) => state.preferences);
+  const branches = useVCSStore((state) => state.engine.getRepo().branches);
+
+  const isAffectedByHypothetical = useMemo(() => {
+    const pointer = branches[activeBranch];
+    if (pointer?.type !== BranchType.Hypothetical) {
+      return false;
+    }
+
+    const hypotheticalSources =
+      (preferences.hypotheticalSources as Record<string, string>) || {};
+    const parentBranch = hypotheticalSources[activeBranch] || "main";
+    const parentHead = branches[parentBranch]?.headHash;
+
+    const affectedIds = new Set<string>();
+
+    let currentHash = pointer.headHash;
+    const visited = new Set<string>();
+
+    while (
+      currentHash &&
+      currentHash !== parentHead &&
+      !visited.has(currentHash)
+    ) {
+      visited.add(currentHash);
+      const commit = log.find((c) => c.commitHash === currentHash);
+      if (!commit) break;
+
+      for (const delta of commit.deltas) {
+        if ("lineId" in delta && delta.lineId) {
+          affectedIds.add(delta.lineId);
+        }
+      }
+      currentHash = commit.parentHash;
+    }
+
+    return affectedIds.has(item.lineId);
+  }, [activeBranch, log, preferences, branches, item.lineId]);
 
   // --- Alloc resolution ---
   const rawAssignAlloc = item.allocations
@@ -121,13 +163,15 @@ export function LineItemNode({
           isSelectable
             ? isSelected
               ? "border-primary bg-primary/5 dark:bg-primary/10/20 cursor-pointer shadow-xs hover:bg-primary/10"
-              : `border-border cursor-pointer ${
-                  item.status === ItemStatus.Confirmed
-                    ? "bg-muted/30 hover:bg-muted/50"
-                    : isRoot
-                      ? "bg-card hover:bg-accent/50"
-                      : "border-transparent bg-muted/40 hover:bg-accent/30"
-                }`
+              : isAffectedByHypothetical
+                ? "bg-amber-500/10 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700/50 hover:bg-amber-500/20 cursor-pointer"
+                : `border-border cursor-pointer ${
+                    item.status === ItemStatus.Confirmed
+                      ? "bg-muted/30 hover:bg-muted/50"
+                      : isRoot
+                        ? "bg-card hover:bg-accent/50"
+                        : "border-transparent bg-muted/40 hover:bg-accent/30"
+                  }`
             : "border-transparent bg-muted/40"
         }`}
         onClick={
@@ -266,10 +310,7 @@ export function LineItemNode({
             {validChildren.map((child, index) => {
               const isLast = index === validChildren.length - 1;
               return (
-                <div
-                  key={child.lineId}
-                  className="relative"
-                >
+                <div key={child.lineId} className="relative">
                   {!isLast && (
                     <div
                       className="absolute -left-4 top-4 w-0.5"
