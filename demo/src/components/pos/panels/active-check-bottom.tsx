@@ -4,7 +4,12 @@ import {
   useFormatNumber,
 } from "@/components/pos/hooks/use-format-number";
 import type { CatalogItemEntry, ProjectedLineItem } from "@/lib/vcs/types";
-import { ItemStatus, SquashType, DeltaActionType } from "@/lib/vcs/types";
+import {
+  ItemStatus,
+  SquashType,
+  DeltaActionType,
+  QuantityTarget,
+} from "@/lib/vcs/types";
 import { toast } from "sonner";
 import {
   Minus,
@@ -55,8 +60,8 @@ export function ActiveCheckBottom({
 }: ActiveCheckBottomProps) {
   const activeBranchName = useVCSStore((state) => state.activeBranch());
   const formatNumber = useFormatNumber();
-  const [padTarget, setPadTarget] = useState<"main" | "inline" | null>(null);
-  const [qtyMode, setQtyMode] = useState<"main" | "inline">("main");
+  const [padTarget, setPadTarget] = useState<QuantityTarget | null>(null);
+  const [qtyMode, setQtyMode] = useState<QuantityTarget>(QuantityTarget.Main);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [autoSquash, setAutoSquash] = useState(true);
   const lastQtyChangeCommitRef = useRef<string | null>(null);
@@ -174,7 +179,9 @@ export function ActiveCheckBottom({
   })();
 
   useEffect(() => {
-    setQtyMode(shouldDefaultToInline ? "inline" : "main");
+    setQtyMode(
+      shouldDefaultToInline ? QuantityTarget.Measurement : QuantityTarget.Main,
+    );
   }, [shouldDefaultToInline, item?.lineId, item?.sku]);
 
   useEffect(() => {
@@ -267,13 +274,14 @@ export function ActiveCheckBottom({
               selectedItems.length === 0 ||
               (selectedItems.length === 1 &&
                 (item?.status === ItemStatus.Canceled ||
-                  (qtyMode === "main" && (!isRootItem || mainQtyLocked))))
+                  (qtyMode === QuantityTarget.Main &&
+                    (!isRootItem || mainQtyLocked))))
             }
             className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer flex flex-col items-center justify-center gap-0.5"
             onClick={(e) => {
               e.stopPropagation();
               if (selectedItems.length === 1 && item) {
-                if (qtyMode === "inline") {
+                if (qtyMode === QuantityTarget.Measurement) {
                   onUpdateInlineQty(item.sku, -inlineStep);
                   triggerAutoSquash(useVCSStore.getState().headHash());
                 } else {
@@ -316,13 +324,14 @@ export function ActiveCheckBottom({
               selectedItems.length === 0 ||
               (selectedItems.length === 1 &&
                 (item?.status === ItemStatus.Canceled ||
-                  (qtyMode === "main" && (!isRootItem || mainQtyLocked))))
+                  (qtyMode === QuantityTarget.Main &&
+                    (!isRootItem || mainQtyLocked))))
             }
             className="h-full w-full rounded-none border-0 shadow-none hover:bg-muted bg-background cursor-pointer flex flex-col items-center justify-center gap-0.5"
             onClick={(e) => {
               e.stopPropagation();
               if (selectedItems.length === 1 && item) {
-                if (qtyMode === "inline") {
+                if (qtyMode === QuantityTarget.Measurement) {
                   onUpdateInlineQty(item.sku, inlineStep);
                   triggerAutoSquash(useVCSStore.getState().headHash());
                 } else {
@@ -371,7 +380,11 @@ export function ActiveCheckBottom({
                   clearTimeout(clickTimeoutRef.current);
                   clickTimeoutRef.current = null;
                   // Double click: Toggle mode
-                  setQtyMode((prev) => (prev === "main" ? "inline" : "main"));
+                  setQtyMode((prev) =>
+                    prev === QuantityTarget.Main
+                      ? QuantityTarget.Measurement
+                      : QuantityTarget.Main,
+                  );
                 } else {
                   clickTimeoutRef.current = setTimeout(() => {
                     clickTimeoutRef.current = null;
@@ -388,7 +401,7 @@ export function ActiveCheckBottom({
               <span>qty: -</span>
             ) : selectedItems.length === 1 && item ? (
               hasInlineQty && !mainQtyLocked ? (
-                qtyMode === "main" ? (
+                qtyMode === QuantityTarget.Main ? (
                   <>
                     <span>qty: {formatNumber(item.qty)}</span>
                     <span className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-0.5 font-normal">
@@ -409,7 +422,7 @@ export function ActiveCheckBottom({
                     </span>
                   </>
                 )
-              ) : qtyMode === "inline" ? (
+              ) : qtyMode === QuantityTarget.Measurement ? (
                 <span>
                   qty: {formatNumber(currentInlineQty, precision)}
                   {inlineQtyUnit}
@@ -547,31 +560,31 @@ export function ActiveCheckBottom({
           onOpenChange={(open) => {
             if (!open) setPadTarget(null);
           }}
-          title={padTarget === "main" ? "Quantity" : "Measurement"}
+          title={padTarget === QuantityTarget.Main ? "Quantity" : "Measurement"}
           description={
             selectedItems.length === 1 && item
-              ? `Set the ${padTarget === "main" ? "quantity" : "measurement"} for ${item.name}`
+              ? `Set the ${padTarget === QuantityTarget.Main ? "quantity" : "measurement"} for ${item.name}`
               : `Set the quantity for ${selectedItems.length} selected items`
           }
           initialValue={
-            padTarget === "main"
+            padTarget === QuantityTarget.Main
               ? item
                 ? item.qty
                 : 1
               : (item?.inlineQty ?? 1)
           }
           min={
-            padTarget === "main"
+            padTarget === QuantityTarget.Main
               ? (catalogEntry?.mainQtyIncrement ?? 1)
               : inlineStep
           }
           increment={
-            padTarget === "main"
+            padTarget === QuantityTarget.Main
               ? (catalogEntry?.mainQtyIncrement ?? 1)
               : inlineStep
           }
           onConfirm={(val) => {
-            if (padTarget === "main") {
+            if (padTarget === QuantityTarget.Main) {
               if (selectedItems.length === 1 && item) {
                 useVCSStore
                   .getState()

@@ -145,7 +145,7 @@ function createFreshRepo(orderContext?: OrderContext): VCSRepo {
     orderContext,
     preferences: {},
     log: [],
-    branches: { main: { headHash: null } },
+    branches: { main: { headHash: null, type: BranchType.Main } },
     activeBranch: "main",
   };
 }
@@ -3381,11 +3381,17 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     },
 
     deleteBranch: (name) => {
-      if (name === "main" || name === "system") {
+      const store = get();
+      const branch = store.engine.getRepo().branches[name];
+      if (
+        name === "main" ||
+        name === "system" ||
+        branch?.type === BranchType.Main ||
+        branch?.type === BranchType.System
+      ) {
         toast.error("Cannot delete main or system branch.");
         return;
       }
-      const store = get();
       if (store.engine.getActiveBranch() === name) {
         toast.error("Cannot delete currently checked out branch.");
         return;
@@ -3479,7 +3485,8 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       let parentBranch = fromBranch;
 
-      if (fromBranch === "main") {
+      const mainBranch = store.engine.getMainActiveBranch();
+      if (fromBranch === mainBranch || store.engine.getRepo().branches[fromBranch]?.type === BranchType.Main) {
         const serverName = store.orderContext?.serverName || "server";
         let draftBranchName = generateDraftBranchName(serverName);
         let suffix = 2;
@@ -3487,7 +3494,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
           draftBranchName = `${generateDraftBranchName(serverName)}-${suffix}`;
           suffix += 1;
         }
-        store.createBranch(draftBranchName, "main");
+        store.createBranch(draftBranchName, fromBranch);
 
         const nextPreferences = {
           ...store.preferences,
@@ -3534,7 +3541,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const hypotheticalSources =
         (store.preferences.hypotheticalSources as Record<string, string>) || {};
-      const parentBranch = hypotheticalSources[hypBranch] || "main";
+      const parentBranch = hypotheticalSources[hypBranch] || store.engine.getMainActiveBranch();
 
       if (keep) {
         store.commitMerge([hypBranch], parentBranch, []);
@@ -3586,19 +3593,21 @@ export const useVCSStore = create<VCSStore>((set, get) => {
     autoMergeActiveBranchToMain: () => {
       const store = get();
       const active = store.engine.getActiveBranch();
-      if (active === "main") return true;
+      const mainBranch = store.engine.getMainActiveBranch();
+      const activeBranchType = store.engine.getRepo().branches[active]?.type;
+      if (active === mainBranch || activeBranchType === BranchType.Main) return true;
       try {
         const head = store.engine.getRepo().branches[active]?.headHash;
         if (!head) return true;
 
-        const preview = store.previewMerge([active], "main");
+        const preview = store.previewMerge([active], mainBranch);
         if (preview.isUpToDate) {
-          store.checkoutBranch("main");
+          store.checkoutBranch(mainBranch);
           return true;
         }
 
-        store.commitMerge([active], "main", []);
-        store.checkoutBranch("main");
+        store.commitMerge([active], mainBranch, []);
+        store.checkoutBranch(mainBranch);
         return true;
       } catch (err: any) {
         toast.error(`Auto-merge failed: ${err.message || err}`);
@@ -3860,13 +3869,19 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         };
 
         // Ensure system branch exists
-        branches["system"] = { headHash: null };
+        branches["system"] = { headHash: null, type: BranchType.System };
 
         // The commits returned by pull are sorted by createdAt ASC
         for (const commit of commits) {
           const branchName = commit.branch;
           if (!branches[branchName]) {
-            branches[branchName] = { headHash: null };
+            let type = BranchType.Parallel;
+            if (branchName === "main") {
+              type = BranchType.Main;
+            } else if (branchName === "system") {
+              type = BranchType.System;
+            }
+            branches[branchName] = { headHash: null, type };
           }
           branches[branchName].headHash = commit.commitHash;
         }

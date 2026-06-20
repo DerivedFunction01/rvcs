@@ -192,6 +192,7 @@ export function projectState(
   systemHash: string | null,
   catalog: Record<string, CatalogItemEntry>,
   confirmedHash?: string | null,
+  mainBranchName: string = "main",
 ): ProjectedState {
   const items: Record<string, InternalLineItem> = {};
   const allocations: Record<string, AllocationBlock> = {};
@@ -225,6 +226,7 @@ export function projectState(
             commit.commitHash,
             new Set(), // system commits don't use confirmation logic
             systemHash,
+            mainBranchName,
           );
         }
       }
@@ -253,6 +255,7 @@ export function projectState(
           commit.commitHash,
           confirmedAncestors,
           systemHash,
+          mainBranchName,
         );
       }
     }
@@ -280,6 +283,7 @@ function isCommitConfirmedBefore(
   log: VCSCommit[],
   addItemHash: string,
   removeItemHash: string,
+  mainBranchName: string,
 ): boolean {
   if (!addItemHash || !removeItemHash) return false;
 
@@ -306,7 +310,7 @@ function isCommitConfirmedBefore(
 
   for (const c of log) {
     const isMergeOrInit =
-      (c.branch === "main" &&
+      (c.branch === mainBranchName &&
         c.mergeParentHashes &&
         c.mergeParentHashes.length > 0) ||
       c.authorId === "system-init";
@@ -334,6 +338,7 @@ function applyDelta(
   commitHash: string,
   confirmedAncestors: Set<string>,
   systemHash: string | null,
+  mainBranchName: string,
 ): void {
   const isConfirmedDelta = confirmedAncestors.has(commitHash);
 
@@ -377,6 +382,7 @@ function applyDelta(
             fullLog,
             item.addItemCommitHash || "",
             commitHash,
+            mainBranchName,
           );
 
         if (isConfirmedBefore) {

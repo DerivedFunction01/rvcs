@@ -323,9 +323,16 @@ export interface ProjectedState {
   financials: ProjectedFinancials;
 }
 
+export enum QuantityTarget {
+  Main = "main",
+  Measurement = "measurement",
+}
+
 // ─── Branch Pointers ──────────────────────────────────────────────────────────
 
 export enum BranchType {
+  Main = "main",
+  System = "system",
   Parallel = "parallel",
   Hypothetical = "hypothetical",
 }

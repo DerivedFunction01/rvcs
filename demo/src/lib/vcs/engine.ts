@@ -333,7 +333,12 @@ export class VCSEngine {
     action: string,
   ): void {
     const branches = Array.isArray(branch) ? branch : [branch];
-    if (branches.some((b) => b === "system")) {
+    if (
+      branches.some(
+        (b) =>
+          b === "system" || this.repo.branches[b]?.type === BranchType.System,
+      )
+    ) {
       throw new Error(`Cannot ${action} the reserved 'system' branch.`);
     }
   }
@@ -427,7 +432,7 @@ export class VCSEngine {
     if (!this.repo.branches["system"]) {
       this.repo.branches["system"] = {
         headHash: null,
-        type: BranchType.Parallel,
+        type: BranchType.System,
       };
     }
     return this.commit(deltas, authorId, "system");
@@ -484,7 +489,11 @@ export class VCSEngine {
     return this.repo.activeBranch;
   }
 
-  createBranch(name: string, fromCommitOrBranch?: string | null): void {
+  createBranch(
+    name: string,
+    fromCommitOrBranch?: string | null,
+    type: BranchType = BranchType.Parallel,
+  ): void {
     this.ensureNotSystemBranch(name, "manually create");
     this.ensureBranchDoesNotExist(name);
     let headHash: string | null = null;
@@ -497,7 +506,7 @@ export class VCSEngine {
     } else {
       headHash = this.repo.branches[this.repo.activeBranch]?.headHash ?? null;
     }
-    this.repo.branches[name] = { headHash, type: BranchType.Parallel };
+    this.repo.branches[name] = { headHash, type };
   }
 
   updateBranchConfig(
@@ -544,7 +553,10 @@ export class VCSEngine {
   }
 
   getMainActiveBranch(): string {
-    return this.repo.mainActiveBranch || "main";
+    const mainBranchName = Object.keys(this.repo.branches).find(
+      (name) => this.repo.branches[name]?.type === BranchType.Main,
+    );
+    return mainBranchName || this.repo.mainActiveBranch || "main";
   }
 
   checkout(branch: string): void {

@@ -72,7 +72,7 @@ export function BranchConfigDialog({
     onOpenChange(false);
   };
 
-  const isMain = branchName === "main";
+  const isMain = branchName === "main" || currentType === BranchType.Main;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
