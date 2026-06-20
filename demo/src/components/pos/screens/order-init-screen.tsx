@@ -35,7 +35,8 @@ import {
   PackageCheck,
   Search,
   Store,
-  Truck
+  Truck,
+  Settings,
 } from "lucide-react";
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -501,7 +502,7 @@ export function OrderInitScreen({
                   Resume a saved order draft or view completed settled orders.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-3 gap-3 pt-1">
                 <Button
                   variant="outline"
                   className="w-full text-xs font-bold gap-1.5"
@@ -517,6 +518,14 @@ export function OrderInitScreen({
                 >
                   <PackageCheck className="w-4 h-4 text-primary" />
                   Completed Orders
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full text-xs font-bold gap-1.5"
+                  onClick={() => router.push("/admin")}
+                >
+                  <Settings className="w-4 h-4 text-primary" />
+                  Admin Panel
                 </Button>
               </div>
             </div>
