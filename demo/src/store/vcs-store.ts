@@ -430,11 +430,7 @@ interface VCSStore {
     hypBranch: string;
     parentBranch: string;
   };
-  exitHypotheticalMode: (
-    hypBranch: string,
-    parentBranch: string,
-    keep: boolean,
-  ) => void;
+  exitHypotheticalMode: (hypBranch: string, keep: boolean) => void;
 
   // Actions — Merge
   previewMerge: (
@@ -3501,6 +3497,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
             [draftBranchName]: store.orderContext,
           },
         };
+        store.engine.getRepo().preferences = nextPreferences;
         set({ preferences: nextPreferences });
 
         parentBranch = draftBranchName;
@@ -3514,16 +3511,46 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         type: BranchType.Hypothetical,
         label: "What-if",
       });
+
+      // Save hypothetical source mapping in preferences
+      const nextPreferences = {
+        ...store.preferences,
+        hypotheticalSources: {
+          ...((store.preferences.hypotheticalSources as Record<
+            string,
+            string
+          >) || {}),
+          [hypName]: parentBranch,
+        },
+      };
+      store.engine.getRepo().preferences = nextPreferences;
+      set({ preferences: nextPreferences });
+      store.persist();
+
       return { hypBranch: hypName, parentBranch };
     },
 
-    exitHypotheticalMode: (hypBranch, parentBranch, keep) => {
+    exitHypotheticalMode: (hypBranch, keep) => {
       const store = get();
+      const hypotheticalSources =
+        (store.preferences.hypotheticalSources as Record<string, string>) || {};
+      const parentBranch = hypotheticalSources[hypBranch] || "main";
+
       if (keep) {
         store.commitMerge([hypBranch], parentBranch, []);
       }
       store.checkoutBranch(parentBranch);
       store.deleteBranch(hypBranch);
+
+      const nextSources = { ...hypotheticalSources };
+      delete nextSources[hypBranch];
+      const nextPreferences = {
+        ...store.preferences,
+        hypotheticalSources: nextSources,
+      };
+      store.engine.getRepo().preferences = nextPreferences;
+      set({ preferences: nextPreferences });
+      store.persist();
     },
 
     // ─── Merge ─────────────────────────────────────────────────────────────

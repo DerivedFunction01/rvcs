@@ -292,8 +292,6 @@ export function POSTerminalScreen({
 
   const [exitDialogOpen, setExitDialogOpen] = React.useState(false);
   const [hypExitDialogOpen, setHypExitDialogOpen] = React.useState(false);
-  const [hypotheticalParentBranch, setHypotheticalParentBranch] =
-    React.useState<string | null>(null);
   const [orderDefaultsOpen, setOrderDefaultsOpen] = React.useState(false);
   const [guestFilterOpen, setGuestFilterOpen] = React.useState(false);
   const [catalogFilter, setCatalogFilter] = React.useState("");
@@ -715,10 +713,7 @@ export function POSTerminalScreen({
 
   const handleEnterHypothetical = React.useCallback(() => {
     const parentBranch = currentBranchName;
-    const { parentBranch: actualParent } = useVCSStore
-      .getState()
-      .enterHypotheticalMode(parentBranch);
-    setHypotheticalParentBranch(actualParent);
+    useVCSStore.getState().enterHypotheticalMode(parentBranch);
   }, [currentBranchName]);
 
   const handleExitHypothetical = React.useCallback(() => {
@@ -730,17 +725,9 @@ export function POSTerminalScreen({
       const store = useVCSStore.getState();
       const hypBranch = currentBranchName;
 
-      let parent = hypotheticalParentBranch;
-      if (!parent) {
-        const branchNames = Object.keys(branches);
-        parent =
-          branchNames.find(
-            (b) =>
-              b !== hypBranch &&
-              b !== "system" &&
-              branches[b]?.type !== BranchType.Hypothetical,
-          ) || "main";
-      }
+      const hypotheticalSources =
+        (store.preferences.hypotheticalSources as Record<string, string>) || {};
+      const parent = hypotheticalSources[hypBranch] || "main";
 
       if (keep) {
         try {
@@ -752,24 +739,20 @@ export function POSTerminalScreen({
             return;
           }
 
-          store.commitMerge([hypBranch], parent, []);
-          store.checkoutBranch(parent);
-          store.deleteBranch(hypBranch);
+          store.exitHypotheticalMode(hypBranch, true);
           toast.success(`Merged changes back to "${parent}"`);
         } catch (err: any) {
           toast.error(`Failed to merge: ${err.message || err}`);
           return;
         }
       } else {
-        store.checkoutBranch(parent);
-        store.deleteBranch(hypBranch);
+        store.exitHypotheticalMode(hypBranch, false);
         toast.success("What-if session discarded.");
       }
 
-      setHypotheticalParentBranch(null);
       setHypExitDialogOpen(false);
     },
-    [currentBranchName, hypotheticalParentBranch, branches, branchDialogs],
+    [currentBranchName, branchDialogs],
   );
   const mainBranchName = mainActiveBranch();
   const isMergedToMain = React.useMemo(() => {
