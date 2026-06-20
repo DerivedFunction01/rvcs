@@ -31,7 +31,13 @@ export function usePostTerminalSelection(
       for (const item of filteredRootItems) {
         if (prev.has(item.lineId)) next.add(item.lineId);
       }
-      return next.size !== prev.size ? next : prev;
+      if (next.size === 0 && filteredRootItems.length > 0) {
+        const lastItem = filteredRootItems[filteredRootItems.length - 1];
+        next.add(lastItem.lineId);
+      }
+      const isChanged =
+        next.size !== prev.size || Array.from(next).some((id) => !prev.has(id));
+      return isChanged ? next : prev;
     });
   }, [filteredRootItems]);
 
