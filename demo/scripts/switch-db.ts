@@ -69,7 +69,7 @@ function main() {
     }
 
     // Clean quotes if wrapped
-    pgUrl = pgUrl.replace(/^["']|["']$/g, '');
+    pgUrl = pgUrl.replace(/^["']|["']$/g, "");
 
     const filteredLines = lines.filter((line) => {
       const trimmed = line.trim();
@@ -93,36 +93,38 @@ function main() {
   }
 
   // 3.5 Log the database URL/source being utilized for debugging
-  let newlyWrittenUrl = "";
+  let currentUrl = "";
   if (fs.existsSync(envPath)) {
     const lines = fs.readFileSync(envPath, "utf-8").split("\n");
     for (const line of lines) {
       if (line.startsWith("DATABASE_URL=")) {
-        newlyWrittenUrl = line.split("DATABASE_URL=")[1].replace(/^["']|["']$/g, '');
+        currentUrl = line.split("DATABASE_URL=")[1].replace(/^["']|["']$/g, "");
         break;
       }
     }
   }
 
-  if (newlyWrittenUrl) {
+  if (!currentUrl) {
+    currentUrl = process.env.DATABASE_URL || "";
+  }
+
+  if (currentUrl) {
     try {
-      if (newlyWrittenUrl.startsWith("file:")) {
-        console.log(`📡 Current DATABASE_URL in use: ${newlyWrittenUrl}`);
+      if (currentUrl.startsWith("file:")) {
+        console.log(`📡 Current DATABASE_URL in use: ${currentUrl}`);
       } else {
-        const parsedUrl = new URL(newlyWrittenUrl);
+        const parsedUrl = new URL(currentUrl);
         console.log(
           `📡 Current DATABASE_URL Target: ${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`,
         );
       }
     } catch (e) {
       console.log(
-        `📡 Current DATABASE_URL is set (Length: ${newlyWrittenUrl.length} chars)`,
+        `📡 Current DATABASE_URL is set (Length: ${currentUrl.length} chars)`,
       );
     }
   } else {
-    console.warn(
-      "⚠️ Warning: DATABASE_URL is currently undefined in .env!",
-    );
+    console.warn("⚠️ Warning: DATABASE_URL is currently undefined!");
   }
 
   // 4. Run prisma generate
