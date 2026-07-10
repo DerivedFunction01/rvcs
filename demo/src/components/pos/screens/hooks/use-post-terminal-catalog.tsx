@@ -15,14 +15,14 @@ export function usePostTerminalCatalog(
     Object.values(catalog).filter(
       (i) =>
         i.active &&
-        (i.type === CatalogItemType.Item || i.type === CatalogItemType.Discount) &&
+        (i.type === CatalogItemType.Item || i.type === CatalogItemType.DiscountFlat || i.type === CatalogItemType.DiscountPct) &&
         i.category !== CatalogCategory.ComboSlot,
     ),
   [catalog]);
 
   const modifierItems = useMemo(() =>
     Object.values(catalog).filter(
-      (i) => i.active && (i.type === CatalogItemType.Modifier || i.type === CatalogItemType.Discount),
+      (i) => i.active && (i.type === CatalogItemType.Modifier || i.type === CatalogItemType.DiscountFlat || i.type === CatalogItemType.DiscountPct),
     ),
   [catalog]);
 
