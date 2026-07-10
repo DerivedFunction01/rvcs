@@ -688,60 +688,94 @@ const SEED_DATA = [
     brand: "MorningRoast",
     mainQtyIncrement: 0.25,
   },
+  // ─── Discounts ────────────────────────────────────────────────────────────
+  {
+    sku: "DISC-CUSTOM-AMT",
+    name: "Custom Discount ($)",
+    basePrice: -1.0,
+    category: "discounts",
+    type: "discount",
+    dietaryFlags: [],
+    allergens: [],
+    brand: "",
+    inlineQtyType: "decimal",
+    inlineQtyLabel: "Amount",
+    inlineQtyUnit: "$",
+    inlineQtyPricePerUnit: true,
+    inlineQtyMainQtyLocked: true,
+  },
+  {
+    sku: "DISC-CUSTOM-PCT",
+    name: "Custom Discount (%)",
+    basePrice: 0.0,
+    category: "discounts",
+    type: "discount",
+    dietaryFlags: [],
+    allergens: [],
+    brand: "",
+    inlineQtyType: "decimal",
+    inlineQtyLabel: "Percentage",
+    inlineQtyUnit: "%",
+    inlineQtyPricePerUnit: false,
+    inlineQtyMainQtyLocked: true,
+  },
 ];
 
 async function main() {
   console.log("🌱 Seeding catalog...");
 
-  // Clean relations first to avoid duplicate seeds issues
-  await prisma.itemModifier.deleteMany({});
-  await prisma.modifierStateOption.deleteMany({});
-  await prisma.catalogItem.updateMany({
-    data: {
-      sizeGroupId: null,
-      appliedSizeGroupId: null,
-    },
-  });
-  await prisma.sizeGroup.deleteMany({});
-  await prisma.catalogItem.deleteMany({
-    where: {
-      OR: [{ category: "size" }, { type: "modifier" }],
-    },
-  });
-
-  for (const item of SEED_DATA) {
-    const data: any = {
-      name: item.name,
-      basePrice: item.basePrice,
-      category: item.category,
-      type: item.type,
-      dietaryFlags: JSON.stringify(item.dietaryFlags),
-      allergens: JSON.stringify(item.allergens),
-      brand: item.brand,
-      comboChoices: (item as any).comboChoices
-        ? JSON.stringify((item as any).comboChoices)
-        : "[]",
-      inlineQtyType: (item as any).inlineQtyType || null,
-      inlineQtyLabel: (item as any).inlineQtyLabel || null,
-      inlineQtyUnit: (item as any).inlineQtyUnit || null,
-      inlineQtyIncrement: (item as any).inlineQtyIncrement ?? 1,
-      inlineQtyPricePerUnit: (item as any).inlineQtyPricePerUnit ?? false,
-      inlineQtyPricePerUnitShowPer:
-        (item as any).inlineQtyPricePerUnitShowPer ?? true,
-      inlineQtyMainQtyLocked: (item as any).inlineQtyMainQtyLocked ?? false,
-      mainQtyIncrement: (item as any).mainQtyIncrement ?? 1,
-      active: true,
-    };
-
-    await prisma.catalogItem.upsert({
-      where: { sku: item.sku },
-      update: data,
-      create: {
-        sku: item.sku,
-        ...data,
+  await prisma.$transaction(async (prisma) => {
+    // Clean all relations first to avoid duplicate seeds / FK issues
+    await (prisma as any).skuChargeTag.deleteMany({});
+    await prisma.itemModifier.deleteMany({});
+    await prisma.modifierStateOption.deleteMany({});
+    
+    await prisma.catalogItem.updateMany({
+      data: {
+        sizeGroupId: null,
+        appliedSizeGroupId: null,
       },
     });
-  }
+    await prisma.sizeGroup.deleteMany({});
+    await prisma.catalogItem.deleteMany({});
+    
+    await (prisma as any).chargeRule.deleteMany({});
+    await (prisma as any).chargeTag.deleteMany({});
+    await (prisma as any).chargeJurisdiction.deleteMany({});
+    await (prisma as any).customerProfile.deleteMany({});
+    await (prisma as any).iconConfig.deleteMany({});
+
+    for (const item of SEED_DATA) {
+      const data: any = {
+        name: item.name,
+        basePrice: item.basePrice,
+        category: item.category,
+        type: item.type,
+        dietaryFlags: JSON.stringify(item.dietaryFlags),
+        allergens: JSON.stringify(item.allergens),
+        brand: item.brand,
+        comboChoices: (item as any).comboChoices
+          ? JSON.stringify((item as any).comboChoices)
+          : "[]",
+        inlineQtyType: (item as any).inlineQtyType || null,
+        inlineQtyLabel: (item as any).inlineQtyLabel || null,
+        inlineQtyUnit: (item as any).inlineQtyUnit || null,
+        inlineQtyIncrement: (item as any).inlineQtyIncrement ?? 1,
+        inlineQtyPricePerUnit: (item as any).inlineQtyPricePerUnit ?? false,
+        inlineQtyPricePerUnitShowPer:
+          (item as any).inlineQtyPricePerUnitShowPer ?? true,
+        inlineQtyMainQtyLocked: (item as any).inlineQtyMainQtyLocked ?? false,
+        mainQtyIncrement: (item as any).mainQtyIncrement ?? 1,
+        active: true,
+      };
+
+      await prisma.catalogItem.create({
+        data: {
+          sku: item.sku,
+          ...data,
+        },
+      });
+    }
 
   // Create Size Groups and options
   // 1. Size Group for Fries
@@ -1213,6 +1247,20 @@ async function main() {
   for (const sku of spicySkus) {
     await prisma.itemModifier.create({
       data: { itemSku: sku, modifierSku: "sku-spicy-mod" },
+    });
+  }
+
+  // Link custom discounts as modifiers to all normal items
+  const allNormalItems = await prisma.catalogItem.findMany({
+    where: { type: "item" },
+  });
+  for (const item of allNormalItems) {
+    if (item.sku === "DISC-CUSTOM-AMT" || item.sku === "DISC-CUSTOM-PCT") continue;
+    await prisma.itemModifier.create({
+      data: { itemSku: item.sku, modifierSku: "DISC-CUSTOM-AMT" },
+    });
+    await prisma.itemModifier.create({
+      data: { itemSku: item.sku, modifierSku: "DISC-CUSTOM-PCT" },
     });
   }
 
@@ -1716,7 +1764,10 @@ async function main() {
     });
   }
 
-  console.log("✅ Customer profiles seeded.");
+    console.log("✅ Customer profiles seeded.");
+  }, {
+    timeout: 60000
+  });
 }
 
 main()

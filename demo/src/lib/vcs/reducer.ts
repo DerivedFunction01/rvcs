@@ -24,6 +24,7 @@ import {
   AllocationType,
   ItemStatus,
   PaymentTypeBreakdown,
+  CatalogItemType,
 } from "./types";
 import { deriveCloneId, generateAllocationId } from "./id";
 
@@ -918,6 +919,50 @@ function buildProjectedState(
   for (const item of Object.values(itemMap)) {
     flatItems[item.lineId] = item;
   }
+
+  // --- CUSTOM PERCENTAGE DISCOUNT PRICING ---
+  if (catalog) {
+    // Pass 1: Calculate Item-level Custom Percentage Discounts
+    for (const item of Object.values(flatItems)) {
+      const entry = catalog[item.sku];
+      if (entry?.type === CatalogItemType.DiscountPct && item.parentLineId) {
+        const parent = flatItems[item.parentLineId];
+        if (parent) {
+          const pct = item.inlineQty ?? 0;
+          item.totalPrice = -Math.round((parent.basePrice * item.qty * (pct / 100)) * 100) / 100;
+        }
+      }
+    }
+
+    // Pass 2: Calculate Order-level Custom Percentage Discounts
+    let nonDiscountSubtotal = 0;
+    for (const root of roots) {
+      const entry = catalog[root.sku];
+      if (entry?.type !== CatalogItemType.DiscountFlat && entry?.type !== CatalogItemType.DiscountPct) {
+        const sumNonDiscountTree = (node: ProjectedLineItem): number => {
+          let sum = 0;
+          const nodeEntry = catalog[node.sku];
+          if (nodeEntry?.type !== CatalogItemType.DiscountFlat && nodeEntry?.type !== CatalogItemType.DiscountPct) {
+            sum += node.totalPrice;
+          }
+          for (const child of node.children) {
+            sum += sumNonDiscountTree(child);
+          }
+          return sum;
+        };
+        nonDiscountSubtotal += sumNonDiscountTree(root);
+      }
+    }
+
+    for (const root of roots) {
+      const entry = catalog[root.sku];
+      if (entry?.type === CatalogItemType.DiscountPct) {
+        const pct = root.inlineQty ?? 0;
+        root.totalPrice = -Math.round((nonDiscountSubtotal * (pct / 100)) * 100) / 100;
+      }
+    }
+  }
+  // --- END OF CUSTOM PERCENTAGE DISCOUNT PRICING ---
 
   // Compute financials — only count root items (children are modifiers/sides)
   let subtotal = 0;

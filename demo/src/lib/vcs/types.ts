@@ -379,7 +379,8 @@ export interface SkuChargeTagEntry {
 export enum CatalogItemType {
   Item = "item",
   Modifier = "modifier",
-  Discount = "discount",
+  DiscountFlat = "discountflat",
+  DiscountPct = "discountpct",
 }
 
 export enum CatalogCategory {
