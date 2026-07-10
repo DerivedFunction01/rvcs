@@ -106,6 +106,8 @@ import {
   ShoppingCart,
   UserPlus,
   Settings,
+  Cloud,
+  CloudOff,
 } from "lucide-react";
 import { usePreferencesStore } from "@/store/preferences-store";
 
@@ -912,6 +914,24 @@ export function POSTerminalScreen({
                 Viewing history
               </Badge>
             )}
+
+            {prefs.isolateTerminalBranches ? (
+              <Badge
+                variant="outline"
+                className="text-[10px] h-6 flex items-center text-blue-600 border-blue-300 bg-blue-50"
+              >
+                <CloudOff className="w-2.5 h-2.5 mr-1" />
+                Isolated Main
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="text-[10px] h-6 flex items-center text-emerald-600 border-emerald-300 bg-emerald-50"
+              >
+                <Cloud className="w-2.5 h-2.5 mr-1" />
+                Auto-Sync Main
+              </Badge>
+            )}
           </div>
 
           {/* Unified Customer / Order Type Button in Center */}
@@ -1223,12 +1243,22 @@ export function POSTerminalScreen({
                 toast.success("Draft saved successfully!");
                 router.push("/history");
               }}
-              onSend={() => {
+              onSend={async () => {
                 const store = useVCSStore.getState();
                 const success = store.autoMergeActiveBranchToMain();
                 if (success) {
                   toast.success("Order sent and merged to main!");
                   printReceipt(store.projectedState, formatNumber);
+                } else {
+                  const mainBranch = store.engine.getMainActiveBranch();
+                  if (store.engine.getRepo().branches["main"]) {
+                    const preview = store.previewMerge([mainBranch], "main");
+                    if (preview.conflicts.length > 0) {
+                      toast.error("Conflicts detected with global main. Opening Merge Dialog.");
+                      branchDialogs.setBranchToConfig(null);
+                      branchDialogs.setIsMergeOpen(true);
+                    }
+                  }
                 }
               }}
               onPayment={() => {
@@ -1236,6 +1266,16 @@ export function POSTerminalScreen({
                 const success = store.autoMergeActiveBranchToMain();
                 if (success) {
                   setPaymentOpen(true);
+                } else {
+                  const mainBranch = store.engine.getMainActiveBranch();
+                  if (store.engine.getRepo().branches["main"]) {
+                    const preview = store.previewMerge([mainBranch], "main");
+                    if (preview.conflicts.length > 0) {
+                      toast.error("Conflicts detected with global main. Opening Merge Dialog.");
+                      branchDialogs.setBranchToConfig(null);
+                      branchDialogs.setIsMergeOpen(true);
+                    }
+                  }
                 }
               }}
             />

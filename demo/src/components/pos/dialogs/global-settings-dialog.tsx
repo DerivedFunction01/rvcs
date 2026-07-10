@@ -186,6 +186,17 @@ export function GlobalSettingsDialog({
             </div>
 
             <div className="flex items-center justify-between">
+              <label htmlFor="isolate-terminal-branches" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
+                Isolate Terminal Branches
+              </label>
+              <Checkbox
+                id="isolate-terminal-branches"
+                checked={localPrefs.isolateTerminalBranches}
+                onCheckedChange={(checked) => setLocalPrefs((prev: any) => ({ ...prev, isolateTerminalBranches: !!checked }))}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
               <label htmlFor="split-warn-threshold" className="text-xs font-semibold uppercase text-muted-foreground cursor-pointer">
                 Split Line Warn Threshold
               </label>

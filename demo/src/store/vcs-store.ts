@@ -50,6 +50,7 @@ import {
   getAssignmentAllocDisplayName,
   generateSplitCorrelationId,
 } from "@/lib/pos/utils";
+import { usePreferencesStore } from "@/store/preferences-store";
 import { projectState } from "@/lib/vcs/reducer";
 import { toast } from "sonner";
 import { PAYMENT_METHODS } from "@/lib/pos/ui-utils";
@@ -3606,25 +3607,48 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const active = store.engine.getActiveBranch();
       const mainBranch = store.engine.getMainActiveBranch();
       const activeBranchType = store.engine.getRepo().branches[active]?.type;
-      if (active === mainBranch || activeBranchType === BranchType.Main)
-        return true;
-      try {
-        const head = store.engine.getRepo().branches[active]?.headHash;
-        if (!head) return true;
 
-        const preview = store.previewMerge([active], mainBranch);
-        if (preview.isUpToDate) {
-          store.checkoutBranch(mainBranch);
-          return true;
+      if (active !== mainBranch && activeBranchType !== BranchType.Main) {
+        try {
+          const head = store.engine.getRepo().branches[active]?.headHash;
+          if (head) {
+            const preview = store.previewMerge([active], mainBranch);
+            if (!preview.isUpToDate) {
+              store.commitMerge([active], mainBranch, []);
+            }
+          }
+        } catch (err: any) {
+          toast.error(`Auto-merge active draft failed: ${err.message || err}`);
+          return false;
         }
-
-        store.commitMerge([active], mainBranch, []);
-        store.checkoutBranch(mainBranch);
-        return true;
-      } catch (err: any) {
-        toast.error(`Auto-merge failed: ${err.message || err}`);
-        return false;
       }
+
+      const prefs = usePreferencesStore.getState().getPreferences(null);
+      if (!prefs.isolateTerminalBranches) {
+        try {
+          const globalMain = "main";
+          if (!store.engine.getRepo().branches[globalMain]) {
+            store.engine.createBranch(globalMain, null, BranchType.Main);
+          }
+          const termMainHead = store.engine.getRepo().branches[mainBranch]?.headHash;
+          if (termMainHead) {
+            const preview = store.previewMerge([mainBranch], globalMain);
+            if (!preview.isUpToDate) {
+              if (preview.conflicts.length > 0) {
+                toast.error("Auto-merge to global main failed: Conflicts detected.");
+                return false;
+              }
+              store.commitMerge([mainBranch], globalMain, []);
+            }
+          }
+        } catch (err: any) {
+          toast.error(`Auto-merge to global main failed: ${err.message || err}`);
+          return false;
+        }
+      }
+
+      store.checkoutBranch(mainBranch);
+      return true;
     },
 
     // ─── History Management ─────────────────────────────────────────────────

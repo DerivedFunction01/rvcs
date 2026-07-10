@@ -20,6 +20,7 @@ export interface AppPreferences {
   globalBranchColors: string[];
   defaultMultiSelectMode: boolean;
   autoSelectLastClickedItem: boolean;
+  isolateTerminalBranches: boolean;
 }
 
 export const defaultAppPreferences: AppPreferences = {
@@ -77,6 +78,7 @@ export const defaultAppPreferences: AppPreferences = {
   ],
   defaultMultiSelectMode: false,
   autoSelectLastClickedItem: true,
+  isolateTerminalBranches: false,
 };
 
 interface PreferencesStore {
