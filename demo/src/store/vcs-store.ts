@@ -2141,6 +2141,7 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const store = get();
       const activeBranch = store.engine.getActiveBranch();
       const mainBranch = store.engine.getMainActiveBranch();
+      const activeBranchType = store.engine.getRepo().branches[activeBranch]?.type;
 
       if (isSystemBranch(activeBranch)) {
         toast.error("Cannot modify line items directly on the system branch.");
@@ -2150,7 +2151,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       const activeHead = store.engine.getHeadHash(activeBranch);
       const mainHead = store.engine.getHeadHash(mainBranch);
 
-      const isMain = activeBranch === mainBranch;
+      const isMain =
+        activeBranch === mainBranch ||
+        activeBranch === "main" ||
+        activeBranchType === BranchType.Main;
       const isMergedToMain =
         !isMain &&
         activeHead &&
@@ -2168,7 +2172,20 @@ export const useVCSStore = create<VCSStore>((set, get) => {
         }
         const fromHash = store.viewingHash || activeBranch;
         store.engine.createBranch(draftBranchName, fromHash);
-        store.engine.checkout(draftBranchName);
+        
+        // Copy the current orderContext to preferences.branchContexts for the new draft
+        const nextPreferences = {
+          ...store.preferences,
+          branchContexts: {
+            ...((store.preferences.branchContexts as Record<string, any>) || {}),
+            [draftBranchName]: store.orderContext,
+          },
+        };
+        set({ preferences: nextPreferences });
+        
+        // Checkout using store's checkoutBranch to keep state properly in sync
+        store.checkoutBranch(draftBranchName);
+
         if (isMain) {
           toast.info(
             `Automatically moved to new draft branch "${draftBranchName}" to protect main.`,
@@ -3369,7 +3386,10 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       store.engine.checkout(name);
       const branchContexts =
         (store.preferences.branchContexts as Record<string, any>) || {};
-      const nextContext = branchContexts[name] || null;
+      const nextContext =
+        branchContexts[name] ||
+        store.engine.getRepo().orderContext ||
+        null;
 
       // Update the engine's internal order context reference too
       store.engine.getRepo().orderContext = nextContext;
