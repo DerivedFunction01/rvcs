@@ -468,6 +468,8 @@ interface VCSStore {
   hydrate: () => void;
   saveDraft: () => Promise<any>;
   checkoutRepo: (repoId: string) => Promise<void>;
+  discardActiveDraft: () => void;
+  voidOrder: () => Promise<void>;
 }
 
 // ─── Create Store ─────────────────────────────────────────────────────────────
@@ -4054,6 +4056,48 @@ export const useVCSStore = create<VCSStore>((set, get) => {
       } catch (error) {
         console.error("Failed to checkout repo:", error);
         toast.error("Failed to load order from backend");
+      }
+    },
+
+    discardActiveDraft: () => {
+      const store = get();
+      const active = store.engine.getActiveBranch();
+      const mainBranch = store.engine.getMainActiveBranch();
+      const activeBranchType = store.engine.getRepo().branches[active]?.type;
+
+      if (active !== mainBranch && activeBranchType !== BranchType.Main) {
+        store.checkoutBranch(mainBranch);
+        try {
+          store.deleteBranch(active);
+        } catch (e) {
+          console.error("Failed to delete discarded draft branch:", e);
+        }
+      } else {
+        store.checkoutBranch(mainBranch);
+      }
+    },
+
+    voidOrder: async () => {
+      const store = get();
+      const repo = store.engine.getRepo();
+      try {
+        const response = await fetch("/api/repos/void", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            repoId: repo.contextId,
+          }),
+        });
+        if (!response.ok) {
+          throw new Error("Failed to void repository on backend");
+        }
+        store.resetOrder();
+        toast.success("Order voided successfully!");
+      } catch (err: any) {
+        console.error("Failed to void order:", err);
+        toast.error(`Failed to void order: ${err.message || err}`);
       }
     },
   };

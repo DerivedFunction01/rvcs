@@ -772,6 +772,9 @@ export function POSTerminalScreen({
     if (!currentHead || !mainHead || currentHead === mainHead) return false;
     return useVCSStore.getState().engine.isAncestorOf(currentHead, mainHead);
   }, [currentBranchName, mainBranchName, branches]);
+  const hasCommittedHistory = React.useMemo(() => {
+    return log.some((c) => c.authorId !== "system-init");
+  }, [log]);
   const graphData = React.useMemo(
     () =>
       buildCommitGraph(
@@ -1499,18 +1502,53 @@ export function POSTerminalScreen({
               <Save className="w-4 h-4" />
               Save & Exit
             </Button>
-            <Button
-              variant="outline"
-              className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-              onClick={() => {
-                setExitDialogOpen(false);
-                useVCSStore.getState().resetOrder();
-                toast.info("Order discarded");
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-              Discard & Exit
-            </Button>
+            {hasCommittedHistory ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                  onClick={() => {
+                    setExitDialogOpen(false);
+                    const store = useVCSStore.getState();
+                    store.discardActiveDraft();
+                    store.resetOrder();
+                    toast.info("Unsaved draft changes discarded");
+                    router.push("/history");
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Discard Unsaved Draft
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="w-full gap-2"
+                  onClick={async () => {
+                    if (confirm("Are you sure you want to void this entire order in the database? This cannot be undone.")) {
+                      setExitDialogOpen(false);
+                      const store = useVCSStore.getState();
+                      await store.voidOrder();
+                      router.push("/history");
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Void Order
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                onClick={() => {
+                  setExitDialogOpen(false);
+                  useVCSStore.getState().resetOrder();
+                  toast.info("Order discarded");
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                Discard & Exit
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="w-full text-xs text-muted-foreground"
