@@ -2,7 +2,7 @@
 // Run: bun run seed-catalog.ts
 // This populates the product catalog with realistic POS data.
 
-import { db as prisma } from "./src/lib/db.js";
+import { db as prisma } from "./src/lib/db";
 
 const CHINESE_SIDES = [
   { optionSku: "SKU-SIDE-CHOWMEIN", price: 0 },

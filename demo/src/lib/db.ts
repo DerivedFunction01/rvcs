@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '../../prisma/generated/client.js';
+import { PrismaClient } from '../../prisma/generated/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 
