@@ -41,7 +41,9 @@ export default function OrdersPage() {
   const formatNumber = useFormatNumber();
   const router = useRouter();
 
-  const [orders, setOrders] = useState<CompletedOrder[]>([]);
+  const [paidOrders, setPaidOrders] = useState<CompletedOrder[]>([]);
+  const [committedOrders, setCommittedOrders] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"committed" | "paid">("committed");
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = () => {
@@ -49,13 +51,24 @@ export default function OrdersPage() {
     fetch("/api/orders")
       .then((r) => r.json())
       .then((data) => {
-        if (data.orders) setOrders(data.orders);
+        if (data.paid) setPaidOrders(data.paid);
+        if (data.committed) setCommittedOrders(data.committed);
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to fetch completed orders:", err);
+        console.error("Failed to fetch completed/committed orders:", err);
         setLoading(false);
       });
+  };
+
+  const handleResumeOrder = async (repoId: string) => {
+    try {
+      const store = useVCSStore.getState();
+      await store.checkoutRepo(repoId);
+      router.push("/");
+    } catch (e) {
+      console.error("Failed to resume order:", e);
+    }
   };
 
   useEffect(() => {
@@ -151,17 +164,40 @@ export default function OrdersPage() {
 
       {/* Main Grid Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-6 overflow-y-auto">
+        <div className="flex border-b mb-6 gap-2">
+          <Button
+            variant={activeTab === "committed" ? "default" : "ghost"}
+            size="sm"
+            className="h-8 font-bold text-xs rounded-md"
+            onClick={() => setActiveTab("committed")}
+          >
+            Committed Orders ({committedOrders.length})
+          </Button>
+          <Button
+            variant={activeTab === "paid" ? "default" : "ghost"}
+            size="sm"
+            className="h-8 font-bold text-xs rounded-md"
+            onClick={() => setActiveTab("paid")}
+          >
+            Paid Orders ({paidOrders.length})
+          </Button>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-sm text-muted-foreground gap-2">
             <RefreshCw className="w-6 h-6 animate-spin text-primary" />
             <span>Loading orders database records...</span>
           </div>
-        ) : orders.length === 0 ? (
+        ) : (activeTab === "committed" ? committedOrders : paidOrders).length === 0 ? (
           <div className="text-center py-20 border border-dashed rounded-2xl bg-card/50">
             <ShoppingCart className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-            <h3 className="font-semibold text-base mb-1">No settled orders found</h3>
+            <h3 className="font-semibold text-base mb-1">
+              No {activeTab === "committed" ? "committed" : "settled"} orders found
+            </h3>
             <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              Completed transactions will be archived here once they are checked out and paid.
+              {activeTab === "committed"
+                ? "Active orders sent to the server that are unpaid will appear here."
+                : "Completed transactions will be archived here once they are checked out and paid."}
             </p>
           </div>
         ) : (
@@ -176,10 +212,11 @@ export default function OrdersPage() {
                     <TableHead>Type</TableHead>
                     <TableHead>Payment</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    {activeTab === "committed" && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders.map((order) => (
+                  {(activeTab === "committed" ? committedOrders : paidOrders).map((order) => (
                     <TableRow key={order.id} className="hover:bg-muted/30">
                       <TableCell className="font-medium">
                         <div className="font-mono text-xs">{order.orderNumber}</div>
@@ -208,14 +245,32 @@ export default function OrdersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-[9px] uppercase font-bold tracking-wider rounded-md">
-                          {getMethodIcon(order.paymentMethod)}
-                          {order.paymentMethod}
+                        <Badge
+                          variant={activeTab === "committed" ? "outline" : "secondary"}
+                          className={`text-[9px] uppercase font-bold tracking-wider rounded-md ${
+                            activeTab === "committed" ? "border-amber-500/30 text-amber-600 bg-amber-500/5" : ""
+                          }`}
+                        >
+                          {activeTab === "paid" ? getMethodIcon(order.paymentMethod) : null}
+                          {order.paymentStatus}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono font-bold text-sm">
                         ${formatNumber(order.grandTotal, 2)}
                       </TableCell>
+                      {activeTab === "committed" && (
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs font-semibold gap-1.5"
+                            onClick={() => handleResumeOrder(order.id)}
+                          >
+                            <Terminal className="w-3.5 h-3.5" />
+                            Resume
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
